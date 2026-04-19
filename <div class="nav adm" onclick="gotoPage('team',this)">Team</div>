@@ -82,6 +82,13 @@ tr:hover td{background:var(--bg3);}
 .loading{text-align:center;padding:2rem;color:var(--text2);font-size:13px;}
 .req-bar-bg{height:5px;background:var(--bg3);border-radius:3px;margin-bottom:3px;}
 .req-bar-fill{height:5px;border-radius:3px;}
+.import-drop{border:2px dashed var(--border);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:1rem;}
+.import-drop:hover{border-color:var(--teal);background:rgba(0,180,160,0.05);}
+.import-drop.drag{border-color:var(--teal);background:rgba(0,180,160,0.08);}
+.import-drop input[type=file]{display:none;}
+.progress-bar{height:8px;background:var(--bg3);border-radius:4px;margin:10px 0;}
+.progress-fill{height:8px;border-radius:4px;background:var(--teal);transition:width 0.3s;}
+.import-log{max-height:200px;overflow-y:auto;font-size:12px;color:var(--text2);font-family:monospace;background:var(--bg3);border-radius:8px;padding:10px;margin-top:10px;}
 </style>
 </head>
 <body>
@@ -112,6 +119,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav" onclick="gotoPage('links',this)">All links</div>
   <div class="nav adm" onclick="gotoPage('reqs',this)">Requirements</div>
   <div class="nav adm" onclick="gotoPage('team',this)">Team</div>
+  <div class="nav adm" onclick="gotoPage('import',this)">Import CSV</div>
   <div class="sb-bottom"><span class="logout" onclick="doLogout()">Sign out</span></div>
 </div>
 <div class="content">
@@ -217,6 +225,33 @@ tr:hover td{background:var(--bg3);}
   </div>
 </div>
 
+<div id="p-import" class="page">
+  <div class="page-top"><div class="page-title">Import CSV</div></div>
+  <div class="card" style="max-width:600px;">
+    <div class="card-body">
+      <div style="margin-bottom:14px;">
+        <label>Project</label>
+        <select id="imp-proj"><option value="">Select project</option></select>
+      </div>
+      <div class="import-drop" id="imp-drop" onclick="document.getElementById('imp-file').click()">
+        <input type="file" id="imp-file" accept=".csv" onchange="handleCsvFile(this.files[0])"/>
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Drop CSV here or click to upload</div>
+        <div style="font-size:12px;color:var(--text2);">Format: Date, Domain, DR, Traffic, SS, Price, Link in, Link to, Anchor text, Invoice, Builder, Comments</div>
+      </div>
+      <div id="imp-preview" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:13px;color:var(--text2);" id="imp-count"></span>
+          <button class="btn-sm" onclick="startImport()">Import all →</button>
+        </div>
+        <div class="progress-bar" id="imp-prog-wrap" style="display:none;">
+          <div class="progress-fill" id="imp-prog" style="width:0%"></div>
+        </div>
+        <div class="import-log" id="imp-log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </div>
 </div>
 </div>
@@ -224,11 +259,11 @@ tr:hover td{background:var(--bg3);}
 <script>
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCrcZvfeT04BASPS7qQ-j0F4x0ukvZaddA",
-authDomain: "link-board-tbr.firebaseapp.com",
-projectId: "link-board-tbr",
-storageBucket: "link-board-tbr.firebasestorage.app",
-messagingSenderId: "762084454897",
-appId: "1:762084454897:web:7c3ec291cee4e327741450"
+  authDomain: "link-board-tbr.firebaseapp.com",
+  projectId: "link-board-tbr",
+  storageBucket: "link-board-tbr.firebasestorage.app",
+  messagingSenderId: "762084454897",
+  appId: "1:762084454897:web:7c3ec291cee4e327741450"
 };
 
 firebase.initializeApp(FIREBASE_CONFIG);
@@ -238,7 +273,7 @@ const db = firebase.firestore();
 const PROJECTS=['Renderforest','10Web','Dexatel','Referral','Camel','Cloudtalk','Bluequbit','Sift','Fliki','Powtoon','EasyDmarc','OTP.Dev','CheaterBuster','Promptrush','Novisign'];
 const BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik'];
 
-let cu=null, allLinks=[], allReqs=[];
+let cu=null, allLinks=[], allReqs=[], csvRows=[];
 
 auth.onAuthStateChanged(async user=>{
   if(user){
@@ -271,7 +306,7 @@ function startApp(){
   document.getElementById('sb-name').textContent=cu.name||cu.email;
   document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':'Builder';
   document.querySelectorAll('.adm').forEach(el=>el.style.display=cu.role==='admin'?'block':'none');
-  ['f-proj','r-proj'].forEach(id=>{
+  ['f-proj','r-proj','imp-proj'].forEach(id=>{
     const s=document.getElementById(id);
     s.innerHTML='<option value="">Select project</option>';
     PROJECTS.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;s.appendChild(o);});
@@ -386,7 +421,137 @@ async function addReq(){
   document.getElementById('r-anchor').value='';document.getElementById('r-max').value='';
 }
 
-function relB(r){if(r==='Relevant')return'<span class="badge b-rel">Relevant</span>';if(r==='Weak')return'<span class="badge b-weak">Weak</span>';if(r==='Not relevant')return'<span class="badge b-norel">Not rel.</span>';return'<span style="color:var(--text3);font-size:11px;">—</span>';}
+// ====================== CSV IMPORT ======================
+function parseCSV(text){
+  const lines=text.split(/\r?\n/);
+  return lines.map(line=>{
+    const cols=[];let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'&&!inQ){inQ=true;}
+      else if(c==='"'&&inQ){inQ=false;}
+      else if(c===','&&!inQ){cols.push(cur.trim());cur='';}
+      else{cur+=c;}
+    }
+    cols.push(cur.trim());
+    return cols;
+  });
+}
+
+function handleCsvFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const rows=parseCSV(e.target.result);
+    const proj=document.getElementById('imp-proj').value;
+    csvRows=[];
+    let status='live';
+    for(let i=1;i<rows.length;i++){
+      const row=rows[i];
+      const cell0=(row[0]||'').trim();
+      const cell1=(row[1]||'').trim();
+      const lower0=cell0.toLowerCase();
+      if(lower0.includes('live')){status='live';continue;}
+      if(lower0.includes('pending')){status='pending';continue;}
+      if(!cell1||cell1==='Domain')continue;
+      const domain=cell1;
+      if(!domain)continue;
+      csvRows.push({
+        date:cell0,
+        domain:domain,
+        dr:(row[2]||'').trim(),
+        traffic:(row[3]||'').trim(),
+        price:(row[5]||'').trim(),
+        linkin:(row[6]||'').trim(),
+        linkto:(row[7]||'').trim(),
+        anchor:(row[8]||'').trim(),
+        invoice:(row[9]||'').trim(),
+        builder:(row[10]||'').trim(),
+        comments:(row[11]||'').trim(),
+        relevancy:(row[12]||'').trim(),
+        linkcheck:(row[13]||'').trim(),
+        status:status,
+        project:proj||'Unknown',
+        check:'ok'
+      });
+    }
+    document.getElementById('imp-count').textContent=csvRows.length+' links found in CSV';
+    document.getElementById('imp-preview').style.display='block';
+    const log=document.getElementById('imp-log');
+    log.innerHTML=csvRows.slice(0,5).map(r=>`<div>✓ ${r.domain} — ${r.status} — ${r.builder||'no builder'}</div>`).join('')+'<div style="color:var(--text3);">...and '+(csvRows.length-5)+' more</div>';
+  };
+  reader.readAsText(file);
+}
+
+async function startImport(){
+  const proj=document.getElementById('imp-proj').value;
+  if(!proj){alert('Select a project first');return;}
+  if(!csvRows.length){alert('No data to import');return;}
+
+  const progWrap=document.getElementById('imp-prog-wrap');
+  const prog=document.getElementById('imp-prog');
+  const log=document.getElementById('imp-log');
+  progWrap.style.display='block';
+  log.innerHTML='';
+
+  let done=0,errors=0;
+  const BATCH_SIZE=400;
+  const total=csvRows.length;
+
+  for(let i=0;i<total;i+=BATCH_SIZE){
+    const batch=db.batch();
+    const chunk=csvRows.slice(i,i+BATCH_SIZE);
+    chunk.forEach(row=>{
+      const ref=db.collection('links').doc();
+      batch.set(ref,{
+        date:row.date,
+        domain:row.domain,
+        dr:row.dr,
+        traffic:row.traffic,
+        price:row.price,
+        linkin:row.linkin,
+        linkto:row.linkto,
+        anchor:row.anchor,
+        invoice:row.invoice,
+        builder:row.builder,
+        comments:row.comments,
+        relevancy:row.relevancy,
+        linkcheck:row.linkcheck,
+        status:row.status,
+        project:proj,
+        check:'ok',
+        createdAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+    try{
+      await batch.commit();
+      done+=chunk.length;
+      const pct=Math.round(done/total*100);
+      prog.style.width=pct+'%';
+      log.innerHTML+=`<div style="color:var(--teal);">✓ Imported ${done}/${total} links (${pct}%)</div>`;
+      log.scrollTop=log.scrollHeight;
+    }catch(e){
+      errors++;
+      log.innerHTML+=`<div style="color:#ff6b6b;">✗ Error: ${e.message}</div>`;
+    }
+  }
+  log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${done} links imported${errors?' ('+errors+' errors)':''}.</div>`;
+}
+
+// Drag & drop
+const drop=document.getElementById('imp-drop');
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('drag');});
+drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
+drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)handleCsvFile(f);});
+
+// ====================== RENDER ======================
+function relB(r){
+  if(!r)return'<span style="color:var(--text3);font-size:11px;">—</span>';
+  if(r.includes('Relevant')&&!r.includes('Not'))return'<span class="badge b-rel">Relevant</span>';
+  if(r.includes('Weak'))return'<span class="badge b-weak">Weak</span>';
+  if(r.includes('Not relevant')||r.includes('Not rel'))return'<span class="badge b-norel">Not rel.</span>';
+  return'<span style="color:var(--text3);font-size:11px;">—</span>';
+}
 function dupB(c){if(c==='dup')return'<span class="badge b-dup">Dup</span>';if(c==='noreq')return'<span class="badge b-noreq">No req</span>';if(c==='limit')return'<span class="badge b-warn">Limit</span>';return'<span class="badge b-ok">OK</span>';}
 
 function renderDashboard(){
