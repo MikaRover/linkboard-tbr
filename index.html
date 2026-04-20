@@ -313,7 +313,7 @@ tr:hover td{background:var(--bg3);}
 </div>
 
 <script>
-const OPENAI_KEY = "YOUR_OPENAI_KEY_HERE";
+const OPENAI_KEY = "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";
 
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCrcZvfeT04BASPS7qQ-j0F4x0ukvZaddA",
@@ -442,7 +442,7 @@ function renderCatButtons(selected){
 function selectCategory(cat){renderCatButtons(cat);}
 
 async function detectCategoryGPT(domain){
-  if(!OPENAI_KEY||OPENAI_KEY==='YOUR_OPENAI_KEY_HERE')return null;
+  if(!OPENAI_KEY||OPENAI_KEY==='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')return null;
   try{
     const resp=await fetch('https://api.openai.com/v1/chat/completions',{
       method:'POST',
