@@ -377,7 +377,10 @@ tr:hover td{background:var(--bg3);}
 <!-- IMPORT CSV -->
 <div id="p-import" class="page">
   <div class="page-top"><div class="page-title">Import CSV</div></div>
-  <div class="card" style="max-width:600px;">
+
+  <!-- Import Links -->
+  <div class="card" style="max-width:600px;margin-bottom:1.5rem;">
+    <div class="card-head">Import links</div>
     <div class="card-body">
       <div style="margin-bottom:14px;"><label>Project</label><select id="imp-proj"><option value="">Select project</option></select></div>
       <div class="import-drop" id="imp-drop" onclick="document.getElementById('imp-file').click()">
@@ -392,6 +395,30 @@ tr:hover td{background:var(--bg3);}
         </div>
         <div class="progress-bar" id="imp-prog-wrap" style="display:none;"><div class="progress-fill" id="imp-prog" style="width:0%"></div></div>
         <div class="import-log" id="imp-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Anchor Requirements -->
+  <div class="card" style="max-width:600px;">
+    <div class="card-head">Import anchor requirements</div>
+    <div class="card-body">
+      <div style="margin-bottom:14px;">
+        <label>Project</label>
+        <select id="req-imp-proj"><option value="">Select project</option></select>
+      </div>
+      <div class="import-drop" id="req-imp-drop" onclick="document.getElementById('req-imp-file').click()">
+        <input type="file" id="req-imp-file" accept=".csv" onchange="handleReqCsvFile(this.files[0])"/>
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Drop anchor CSV or click to upload</div>
+        <div style="font-size:12px;color:var(--text2);">Format: Month header row → Target page, Keyword/Anchor, Number of links/monthly</div>
+      </div>
+      <div id="req-imp-preview" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:13px;color:var(--text2);" id="req-imp-count"></span>
+          <button class="btn-sm" onclick="startReqImport()">Import requirements →</button>
+        </div>
+        <div class="progress-bar" id="req-imp-prog-wrap" style="display:none;"><div class="progress-fill" id="req-imp-prog" style="width:0%"></div></div>
+        <div class="import-log" id="req-imp-log"></div>
       </div>
     </div>
   </div>
@@ -467,7 +494,7 @@ function listenProjects(){
 }
 function populateProjectSelects(){
   const names=allProjects.map(p=>p.name);
-  ['f-proj','r-proj','rq-proj','imp-proj','ls-p'].forEach(id=>{
+  ['f-proj','r-proj','rq-proj','imp-proj','req-imp-proj','ls-p'].forEach(id=>{
     const s=document.getElementById(id);if(!s)return;
     const isFilter=id==='ls-p';const cur=s.value;
     s.innerHTML=isFilter?'<option value="">All projects</option>':'<option value="">Select project</option>';
@@ -1033,6 +1060,136 @@ async function startImport(){
   }
   log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${done} imported${errors?' ('+errors+' errors)':''}.</div>`;
 }
+
+// ─── ANCHOR REQUIREMENTS CSV IMPORT ──────────────────────────
+let reqCsvRows = [];
+
+function handleReqCsvFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    reqCsvRows=parseReqCSV(e.target.result);
+    const proj=document.getElementById('req-imp-proj').value;
+    const log=document.getElementById('req-imp-log');
+    const preview=document.getElementById('req-imp-preview');
+    const countEl=document.getElementById('req-imp-count');
+
+    if(!reqCsvRows.length){
+      preview.style.display='block';
+      log.innerHTML='<div style="color:#ff6b6b;">❌ No valid rows found. Check CSV format.</div>';
+      countEl.textContent='';
+      return;
+    }
+
+    // Summary by month
+    const byMonth={};
+    reqCsvRows.forEach(r=>{byMonth[r.month]=(byMonth[r.month]||0)+1;});
+    const summary=Object.entries(byMonth).map(([m,c])=>`${m}: ${c}`).join(' · ');
+
+    countEl.textContent=`${reqCsvRows.length} anchors found`;
+    preview.style.display='block';
+    log.innerHTML=`<div style="color:var(--text2);margin-bottom:6px;">${summary}</div>`
+      +reqCsvRows.slice(0,8).map(r=>`<div>✓ [${r.month}] "${r.anchor}" — max ${r.max}</div>`).join('')
+      +(reqCsvRows.length>8?`<div style="color:var(--text3);">...and ${reqCsvRows.length-8} more</div>`:'');
+  };
+  reader.readAsText(file);
+}
+
+function parseReqCSV(text){
+  const MONTHS=['january','february','march','april','may','june','july','august','september','october','november','december'];
+  const lines=text.split(/\r?\n/);
+  const result=[];
+  let currentMonth=null;
+
+  for(const line of lines){
+    const cols=[];let cur='',inQ=false;
+    for(const c of line){
+      if(c==='"'&&!inQ){inQ=true;continue;}
+      if(c==='"'&&inQ){inQ=false;continue;}
+      if(c===','&&!inQ){cols.push(cur.trim());cur='';continue;}
+      cur+=c;
+    }
+    cols.push(cur.trim());
+
+    const c0=(cols[0]||'').trim().toLowerCase();
+    const c1=(cols[1]||'').trim();
+    const c2=(cols[2]||'').trim();
+
+    // Month header
+    if(MONTHS.some(m=>c0.startsWith(m))&&!c0.startsWith('http')){
+      const m=MONTHS.find(m=>c0.startsWith(m));
+      currentMonth=m.charAt(0).toUpperCase()+m.slice(1);
+      continue;
+    }
+
+    // Skip non-data rows
+    if(!currentMonth)continue;
+    if(!c0.startsWith('http'))continue;
+    if(!c1||['keyword','anchor','keyword/anchor'].includes(c1.toLowerCase()))continue;
+
+    const max=parseInt(c2)||1;
+    result.push({
+      month:currentMonth,
+      anchor:c1.toLowerCase().trim(),
+      linkto:c0,
+      max
+    });
+  }
+  return result;
+}
+
+async function startReqImport(){
+  const proj=document.getElementById('req-imp-proj').value;
+  if(!proj){alert('Select a project');return;}
+  if(!reqCsvRows.length){alert('No data');return;}
+
+  const progWrap=document.getElementById('req-imp-prog-wrap');
+  const prog=document.getElementById('req-imp-prog');
+  const log=document.getElementById('req-imp-log');
+  progWrap.style.display='block';
+  log.innerHTML='';
+
+  let done=0,updated=0,errors=0;
+  const total=reqCsvRows.length;
+
+  for(const item of reqCsvRows){
+    try{
+      // Check existing
+      const snap=await db.collection('requirements')
+        .where('project','==',proj)
+        .where('month','==',item.month)
+        .where('anchor','==',item.anchor)
+        .get();
+
+      const data={project:proj,month:item.month,anchor:item.anchor,linkto:item.linkto||'',max:item.max,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+
+      if(!snap.empty){
+        await db.collection('requirements').doc(snap.docs[0].id).update(data);
+        updated++;
+      } else {
+        await db.collection('requirements').add(data);
+        done++;
+      }
+
+      const pct=Math.round((done+updated)/total*100);
+      prog.style.width=pct+'%';
+      if((done+updated)%5===0||done+updated===total){
+        log.innerHTML=`<div style="color:var(--teal);">✓ ${done+updated}/${total} (${pct}%)</div>`;
+        log.scrollTop=log.scrollHeight;
+      }
+    }catch(e){
+      errors++;
+      log.innerHTML+=`<div style="color:#ff6b6b;">✗ "${item.anchor}": ${e.message}</div>`;
+    }
+  }
+
+  log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${done} created, ${updated} updated${errors?' ('+errors+' errors)':''}.</div>`;
+}
+
+const reqDrop=document.getElementById('req-imp-drop');
+reqDrop.addEventListener('dragover',e=>{e.preventDefault();reqDrop.style.borderColor='var(--teal)';});
+reqDrop.addEventListener('dragleave',()=>reqDrop.style.borderColor='');
+reqDrop.addEventListener('drop',e=>{e.preventDefault();reqDrop.style.borderColor='';handleReqCsvFile(e.dataTransfer.files[0]);});
 
 const drop=document.getElementById('imp-drop');
 drop.addEventListener('dragover',e=>{e.preventDefault();drop.style.borderColor='var(--teal)';});
