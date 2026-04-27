@@ -57,11 +57,27 @@ select option{background:var(--bg2);}
 .card-head.pend{background:rgba(240,165,0,0.06);}
 .card-body{padding:1.25rem;}
 .tbl-wrap{overflow-x:auto;}
-table{width:100%;border-collapse:collapse;font-size:13px;}
-th{text-align:left;font-size:11px;font-weight:500;color:var(--text2);padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:0.3px;}
-td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{text-align:left;font-size:10px;font-weight:500;color:var(--text2);padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:0.3px;}
+td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap;}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:var(--bg3);}
+/* Compact specific columns */
+#all-tbody td:nth-child(1){width:28px;} /* checkbox */
+#all-tbody td:nth-child(2){width:90px;font-size:11px;color:var(--text3);} /* date */
+#all-tbody td:nth-child(3){max-width:160px;overflow:hidden;text-overflow:ellipsis;} /* domain */
+#all-tbody td:nth-child(4){width:40px;text-align:center;} /* dr */
+#all-tbody td:nth-child(5){width:70px;text-align:right;} /* traffic */
+#all-tbody td:nth-child(6){width:40px;text-align:center;} /* ss */
+#all-tbody td:nth-child(7){width:70px;} /* category */
+#all-tbody td:nth-child(8){width:50px;} /* price */
+#all-tbody td:nth-child(9){max-width:140px;overflow:hidden;text-overflow:ellipsis;} /* anchor */
+#all-tbody td:nth-child(10){width:80px;} /* project */
+#all-tbody td:nth-child(11){width:70px;} /* builder */
+#all-tbody td:nth-child(12){width:100px;} /* status */
+#all-tbody td:nth-child(13){max-width:160px;} /* link check */
+#all-tbody td:nth-child(14){width:40px;} /* dup */
+#all-tbody td:nth-child(15){width:32px;} /* delete */
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
 .b-live{background:rgba(0,180,160,0.15);color:var(--teal);}
 .b-pend{background:rgba(240,165,0,0.12);color:#f0a500;}
@@ -261,12 +277,13 @@ tr:hover td{background:var(--bg3);}
       <button class="btn-sm adm" onclick="exportCSV()" style="background:transparent;color:var(--teal);border:1px solid var(--teal);">Export CSV</button>
     </div>
   </div>
-  <div class="filters">
-    <input id="ls-s" placeholder="Search..." oninput="renderLinks()" style="flex:2;"/>
-    <select id="ls-p" onchange="renderLinks()"><option value="">All projects</option></select>
-    <select id="ls-st" onchange="renderLinks()"><option value="">All statuses</option><option value="live">Live</option><option value="pending">Pending</option></select>
-    <select id="ls-b" onchange="renderLinks()"><option value="">All builders</option></select>
-    <select id="ls-cat" onchange="renderLinks()"><option value="">All categories</option><option>SaaS</option><option>Service</option><option>Blog/Magazine</option><option>News</option><option>Agency</option><option>Other</option></select>
+  <div class="filters" style="gap:6px;margin-bottom:8px;">
+    <input id="ls-s" placeholder="Search..." oninput="renderLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
+    <select id="ls-p" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;">><option value="">All projects</option></select>
+    <select id="ls-st" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All statuses</option><option value="live">Live</option><option value="pending">Pending</option></select>
+    <select id="ls-b" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All builders</option></select>
+    <select id="ls-cat" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All categories</option><option>SaaS</option><option>Service</option><option>Blog/Magazine</option><option>News</option><option>Agency</option><option>Other</option></select>
+    <select id="ls-dup" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All</option><option value="dup">Duplicates only</option></select>
   </div>
   <div id="batch-bar" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap;">
     <span id="batch-count" style="font-size:13px;color:var(--text2);"></span>
@@ -1008,12 +1025,19 @@ function renderLinks(){
   const st=document.getElementById('ls-st').value;
   const b=document.getElementById('ls-b').value;
   const cat=document.getElementById('ls-cat').value;
+  const dupFilter=document.getElementById('ls-dup').value;
+
+  // Find duplicate domains
+  const domainCount={};
+  allLinks.forEach(l=>{const d=nd(l.domain);domainCount[d]=(domainCount[d]||0)+1;});
+
   let fl=allLinks.filter(l=>{
     if(cu.role!=='admin'&&l.builder!==(cu.name||cu.email))return false;
     if(p&&l.project!==p)return false;
     if(st&&l.status!==st)return false;
     if(b&&l.builder!==b)return false;
     if(cat&&l.category!==cat)return false;
+    if(dupFilter==='dup'&&domainCount[nd(l.domain)]<=1)return false;
     if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s)&&!(l.project||'').toLowerCase().includes(s))return false;
     return true;
   });
@@ -1035,7 +1059,8 @@ function renderLinks(){
     const canDelete=cu.role==='admin';
     const lcDisplay=linkCheckBadge(l.linkcheck, l.linkin, l.linkto);
     const lid=l.id;
-    return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;">
+    const isDup=domainCount[nd(l.domain)]>1;
+    return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${lid}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td>${l.date||''}</td>
       <td class="domain-teal">${l.domain}</td>
@@ -1048,17 +1073,17 @@ function renderLinks(){
       <td>${l.project}</td>
       <td>${l.builder}</td>
       <td onclick="event.stopPropagation()">
-        <select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;">
+        <select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;">
           <option value="live" ${l.status==='live'?'selected':''}>Live</option>
           <option value="pending" ${l.status==='pending'?'selected':''}>Pending</option>
         </select>
       </td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">
+      <td style="white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;" onclick="event.stopPropagation()">
         ${lcDisplay}
-        <button class="btn-ghost" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="checkSingleLink('${lid}',null,null,null,this)">Check</button>
+        <button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="checkSingleLink('${lid}',null,null,null,this)">▶</button>
       </td>
       <td>${dupB(l.check)}</td>
-      <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:3px 8px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button>`:''}</td>
+      <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button>`:''}</td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
       <td colspan="14" style="padding:14px 16px;">
