@@ -242,7 +242,7 @@ tr:hover td{background:var(--bg3);}
       <div class="section-label">Anchor text</div>
       <input id="f-anchor" placeholder="anchor text" oninput="onAnchorInput()"/>
       <div class="form-grid">
-        <div><div class="section-label">Price ($)</div><input id="f-price" placeholder="optional"/></div>
+        <div><div class="section-label">Price ($)</div><input id="f-price" placeholder="25" oninput="this.value=this.value.replace(/[^0-9.]/g,'')"/></div>
         <div><div class="section-label">Invoice link</div><input id="f-invoice" placeholder="optional"/></div>
       </div>
       <div class="section-label">Comments</div>
@@ -256,7 +256,10 @@ tr:hover td{background:var(--bg3);}
 <div id="p-links" class="page">
   <div class="page-top">
     <div class="page-title">All links</div>
-    <button class="btn-sm adm" onclick="exportCSV()" style="background:transparent;color:var(--teal);border:1px solid var(--teal);">Export CSV</button>
+    <div style="display:flex;gap:8px;">
+      <button id="check-all-btn" class="btn-ghost" onclick="checkAllLinks()">Check all links</button>
+      <button class="btn-sm adm" onclick="exportCSV()" style="background:transparent;color:var(--teal);border:1px solid var(--teal);">Export CSV</button>
+    </div>
   </div>
   <div class="filters">
     <input id="ls-s" placeholder="Search..." oninput="renderLinks()" style="flex:2;"/>
@@ -267,7 +270,7 @@ tr:hover td{background:var(--bg3);}
   </div>
   <div class="card">
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Category</th><th>Price</th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th><th>Dup</th></tr></thead>
+      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Category</th><th>Price</th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th><th>Link check</th><th>Dup</th><th class="adm"></th></tr></thead>
       <tbody id="all-tbody"><tr><td colspan="12" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
@@ -814,7 +817,7 @@ async function addLink(){
       dr:document.getElementById('f-dr').value||'',
       traffic:document.getElementById('f-traffic').value||'',
       ss:ssVal||'',category,
-      price:document.getElementById('f-price').value||'',
+      price:String(document.getElementById('f-price').value||'').replace(/\$+/g,'').trim(),
       linkin:document.getElementById('f-linkin').value||'',
       linkto:document.getElementById('f-linkto').value||'',
       invoice:document.getElementById('f-invoice').value||'',
@@ -972,8 +975,37 @@ function renderLinks(){
     return true;
   });
   const tb=document.getElementById('all-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="12" class="loading">No links</td></tr>';return;}
-  tb.innerHTML=fl.map(l=>`<tr><td>${l.date||''}</td><td class="domain-teal">${l.domain}</td><td>${l.dr||'—'}</td><td>${l.traffic?Number(l.traffic).toLocaleString():'—'}</td><td>${l.ss||'—'}</td><td>${catBadge(l.category)}</td><td>${l.price?'$'+l.price:'—'}</td><td>${l.anchor}</td><td>${l.project}</td><td>${l.builder}</td><td><span class="badge ${l.status==='live'?'b-live':'b-pend'}">${l.status}</span></td><td>${dupB(l.check)}</td></tr>`).join('');
+  if(!fl.length){tb.innerHTML='<tr><td colspan="13" class="loading">No links</td></tr>';return;}
+  tb.innerHTML=fl.map(l=>{
+    const trafficVal=l.traffic&&!isNaN(Number(l.traffic))?Number(l.traffic).toLocaleString():'—';
+    const priceVal=l.price?'$'+String(l.price).replace(/^\$+/,''):'—';
+    const canDelete=cu.role==='admin';
+    const lcDisplay=linkCheckBadge(l.linkcheck);
+    return`<tr>
+      <td>${l.date||''}</td>
+      <td class="domain-teal">${l.domain}</td>
+      <td>${l.dr||'—'}</td>
+      <td>${trafficVal}</td>
+      <td>${l.ss||'—'}</td>
+      <td>${catBadge(l.category)}</td>
+      <td>${priceVal}</td>
+      <td>${l.anchor}</td>
+      <td>${l.project}</td>
+      <td>${l.builder}</td>
+      <td>
+        <select onchange="updateLinkStatus('${l.id}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;">
+          <option value="live" ${l.status==='live'?'selected':''}>Live</option>
+          <option value="pending" ${l.status==='pending'?'selected':''}>Pending</option>
+        </select>
+      </td>
+      <td style="white-space:nowrap;">
+        ${lcDisplay}
+        <button class="btn-ghost" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="checkSingleLink('${l.id}','${(l.linkin||'').replace(/'/g,"\\'")}','${(l.linkto||'').replace(/'/g,"\\'")}','${(l.anchor||'').replace(/'/g,"\\'")}',this)">Check</button>
+      </td>
+      <td>${dupB(l.check)}</td>
+      ${canDelete?`<td><button class="btn-danger" style="padding:3px 8px;font-size:11px;" onclick="deleteLink('${l.id}','${l.domain}')">✕</button></td>`:'<td></td>'}
+    </tr>`;
+  }).join('');
 }
 
 function renderReqs(){
@@ -992,6 +1024,73 @@ function renderTeam(){
     const bl=allLinks.filter(l=>l.builder===b);const d=bl.filter(l=>l.check==='dup').length;
     return`<tr><td style="font-weight:600;">${b}</td><td>${bl.length}</td><td style="color:var(--teal);">${bl.filter(l=>l.status==='live').length}</td><td style="color:#f0a500;">${bl.filter(l=>l.status==='pending').length}</td><td style="${d?'color:#ff6b6b;font-weight:600;':'color:var(--text3);'}">${d}</td></tr>`;
   }).join('');
+}
+
+function linkCheckBadge(v){
+  if(!v)return'<span style="color:var(--text3);font-size:11px;">—</span>';
+  if(v.includes('✅'))return`<span style="color:#00c9b0;font-size:11px;">${v}</span>`;
+  if(v.includes('❌'))return`<span style="color:#ff6b6b;font-size:11px;">${v}</span>`;
+  if(v.includes('⚠️'))return`<span style="color:#f0a500;font-size:11px;">${v}</span>`;
+  return`<span style="font-size:11px;color:var(--text2);">${v}</span>`;
+}
+
+async function checkSingleLink(id, linkIn, linkTo, anchor, btn){
+  if(!linkIn||!linkTo){
+    alert('Link in or Link to is missing for this row.');return;
+  }
+  const orig=btn.textContent;
+  btn.textContent='⏳';btn.disabled=true;
+
+  try{
+    const resp=await fetch('/api/check-link',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({linkIn,linkTo,anchor})
+    });
+    const data=await resp.json();
+    const result=data.result||'⚠️ No response';
+    await db.collection('links').doc(id).update({linkcheck:result});
+  }catch(e){
+    await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});
+  }
+  btn.textContent=orig;btn.disabled=false;
+}
+
+async function checkAllLinks(){
+  const toCheck=allLinks.filter(l=>l.linkin&&l.linkto);
+  if(!toCheck.length){alert('No links with Link in/out data.');return;}
+  if(!confirm(`Check ${toCheck.length} links? This may take a while.`))return;
+
+  const btn=document.getElementById('check-all-btn');
+  btn.textContent='⏳ Checking...';btn.disabled=true;
+
+  let done=0;
+  for(const l of toCheck){
+    try{
+      const resp=await fetch('/api/check-link',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor})
+      });
+      const data=await resp.json();
+      await db.collection('links').doc(l.id).update({linkcheck:data.result||'⚠️ No response'});
+    }catch(e){
+      await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});
+    }
+    done++;
+    btn.textContent=`⏳ ${done}/${toCheck.length}`;
+  }
+  btn.textContent='✅ Done';
+  setTimeout(()=>{btn.textContent='Check all links';btn.disabled=false;},2000);
+}
+
+async function deleteLink(id, domain){
+  if(!confirm('Delete "'+domain+'"?'))return;
+  await db.collection('links').doc(id).delete();
+}
+
+async function updateLinkStatus(id, status){
+  await db.collection('links').doc(id).update({status});
 }
 
 // ─── EXPORT ───────────────────────────────────────────────
