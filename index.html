@@ -1001,7 +1001,7 @@ function renderLinks(){
       </td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">
         ${lcDisplay}
-        <button class="btn-ghost" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="checkSingleLink('${lid}','${(l.linkin||'').replace(/'/g,"\\'")}','${(l.linkto||'').replace(/'/g,"\\'")}','${(l.anchor||'').replace(/'/g,"\\'")}',this)">Check</button>
+        <button class="btn-ghost" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="checkSingleLink('${lid}',null,null,null,this)">Check</button>
       </td>
       <td>${dupB(l.check)}</td>
       <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:3px 8px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button>`:''}</td>
@@ -1082,13 +1082,18 @@ function linkCheckBadge(v, linkin, linkto){
   return`<span style="font-size:11px;color:var(--text2);">${v}</span>`;
 }
 
-async function checkSingleLink(id, linkIn, linkTo, anchor, btn){
+async function checkSingleLink(id, _li, _lt, _anc, btn){
+  // Always read fresh data from allLinks or Firebase
+  const link=allLinks.find(l=>l.id===id);
+  const linkIn=link?.linkin||'';
+  const linkTo=link?.linkto||'';
+  const anchor=link?.anchor||'';
+
   if(!linkIn||!linkTo){
-    alert('Link in or Link to is missing for this row.');return;
+    alert('Link in կամ Link to դատարկ է։ Նախ edit-ով լրացրու և Save արա։');return;
   }
   const orig=btn.textContent;
   btn.textContent='⏳';btn.disabled=true;
-
   try{
     const resp=await fetch('/api/check-link',{
       method:'POST',
@@ -1099,7 +1104,7 @@ async function checkSingleLink(id, linkIn, linkTo, anchor, btn){
     const result=data.result||'⚠️ No response';
     await db.collection('links').doc(id).update({linkcheck:result});
   }catch(e){
-    await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});
+    await db.collection('links').doc(id).update({linkcheck:'⚠️ Error: '+e.message.slice(0,40)});
   }
   btn.textContent=orig;btn.disabled=false;
 }
