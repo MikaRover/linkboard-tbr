@@ -980,7 +980,7 @@ function renderLinks(){
     const trafficVal=l.traffic&&!isNaN(Number(l.traffic))?Number(l.traffic).toLocaleString():'—';
     const priceVal=l.price?'$'+String(l.price).replace(/^\$+/,''):'—';
     const canDelete=cu.role==='admin';
-    const lcDisplay=linkCheckBadge(l.linkcheck);
+    const lcDisplay=linkCheckBadge(l.linkcheck, l.linkin, l.linkto);
     const lid=l.id;
     return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;">
       <td>${l.date||''}</td>
@@ -1066,11 +1066,19 @@ function renderTeam(){
   }).join('');
 }
 
-function linkCheckBadge(v){
+function linkCheckBadge(v, linkin, linkto){
   if(!v)return'<span style="color:var(--text3);font-size:11px;">—</span>';
+  let tooltip='';
+  if(v.includes('⚠️')){
+    if(!linkin&&!linkto) tooltip='Link in և Link to դատարկ են';
+    else if(!linkin) tooltip='Link in դատարկ է';
+    else if(!linkto) tooltip='Link to դատարկ է';
+    else tooltip=v.replace('⚠️','').trim();
+  }
+  const tip=tooltip?`title="${tooltip}"`:'';
   if(v.includes('✅'))return`<span style="color:#00c9b0;font-size:11px;">${v}</span>`;
-  if(v.includes('❌'))return`<span style="color:#ff6b6b;font-size:11px;">${v}</span>`;
-  if(v.includes('⚠️'))return`<span style="color:#f0a500;font-size:11px;">${v}</span>`;
+  if(v.includes('❌'))return`<span style="color:#ff6b6b;font-size:11px;" ${tip}>${v}</span>`;
+  if(v.includes('⚠️'))return`<span style="color:#f0a500;font-size:11px;cursor:help;border-bottom:1px dashed #f0a500;" ${tip}>${v}</span>`;
   return`<span style="font-size:11px;color:var(--text2);">${v}</span>`;
 }
 
