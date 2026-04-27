@@ -272,6 +272,7 @@ tr:hover td{background:var(--bg3);}
     <span id="batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-sm" onclick="batchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
     <button class="btn-sm" onclick="batchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
+    <button class="btn-ghost" onclick="batchCheck(this)">Check selected</button>
     <button class="btn-ghost" onclick="batchDelete()" style="color:#ff6b6b;border-color:rgba(255,107,107,0.4);">Delete selected</button>
     <button class="btn-ghost" onclick="clearSelection()" style="margin-left:auto;">Clear</button>
   </div>
@@ -1217,6 +1218,31 @@ async function batchSetStatus(status){
   for(const id of ids) await db.collection('links').doc(id).update({status});
   clearSelection();
 }
+async function batchCheck(btn){
+  const ids=getSelectedIds();if(!ids.length)return;
+  const orig=btn.textContent;
+  btn.disabled=true;
+  let done=0;
+  for(const id of ids){
+    const l=allLinks.find(x=>x.id===id);
+    if(!l?.linkin||!l?.linkto){
+      await db.collection('links').doc(id).update({linkcheck:'⚠️ Link in/out missing'});
+      done++;btn.textContent=`⏳ ${done}/${ids.length}`;
+      continue;
+    }
+    try{
+      const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
+      const data=await resp.json();
+      await db.collection('links').doc(id).update({linkcheck:data.result||'⚠️ No response'});
+    }catch(e){
+      await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});
+    }
+    done++;btn.textContent=`⏳ ${done}/${ids.length}`;
+  }
+  btn.textContent='✅ Done';
+  setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},2000);
+}
+
 async function batchDelete(){
   const ids=getSelectedIds();if(!ids.length)return;
   if(!confirm('Delete '+ids.length+' links?'))return;
