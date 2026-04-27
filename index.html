@@ -107,6 +107,38 @@ tr:hover td{background:var(--bg3);}
 .proj-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;}
 .proj-name{font-size:14px;font-weight:600;}
 .proj-count{font-size:11px;color:var(--text2);}
+
+/* ── PROJECT COMPATIBILITY CARDS ── */
+.compat-section{margin-top:16px;}
+.compat-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;}
+.compat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;}
+.compat-card{border-radius:10px;padding:12px 14px;border:1px solid;cursor:pointer;transition:all 0.15s;position:relative;}
+.compat-card.ok{background:rgba(0,180,160,0.07);border-color:rgba(0,180,160,0.35);}
+.compat-card.ok:hover{background:rgba(0,180,160,0.13);}
+.compat-card.fail{background:rgba(255,107,107,0.06);border-color:rgba(255,107,107,0.25);}
+.compat-card.fail:hover{background:rgba(255,107,107,0.1);}
+.compat-card.no-req{background:var(--bg3);border-color:var(--border);opacity:0.6;}
+.compat-card-name{font-size:13px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.compat-icon{font-size:14px;}
+.compat-checks{display:flex;flex-direction:column;gap:3px;}
+.compat-check{font-size:11px;display:flex;align-items:center;gap:5px;}
+.compat-check.pass{color:#00c9b0;}
+.compat-check.fail-item{color:#ff6b6b;}
+.compat-check.neutral{color:var(--text3);}
+.compat-skeleton{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;animation:pulse 1.5s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:0.5;}50%{opacity:1;}}
+
+/* ── REQUIREMENTS PAGE ENHANCED ── */
+.req-form-section{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;}
+.req-form-title{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.cat-checkboxes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.cat-check-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;}
+.cat-check-item input[type=checkbox]{width:auto;margin:0;cursor:pointer;}
+.det-status{font-size:11px;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;}
+.det-heuristic{background:rgba(240,165,0,0.12);color:#f0a500;}
+.det-gpt{background:rgba(0,180,160,0.12);color:var(--teal);}
+.det-loading{background:rgba(120,150,255,0.12);color:#7896ff;}
 </style>
 </head>
 <body>
@@ -171,29 +203,38 @@ tr:hover td{background:var(--bg3);}
 <!-- ADD LINK -->
 <div id="p-add" class="page">
   <div class="page-top"><div class="page-title">Add link</div></div>
-  <div class="card" style="max-width:680px;">
+  <div class="card" style="max-width:720px;">
     <div class="card-body">
       <div id="al-dup" class="alert a-dup"></div>
       <div id="al-req" class="alert a-warn"></div>
       <div id="al-ok" class="alert a-ok"></div>
+
       <div class="section-label">Domain</div>
       <input id="f-domain" placeholder="example.com" oninput="onDomainInput()" style="margin-bottom:8px;"/>
+
       <div class="dc-box" id="dc-box">
         <div class="dc-title">
           <span>Domain metrics</span>
-          <span id="cat-loading" style="font-size:11px;color:var(--teal);display:none;"><span class="spin">↻</span> Detecting...</span>
+          <span id="cat-status"></span>
         </div>
         <div class="dc-grid">
-          <div class="dc-item"><div class="dc-label">DR</div><input class="dc-input" id="f-dr" type="number" placeholder="—"/></div>
-          <div class="dc-item"><div class="dc-label">Traffic</div><input class="dc-input" id="f-traffic" type="number" placeholder="—"/></div>
-          <div class="dc-item"><div class="dc-label">Spam Score %</div><input class="dc-input" id="f-ss" type="number" placeholder="—" min="0" max="100"/></div>
+          <div class="dc-item"><div class="dc-label">DR</div><input class="dc-input" id="f-dr" type="number" placeholder="—" oninput="renderCompatCards()"/></div>
+          <div class="dc-item"><div class="dc-label">Traffic</div><input class="dc-input" id="f-traffic" type="number" placeholder="—" oninput="renderCompatCards()"/></div>
+          <div class="dc-item"><div class="dc-label">Spam Score %</div><input class="dc-input" id="f-ss" type="number" placeholder="—" min="0" max="100" oninput="renderCompatCards()"/></div>
         </div>
         <div class="cat-suggest">
           <span class="cat-suggest-label">Category:</span>
           <div id="cat-buttons"></div>
         </div>
         <input type="hidden" id="f-category" value=""/>
+
+        <!-- PROJECT COMPATIBILITY -->
+        <div class="compat-section" id="compat-section" style="display:none;">
+          <div class="compat-title">Project compatibility</div>
+          <div class="compat-grid" id="compat-grid"></div>
+        </div>
       </div>
+
       <div class="form-grid" style="margin-top:4px;">
         <div><div class="section-label">Project</div><select id="f-proj" onchange="onAnchorInput()"><option value="">Select project</option></select></div>
         <div><div class="section-label">Status</div><select id="f-status"><option value="pending">Pending</option><option value="live">Live</option></select></div>
@@ -254,18 +295,74 @@ tr:hover td{background:var(--bg3);}
 <!-- REQUIREMENTS -->
 <div id="p-reqs" class="page">
   <div class="page-top"><div class="page-title">Requirements</div></div>
-  <div class="card" style="max-width:520px;">
+  <div class="card" style="max-width:620px;">
     <div class="card-body">
-      <div class="form-grid">
-        <div><label>Project</label><select id="r-proj"><option value="">Select</option></select></div>
-        <div><label>Month</label><select id="r-month"><option>January</option><option>February</option><option>March</option><option>April</option><option>May</option><option>June</option><option>July</option><option>August</option><option>September</option><option>October</option><option>November</option><option>December</option></select></div>
+
+      <!-- Quality Requirements -->
+      <div class="req-form-section">
+        <div class="req-form-title">Quality requirements (DR / Traffic / Spam / Category)</div>
+        <div class="form-grid" style="margin-bottom:10px;">
+          <div><label>Project</label><select id="rq-proj" onchange="loadQualityReq()"><option value="">Select</option></select></div>
+          <div><label>Month</label><select id="rq-month">
+            <option>January</option><option>February</option><option>March</option><option>April</option>
+            <option>May</option><option>June</option><option>July</option><option>August</option>
+            <option>September</option><option>October</option><option>November</option><option>December</option>
+          </select></div>
+        </div>
+        <div class="form-grid-3" style="margin-bottom:10px;">
+          <div><label>Min DR</label><input id="rq-mindr" type="number" placeholder="e.g. 50" style="margin-bottom:0;"/></div>
+          <div><label>Min Traffic</label><input id="rq-mintraffic" type="number" placeholder="e.g. 5000" style="margin-bottom:0;"/></div>
+          <div><label>Max Spam Score %</label><input id="rq-maxss" type="number" placeholder="e.g. 5" style="margin-bottom:0;"/></div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label>Allowed categories</label>
+          <div class="cat-checkboxes" id="rq-cats">
+            <label class="cat-check-item"><input type="checkbox" value="SaaS"/> SaaS</label>
+            <label class="cat-check-item"><input type="checkbox" value="Service"/> Service</label>
+            <label class="cat-check-item"><input type="checkbox" value="Blog/Magazine"/> Blog/Magazine</label>
+            <label class="cat-check-item"><input type="checkbox" value="News"/> News</label>
+            <label class="cat-check-item"><input type="checkbox" value="Agency"/> Agency</label>
+            <label class="cat-check-item"><input type="checkbox" value="Other"/> Other</label>
+          </div>
+        </div>
+        <div style="margin-bottom:6px;">
+          <label>Notes (optional)</label>
+          <input id="rq-notes" placeholder="e.g. Only SaaS websites (science, biotech)"/>
+        </div>
+        <button class="btn-sm" onclick="saveQualityReq()" style="width:auto;padding:8px 20px;">Save quality requirements →</button>
+        <span id="rq-saved" style="font-size:12px;color:var(--teal);margin-left:10px;display:none;">✓ Saved</span>
       </div>
-      <label>Anchor text</label><input id="r-anchor" placeholder="anchor text"/>
-      <label>Max links</label><input id="r-max" type="number" placeholder="5"/>
-      <button class="btn" onclick="addReq()">Add requirement →</button>
+
+      <!-- Anchor Requirements -->
+      <div class="req-form-section">
+        <div class="req-form-title">Anchor requirements (limits)</div>
+        <div class="form-grid">
+          <div><label>Project</label><select id="r-proj"><option value="">Select</option></select></div>
+          <div><label>Month</label><select id="r-month">
+            <option>January</option><option>February</option><option>March</option><option>April</option>
+            <option>May</option><option>June</option><option>July</option><option>August</option>
+            <option>September</option><option>October</option><option>November</option><option>December</option>
+          </select></div>
+        </div>
+        <label>Anchor text</label><input id="r-anchor" placeholder="anchor text"/>
+        <label>Max links</label><input id="r-max" type="number" placeholder="5"/>
+        <button class="btn-sm" onclick="addReq()" style="width:auto;padding:8px 20px;">Add anchor requirement →</button>
+      </div>
     </div>
   </div>
+
+  <!-- Quality Reqs Summary -->
   <div class="card" style="margin-top:1rem;">
+    <div class="card-head">Quality requirements per project</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Project</th><th>Month</th><th>Min DR</th><th>Min Traffic</th><th>Max SS</th><th>Categories</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="qreq-tbody"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- Anchor Reqs -->
+  <div class="card" style="margin-top:1rem;">
+    <div class="card-head">Anchor requirements</div>
     <div class="tbl-wrap"><table>
       <thead><tr><th>Project</th><th>Month</th><th>Anchor</th><th>Progress</th><th>Max</th><th></th></tr></thead>
       <tbody id="req-tbody"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
@@ -313,6 +410,7 @@ tr:hover td{background:var(--bg3);}
 </div>
 
 <script>
+// ─── CONFIG ───────────────────────────────────────────────
 const OPENAI_KEY = "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";
 
 const FIREBASE_CONFIG = {
@@ -331,9 +429,10 @@ const db = firebase.firestore();
 const BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik'];
 const CATEGORIES=['SaaS','Service','Blog/Magazine','News','Agency','Other'];
 
-let cu=null, allLinks=[], allReqs=[], allProjects=[], csvRows=[];
-let catDetectTimer=null;
+let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[];
+let catDetectTimer=null, currentDetectedCategory='', catDetectAbort=false;
 
+// ─── AUTH ─────────────────────────────────────────────────
 auth.onAuthStateChanged(async user=>{
   if(user){
     const doc=await db.collection('users').doc(user.uid).get();
@@ -362,35 +461,28 @@ function startApp(){
   const lb=document.getElementById('ls-b');
   lb.innerHTML='<option value="">All builders</option>';
   BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;lb.appendChild(o);});
-  listenProjects();
-  listenLinks();
-  listenReqs();
+  listenProjects();listenLinks();listenReqs();listenQualityReqs();
   renderCatButtons('');
   gotoPage('dashboard',document.querySelector('.nav.active'));
 }
 
-// ===== PROJECTS =====
+// ─── PROJECTS ─────────────────────────────────────────────
 function listenProjects(){
   db.collection('projects').orderBy('name').onSnapshot(snap=>{
     allProjects=snap.docs.map(d=>({id:d.id,...d.data()}));
-    populateProjectSelects();
-    renderProjectsPage();
+    populateProjectSelects();renderProjectsPage();
   });
 }
-
 function populateProjectSelects(){
   const names=allProjects.map(p=>p.name);
-  ['f-proj','r-proj','imp-proj','ls-p'].forEach(id=>{
-    const s=document.getElementById(id);
-    if(!s)return;
-    const isFilter=id==='ls-p';
-    const cur=s.value;
+  ['f-proj','r-proj','rq-proj','imp-proj','ls-p'].forEach(id=>{
+    const s=document.getElementById(id);if(!s)return;
+    const isFilter=id==='ls-p';const cur=s.value;
     s.innerHTML=isFilter?'<option value="">All projects</option>':'<option value="">Select project</option>';
     names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});
     if(cur)s.value=cur;
   });
 }
-
 async function addProject(){
   const name=document.getElementById('new-proj-name').value.trim();
   if(!name)return;
@@ -398,29 +490,19 @@ async function addProject(){
   await db.collection('projects').add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
   document.getElementById('new-proj-name').value='';
 }
-
 async function deleteProject(id,name){
   const count=allLinks.filter(l=>l.project===name).length;
   if(count>0){if(!confirm('This project has '+count+' links. Delete anyway?'))return;}
   await db.collection('projects').doc(id).delete();
 }
-
 function renderProjectsPage(){
-  const grid=document.getElementById('proj-grid');
-  if(!grid)return;
+  const grid=document.getElementById('proj-grid');if(!grid)return;
   if(!allProjects.length){grid.innerHTML='<div style="color:var(--text2);font-size:13px;">No projects yet</div>';return;}
   grid.innerHTML=allProjects.map(p=>{
     const count=allLinks.filter(l=>l.project===p.name).length;
-    return`<div class="proj-card">
-      <div>
-        <div class="proj-name">${p.name}</div>
-        <div class="proj-count">${count} links</div>
-      </div>
-      <button class="btn-danger" onclick="deleteProject('${p.id}','${p.name}')">✕</button>
-    </div>`;
+    return`<div class="proj-card"><div><div class="proj-name">${p.name}</div><div class="proj-count">${count} links</div></div><button class="btn-danger" onclick="deleteProject('${p.id}','${p.name}')">✕</button></div>`;
   }).join('');
 }
-
 function gotoPage(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav').forEach(n=>n.classList.remove('active'));
@@ -428,59 +510,238 @@ function gotoPage(name,el){
   if(el)el.classList.add('active');
   if(name==='projects')renderProjectsPage();
 }
-
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
 
-// ===== CATEGORY =====
+// ─── CATEGORY DETECTION ───────────────────────────────────
 function renderCatButtons(selected){
-  const wrap=document.getElementById('cat-buttons');
-  if(!wrap)return;
+  const wrap=document.getElementById('cat-buttons');if(!wrap)return;
   wrap.innerHTML=CATEGORIES.map(c=>`<span class="cat-badge ${selected===c?'selected':''}" onclick="selectCategory('${c}')">${c}</span>`).join(' ');
   document.getElementById('f-category').value=selected;
+  currentDetectedCategory=selected;
+}
+function selectCategory(cat){
+  renderCatButtons(cat);
+  renderCompatCards();
 }
 
-function selectCategory(cat){renderCatButtons(cat);}
+// Heuristic classification (instant, no API)
+function heuristicClassify(text){
+  const t=(text||'').toLowerCase();
+  const saasKw=['free trial','start free','sign up','signup','log in','login','book demo','request demo','get started','pricing','pricing plans','product','platform','software','tool','dashboard','workspace','integrations','integration','api','extension','automation','saas','app'];
+  const serviceKw=['agency','consulting','consultancy','our services','done for you','done-for-you','managed services','hire us','outsourcing','professional services','service provider'];
+  const blogKw=['latest news','editorial','magazine','newsroom','journal','articles','article archive','stories','press release','press','news','blog post'];
+  let ss=countHits(t,saasKw), sv=countHits(t,serviceKw), bl=countHits(t,blogKw);
+  if(t.includes('/pricing'))ss+=3;if(t.includes('/login'))ss+=3;if(t.includes('/signup'))ss+=3;
+  if(t.includes('/integrations'))ss+=2;if(t.includes('/demo'))ss+=2;
+  if(t.includes('our services'))sv+=3;if(t.includes('managed services'))sv+=3;
+  if(t.includes('/blog'))bl+=2;if(t.includes('newsroom'))bl+=2;
+  const strongSaas=['free trial','book demo','sign up','login','integrations','api','dashboard'];
+  if(countHits(t,strongSaas)>=3)return'SaaS';
+  if(ss>=sv&&ss>=bl)return'SaaS';
+  if(sv>=ss&&sv>=bl)return'Service';
+  return'Blog/Magazine';
+}
+function countHits(text,kws){let s=0;for(const k of kws){if(text.includes(k))s++;}return s;}
 
-async function detectCategoryGPT(domain){
-  if(!OPENAI_KEY||OPENAI_KEY==='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')return null;
+// Full detection: fetch homepage → heuristic → GPT
+async function detectCategory(domain){
+  const statusEl=document.getElementById('cat-status');
+  statusEl.innerHTML='<span class="det-status det-loading"><span class="spin">↻</span> Detecting...</span>';
+
+  // Step 1: fetch homepage text
+  let pageText='';
   try{
+    const resp=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://'+domain)}`);
+    const data=await resp.json();
+    if(data&&data.contents){
+      pageText=stripHtmlClient(data.contents).slice(0,8000);
+    }
+  }catch(e){}
+
+  // Step 2: heuristic (instant result)
+  const hResult=heuristicClassify(pageText||domain);
+  renderCatButtons(hResult);
+  renderCompatCards();
+  statusEl.innerHTML=`<span class="det-status det-heuristic">⚡ ${hResult} (heuristic)</span>`;
+
+  // Step 3: GPT confirmation (if we have text)
+  if(!OPENAI_KEY||!pageText)return;
+  try{
+    const prompt=`Classify this website into exactly one category: SaaS, Service, Blog/Magazine, News, Agency, or Other.
+
+SaaS = software product/platform/tool people use online, with pricing, signup, login, dashboard, API.
+Service = agency, consultancy, done-for-you business, professional services.
+Blog/Magazine = publisher, editorial, news site, content-first.
+News = news outlet, media company.
+Agency = marketing/design/dev agency.
+Other = anything else.
+
+Heuristic pre-analysis: ${hResult}
+
+Return ONLY valid JSON: {"category":"SaaS","confidence":95}
+
+Domain: ${domain}
+Website text sample:
+${pageText.slice(0,3000)}`;
+
     const resp=await fetch('https://api.openai.com/v1/chat/completions',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
-      body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:`What type of website is "${domain}"? Answer with exactly one of: SaaS, Service, Blog/Magazine, News, Agency, Other. No explanation.`}],max_tokens:10,temperature:0})
+      body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'system',content:'You are a website classifier. Return only valid JSON.'},{role:'user',content:prompt}],max_tokens:30,temperature:0})
     });
     const data=await resp.json();
-    const text=(data.choices[0].message.content||'').trim();
-    return CATEGORIES.find(c=>text.includes(c))||null;
-  }catch(e){return null;}
+    const raw=(data.choices[0].message.content||'').trim();
+    const obj=JSON.parse(raw);
+    const cat=CATEGORIES.find(c=>c===obj.category)||obj.category||hResult;
+    const normalCat=normalizeCategory(cat);
+    renderCatButtons(normalCat);
+    renderCompatCards();
+    statusEl.innerHTML=`<span class="det-status det-gpt">🤖 ${normalCat} (GPT ${obj.confidence||''}%)</span>`;
+  }catch(e){
+    // keep heuristic result, just update status
+    statusEl.innerHTML=`<span class="det-status det-heuristic">⚡ ${hResult} (heuristic)</span>`;
+  }
 }
 
+function normalizeCategory(cat){
+  const v=(cat||'').toLowerCase().trim();
+  if(v==='saas')return'SaaS';
+  if(v==='service'||v==='services')return'Service';
+  if(v==='blog'||v==='blog/magazine'||v==='magazine')return'Blog/Magazine';
+  if(v==='news')return'News';
+  if(v==='agency')return'Agency';
+  return'Other';
+}
+function stripHtmlClient(html){
+  return(html||'').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+}
+
+// ─── DOMAIN INPUT → DETECTION + COMPAT CARDS ─────────────
 function onDomainInput(){
-  const d=nd(document.getElementById('f-domain').value.trim());
+  const raw=document.getElementById('f-domain').value.trim();
+  const d=nd(raw);
   const dupEl=document.getElementById('al-dup');
   const dcBox=document.getElementById('dc-box');
-  if(!d){dupEl.style.display='none';dcBox.classList.remove('show');return;}
+  const compatSection=document.getElementById('compat-section');
+
+  if(!d){
+    dupEl.style.display='none';
+    dcBox.classList.remove('show');
+    compatSection.style.display='none';
+    return;
+  }
   dcBox.classList.add('show');
+
+  // Duplicate check
   const existing=allLinks.find(l=>nd(l.domain)===d);
   if(existing){dupEl.style.display='block';dupEl.textContent='⚠️ Duplicate! '+d+' already exists — '+existing.project+' ('+existing.status+') by '+existing.builder;}
   else dupEl.style.display='none';
+
+  // Debounce detection
   clearTimeout(catDetectTimer);
-  catDetectTimer=setTimeout(async()=>{
-    const loading=document.getElementById('cat-loading');
-    loading.style.display='inline';
-    const cat=await detectCategoryGPT(d);
-    loading.style.display='none';
-    if(cat)renderCatButtons(cat);
-  },800);
+  catDetectTimer=setTimeout(()=>detectCategory(d),700);
 }
 
+// ─── PROJECT COMPATIBILITY CARDS ─────────────────────────
+function renderCompatCards(){
+  const compatSection=document.getElementById('compat-section');
+  const compatGrid=document.getElementById('compat-grid');
+
+  if(!allProjects.length){compatSection.style.display='none';return;}
+
+  const dr=parseFloat(document.getElementById('f-dr').value)||null;
+  const traffic=parseFloat(document.getElementById('f-traffic').value)||null;
+  const ss=parseFloat(document.getElementById('f-ss').value);
+  const ssVal=isNaN(ss)?null:ss;
+  const category=document.getElementById('f-category').value||currentDetectedCategory||'';
+
+  // Only show if we have at least category or some metrics
+  if(!category&&dr===null&&traffic===null&&ssVal===null){
+    compatSection.style.display='none';return;
+  }
+  compatSection.style.display='block';
+
+  // Get current month name
+  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const currentMonth=monthNames[new Date().getMonth()];
+
+  const cards=allProjects.map(proj=>{
+    // Find quality req for this project (current month first, then any)
+    const qr=allQualityReqs.find(r=>r.project===proj.name&&r.month===currentMonth)
+           ||allQualityReqs.find(r=>r.project===proj.name);
+
+    if(!qr){
+      return`<div class="compat-card no-req">
+        <div class="compat-card-name"><span class="compat-icon">○</span>${proj.name}</div>
+        <div class="compat-checks"><span class="compat-check neutral">No requirements set</span></div>
+      </div>`;
+    }
+
+    const checks=[];
+    let hasFailure=false;
+
+    // DR check
+    if(qr.minDR){
+      if(dr===null){checks.push({label:`DR ≥ ${qr.minDR} (not entered)`,pass:null});}
+      else if(dr>=qr.minDR){checks.push({label:`DR ${dr} ≥ ${qr.minDR} ✓`,pass:true});}
+      else{checks.push({label:`DR ${dr} < ${qr.minDR} ✗`,pass:false});hasFailure=true;}
+    }
+
+    // Traffic check
+    if(qr.minTraffic){
+      if(traffic===null){checks.push({label:`Traffic ≥ ${Number(qr.minTraffic).toLocaleString()} (not entered)`,pass:null});}
+      else if(traffic>=qr.minTraffic){checks.push({label:`Traffic ${Number(traffic).toLocaleString()} ✓`,pass:true});}
+      else{checks.push({label:`Traffic ${Number(traffic).toLocaleString()} < ${Number(qr.minTraffic).toLocaleString()} ✗`,pass:false});hasFailure=true;}
+    }
+
+    // Spam Score check
+    if(qr.maxSS!=null&&qr.maxSS!==''){
+      if(ssVal===null){checks.push({label:`SS ≤ ${qr.maxSS}% (not entered)`,pass:null});}
+      else if(ssVal<=qr.maxSS){checks.push({label:`SS ${ssVal}% ✓`,pass:true});}
+      else{checks.push({label:`SS ${ssVal}% > ${qr.maxSS}% ✗`,pass:false});hasFailure=true;}
+    }
+
+    // Category check
+    if(qr.allowedCategories&&qr.allowedCategories.length>0){
+      if(!category){checks.push({label:`Cat: ${qr.allowedCategories.join('/')} (detecting...)`,pass:null});}
+      else if(qr.allowedCategories.includes(category)){checks.push({label:`${category} ✓`,pass:true});}
+      else{checks.push({label:`${category} not in [${qr.allowedCategories.join(', ')}] ✗`,pass:false});hasFailure=true;}
+    }
+
+    if(checks.length===0){
+      return`<div class="compat-card no-req">
+        <div class="compat-card-name"><span class="compat-icon">○</span>${proj.name}</div>
+        <div class="compat-checks"><span class="compat-check neutral">No criteria set</span></div>
+      </div>`;
+    }
+
+    const allPass=!hasFailure&&checks.every(c=>c.pass!==false);
+    const cardClass=hasFailure?'fail':'ok';
+    const icon=hasFailure?'❌':'✅';
+
+    const checksHtml=checks.map(c=>{
+      const cls=c.pass===true?'pass':c.pass===false?'fail-item':'neutral';
+      return`<span class="compat-check ${cls}">${c.label}</span>`;
+    }).join('');
+
+    return`<div class="compat-card ${cardClass}" onclick="document.getElementById('f-proj').value='${proj.name}';onAnchorInput();">
+      <div class="compat-card-name"><span class="compat-icon">${icon}</span>${proj.name}</div>
+      <div class="compat-checks">${checksHtml}</div>
+      ${qr.notes?`<div style="font-size:10px;color:var(--text3);margin-top:6px;font-style:italic;">${qr.notes}</div>`:''}
+    </div>`;
+  }).join('');
+
+  compatGrid.innerHTML=cards;
+}
+
+// ─── ANCHOR CHECK ─────────────────────────────────────────
 function onAnchorInput(){
   const anchor=document.getElementById('f-anchor').value.trim().toLowerCase();
   const proj=document.getElementById('f-proj').value;
   const el=document.getElementById('al-req');
   if(!anchor||!proj){el.style.display='none';return;}
   const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor);
-  if(!req){el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No requirement for "'+anchor+'" in '+proj;return;}
+  if(!req){el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No anchor requirement for "'+anchor+'" in '+proj;return;}
   const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor).length;
   if(used>=req.max){el.style.display='block';el.className='alert a-dup';el.textContent='🚫 Limit reached! '+used+'/'+req.max+' for "'+anchor+'" in '+proj;}
   else{el.style.display='block';el.className='alert a-ok';el.textContent='✅ Anchor OK — '+used+' of '+req.max+' used';}
@@ -494,19 +755,50 @@ function getCheck(domain,anchor,proj){
   return used>=req.max?'limit':'ok';
 }
 
+// ─── ADD LINK (with quality validation) ──────────────────
 async function addLink(){
   const domain=document.getElementById('f-domain').value.trim();
   const anchor=document.getElementById('f-anchor').value.trim();
   const proj=document.getElementById('f-proj').value;
+  const dr=parseFloat(document.getElementById('f-dr').value)||null;
+  const traffic=parseFloat(document.getElementById('f-traffic').value)||null;
+  const ssVal=document.getElementById('f-ss').value;
+  const ss=ssVal!==''?parseFloat(ssVal):null;
+  const category=document.getElementById('f-category').value||'';
+
   if(!domain||!anchor||!proj){alert('Domain, anchor and project are required');return;}
+
+  // Duplicate check
   const existing=allLinks.find(l=>nd(l.domain)===nd(domain));
   if(existing){if(!confirm('Duplicate! '+domain+' already exists. Add anyway?'))return;}
+
+  // Quality requirements validation (hard stop)
+  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const currentMonth=monthNames[new Date().getMonth()];
+  const qr=allQualityReqs.find(r=>r.project===proj&&r.month===currentMonth)
+          ||allQualityReqs.find(r=>r.project===proj);
+
+  if(qr){
+    const failures=[];
+    if(qr.minDR&&dr!==null&&dr<qr.minDR) failures.push(`DR ${dr} is below minimum ${qr.minDR}`);
+    if(qr.minTraffic&&traffic!==null&&traffic<qr.minTraffic) failures.push(`Traffic ${Number(traffic).toLocaleString()} is below minimum ${Number(qr.minTraffic).toLocaleString()}`);
+    if(qr.maxSS!=null&&qr.maxSS!==''&&ss!==null&&ss>qr.maxSS) failures.push(`Spam Score ${ss}% exceeds maximum ${qr.maxSS}%`);
+    if(qr.allowedCategories&&qr.allowedCategories.length>0&&category&&!qr.allowedCategories.includes(category)) failures.push(`Category "${category}" is not allowed for ${proj}`);
+
+    if(failures.length>0){
+      alert('🚫 Quality requirements not met for '+proj+':\n\n• '+failures.join('\n• '));
+      return; // hard stop
+    }
+  }
+
+  // Anchor limit check
   const anchor_lc=anchor.toLowerCase();
   const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor_lc);
   if(req){
     const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc).length;
     if(used>=req.max){alert('🚫 Anchor limit reached ('+used+'/'+req.max+')');return;}
   }
+
   const btn=document.querySelector('#p-add .btn');
   btn.textContent='Saving...';btn.disabled=true;
   try{
@@ -515,8 +807,7 @@ async function addLink(){
       status:document.getElementById('f-status').value,
       dr:document.getElementById('f-dr').value||'',
       traffic:document.getElementById('f-traffic').value||'',
-      ss:document.getElementById('f-ss').value||'',
-      category:document.getElementById('f-category').value||'',
+      ss:ssVal||'',category,
       price:document.getElementById('f-price').value||'',
       linkin:document.getElementById('f-linkin').value||'',
       linkto:document.getElementById('f-linkto').value||'',
@@ -536,25 +827,34 @@ async function addLink(){
     document.getElementById('al-dup').style.display='none';
     document.getElementById('al-req').style.display='none';
     document.getElementById('dc-box').classList.remove('show');
+    document.getElementById('compat-section').style.display='none';
+    document.getElementById('cat-status').innerHTML='';
     renderCatButtons('');
   }catch(e){alert('Error: '+e.message);}
   btn.textContent='Add link →';btn.disabled=false;
 }
 
+// ─── LINKS LISTENER ───────────────────────────────────────
 function listenLinks(){
   db.collection('links').orderBy('createdAt','desc').onSnapshot(snap=>{
     allLinks=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderDashboard();renderLinks();renderTeam();renderProjectsPage();
   });
 }
-
 function listenReqs(){
   db.collection('requirements').onSnapshot(snap=>{
     allReqs=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderReqs();
   });
 }
+function listenQualityReqs(){
+  db.collection('qualityRequirements').onSnapshot(snap=>{
+    allQualityReqs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderQualityReqs();
+  });
+}
 
+// ─── REQUIREMENTS ─────────────────────────────────────────
 async function addReq(){
   const proj=document.getElementById('r-proj').value;
   const month=document.getElementById('r-month').value;
@@ -568,6 +868,63 @@ async function addReq(){
   document.getElementById('r-max').value='';
 }
 
+// Load existing quality req into form when project changes
+async function loadQualityReq(){
+  const proj=document.getElementById('rq-proj').value;
+  const month=document.getElementById('rq-month').value;
+  if(!proj)return;
+  const existing=allQualityReqs.find(r=>r.project===proj&&r.month===month);
+  document.getElementById('rq-mindr').value=existing?.minDR||'';
+  document.getElementById('rq-mintraffic').value=existing?.minTraffic||'';
+  document.getElementById('rq-maxss').value=existing?.maxSS!=null?existing.maxSS:'';
+  document.getElementById('rq-notes').value=existing?.notes||'';
+  // checkboxes
+  const allowed=existing?.allowedCategories||[];
+  document.querySelectorAll('#rq-cats input[type=checkbox]').forEach(cb=>{
+    cb.checked=allowed.includes(cb.value);
+  });
+}
+
+async function saveQualityReq(){
+  const proj=document.getElementById('rq-proj').value;
+  const month=document.getElementById('rq-month').value;
+  if(!proj){alert('Select a project');return;}
+  const minDR=document.getElementById('rq-mindr').value!==''?parseFloat(document.getElementById('rq-mindr').value):null;
+  const minTraffic=document.getElementById('rq-mintraffic').value!==''?parseFloat(document.getElementById('rq-mintraffic').value):null;
+  const maxSS=document.getElementById('rq-maxss').value!==''?parseFloat(document.getElementById('rq-maxss').value):null;
+  const notes=document.getElementById('rq-notes').value.trim();
+  const allowedCategories=[];
+  document.querySelectorAll('#rq-cats input[type=checkbox]:checked').forEach(cb=>allowedCategories.push(cb.value));
+
+  const data={project:proj,month,minDR,minTraffic,maxSS,allowedCategories,notes,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  const existing=allQualityReqs.find(r=>r.project===proj&&r.month===month);
+  if(existing)await db.collection('qualityRequirements').doc(existing.id).update(data);
+  else await db.collection('qualityRequirements').add(data);
+
+  const saved=document.getElementById('rq-saved');
+  saved.style.display='inline';
+  setTimeout(()=>saved.style.display='none',2000);
+}
+
+function renderQualityReqs(){
+  const tb=document.getElementById('qreq-tbody');
+  if(!allQualityReqs.length){tb.innerHTML='<tr><td colspan="8" class="loading">No quality requirements yet</td></tr>';return;}
+  tb.innerHTML=allQualityReqs.map(r=>{
+    const cats=(r.allowedCategories||[]).map(c=>`<span class="badge b-saas" style="font-size:10px;padding:2px 7px;">${c}</span>`).join(' ')||'<span style="color:var(--text3)">Any</span>';
+    return`<tr>
+      <td style="font-weight:600;">${r.project}</td>
+      <td>${r.month}</td>
+      <td>${r.minDR!=null?'≥ '+r.minDR:'—'}</td>
+      <td>${r.minTraffic!=null?'≥ '+Number(r.minTraffic).toLocaleString():'—'}</td>
+      <td>${r.maxSS!=null?'≤ '+r.maxSS+'%':'—'}</td>
+      <td>${cats}</td>
+      <td style="font-size:11px;color:var(--text3);">${r.notes||'—'}</td>
+      <td><button class="btn-ghost" onclick="db.collection('qualityRequirements').doc('${r.id}').delete()">Remove</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── RENDER HELPERS ───────────────────────────────────────
 function catBadge(c){
   if(!c)return'<span style="color:var(--text3);font-size:11px;">—</span>';
   const cls=c==='SaaS'?'b-saas':c==='Service'?'b-service':'b-blog';
@@ -635,16 +992,17 @@ function renderTeam(){
   }).join('');
 }
 
+// ─── EXPORT ───────────────────────────────────────────────
 function exportCSV(){
   if(cu.role!=='admin'){alert('Only admin can export');return;}
   const h=['Date','Domain','DR','Traffic','SS','Category','Price','Link in','Link to','Anchor','Project','Builder','Status','Comments'];
   const rows=allLinks.map(l=>[l.date,l.domain,l.dr,l.traffic,l.ss,l.category,l.price,l.linkin,l.linkto,l.anchor,l.project,l.builder,l.status,l.comments].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
-  a.download='linkboard_'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click();
+  a.download='linkboard_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
 
+// ─── CSV IMPORT ───────────────────────────────────────────
 function parseCSV(text){
   return text.split(/\r?\n/).map(line=>{
     const cols=[];let cur='',inQ=false;
@@ -657,7 +1015,6 @@ function parseCSV(text){
     cols.push(cur.trim());return cols;
   });
 }
-
 function handleCsvFile(file){
   if(!file)return;
   const reader=new FileReader();
@@ -679,7 +1036,6 @@ function handleCsvFile(file){
   };
   reader.readAsText(file);
 }
-
 async function startImport(){
   const proj=document.getElementById('imp-proj').value;
   if(!proj){alert('Select a project');return;}
