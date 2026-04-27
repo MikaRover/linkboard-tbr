@@ -268,10 +268,17 @@ tr:hover td{background:var(--bg3);}
     <select id="ls-b" onchange="renderLinks()"><option value="">All builders</option></select>
     <select id="ls-cat" onchange="renderLinks()"><option value="">All categories</option><option>SaaS</option><option>Service</option><option>Blog/Magazine</option><option>News</option><option>Agency</option><option>Other</option></select>
   </div>
+  <div id="batch-bar" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap;">
+    <span id="batch-count" style="font-size:13px;color:var(--text2);"></span>
+    <button class="btn-sm" onclick="batchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
+    <button class="btn-sm" onclick="batchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
+    <button class="btn-ghost" onclick="batchDelete()" style="color:#ff6b6b;border-color:rgba(255,107,107,0.4);">Delete selected</button>
+    <button class="btn-ghost" onclick="clearSelection()" style="margin-left:auto;">Clear</button>
+  </div>
   <div class="card">
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Category</th><th>Price</th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th><th>Link check</th><th>Dup</th><th class="adm"></th></tr></thead>
-      <tbody id="all-tbody"><tr><td colspan="12" class="loading">Loading...</td></tr></tbody>
+      <thead><tr><th><input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="toggleSort('date')">Date <span id="sort-date">↓</span></th><th>Domain</th><th style="cursor:pointer;" onclick="toggleSort('dr')">DR <span id="sort-dr"></span></th><th style="cursor:pointer;" onclick="toggleSort('traffic')">Traffic <span id="sort-traffic"></span></th><th>SS</th><th>Category</th><th>Price</th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th><th>Link check</th><th>Dup</th><th class="adm"></th></tr></thead>
+      <tbody id="all-tbody"><tr><td colspan="15" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -522,9 +529,44 @@ function renderProjectsPage(){
   if(!allProjects.length){grid.innerHTML='<div style="color:var(--text2);font-size:13px;">No projects yet</div>';return;}
   grid.innerHTML=allProjects.map(p=>{
     const count=allLinks.filter(l=>l.project===p.name).length;
-    return`<div class="proj-card"><div><div class="proj-name">${p.name}</div><div class="proj-count">${count} links</div></div><button class="btn-danger" onclick="deleteProject('${p.id}','${p.name}')">✕</button></div>`;
+    return`<div class="proj-card">
+      <div style="cursor:pointer;" onclick="gotoProjectLinks('${p.name}')">
+        <div class="proj-name">${p.name}</div>
+        <div class="proj-count" style="color:var(--teal);">${count} links →</div>
+      </div>
+      <button class="btn-danger" onclick="deleteProject('${p.id}','${p.name}')">✕</button>
+    </div>`;
   }).join('');
 }
+let sortField='date', sortDir='desc';
+
+function toggleSort(field){
+  if(sortField===field) sortDir=sortDir==='desc'?'asc':'desc';
+  else{sortField=field;sortDir='desc';}
+  // Update indicators
+  ['date','dr','traffic'].forEach(f=>{
+    const el=document.getElementById('sort-'+f);
+    if(el) el.textContent=sortField===f?(sortDir==='desc'?'↓':'↑'):'';
+  });
+  renderLinks();
+}
+
+function parseDate(str){
+  if(!str)return 0;
+  const p=str.split(/[.\-\/]/);
+  if(p.length===3){
+    // dd.mm.yyyy
+    return new Date(p[2],p[1]-1,p[0]).getTime()||0;
+  }
+  return new Date(str).getTime()||0;
+}
+
+function gotoProjectLinks(projName){
+  gotoPage('links', document.querySelectorAll('.nav')[2]);
+  const sel=document.getElementById('ls-p');
+  if(sel){sel.value=projName;renderLinks();}
+}
+
 function gotoPage(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav').forEach(n=>n.classList.remove('active'));
@@ -974,6 +1016,16 @@ function renderLinks(){
     if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s)&&!(l.project||'').toLowerCase().includes(s))return false;
     return true;
   });
+  // Sort
+  fl.sort((a,b)=>{
+    let av,bv;
+    if(sortField==='date'){av=parseDate(a.date);bv=parseDate(b.date);}
+    else if(sortField==='dr'){av=parseFloat(a.dr)||0;bv=parseFloat(b.dr)||0;}
+    else if(sortField==='traffic'){av=parseFloat(a.traffic)||0;bv=parseFloat(b.traffic)||0;}
+    else{av=0;bv=0;}
+    return sortDir==='desc'?bv-av:av-bv;
+  });
+
   const tb=document.getElementById('all-tbody');
   if(!fl.length){tb.innerHTML='<tr><td colspan="13" class="loading">No links</td></tr>';return;}
   tb.innerHTML=fl.map(l=>{
@@ -983,6 +1035,7 @@ function renderLinks(){
     const lcDisplay=linkCheckBadge(l.linkcheck, l.linkin, l.linkto);
     const lid=l.id;
     return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${lid}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td>${l.date||''}</td>
       <td class="domain-teal">${l.domain}</td>
       <td>${l.dr||'—'}</td>
@@ -1135,6 +1188,40 @@ async function checkAllLinks(){
   }
   btn.textContent='✅ Done';
   setTimeout(()=>{btn.textContent='Check all links';btn.disabled=false;},2000);
+}
+
+function getSelectedIds(){
+  return Array.from(document.querySelectorAll('.row-cb:checked')).map(cb=>cb.dataset.id);
+}
+function onRowSelect(){
+  const ids=getSelectedIds();
+  const bar=document.getElementById('batch-bar');
+  if(ids.length>0){bar.style.display='flex';document.getElementById('batch-count').textContent=ids.length+' selected';}
+  else bar.style.display='none';
+  const all=document.getElementById('select-all');
+  const total=document.querySelectorAll('.row-cb').length;
+  if(all)all.checked=ids.length===total&&total>0;
+}
+function toggleSelectAll(el){
+  document.querySelectorAll('.row-cb').forEach(cb=>cb.checked=el.checked);
+  onRowSelect();
+}
+function clearSelection(){
+  document.querySelectorAll('.row-cb').forEach(cb=>cb.checked=false);
+  const all=document.getElementById('select-all');
+  if(all)all.checked=false;
+  document.getElementById('batch-bar').style.display='none';
+}
+async function batchSetStatus(status){
+  const ids=getSelectedIds();if(!ids.length)return;
+  for(const id of ids) await db.collection('links').doc(id).update({status});
+  clearSelection();
+}
+async function batchDelete(){
+  const ids=getSelectedIds();if(!ids.length)return;
+  if(!confirm('Delete '+ids.length+' links?'))return;
+  for(const id of ids) await db.collection('links').doc(id).delete();
+  clearSelection();
 }
 
 function toggleEditRow(id, event, forceClose){
