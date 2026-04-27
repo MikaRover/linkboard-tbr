@@ -185,6 +185,10 @@ tr:hover td{background:var(--bg3);}
     <div class="sb-name" id="sb-name">—</div>
     <div class="sb-role" id="sb-role">—</div>
   </div>
+  <div style="padding:0 1rem 10px;">
+    <input id="global-search" placeholder="🔍 Search..." oninput="globalSearch()" style="margin-bottom:0;font-size:12px;padding:7px 10px;"/>
+    <div id="global-results" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:280px;overflow-y:auto;position:absolute;width:188px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,0.3);"></div>
+  </div>
   <div class="nav active" onclick="gotoPage('dashboard',this)">Dashboard</div>
   <div class="nav" onclick="gotoPage('add',this)">Add link</div>
   <div class="nav" onclick="gotoPage('links',this)">All links</div>
@@ -492,6 +496,56 @@ let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows
 let catDetectTimer=null, currentDetectedCategory='', catDetectAbort=false;
 
 // ─── AUTH ─────────────────────────────────────────────────
+function globalSearch(){
+  const q=(document.getElementById('global-search').value||'').toLowerCase().trim();
+  const res=document.getElementById('global-results');
+  if(!q){res.style.display='none';return;}
+
+  const matches=allLinks.filter(l=>
+    (l.domain||'').toLowerCase().includes(q)||
+    (l.anchor||'').toLowerCase().includes(q)||
+    (l.project||'').toLowerCase().includes(q)||
+    (l.builder||'').toLowerCase().includes(q)||
+    (l.linkin||'').toLowerCase().includes(q)
+  ).slice(0,12);
+
+  if(!matches.length){
+    res.style.display='block';
+    res.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--text3);">No results</div>';
+    return;
+  }
+
+  res.style.display='block';
+  res.innerHTML=matches.map(l=>`
+    <div onclick="openSearchResult('${l.id}','${l.project}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.1s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      <div style="font-size:12px;font-weight:600;color:${allLinks.filter(x=>nd(x.domain)===nd(l.domain)&&x.project===l.project).length>1?'#ff6b6b':'var(--teal)'};">${l.domain}</div>
+      <div style="font-size:11px;color:var(--text2);">${l.project} · ${l.builder||'—'} · <span style="color:${l.status==='live'?'var(--teal)':'#f0a500'}">${l.status}</span></div>
+      ${l.anchor?`<div style="font-size:10px;color:var(--text3);">${l.anchor}</div>`:''}
+    </div>
+  `).join('');
+}
+
+function openSearchResult(id, project){
+  document.getElementById('global-search').value='';
+  document.getElementById('global-results').style.display='none';
+  gotoPage('links', document.querySelectorAll('.nav')[2]);
+  document.getElementById('ls-p').value=project||'';
+  renderLinks();
+  // Scroll to and highlight the row after render
+  setTimeout(()=>{
+    const row=document.querySelector(`[data-id="${id}"]`);
+    if(row){row.closest('tr').scrollIntoView({behavior:'smooth',block:'center'});row.checked=true;onRowSelect();}
+  },200);
+}
+
+// Close search on outside click
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#global-search')&&!e.target.closest('#global-results')){
+    const res=document.getElementById('global-results');
+    if(res)res.style.display='none';
+  }
+});
+
 function toggleTheme(){
   const isLight=document.body.classList.toggle('light');
   document.getElementById('theme-btn').textContent=isLight?'🌙 Dark mode':'☀️ Light mode';
