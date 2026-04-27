@@ -264,7 +264,7 @@ tr:hover td{background:var(--bg3);}
       </div>
 
       <div class="form-grid" style="margin-top:4px;">
-        <div><div class="section-label">Project</div><select id="f-proj" onchange="onAnchorInput()"><option value="">Select project</option></select></div>
+        <div><div class="section-label">Project</div><select id="f-proj" onchange="onDomainInput();onAnchorInput()"><option value="">Select project</option></select></div>
         <div><div class="section-label">Status</div><select id="f-status"><option value="pending">Pending</option><option value="live">Live</option></select></div>
       </div>
       <div class="section-label">Link in (full URL)</div>
@@ -796,8 +796,11 @@ function onDomainInput(){
   }
   dcBox.classList.add('show');
 
-  // Duplicate check
-  const existing=allLinks.find(l=>nd(l.domain)===d);
+  // Duplicate check - per project
+  const proj=document.getElementById('f-proj').value;
+  const existing=proj
+    ? allLinks.find(l=>nd(l.domain)===d&&l.project===proj)
+    : allLinks.find(l=>nd(l.domain)===d);
   if(existing){dupEl.style.display='block';dupEl.textContent='⚠️ Duplicate! '+d+' already exists — '+existing.project+' ('+existing.status+') by '+existing.builder;}
   else dupEl.style.display='none';
 
@@ -922,9 +925,9 @@ async function addLink(){
 
   if(!domain||!anchor||!proj){alert('Domain, anchor and project are required');return;}
 
-  // Duplicate check
-  const existing=allLinks.find(l=>nd(l.domain)===nd(domain));
-  if(existing){if(!confirm('Duplicate! '+domain+' already exists. Add anyway?'))return;}
+  // Duplicate check per project
+  const existing=allLinks.find(l=>nd(l.domain)===nd(domain)&&l.project===proj);
+  if(existing){if(!confirm('Duplicate! '+domain+' already exists in '+proj+'. Add anyway?'))return;}
 
   // Quality requirements validation (hard stop)
   const qr=allQualityReqs.find(r=>r.project===proj);
