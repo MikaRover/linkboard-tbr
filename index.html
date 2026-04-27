@@ -981,7 +981,8 @@ function renderLinks(){
     const priceVal=l.price?'$'+String(l.price).replace(/^\$+/,''):'—';
     const canDelete=cu.role==='admin';
     const lcDisplay=linkCheckBadge(l.linkcheck);
-    return`<tr>
+    const lid=l.id;
+    return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;">
       <td>${l.date||''}</td>
       <td class="domain-teal">${l.domain}</td>
       <td>${l.dr||'—'}</td>
@@ -992,18 +993,53 @@ function renderLinks(){
       <td>${l.anchor}</td>
       <td>${l.project}</td>
       <td>${l.builder}</td>
-      <td>
-        <select onchange="updateLinkStatus('${l.id}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;">
+      <td onclick="event.stopPropagation()">
+        <select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;">
           <option value="live" ${l.status==='live'?'selected':''}>Live</option>
           <option value="pending" ${l.status==='pending'?'selected':''}>Pending</option>
         </select>
       </td>
-      <td style="white-space:nowrap;">
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">
         ${lcDisplay}
-        <button class="btn-ghost" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="checkSingleLink('${l.id}','${(l.linkin||'').replace(/'/g,"\\'")}','${(l.linkto||'').replace(/'/g,"\\'")}','${(l.anchor||'').replace(/'/g,"\\'")}',this)">Check</button>
+        <button class="btn-ghost" style="padding:2px 8px;font-size:11px;margin-left:4px;" onclick="checkSingleLink('${lid}','${(l.linkin||'').replace(/'/g,"\\'")}','${(l.linkto||'').replace(/'/g,"\\'")}','${(l.anchor||'').replace(/'/g,"\\'")}',this)">Check</button>
       </td>
       <td>${dupB(l.check)}</td>
-      ${canDelete?`<td><button class="btn-danger" style="padding:3px 8px;font-size:11px;" onclick="deleteLink('${l.id}','${l.domain}')">✕</button></td>`:'<td></td>'}
+      <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:3px 8px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button>`:''}</td>
+    </tr>
+    <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
+      <td colspan="14" style="padding:14px 16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <div class="section-label" style="margin-bottom:4px;">Link in (placement URL)</div>
+            <input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" placeholder="https://example.com/blog/post" style="margin:0;font-size:12px;"/>
+          </div>
+          <div>
+            <div class="section-label" style="margin-bottom:4px;">Link to (target URL)</div>
+            <input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" placeholder="https://project.com/page" style="margin:0;font-size:12px;"/>
+          </div>
+          <div>
+            <div class="section-label" style="margin-bottom:4px;">DR</div>
+            <input id="ei-dr-${lid}" value="${l.dr||''}" placeholder="—" type="number" style="margin:0;font-size:12px;"/>
+          </div>
+          <div>
+            <div class="section-label" style="margin-bottom:4px;">Traffic</div>
+            <input id="ei-traffic-${lid}" value="${l.traffic||''}" placeholder="—" type="number" style="margin:0;font-size:12px;"/>
+          </div>
+          <div>
+            <div class="section-label" style="margin-bottom:4px;">Spam Score %</div>
+            <input id="ei-ss-${lid}" value="${l.ss||''}" placeholder="—" type="number" style="margin:0;font-size:12px;"/>
+          </div>
+          <div>
+            <div class="section-label" style="margin-bottom:4px;">Comments</div>
+            <input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button>
+          <button class="btn-ghost" onclick="toggleEditRow('${lid}',null,true)">Cancel</button>
+          <span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span>
+        </div>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -1082,6 +1118,30 @@ async function checkAllLinks(){
   }
   btn.textContent='✅ Done';
   setTimeout(()=>{btn.textContent='Check all links';btn.disabled=false;},2000);
+}
+
+function toggleEditRow(id, event, forceClose){
+  if(event&&event.target&&(event.target.tagName==='BUTTON'||event.target.tagName==='SELECT'))return;
+  const row=document.getElementById('edit-'+id);
+  if(!row)return;
+  const isOpen=row.style.display!=='none';
+  // Close all others first
+  document.querySelectorAll('[id^="edit-"]').forEach(r=>r.style.display='none');
+  if(!isOpen&&!forceClose) row.style.display='table-row';
+}
+
+async function saveEditRow(id){
+  const linkin=(document.getElementById('ei-linkin-'+id)?.value||'').trim();
+  const linkto=(document.getElementById('ei-linkto-'+id)?.value||'').trim();
+  const dr=(document.getElementById('ei-dr-'+id)?.value||'').trim();
+  const traffic=(document.getElementById('ei-traffic-'+id)?.value||'').trim();
+  const ss=(document.getElementById('ei-ss-'+id)?.value||'').trim();
+  const comments=(document.getElementById('ei-comments-'+id)?.value||'').trim();
+
+  await db.collection('links').doc(id).update({linkin,linkto,dr,traffic,ss,comments});
+
+  const saved=document.getElementById('ei-saved-'+id);
+  if(saved){saved.style.display='inline';setTimeout(()=>saved.style.display='none',2000);}
 }
 
 async function deleteLink(id, domain){
