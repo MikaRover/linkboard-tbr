@@ -1032,7 +1032,7 @@ function catBadge(c){
   return`<span class="badge ${cls}">${c}</span>`;
 }
 function dupB(l, domainCount){
-  const isDup=domainCount&&domainCount[nd(l.domain)]>1;
+  const isDup=domainCount&&domainCount[nd(l.domain)+'|'+(l.project||'')]>1;
   if(isDup)return'<span class="badge b-dup">Dup</span>';
   if(l.check==='noreq')return'<span class="badge b-noreq">No req</span>';
   if(l.check==='limit')return'<span class="badge b-warn">Limit</span>';
@@ -1043,8 +1043,8 @@ function renderDashboard(){
   const live=allLinks.filter(l=>l.status==='live');
   const pend=allLinks.filter(l=>l.status==='pending');
   const domainCnt={};
-  allLinks.forEach(l=>{const d=nd(l.domain);domainCnt[d]=(domainCnt[d]||0)+1;});
-  const dupCount=allLinks.filter(l=>domainCnt[nd(l.domain)]>1).length;
+  allLinks.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domainCnt[key]=(domainCnt[key]||0)+1;});
+  const dupCount=allLinks.filter(l=>domainCnt[nd(l.domain)+'|'+(l.project||'')]>1).length;
   document.getElementById('ds-total').textContent=allLinks.length;
   document.getElementById('ds-live').textContent=live.length;
   document.getElementById('ds-pend').textContent=pend.length;
@@ -1067,9 +1067,12 @@ function renderLinks(){
   const cat=document.getElementById('ls-cat').value;
   const dupFilter=document.getElementById('ls-dup').value;
 
-  // Find duplicate domains
+  // Duplicate detection per-project
   const domainCount={};
-  allLinks.forEach(l=>{const d=nd(l.domain);domainCount[d]=(domainCount[d]||0)+1;});
+  allLinks.forEach(l=>{
+    const key=nd(l.domain)+'|'+(l.project||'');
+    domainCount[key]=(domainCount[key]||0)+1;
+  });
 
   let fl=allLinks.filter(l=>{
     if(cu.role!=='admin'&&l.builder!==(cu.name||cu.email))return false;
@@ -1077,7 +1080,7 @@ function renderLinks(){
     if(st&&l.status!==st)return false;
     if(b&&l.builder!==b)return false;
     if(cat&&l.category!==cat)return false;
-    if(dupFilter==='dup'&&domainCount[nd(l.domain)]<=1)return false;
+    if(dupFilter==='dup'&&domainCount[nd(l.domain)+'|'+(l.project||'')]<=1)return false;
     if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s)&&!(l.project||'').toLowerCase().includes(s))return false;
     return true;
   });
@@ -1099,7 +1102,7 @@ function renderLinks(){
     const canDelete=cu.role==='admin';
     const lcDisplay=linkCheckBadge(l.linkcheck, l.linkin, l.linkto);
     const lid=l.id;
-    const isDup=domainCount[nd(l.domain)]>1;
+    const isDup=domainCount[nd(l.domain)+'|'+(l.project||'')]>1;
     return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${lid}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td>${l.date||''}</td>
