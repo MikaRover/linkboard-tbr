@@ -1030,6 +1030,10 @@ function renderLinks(){
             <input id="ei-ss-${lid}" value="${l.ss||''}" placeholder="—" type="number" style="margin:0;font-size:12px;"/>
           </div>
           <div>
+            <div class="section-label" style="margin-bottom:4px;">Anchor text</div>
+            <input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" placeholder="anchor text" style="margin:0;font-size:12px;"/>
+          </div>
+          <div>
             <div class="section-label" style="margin-bottom:4px;">Comments</div>
             <input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/>
           </div>
@@ -1136,9 +1140,10 @@ async function saveEditRow(id){
   const dr=(document.getElementById('ei-dr-'+id)?.value||'').trim();
   const traffic=(document.getElementById('ei-traffic-'+id)?.value||'').trim();
   const ss=(document.getElementById('ei-ss-'+id)?.value||'').trim();
+  const anchor=(document.getElementById('ei-anchor-'+id)?.value||'').trim();
   const comments=(document.getElementById('ei-comments-'+id)?.value||'').trim();
 
-  await db.collection('links').doc(id).update({linkin,linkto,dr,traffic,ss,comments});
+  await db.collection('links').doc(id).update({linkin,linkto,dr,traffic,ss,anchor,comments});
 
   const saved=document.getElementById('ei-saved-'+id);
   if(saved){saved.style.display='inline';setTimeout(()=>saved.style.display='none',2000);}
