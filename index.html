@@ -890,7 +890,15 @@ async function addLink(){
     });
     const ok=document.getElementById('al-ok');
     ok.style.display='block';ok.textContent='✅ Link added!';
-    setTimeout(()=>ok.style.display='none',2500);
+    setTimeout(()=>{
+      ok.style.display='none';
+      // Redirect to All Links filtered by pending + current project
+      const proj=document.getElementById('f-proj').value;
+      gotoPage('links',document.querySelectorAll('.nav')[2]);
+      document.getElementById('ls-st').value='pending';
+      if(proj) document.getElementById('ls-p').value=proj;
+      renderLinks();
+    },1200);
     ['f-domain','f-linkin','f-linkto','f-anchor','f-dr','f-traffic','f-ss','f-price','f-invoice','f-comments'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('f-category').value='';
     document.getElementById('al-dup').style.display='none';
