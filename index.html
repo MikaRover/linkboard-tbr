@@ -104,6 +104,7 @@ tr:hover td{background:var(--bg3);}
 .filters input,.filters select{margin-bottom:0;flex:1;min-width:120px;}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .domain-teal{color:var(--teal);font-size:13px;}
+.domain-dup{color:#ff6b6b;font-size:13px;font-weight:600;}
 .loading{text-align:center;padding:2rem;color:var(--text2);font-size:13px;}
 .req-bar-bg{height:5px;background:var(--bg3);border-radius:3px;margin-bottom:3px;}
 .req-bar-fill{height:5px;border-radius:3px;}
@@ -1102,7 +1103,7 @@ function renderLinks(){
     return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${lid}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td>${l.date||''}</td>
-      <td class="domain-teal">${l.domain}</td>
+      <td class="${isDup?'domain-dup':'domain-teal'}">${l.domain}</td>
       <td>${l.dr||'—'}</td>
       <td>${trafficVal}</td>
       <td>${l.ss||'—'}</td>
