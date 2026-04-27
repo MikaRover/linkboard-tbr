@@ -1030,20 +1030,24 @@ function catBadge(c){
   const cls=c==='SaaS'?'b-saas':c==='Service'?'b-service':'b-blog';
   return`<span class="badge ${cls}">${c}</span>`;
 }
-function dupB(c){
-  if(c==='dup')return'<span class="badge b-dup">Dup</span>';
-  if(c==='noreq')return'<span class="badge b-noreq">No req</span>';
-  if(c==='limit')return'<span class="badge b-warn">Limit</span>';
+function dupB(l, domainCount){
+  const isDup=domainCount&&domainCount[nd(l.domain)]>1;
+  if(isDup)return'<span class="badge b-dup">Dup</span>';
+  if(l.check==='noreq')return'<span class="badge b-noreq">No req</span>';
+  if(l.check==='limit')return'<span class="badge b-warn">Limit</span>';
   return'<span class="badge b-ok">OK</span>';
 }
 
 function renderDashboard(){
   const live=allLinks.filter(l=>l.status==='live');
   const pend=allLinks.filter(l=>l.status==='pending');
+  const domainCnt={};
+  allLinks.forEach(l=>{const d=nd(l.domain);domainCnt[d]=(domainCnt[d]||0)+1;});
+  const dupCount=allLinks.filter(l=>domainCnt[nd(l.domain)]>1).length;
   document.getElementById('ds-total').textContent=allLinks.length;
   document.getElementById('ds-live').textContent=live.length;
   document.getElementById('ds-pend').textContent=pend.length;
-  document.getElementById('ds-dup').textContent=allLinks.filter(l=>l.check==='dup').length;
+  document.getElementById('ds-dup').textContent=dupCount;
   document.getElementById('lc').textContent=live.length+' links';
   document.getElementById('pc').textContent=pend.length+' links';
   const rr=(arr,id)=>{
@@ -1117,7 +1121,7 @@ function renderLinks(){
         ${lcDisplay}
         <button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="checkSingleLink('${lid}',null,null,null,this)">▶</button>
       </td>
-      <td>${dupB(l.check)}</td>
+      <td>${dupB(l, domainCount)}</td>
       <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button>`:''}</td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
