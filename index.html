@@ -796,13 +796,22 @@ function onDomainInput(){
   }
   dcBox.classList.add('show');
 
-  // Duplicate check - per project
-  const proj=document.getElementById('f-proj').value;
-  const existing=proj
-    ? allLinks.find(l=>nd(l.domain)===d&&l.project===proj)
-    : allLinks.find(l=>nd(l.domain)===d);
-  if(existing){dupEl.style.display='block';dupEl.textContent='⚠️ Duplicate! '+d+' already exists — '+existing.project+' ('+existing.status+') by '+existing.builder;}
-  else dupEl.style.display='none';
+  // Duplicate check per-project — show inline in compat cards, not as alert
+  const dupProjects=allProjects.filter(p=>allLinks.some(l=>nd(l.domain)===d&&l.project===p.name));
+  if(dupProjects.length){
+    dupEl.style.display='block';
+    dupEl.style.background='transparent';
+    dupEl.style.border='none';
+    dupEl.style.padding='0';
+    dupEl.style.color='var(--text)';
+    dupEl.innerHTML='<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Already used in</div>'
+      +dupProjects.map(p=>{
+        const link=allLinks.find(l=>nd(l.domain)===d&&l.project===p.name);
+        return`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;margin-right:6px;margin-bottom:4px;">❌ ${p.name} <span style="font-weight:400;font-size:10px;color:rgba(255,107,107,0.7);">${link.status} · ${link.builder||'—'}</span></span>`;
+      }).join('');
+  } else {
+    dupEl.style.display='none';
+  }
 
   // Debounce detection
   clearTimeout(catDetectTimer);
@@ -837,9 +846,24 @@ function renderCompatCards(){
     const qr=allQualityReqs.find(r=>r.project===proj.name);
 
     if(!qr){
+      const alreadyUsed=allLinks.some(l=>nd(l.domain)===nd(document.getElementById('f-domain').value)&&l.project===proj.name);
+      if(alreadyUsed){
+        return`<div class="compat-pill fail">
+          <span class="compat-pill-icon">❌</span>${proj.name}
+          <div class="compat-tooltip"><div class="compat-tooltip-row fail-item">Already used in this project</div></div>
+        </div>`;
+      }
       return`<div class="compat-pill no-req">
         <span class="compat-pill-icon">○</span>${proj.name}
         <div class="compat-tooltip"><div class="compat-tooltip-row neutral">No requirements set</div></div>
+      </div>`;
+    }
+
+    const alreadyUsed=allLinks.some(l=>nd(l.domain)===nd(document.getElementById('f-domain').value)&&l.project===proj.name);
+    if(alreadyUsed){
+      return`<div class="compat-pill fail">
+        <span class="compat-pill-icon">❌</span>${proj.name}
+        <div class="compat-tooltip"><div class="compat-tooltip-row fail-item">Already used in this project</div></div>
       </div>`;
     }
 
