@@ -108,25 +108,21 @@ tr:hover td{background:var(--bg3);}
 .proj-name{font-size:14px;font-weight:600;}
 .proj-count{font-size:11px;color:var(--text2);}
 
-/* ── PROJECT COMPATIBILITY CARDS ── */
-.compat-section{margin-top:16px;}
-.compat-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;}
-.compat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;}
-.compat-card{border-radius:10px;padding:12px 14px;border:1px solid;cursor:pointer;transition:all 0.15s;position:relative;}
-.compat-card.ok{background:rgba(0,180,160,0.07);border-color:rgba(0,180,160,0.35);}
-.compat-card.ok:hover{background:rgba(0,180,160,0.13);}
-.compat-card.fail{background:rgba(255,107,107,0.06);border-color:rgba(255,107,107,0.25);}
-.compat-card.fail:hover{background:rgba(255,107,107,0.1);}
-.compat-card.no-req{background:var(--bg3);border-color:var(--border);opacity:0.6;}
-.compat-card-name{font-size:13px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
-.compat-icon{font-size:14px;}
-.compat-checks{display:flex;flex-direction:column;gap:3px;}
-.compat-check{font-size:11px;display:flex;align-items:center;gap:5px;}
-.compat-check.pass{color:#00c9b0;}
-.compat-check.fail-item{color:#ff6b6b;}
-.compat-check.neutral{color:var(--text3);}
-.compat-skeleton{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;animation:pulse 1.5s ease-in-out infinite;}
-@keyframes pulse{0%,100%{opacity:0.5;}50%{opacity:1;}}
+/* ── PROJECT COMPATIBILITY PILLS ── */
+.compat-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid;cursor:pointer;transition:all 0.15s;position:relative;}
+.compat-pill.ok{background:rgba(0,180,160,0.1);border-color:rgba(0,180,160,0.4);color:#00c9b0;}
+.compat-pill.ok:hover{background:rgba(0,180,160,0.18);}
+.compat-pill.fail{background:rgba(255,107,107,0.08);border-color:rgba(255,107,107,0.3);color:#ff6b6b;}
+.compat-pill.fail:hover{background:rgba(255,107,107,0.14);}
+.compat-pill.no-req{background:var(--bg3);border-color:var(--border);color:var(--text3);opacity:0.7;}
+.compat-pill-icon{font-size:13px;}
+.compat-tooltip{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:100;background:#0a1e35;border:1px solid var(--border);border-radius:8px;padding:8px 12px;min-width:180px;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+.compat-pill:hover .compat-tooltip{display:block;}
+.compat-tooltip-row{font-size:11px;display:flex;align-items:center;gap:5px;margin-bottom:3px;font-weight:400;}
+.compat-tooltip-row:last-child{margin-bottom:0;}
+.compat-tooltip-row.pass{color:#00c9b0;}
+.compat-tooltip-row.fail-item{color:#ff6b6b;}
+.compat-tooltip-row.neutral{color:var(--text3);}
 
 /* ── REQUIREMENTS PAGE ENHANCED ── */
 .req-form-section{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;}
@@ -228,10 +224,10 @@ tr:hover td{background:var(--bg3);}
         </div>
         <input type="hidden" id="f-category" value=""/>
 
-        <!-- PROJECT COMPATIBILITY -->
-        <div class="compat-section" id="compat-section" style="display:none;">
-          <div class="compat-title">Project compatibility</div>
-          <div class="compat-grid" id="compat-grid"></div>
+        <!-- PROJECT COMPATIBILITY — inline, inside metrics box -->
+        <div id="compat-section" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Link available for clients</div>
+          <div id="compat-grid" style="display:flex;flex-wrap:wrap;gap:7px;"></div>
         </div>
       </div>
 
@@ -301,13 +297,9 @@ tr:hover td{background:var(--bg3);}
       <!-- Quality Requirements -->
       <div class="req-form-section">
         <div class="req-form-title">Quality requirements (DR / Traffic / Spam / Category)</div>
-        <div class="form-grid" style="margin-bottom:10px;">
-          <div><label>Project</label><select id="rq-proj" onchange="loadQualityReq()"><option value="">Select</option></select></div>
-          <div><label>Month</label><select id="rq-month">
-            <option>January</option><option>February</option><option>March</option><option>April</option>
-            <option>May</option><option>June</option><option>July</option><option>August</option>
-            <option>September</option><option>October</option><option>November</option><option>December</option>
-          </select></div>
+        <div style="margin-bottom:10px;">
+          <label>Project</label>
+          <select id="rq-proj" onchange="loadQualityReq()" style="margin-bottom:0;"><option value="">Select project</option></select>
         </div>
         <div class="form-grid-3" style="margin-bottom:10px;">
           <div><label>Min DR</label><input id="rq-mindr" type="number" placeholder="e.g. 50" style="margin-bottom:0;"/></div>
@@ -355,8 +347,8 @@ tr:hover td{background:var(--bg3);}
   <div class="card" style="margin-top:1rem;">
     <div class="card-head">Quality requirements per project</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Project</th><th>Month</th><th>Min DR</th><th>Min Traffic</th><th>Max SS</th><th>Categories</th><th>Notes</th><th></th></tr></thead>
-      <tbody id="qreq-tbody"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+      <thead><tr><th>Project</th><th>Min DR</th><th>Min Traffic</th><th>Max SS</th><th>Categories</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="qreq-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 
@@ -662,76 +654,66 @@ function renderCompatCards(){
   compatSection.style.display='block';
 
   // Get current month name
+  // Get quality req for this project (no month)
   const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const currentMonth=monthNames[new Date().getMonth()];
 
-  const cards=allProjects.map(proj=>{
-    // Find quality req for this project (current month first, then any)
-    const qr=allQualityReqs.find(r=>r.project===proj.name&&r.month===currentMonth)
-           ||allQualityReqs.find(r=>r.project===proj.name);
+  const pills=allProjects.map(proj=>{
+    const qr=allQualityReqs.find(r=>r.project===proj.name);
 
     if(!qr){
-      return`<div class="compat-card no-req">
-        <div class="compat-card-name"><span class="compat-icon">○</span>${proj.name}</div>
-        <div class="compat-checks"><span class="compat-check neutral">No requirements set</span></div>
+      return`<div class="compat-pill no-req">
+        <span class="compat-pill-icon">○</span>${proj.name}
+        <div class="compat-tooltip"><div class="compat-tooltip-row neutral">No requirements set</div></div>
       </div>`;
     }
 
-    const checks=[];
-    let hasFailure=false;
+    const checks=[];let hasFailure=false;
 
-    // DR check
     if(qr.minDR){
-      if(dr===null){checks.push({label:`DR ≥ ${qr.minDR} (not entered)`,pass:null});}
-      else if(dr>=qr.minDR){checks.push({label:`DR ${dr} ≥ ${qr.minDR} ✓`,pass:true});}
-      else{checks.push({label:`DR ${dr} < ${qr.minDR} ✗`,pass:false});hasFailure=true;}
+      if(dr===null) checks.push({label:`DR ≥ ${qr.minDR}`,pass:null});
+      else if(dr>=qr.minDR) checks.push({label:`DR ${dr} ≥ ${qr.minDR}`,pass:true});
+      else{checks.push({label:`DR ${dr} < ${qr.minDR}`,pass:false});hasFailure=true;}
     }
-
-    // Traffic check
     if(qr.minTraffic){
-      if(traffic===null){checks.push({label:`Traffic ≥ ${Number(qr.minTraffic).toLocaleString()} (not entered)`,pass:null});}
-      else if(traffic>=qr.minTraffic){checks.push({label:`Traffic ${Number(traffic).toLocaleString()} ✓`,pass:true});}
-      else{checks.push({label:`Traffic ${Number(traffic).toLocaleString()} < ${Number(qr.minTraffic).toLocaleString()} ✗`,pass:false});hasFailure=true;}
+      if(traffic===null) checks.push({label:`Traffic ≥ ${Number(qr.minTraffic).toLocaleString()}`,pass:null});
+      else if(traffic>=qr.minTraffic) checks.push({label:`Traffic ${Number(traffic).toLocaleString()}`,pass:true});
+      else{checks.push({label:`Traffic ${Number(traffic).toLocaleString()} < ${Number(qr.minTraffic).toLocaleString()}`,pass:false});hasFailure=true;}
     }
-
-    // Spam Score check
     if(qr.maxSS!=null&&qr.maxSS!==''){
-      if(ssVal===null){checks.push({label:`SS ≤ ${qr.maxSS}% (not entered)`,pass:null});}
-      else if(ssVal<=qr.maxSS){checks.push({label:`SS ${ssVal}% ✓`,pass:true});}
-      else{checks.push({label:`SS ${ssVal}% > ${qr.maxSS}% ✗`,pass:false});hasFailure=true;}
+      if(ssVal===null) checks.push({label:`SS ≤ ${qr.maxSS}%`,pass:null});
+      else if(ssVal<=qr.maxSS) checks.push({label:`SS ${ssVal}%`,pass:true});
+      else{checks.push({label:`SS ${ssVal}% > ${qr.maxSS}%`,pass:false});hasFailure=true;}
     }
-
-    // Category check
     if(qr.allowedCategories&&qr.allowedCategories.length>0){
-      if(!category){checks.push({label:`Cat: ${qr.allowedCategories.join('/')} (detecting...)`,pass:null});}
-      else if(qr.allowedCategories.includes(category)){checks.push({label:`${category} ✓`,pass:true});}
-      else{checks.push({label:`${category} not in [${qr.allowedCategories.join(', ')}] ✗`,pass:false});hasFailure=true;}
+      if(!category) checks.push({label:`Cat: ${qr.allowedCategories.join('/')}`,pass:null});
+      else if(qr.allowedCategories.includes(category)) checks.push({label:category,pass:true});
+      else{checks.push({label:`${category} ✗`,pass:false});hasFailure=true;}
     }
 
-    if(checks.length===0){
-      return`<div class="compat-card no-req">
-        <div class="compat-card-name"><span class="compat-icon">○</span>${proj.name}</div>
-        <div class="compat-checks"><span class="compat-check neutral">No criteria set</span></div>
+    if(!checks.length){
+      return`<div class="compat-pill no-req">
+        <span class="compat-pill-icon">○</span>${proj.name}
+        <div class="compat-tooltip"><div class="compat-tooltip-row neutral">No criteria set</div></div>
       </div>`;
     }
 
-    const allPass=!hasFailure&&checks.every(c=>c.pass!==false);
-    const cardClass=hasFailure?'fail':'ok';
+    const pillClass=hasFailure?'fail':'ok';
     const icon=hasFailure?'❌':'✅';
-
-    const checksHtml=checks.map(c=>{
+    const tooltipRows=checks.map(c=>{
       const cls=c.pass===true?'pass':c.pass===false?'fail-item':'neutral';
-      return`<span class="compat-check ${cls}">${c.label}</span>`;
+      const sym=c.pass===true?'✓':c.pass===false?'✗':'·';
+      return`<div class="compat-tooltip-row ${cls}">${sym} ${c.label}</div>`;
     }).join('');
+    const notes=qr.notes?`<div class="compat-tooltip-row neutral" style="margin-top:5px;border-top:1px solid var(--border);padding-top:5px;">${qr.notes}</div>`:'';
 
-    return`<div class="compat-card ${cardClass}" onclick="document.getElementById('f-proj').value='${proj.name}';onAnchorInput();">
-      <div class="compat-card-name"><span class="compat-icon">${icon}</span>${proj.name}</div>
-      <div class="compat-checks">${checksHtml}</div>
-      ${qr.notes?`<div style="font-size:10px;color:var(--text3);margin-top:6px;font-style:italic;">${qr.notes}</div>`:''}
+    return`<div class="compat-pill ${pillClass}" onclick="document.getElementById('f-proj').value='${proj.name}';onAnchorInput();">
+      <span class="compat-pill-icon">${icon}</span>${proj.name}
+      <div class="compat-tooltip">${tooltipRows}${notes}</div>
     </div>`;
   }).join('');
 
-  compatGrid.innerHTML=cards;
+  compatGrid.innerHTML=pills;
 }
 
 // ─── ANCHOR CHECK ─────────────────────────────────────────
@@ -773,10 +755,7 @@ async function addLink(){
   if(existing){if(!confirm('Duplicate! '+domain+' already exists. Add anyway?'))return;}
 
   // Quality requirements validation (hard stop)
-  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const currentMonth=monthNames[new Date().getMonth()];
-  const qr=allQualityReqs.find(r=>r.project===proj&&r.month===currentMonth)
-          ||allQualityReqs.find(r=>r.project===proj);
+  const qr=allQualityReqs.find(r=>r.project===proj);
 
   if(qr){
     const failures=[];
@@ -871,14 +850,12 @@ async function addReq(){
 // Load existing quality req into form when project changes
 async function loadQualityReq(){
   const proj=document.getElementById('rq-proj').value;
-  const month=document.getElementById('rq-month').value;
   if(!proj)return;
-  const existing=allQualityReqs.find(r=>r.project===proj&&r.month===month);
+  const existing=allQualityReqs.find(r=>r.project===proj);
   document.getElementById('rq-mindr').value=existing?.minDR||'';
   document.getElementById('rq-mintraffic').value=existing?.minTraffic||'';
   document.getElementById('rq-maxss').value=existing?.maxSS!=null?existing.maxSS:'';
   document.getElementById('rq-notes').value=existing?.notes||'';
-  // checkboxes
   const allowed=existing?.allowedCategories||[];
   document.querySelectorAll('#rq-cats input[type=checkbox]').forEach(cb=>{
     cb.checked=allowed.includes(cb.value);
@@ -887,7 +864,6 @@ async function loadQualityReq(){
 
 async function saveQualityReq(){
   const proj=document.getElementById('rq-proj').value;
-  const month=document.getElementById('rq-month').value;
   if(!proj){alert('Select a project');return;}
   const minDR=document.getElementById('rq-mindr').value!==''?parseFloat(document.getElementById('rq-mindr').value):null;
   const minTraffic=document.getElementById('rq-mintraffic').value!==''?parseFloat(document.getElementById('rq-mintraffic').value):null;
@@ -896,8 +872,8 @@ async function saveQualityReq(){
   const allowedCategories=[];
   document.querySelectorAll('#rq-cats input[type=checkbox]:checked').forEach(cb=>allowedCategories.push(cb.value));
 
-  const data={project:proj,month,minDR,minTraffic,maxSS,allowedCategories,notes,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
-  const existing=allQualityReqs.find(r=>r.project===proj&&r.month===month);
+  const data={project:proj,minDR,minTraffic,maxSS,allowedCategories,notes,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  const existing=allQualityReqs.find(r=>r.project===proj);
   if(existing)await db.collection('qualityRequirements').doc(existing.id).update(data);
   else await db.collection('qualityRequirements').add(data);
 
@@ -913,7 +889,6 @@ function renderQualityReqs(){
     const cats=(r.allowedCategories||[]).map(c=>`<span class="badge b-saas" style="font-size:10px;padding:2px 7px;">${c}</span>`).join(' ')||'<span style="color:var(--text3)">Any</span>';
     return`<tr>
       <td style="font-weight:600;">${r.project}</td>
-      <td>${r.month}</td>
       <td>${r.minDR!=null?'≥ '+r.minDR:'—'}</td>
       <td>${r.minTraffic!=null?'≥ '+Number(r.minTraffic).toLocaleString():'—'}</td>
       <td>${r.maxSS!=null?'≤ '+r.maxSS+'%':'—'}</td>
