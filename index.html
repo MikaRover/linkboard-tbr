@@ -10,6 +10,13 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{--bg:#0a1628;--bg2:#0f1f35;--bg3:#162840;--teal:#00b4a0;--teal2:#00d4bc;--border:#1e3a52;--text:#e8f4f0;--text2:#7a9db5;--text3:#4a7a94;}
+body.light{--bg:#f0f4f8;--bg2:#ffffff;--bg3:#e8eef5;--teal:#00897b;--teal2:#00a896;--border:#d0dce8;--text:#1a2a3a;--text2:#5a7a94;--text3:#8aaabf;}
+body.light input,body.light select{background:var(--bg3);color:var(--text);border-color:var(--border);}
+body.light select option{background:var(--bg2);color:var(--text);}
+body.light .btn{color:#fff;}
+body.light .btn-sm{color:#fff;}
+.theme-toggle{cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);transition:all 0.15s;}
+.theme-toggle:hover{border-color:var(--teal);color:var(--teal);}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 .screen{display:none;}.screen.active{display:block;}
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;}
@@ -183,7 +190,10 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('reqs',this)">Requirements</div>
   <div class="nav adm" onclick="gotoPage('team',this)">Team</div>
   <div class="nav adm" onclick="gotoPage('import',this)">Import CSV</div>
-  <div class="sb-bottom"><span class="logout" onclick="doLogout()">Sign out</span></div>
+  <div class="sb-bottom">
+    <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" style="width:100%;margin-bottom:10px;text-align:left;">🌙 Dark mode</button>
+    <span class="logout" onclick="doLogout()">Sign out</span>
+  </div>
 </div>
 <div class="content">
 
@@ -480,6 +490,22 @@ let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows
 let catDetectTimer=null, currentDetectedCategory='', catDetectAbort=false;
 
 // ─── AUTH ─────────────────────────────────────────────────
+function toggleTheme(){
+  const isLight=document.body.classList.toggle('light');
+  document.getElementById('theme-btn').textContent=isLight?'🌙 Dark mode':'☀️ Light mode';
+  localStorage.setItem('theme',isLight?'light':'dark');
+}
+
+// Apply saved theme on load
+(function(){
+  const saved=localStorage.getItem('theme');
+  if(saved==='light'){
+    document.body.classList.add('light');
+    const btn=document.getElementById('theme-btn');
+    if(btn)btn.textContent='🌙 Dark mode';
+  }
+})();
+
 auth.onAuthStateChanged(async user=>{
   if(user){
     const doc=await db.collection('users').doc(user.uid).get();
