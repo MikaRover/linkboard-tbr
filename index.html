@@ -828,8 +828,12 @@ function renderDetailLinks(){
   });
 
   fl.sort((a,b)=>{
-    let av=parseDate(a.date),bv=parseDate(b.date);
-    return pdSortDir==='desc'?bv-av:av-bv;
+    const am=getMonthKey(a.date), bm=getMonthKey(b.date);
+    const av=parseDate(a.date), bv=parseDate(b.date);
+    if(am!==bm) return pdSortDir==='desc'?bv-av:av-bv;
+    if(a.status==='live'&&b.status!=='live')return -1;
+    if(a.status!=='live'&&b.status==='live')return 1;
+    return bv-av;
   });
 
   // Stats
@@ -867,9 +871,9 @@ function renderDetailLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${l.dr||''}" type="number" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${l.traffic||''}" type="number" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Spam Score %</div><input id="ei-ss-${lid}" value="${l.ss||''}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Spam Score %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" type="number" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Anchor text</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
         </div>
@@ -1440,12 +1444,15 @@ function renderLinks(){
   });
   // Sort
   fl.sort((a,b)=>{
-    let av,bv;
-    if(sortField==='date'){av=parseDate(a.date);bv=parseDate(b.date);}
-    else if(sortField==='dr'){av=parseFloat(a.dr)||0;bv=parseFloat(b.dr)||0;}
-    else if(sortField==='traffic'){av=parseFloat(a.traffic)||0;bv=parseFloat(b.traffic)||0;}
-    else{av=0;bv=0;}
-    return sortDir==='desc'?bv-av:av-bv;
+    const am=getMonthKey(a.date), bm=getMonthKey(b.date);
+    // Sort months descending
+    const av=parseDate(a.date), bv=parseDate(b.date);
+    if(am!==bm) return sortDir==='desc'?bv-av:av-bv;
+    // Within same month: live first
+    if(a.status==='live'&&b.status!=='live')return -1;
+    if(a.status!=='live'&&b.status==='live')return 1;
+    // Within same status: date descending
+    return bv-av;
   });
 
   const tb=document.getElementById('all-tbody');
@@ -1479,9 +1486,9 @@ function renderLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link in ${l.linkin?`<a href="${l.linkin}" target="_blank" style="font-size:10px;color:var(--teal);margin-left:6px;">↗ open</a>`:''}</div><input id="ei-linkin-${lid}" value="${safeLinkin}" placeholder="https://example.com/blog/post" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to ${l.linkto?`<a href="${l.linkto}" target="_blank" style="font-size:10px;color:var(--teal);margin-left:6px;">↗ open</a>`:''}</div><input id="ei-linkto-${lid}" value="${safeLinkto}" placeholder="https://project.com/page" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${l.dr||''}" type="number" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${l.traffic||''}" type="number" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Spam Score %</div><input id="ei-ss-${lid}" value="${l.ss||''}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Spam Score %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" type="number" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Anchor text</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
@@ -1501,7 +1508,8 @@ function tryPath(url,maxLen){
   }catch(e){return url.slice(0,maxLen);}
 }
 
-function safeLink(url, label, style){
+function cleanNum(v){return String(v||'').replace(/,/g,'').replace(/%/g,'').trim();}
+
   if(!url) return '<span style="color:var(--text3);font-size:10px;">—</span>';
   const safe=url.replace(/"/g,'&quot;');
   return `<a href="${safe}" target="_blank" style="${style}" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text3)'">${label}</a>`;
