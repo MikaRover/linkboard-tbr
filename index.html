@@ -845,7 +845,7 @@ function renderDetailLinks(){
   const tb=document.getElementById('pd-tbody');
   if(!fl.length){tb.innerHTML='<tr><td colspan="13" class="loading">No links</td></tr>';return;}
 
-  tb.innerHTML=fl.map(l=>{
+  const pdRowFn=(l)=>{
     const lid=l.id;
     const isDup=domainCount[nd(l.domain)]>1;
     const trafficVal=l.traffic&&!isNaN(Number(l.traffic))?Number(l.traffic).toLocaleString():'—';
@@ -855,30 +855,17 @@ function renderDetailLinks(){
       <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${lid}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td>${l.date||''}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.domain}</a></td>
-      <td>${l.dr||'—'}</td>
-      <td>${trafficVal}</td>
-      <td>${l.ss||'—'}</td>
-      <td>${priceVal}</td>
-      <td>${l.anchor||'—'}</td>
-      <td>${l.builder||'—'}</td>
-      <td onclick="event.stopPropagation()">
-        <select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;">
-          <option value="live" ${l.status==='live'?'selected':''}>Live</option>
-          <option value="pending" ${l.status==='pending'?'selected':''}>Pending</option>
-        </select>
-      </td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">
-        ${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
-        <button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="checkSingleLink('${lid}',null,null,null,this)">▶</button>
-      </td>
+      <td>${l.dr||'—'}</td><td>${trafficVal}</td><td>${l.ss||'—'}</td><td>${priceVal}</td><td>${l.anchor||'—'}</td><td>${l.builder||'—'}</td>
+      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option></select></td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="checkSingleLink('${lid}',null,null,null,this)">▶</button></td>
       <td>${dupB(l,domainCount)}</td>
       <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button></td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
       <td colspan="13" style="padding:14px 16px;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${l.dr||''}" type="number" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${l.traffic||''}" type="number" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Spam Score %</div><input id="ei-ss-${lid}" value="${l.ss||''}" type="number" style="margin:0;font-size:12px;"/></div>
@@ -888,7 +875,8 @@ function renderDetailLinks(){
         <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
       </td>
     </tr>`;
-  }).join('');
+  };
+  tb.innerHTML=renderRowsGrouped(fl,pdRowFn,13);
 }
 
 function togglePdSort(field){
@@ -1296,6 +1284,48 @@ async function addReq(){
   document.getElementById('r-max').value='';
 }
 
+function getMonthKey(dateStr){
+  if(!dateStr)return'Unknown';
+  const p=dateStr.split(/[.\-\/]/);
+  if(p.length===3){
+    const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const month=months[parseInt(p[1])-1]||'Unknown';
+    const year=p[2].length===2?'20'+p[2]:p[2];
+    return`${month} ${year}`;
+  }
+  return dateStr.slice(0,7)||'Unknown';
+}
+
+function monthSeparatorRow(monthKey, count, colspan){
+  return`<tr style="background:var(--bg3);border-top:2px solid var(--border);">
+    <td colspan="${colspan}" style="padding:8px 12px;">
+      <span style="font-size:12px;font-weight:700;color:var(--teal);">${monthKey}</span>
+      <span style="font-size:11px;color:var(--text3);margin-left:8px;">${count} links</span>
+    </td>
+  </tr>`;
+}
+
+function renderRowsGrouped(links, rowFn, colspan){
+  if(!links.length)return`<tr><td colspan="${colspan}" class="loading">No links</td></tr>`;
+  let html='';
+  let lastMonth='';
+  let monthCount=0;
+  let monthStart=0;
+
+  // Pre-group
+  const rows=links.map(l=>({l,month:getMonthKey(l.date)}));
+  let i=0;
+  while(i<rows.length){
+    const month=rows[i].month;
+    let j=i;
+    while(j<rows.length&&rows[j].month===month)j++;
+    html+=monthSeparatorRow(month,j-i,colspan);
+    for(let k=i;k<j;k++) html+=rowFn(rows[k].l);
+    i=j;
+  }
+  return html;
+}
+
 // Load existing quality req into form when project changes
 async function loadQualityReq(){
   const proj=document.getElementById('rq-proj').value;
@@ -1418,15 +1448,47 @@ function renderLinks(){
   });
 
   const tb=document.getElementById('all-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="13" class="loading">No links</td></tr>';return;}
-  tb.innerHTML=fl.map(l=>{
+  if(!fl.length){tb.innerHTML='<tr><td colspan="17" class="loading">No links</td></tr>';return;}
+
+  const rowFn=(l)=>{
     const trafficVal=l.traffic&&!isNaN(Number(l.traffic))?Number(l.traffic).toLocaleString():'—';
     const priceVal=l.price?'$'+String(l.price).replace(/^\$+/,''):'—';
     const canDelete=cu.role==='admin';
-    const lcDisplay=linkCheckBadge(l.linkcheck, l.linkin, l.linkto);
+    const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto);
     const lid=l.id;
     const isDup=domainCount[nd(l.domain)+'|'+(l.project||'')]>1;
+    const safeLinkin=(l.linkin||'').replace(/"/g,'&quot;');
+    const safeLinkto=(l.linkto||'').replace(/"/g,'&quot;');
     return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${lid}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
+      <td>${l.date||''}</td>
+      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.domain}</a></td>
+      <td>${l.dr||'—'}</td><td>${trafficVal}</td><td>${l.ss||'—'}</td><td>${catBadge(l.category)}</td><td>${priceVal}</td><td>${l.anchor}</td>
+      <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="event.stopPropagation()" title="${safeLinkin}">${l.linkin?`<a href="${l.linkin}" target="_blank" style="font-size:10px;color:var(--text3);text-decoration:none;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text3)'">↗ ${tryPath(l.linkin,25)}</a>`:'<span style="color:var(--text3);font-size:10px;">—</span>'}</td>
+      <td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="event.stopPropagation()" title="${safeLinkto}">${l.linkto?`<a href="${l.linkto}" target="_blank" style="font-size:10px;color:var(--text3);text-decoration:none;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text3)'">↗ ${tryPath(l.linkto,20)}</a>`:'<span style="color:var(--text3);font-size:10px;">—</span>'}</td>
+      <td>${l.project}</td><td>${l.builder}</td>
+      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option></select></td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="checkSingleLink('${lid}',null,null,null,this)">▶</button></td>
+      <td>${dupB(l,domainCount)}</td>
+      <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button>`:''}</td>
+    </tr>
+    <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
+      <td colspan="17" style="padding:14px 16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${safeLinkin}" placeholder="https://example.com/blog/post" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${safeLinkto}" placeholder="https://project.com/page" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${l.dr||''}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${l.traffic||''}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Spam Score %</div><input id="ei-ss-${lid}" value="${l.ss||''}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Anchor text</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
+        </div>
+        <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+      </td>
+    </tr>`;
+  };
+  tb.innerHTML=renderRowsGrouped(fl,rowFn,17);
+}''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${lid}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td>${l.date||''}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()">
@@ -1491,15 +1553,7 @@ function renderLinks(){
             <input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/>
           </div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button>
-          <button class="btn-ghost" onclick="toggleEditRow('${lid}',null,true)">Cancel</button>
-          <span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-}
+function tryPath(url,maxLen){try{const u=new URL(url.startsWith('http')?url:'https://'+url);return(u.pathname.slice(0,maxLen)||'/');}catch(e){return url.slice(0,maxLen);}}
 
 function renderReqs(){
   const tb=document.getElementById('req-tbody');
