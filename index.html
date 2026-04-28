@@ -1462,18 +1462,66 @@ function handleCsvFile(file){
   reader.onload=e=>{
     const rows=parseCSV(e.target.result);
     const proj=document.getElementById('imp-proj').value;
-    csvRows=[];let status='live';
+    csvRows=[];
+    let status='live';
+    let currentMonth='';
+    const MONTHS=['january','february','march','april','may','june','july','august','september','october','november','december'];
+
     for(let i=1;i<rows.length;i++){
       const row=rows[i];
-      const c0=(row[0]||'').trim(),c1=(row[1]||'').trim();
-      if(c0.toLowerCase().includes('live')){status='live';continue;}
-      if(c0.toLowerCase().includes('pending')){status='pending';continue;}
-      if(!c1||c1==='Domain')continue;
-      csvRows.push({date:c0,domain:c1,dr:(row[2]||'').trim(),traffic:(row[3]||'').trim(),ss:(row[4]||'').trim(),price:(row[5]||'').trim(),linkin:(row[6]||'').trim(),linkto:(row[7]||'').trim(),anchor:(row[8]||'').trim(),invoice:(row[9]||'').trim(),builder:(row[10]||'').trim(),comments:(row[11]||'').trim(),relevancy:(row[12]||'').trim(),status,project:proj||'Unknown',check:'ok',category:''});
+      const c0=(row[0]||'').trim();
+      const c1=(row[1]||'').trim();
+      const c0l=c0.toLowerCase();
+
+      // Detect section header
+      const isPending=c0l==='pending'||c0l.startsWith('pending ');
+      const isLiveHeader=MONTHS.some(m=>c0l.includes(m))&&(c0l.includes('live')||c0l.includes('link'));
+      const isMonthHeader=MONTHS.some(m=>c0l.startsWith(m));
+
+      if(isPending){status='pending';continue;}
+      if(isLiveHeader||isMonthHeader){
+        status='live';
+        // Extract month name
+        const m=MONTHS.find(m=>c0l.includes(m));
+        if(m)currentMonth=m.charAt(0).toUpperCase()+m.slice(1);
+        continue;
+      }
+
+      // Skip header row or empty domain
+      if(!c1||c1.toLowerCase()==='domain')continue;
+
+      csvRows.push({
+        date:c0,
+        domain:c1,
+        dr:(row[2]||'').trim(),
+        traffic:(row[3]||'').trim(),
+        ss:(row[4]||'').trim(),
+        price:String(row[5]||'').replace(/\$+/g,'').trim(),
+        linkin:(row[6]||'').trim(),
+        linkto:(row[7]||'').trim(),
+        anchor:(row[8]||'').trim(),
+        invoice:(row[9]||'').trim(),
+        builder:(row[10]||'').trim(),
+        comments:(row[11]||'').trim(),
+        relevancy:(row[12]||'').trim(),
+        status,
+        month:currentMonth,
+        project:proj||'Unknown',
+        check:'ok',
+        category:''
+      });
     }
+
     document.getElementById('imp-count').textContent=csvRows.length+' links found';
     document.getElementById('imp-preview').style.display='block';
-    document.getElementById('imp-log').innerHTML=csvRows.slice(0,5).map(r=>`<div>✓ ${r.domain} — ${r.status} — ${r.builder||'?'}</div>`).join('')+(csvRows.length>5?`<div style="color:var(--text3);">...and ${csvRows.length-5} more</div>`:'');
+
+    // Summary by status
+    const live=csvRows.filter(r=>r.status==='live').length;
+    const pend=csvRows.filter(r=>r.status==='pending').length;
+    document.getElementById('imp-log').innerHTML=
+      `<div style="margin-bottom:6px;"><span style="color:var(--teal);">✅ Live: ${live}</span> &nbsp; <span style="color:#f0a500;">⏳ Pending: ${pend}</span></div>`
+      +csvRows.slice(0,6).map(r=>`<div><span style="color:${r.status==='live'?'var(--teal)':'#f0a500'}">${r.status==='live'?'✅':'⏳'}</span> ${r.domain} — ${r.builder||'?'} ${r.month?'· '+r.month:''}</div>`).join('')
+      +(csvRows.length>6?`<div style="color:var(--text3);">...and ${csvRows.length-6} more</div>`:'');
   };
   reader.readAsText(file);
 }
