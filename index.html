@@ -864,6 +864,7 @@ function renderDetailLinks(){
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
       <td colspan="13" style="padding:14px 16px;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${l.dr||''}" type="number" style="margin:0;font-size:12px;"/></div>
@@ -1475,6 +1476,7 @@ function renderLinks(){
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
       <td colspan="17" style="padding:14px 16px;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${safeLinkin}" placeholder="https://example.com/blog/post" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${safeLinkto}" placeholder="https://project.com/page" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${l.dr||''}" type="number" style="margin:0;font-size:12px;"/></div>
@@ -1715,6 +1717,7 @@ function toggleEditRow(id, event, forceClose){
 }
 
 async function saveEditRow(id){
+  const date=(document.getElementById('ei-date-'+id)?.value||'').trim();
   const linkin=(document.getElementById('ei-linkin-'+id)?.value||'').trim();
   const linkto=(document.getElementById('ei-linkto-'+id)?.value||'').trim();
   const dr=(document.getElementById('ei-dr-'+id)?.value||'').trim();
@@ -1723,7 +1726,7 @@ async function saveEditRow(id){
   const anchor=(document.getElementById('ei-anchor-'+id)?.value||'').trim();
   const comments=(document.getElementById('ei-comments-'+id)?.value||'').trim();
 
-  await db.collection('links').doc(id).update({linkin,linkto,dr,traffic,ss,anchor,comments});
+  await db.collection('links').doc(id).update({date,linkin,linkto,dr,traffic,ss,anchor,comments});
 
   const saved=document.getElementById('ei-saved-'+id);
   if(saved){saved.style.display='inline';setTimeout(()=>saved.style.display='none',2000);}
