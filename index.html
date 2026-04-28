@@ -1490,71 +1490,8 @@ function renderLinks(){
     </tr>`;
   };
   tb.innerHTML=renderRowsGrouped(fl,rowFn,17);
-}''}">
-      <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${lid}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td>${l.date||''}</td>
-      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()">
-        <a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.domain}</a>
-      </td>
-      <td>${l.dr||'—'}</td>
-      <td>${trafficVal}</td>
-      <td>${l.ss||'—'}</td>
-      <td>${catBadge(l.category)}</td>
-      <td>${priceVal}</td>
-      <td>${l.anchor}</td>
-      <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="event.stopPropagation()" title="${l.linkin||''}">
-        ${l.linkin?`<a href="${l.linkin}" target="_blank" style="font-size:10px;color:var(--text3);text-decoration:none;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text3)'">↗ ${new URL(l.linkin.startsWith('http')?l.linkin:'https://'+l.linkin).pathname.slice(0,25)||'/'}</a>`:'<span style="color:var(--text3);font-size:10px;">—</span>'}
-      </td>
-      <td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="event.stopPropagation()" title="${l.linkto||''}">
-        ${l.linkto?`<a href="${l.linkto}" target="_blank" style="font-size:10px;color:var(--text3);text-decoration:none;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text3)'">↗ ${new URL(l.linkto.startsWith('http')?l.linkto:'https://'+l.linkto).pathname.slice(0,20)||'/'}</a>`:'<span style="color:var(--text3);font-size:10px;">—</span>'}
-      </td>
-      <td>${l.project}</td>
-      <td>${l.builder}</td>
-      <td onclick="event.stopPropagation()">
-        <select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;">
-          <option value="live" ${l.status==='live'?'selected':''}>Live</option>
-          <option value="pending" ${l.status==='pending'?'selected':''}>Pending</option>
-        </select>
-      </td>
-      <td style="white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;" onclick="event.stopPropagation()">
-        ${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${lcDisplay}</a>`:lcDisplay}
-        <button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="checkSingleLink('${lid}',null,null,null,this)">▶</button>
-      </td>
-      <td>${dupB(l, domainCount)}</td>
-      <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button>`:''}</td>
-    </tr>
-    <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
-      <td colspan="14" style="padding:14px 16px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div>
-            <div class="section-label" style="margin-bottom:4px;">Link in (placement URL)</div>
-            <input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" placeholder="https://example.com/blog/post" style="margin:0;font-size:12px;"/>
-          </div>
-          <div>
-            <div class="section-label" style="margin-bottom:4px;">Link to (target URL)</div>
-            <input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" placeholder="https://project.com/page" style="margin:0;font-size:12px;"/>
-          </div>
-          <div>
-            <div class="section-label" style="margin-bottom:4px;">DR</div>
-            <input id="ei-dr-${lid}" value="${l.dr||''}" placeholder="—" type="number" style="margin:0;font-size:12px;"/>
-          </div>
-          <div>
-            <div class="section-label" style="margin-bottom:4px;">Traffic</div>
-            <input id="ei-traffic-${lid}" value="${l.traffic||''}" placeholder="—" type="number" style="margin:0;font-size:12px;"/>
-          </div>
-          <div>
-            <div class="section-label" style="margin-bottom:4px;">Spam Score %</div>
-            <input id="ei-ss-${lid}" value="${l.ss||''}" placeholder="—" type="number" style="margin:0;font-size:12px;"/>
-          </div>
-          <div>
-            <div class="section-label" style="margin-bottom:4px;">Anchor text</div>
-            <input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" placeholder="anchor text" style="margin:0;font-size:12px;"/>
-          </div>
-          <div>
-            <div class="section-label" style="margin-bottom:4px;">Comments</div>
-            <input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/>
-          </div>
-        </div>
+}
+
 function tryPath(url,maxLen){try{const u=new URL(url.startsWith('http')?url:'https://'+url);return(u.pathname.slice(0,maxLen)||'/');}catch(e){return url.slice(0,maxLen);}}
 
 function renderReqs(){
