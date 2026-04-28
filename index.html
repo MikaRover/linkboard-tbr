@@ -1477,8 +1477,8 @@ function renderLinks(){
       <td colspan="17" style="padding:14px 16px;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
           <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${safeLinkin}" placeholder="https://example.com/blog/post" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${safeLinkto}" placeholder="https://project.com/page" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link in ${l.linkin?`<a href="${l.linkin}" target="_blank" style="font-size:10px;color:var(--teal);margin-left:6px;">↗ open</a>`:''}</div><input id="ei-linkin-${lid}" value="${safeLinkin}" placeholder="https://example.com/blog/post" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to ${l.linkto?`<a href="${l.linkto}" target="_blank" style="font-size:10px;color:var(--teal);margin-left:6px;">↗ open</a>`:''}</div><input id="ei-linkto-${lid}" value="${safeLinkto}" placeholder="https://project.com/page" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${l.dr||''}" type="number" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${l.traffic||''}" type="number" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Spam Score %</div><input id="ei-ss-${lid}" value="${l.ss||''}" type="number" style="margin:0;font-size:12px;"/></div>
