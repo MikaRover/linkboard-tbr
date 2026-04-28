@@ -1666,11 +1666,13 @@ async function batchDelete(){
 }
 
 function toggleEditRow(id, event, forceClose){
-  if(event&&event.target&&(event.target.tagName==='BUTTON'||event.target.tagName==='SELECT'))return;
+  if(event&&event.target){
+    const tag=event.target.tagName;
+    if(tag==='BUTTON'||tag==='SELECT'||tag==='INPUT'||tag==='A')return;
+  }
   const row=document.getElementById('edit-'+id);
-  if(!row)return;
-  const isOpen=row.style.display!=='none';
-  // Close all others first
+  if(!row){console.warn('edit row not found:',id);return;}
+  const isOpen=row.style.display==='table-row';
   document.querySelectorAll('[id^="edit-"]').forEach(r=>r.style.display='none');
   if(!isOpen&&!forceClose) row.style.display='table-row';
 }
