@@ -793,63 +793,25 @@ function heuristicClassify(text){
 }
 function countHits(text,kws){let s=0;for(const k of kws){if(text.includes(k))s++;}return s;}
 
-// Full detection: fetch homepage → heuristic → GPT
+// Full detection via serverless endpoint
 async function detectCategory(domain){
   const statusEl=document.getElementById('cat-status');
   statusEl.innerHTML='<span class="det-status det-loading"><span class="spin">↻</span> Detecting...</span>';
-
-  // Step 1: fetch homepage text
-  let pageText='';
   try{
-    const resp=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://'+domain)}`);
-    const data=await resp.json();
-    if(data&&data.contents){
-      pageText=stripHtmlClient(data.contents).slice(0,8000);
-    }
-  }catch(e){}
-
-  // Step 2: heuristic (instant result)
-  const hResult=heuristicClassify(pageText||domain);
-  renderCatButtons(hResult);
-  renderCompatCards();
-  statusEl.innerHTML=`<span class="det-status det-heuristic">⚡ ${hResult} (heuristic)</span>`;
-
-  // Step 3: GPT confirmation (if we have text)
-  if(!OPENAI_KEY||!pageText)return;
-  try{
-    const prompt=`Classify this website into exactly one category: SaaS, Service, Blog/Magazine, News, Agency, or Other.
-
-SaaS = software product/platform/tool people use online, with pricing, signup, login, dashboard, API.
-Service = agency, consultancy, done-for-you business, professional services.
-Blog/Magazine = publisher, editorial, news site, content-first.
-News = news outlet, media company.
-Agency = marketing/design/dev agency.
-Other = anything else.
-
-Heuristic pre-analysis: ${hResult}
-
-Return ONLY valid JSON: {"category":"SaaS","confidence":95}
-
-Domain: ${domain}
-Website text sample:
-${pageText.slice(0,3000)}`;
-
-    const resp=await fetch('https://api.openai.com/v1/chat/completions',{
+    const resp=await fetch('/api/detect-category',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
-      body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'system',content:'You are a website classifier. Return only valid JSON.'},{role:'user',content:prompt}],max_tokens:30,temperature:0})
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({domain, openaiKey:OPENAI_KEY})
     });
     const data=await resp.json();
-    const raw=(data.choices[0].message.content||'').trim();
-    const obj=JSON.parse(raw);
-    const cat=CATEGORIES.find(c=>c===obj.category)||obj.category||hResult;
-    const normalCat=normalizeCategory(cat);
-    renderCatButtons(normalCat);
+    const cat=normalizeCategory(data.category||'Other');
+    renderCatButtons(cat);
     renderCompatCards();
-    statusEl.innerHTML=`<span class="det-status det-gpt">🤖 ${normalCat} (GPT ${obj.confidence||''}%)</span>`;
+    const isGpt=data.method==='gpt';
+    const label=isGpt?`🤖 ${cat} (GPT${data.confidence?' '+data.confidence+'%':''})`:`⚡ ${cat} (heuristic)`;
+    statusEl.innerHTML=`<span class="det-status ${isGpt?'det-gpt':'det-heuristic'}">${label}</span>`;
   }catch(e){
-    // keep heuristic result, just update status
-    statusEl.innerHTML=`<span class="det-status det-heuristic">⚡ ${hResult} (heuristic)</span>`;
+    statusEl.innerHTML='<span class="det-status det-heuristic">⚡ Detection failed</span>';
   }
 }
 
