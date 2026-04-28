@@ -374,9 +374,12 @@ tr:hover td{background:var(--bg3);}
 <div id="p-links" class="page">
   <div class="page-top">
     <div class="page-title">All links</div>
-    <div style="display:flex;gap:8px;">
-      <button id="check-all-btn" class="btn-ghost" onclick="checkAllLinks()">Check all links</button>
-      <button class="btn-sm adm" onclick="exportCSV()" style="background:transparent;color:var(--teal);border:1px solid var(--teal);">Export CSV</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="check-proj-select" style="margin:0;padding:6px 10px;font-size:12px;width:auto;">
+        <option value="">All projects</option>
+      </select>
+      <button id="check-all-btn" class="btn-sm" onclick="checkProjectLinks()" style="white-space:nowrap;">▶ Check links</button>
+      <button class="btn-sm adm" onclick="exportCSV()" style="background:transparent;color:var(--teal);border:1px solid var(--teal);white-space:nowrap;">Export CSV</button>
     </div>
   </div>
   <div class="filters" style="gap:6px;margin-bottom:8px;">
@@ -690,7 +693,7 @@ function listenProjects(){
 }
 function populateProjectSelects(){
   const names=allProjects.map(p=>p.name);
-  ['f-proj','r-proj','rq-proj','imp-proj','req-imp-proj','ls-p'].forEach(id=>{
+  ['f-proj','r-proj','rq-proj','imp-proj','req-imp-proj','ls-p','check-proj-select'].forEach(id=>{
     const s=document.getElementById(id);if(!s)return;
     const isFilter=id==='ls-p';const cur=s.value;
     s.innerHTML=isFilter?'<option value="">All projects</option>':'<option value="">Select project</option>';
@@ -1360,33 +1363,34 @@ async function checkSingleLink(id, _li, _lt, _anc, btn){
   btn.textContent=orig;btn.disabled=false;
 }
 
-async function checkAllLinks(){
-  const toCheck=allLinks.filter(l=>l.linkin&&l.linkto);
-  if(!toCheck.length){alert('No links with Link in/out data.');return;}
-  if(!confirm(`Check ${toCheck.length} links? This may take a while.`))return;
+async function checkProjectLinks(){
+  const proj=document.getElementById('check-proj-select').value;
+  const toCheck=allLinks.filter(l=>{
+    if(proj&&l.project!==proj)return false;
+    return l.linkin&&l.linkto;
+  });
+  if(!toCheck.length){alert(proj?`No links with URLs in "${proj}"`:'No links with URLs found.');return;}
+  if(!confirm(`Check ${toCheck.length} links${proj?' in '+proj:''}?`))return;
 
   const btn=document.getElementById('check-all-btn');
-  btn.textContent='⏳ Checking...';btn.disabled=true;
-
+  btn.disabled=true;
   let done=0;
   for(const l of toCheck){
+    btn.textContent=`⏳ ${done}/${toCheck.length}`;
     try{
-      const resp=await fetch('/api/check-link',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor})
-      });
+      const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
       const data=await resp.json();
       await db.collection('links').doc(l.id).update({linkcheck:data.result||'⚠️ No response'});
     }catch(e){
       await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});
     }
     done++;
-    btn.textContent=`⏳ ${done}/${toCheck.length}`;
   }
   btn.textContent='✅ Done';
-  setTimeout(()=>{btn.textContent='Check all links';btn.disabled=false;},2000);
+  setTimeout(()=>{btn.textContent='▶ Check links';btn.disabled=false;},2500);
 }
+
+async function checkAllLinks(){await checkProjectLinks();}
 
 function getSelectedIds(){
   return Array.from(document.querySelectorAll('.row-cb:checked')).map(cb=>cb.dataset.id);
