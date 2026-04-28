@@ -495,7 +495,40 @@ tr:hover td{background:var(--bg3);}
   </div>
 </div>
 
-<!-- TEAM -->
+<!-- PROJECT DETAIL -->
+<div id="p-project-detail" class="page">
+  <div class="page-top">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="btn-ghost" onclick="gotoPage('projects',document.querySelectorAll('.nav')[3])" style="padding:5px 10px;">← Back</button>
+      <div class="page-title" id="pd-title">Project</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn-ghost" onclick="checkDetailProjectLinks(this)" style="white-space:nowrap;">▶ Check links</button>
+      <button class="btn-sm" onclick="gotoPage('add',document.querySelectorAll('.nav')[1]);setTimeout(()=>{const s=document.getElementById('f-proj');if(s)s.value=currentDetailProject;},100)" style="white-space:nowrap;">+ Add link</button>
+    </div>
+  </div>
+  <div class="stats" id="pd-stats" style="grid-template-columns:repeat(4,1fr);"></div>
+  <div class="filters" style="gap:6px;margin-bottom:8px;">
+    <input id="pd-s" placeholder="Search..." oninput="renderDetailLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
+    <select id="pd-st" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All statuses</option><option value="live">Live</option><option value="pending">Pending</option></select>
+    <select id="pd-b" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All builders</option></select>
+    <select id="pd-dup" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All</option><option value="dup">Duplicates</option></select>
+  </div>
+  <div class="card">
+    <div class="tbl-wrap"><table>
+      <thead><tr><th><input type="checkbox" id="pd-select-all" onclick="togglePdSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="togglePdSort('date')">Date <span id="pd-sort-date">↓</span></th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Link check</th><th>Dup</th><th></th></tr></thead>
+      <tbody id="pd-tbody"><tr><td colspan="13" class="loading">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+  <div id="pd-batch-bar" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap;">
+    <span id="pd-batch-count" style="font-size:13px;color:var(--text2);"></span>
+    <button class="btn-sm" onclick="pdBatchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
+    <button class="btn-sm" onclick="pdBatchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
+    <button class="btn-ghost" onclick="pdBatchDelete()" style="color:#ff6b6b;border-color:rgba(255,107,107,0.4);">Delete</button>
+    <button class="btn-ghost" onclick="pdBatchCheck(this)">Check selected</button>
+    <button class="btn-ghost" onclick="clearPdSelection()" style="margin-left:auto;">Clear</button>
+  </div>
+</div>
 <div id="p-team" class="page">
   <div class="page-top"><div class="page-title">Team</div></div>
   <div class="stats" id="team-stats" style="grid-template-columns:repeat(3,1fr);"></div>
@@ -718,10 +751,13 @@ function renderProjectsPage(){
   if(!allProjects.length){grid.innerHTML='<div style="color:var(--text2);font-size:13px;">No projects yet</div>';return;}
   grid.innerHTML=allProjects.map(p=>{
     const count=allLinks.filter(l=>l.project===p.name).length;
+    const live=allLinks.filter(l=>l.project===p.name&&l.status==='live').length;
+    const pend=allLinks.filter(l=>l.project===p.name&&l.status==='pending').length;
     return`<div class="proj-card">
-      <div style="cursor:pointer;" onclick="gotoProjectLinks('${p.name}')">
+      <div style="cursor:pointer;flex:1;" onclick="openProjectDetail('${p.name}')">
         <div class="proj-name">${p.name}</div>
         <div class="proj-count" style="color:var(--teal);">${count} links →</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px;">✅ ${live} · ⏳ ${pend}</div>
       </div>
       <button class="btn-danger" onclick="deleteProject('${p.id}','${p.name}')">✕</button>
     </div>`;
@@ -750,10 +786,164 @@ function parseDate(str){
   return new Date(str).getTime()||0;
 }
 
-function gotoProjectLinks(projName){
-  gotoPage('links', document.querySelectorAll('.nav')[2]);
-  const sel=document.getElementById('ls-p');
-  if(sel){sel.value=projName;renderLinks();}
+let currentDetailProject='';
+let pdSortField='date', pdSortDir='desc';
+
+function openProjectDetail(projName){
+  currentDetailProject=projName;
+  document.getElementById('pd-title').textContent=projName;
+
+  // Populate builder filter
+  const builders=[...new Set(allLinks.filter(l=>l.project===projName).map(l=>l.builder).filter(Boolean))].sort();
+  const bdSel=document.getElementById('pd-b');
+  bdSel.innerHTML='<option value="">All builders</option>';
+  builders.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;bdSel.appendChild(o);});
+
+  // Reset filters
+  document.getElementById('pd-s').value='';
+  document.getElementById('pd-st').value='';
+  document.getElementById('pd-dup').value='';
+
+  gotoPage('project-detail', null);
+  renderDetailLinks();
+}
+
+function renderDetailLinks(){
+  const proj=currentDetailProject;
+  const s=(document.getElementById('pd-s').value||'').toLowerCase();
+  const st=document.getElementById('pd-st').value;
+  const b=document.getElementById('pd-b').value;
+  const dup=document.getElementById('pd-dup').value;
+
+  const domainCount={};
+  allLinks.filter(l=>l.project===proj).forEach(l=>{const d=nd(l.domain);domainCount[d]=(domainCount[d]||0)+1;});
+
+  let fl=allLinks.filter(l=>{
+    if(l.project!==proj)return false;
+    if(st&&l.status!==st)return false;
+    if(b&&l.builder!==b)return false;
+    if(dup==='dup'&&domainCount[nd(l.domain)]<=1)return false;
+    if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s))return false;
+    return true;
+  });
+
+  fl.sort((a,b)=>{
+    let av=parseDate(a.date),bv=parseDate(b.date);
+    return pdSortDir==='desc'?bv-av:av-bv;
+  });
+
+  // Stats
+  const live=fl.filter(l=>l.status==='live').length;
+  const pend=fl.filter(l=>l.status==='pending').length;
+  const dups=fl.filter(l=>domainCount[nd(l.domain)]>1).length;
+  document.getElementById('pd-stats').innerHTML=`
+    <div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--teal)">${fl.length}</div></div>
+    <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)">${live}</div></div>
+    <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500">${pend}</div></div>
+    <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:#ff6b6b">${dups}</div></div>`;
+
+  const tb=document.getElementById('pd-tbody');
+  if(!fl.length){tb.innerHTML='<tr><td colspan="13" class="loading">No links</td></tr>';return;}
+
+  tb.innerHTML=fl.map(l=>{
+    const lid=l.id;
+    const isDup=domainCount[nd(l.domain)]>1;
+    const trafficVal=l.traffic&&!isNaN(Number(l.traffic))?Number(l.traffic).toLocaleString():'—';
+    const priceVal=l.price?'$'+String(l.price).replace(/^\$+/,''):'—';
+    const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto);
+    return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${lid}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
+      <td>${l.date||''}</td>
+      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.domain}</a></td>
+      <td>${l.dr||'—'}</td>
+      <td>${trafficVal}</td>
+      <td>${l.ss||'—'}</td>
+      <td>${priceVal}</td>
+      <td>${l.anchor||'—'}</td>
+      <td>${l.builder||'—'}</td>
+      <td onclick="event.stopPropagation()">
+        <select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;">
+          <option value="live" ${l.status==='live'?'selected':''}>Live</option>
+          <option value="pending" ${l.status==='pending'?'selected':''}>Pending</option>
+        </select>
+      </td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">
+        ${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
+        <button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="checkSingleLink('${lid}',null,null,null,this)">▶</button>
+      </td>
+      <td>${dupB(l,domainCount)}</td>
+      <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button></td>
+    </tr>
+    <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
+      <td colspan="13" style="padding:14px 16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${l.dr||''}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${l.traffic||''}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Spam Score %</div><input id="ei-ss-${lid}" value="${l.ss||''}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Anchor text</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+        </div>
+        <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function togglePdSort(field){
+  pdSortDir=pdSortDir==='desc'?'asc':'desc';
+  document.getElementById('pd-sort-date').textContent=pdSortDir==='desc'?'↓':'↑';
+  renderDetailLinks();
+}
+
+function onPdRowSelect(){
+  const ids=Array.from(document.querySelectorAll('.pd-cb:checked')).map(cb=>cb.dataset.id);
+  const bar=document.getElementById('pd-batch-bar');
+  if(ids.length>0){bar.style.display='flex';document.getElementById('pd-batch-count').textContent=ids.length+' selected';}
+  else bar.style.display='none';
+}
+function togglePdSelectAll(el){document.querySelectorAll('.pd-cb').forEach(cb=>cb.checked=el.checked);onPdRowSelect();}
+function clearPdSelection(){document.querySelectorAll('.pd-cb').forEach(cb=>cb.checked=false);if(document.getElementById('pd-select-all'))document.getElementById('pd-select-all').checked=false;document.getElementById('pd-batch-bar').style.display='none';}
+function getPdSelectedIds(){return Array.from(document.querySelectorAll('.pd-cb:checked')).map(cb=>cb.dataset.id);}
+
+async function pdBatchSetStatus(status){
+  const ids=getPdSelectedIds();if(!ids.length)return;
+  for(const id of ids) await db.collection('links').doc(id).update({status});
+  clearPdSelection();
+}
+async function pdBatchDelete(){
+  const ids=getPdSelectedIds();if(!ids.length)return;
+  if(!confirm('Delete '+ids.length+' links?'))return;
+  for(const id of ids) await db.collection('links').doc(id).delete();
+  clearPdSelection();
+}
+async function pdBatchCheck(btn){
+  const ids=getPdSelectedIds();if(!ids.length)return;
+  const orig=btn.textContent;btn.disabled=true;let done=0;
+  for(const id of ids){
+    const l=allLinks.find(x=>x.id===id);
+    if(!l?.linkin||!l?.linkto){await db.collection('links').doc(id).update({linkcheck:'⚠️ Link in/out missing'});done++;btn.textContent=`⏳ ${done}/${ids.length}`;continue;}
+    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(id).update({linkcheck:data.result||'⚠️ No response'});}
+    catch(e){await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});}
+    done++;btn.textContent=`⏳ ${done}/${ids.length}`;
+  }
+  btn.textContent='✅ Done';setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},2000);
+}
+
+async function checkDetailProjectLinks(btn){
+  const proj=currentDetailProject;
+  const toCheck=allLinks.filter(l=>l.project===proj&&l.linkin&&l.linkto);
+  if(!toCheck.length){alert('No links with URLs.');return;}
+  if(!confirm(`Check ${toCheck.length} links in ${proj}?`))return;
+  const orig=btn.textContent;btn.disabled=true;let done=0;
+  for(const l of toCheck){
+    btn.textContent=`⏳ ${done}/${toCheck.length}`;
+    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(l.id).update({linkcheck:data.result||'⚠️ No response'});}
+    catch(e){await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});}
+    done++;
+  }
+  btn.textContent='✅ Done';setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},2500);
 }
 
 function gotoPage(name,el){
@@ -1076,6 +1266,7 @@ function listenLinks(){
   db.collection('links').orderBy('createdAt','desc').onSnapshot(snap=>{
     allLinks=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderDashboard();renderLinks();renderTeam();renderProjectsPage();
+    if(currentDetailProject) renderDetailLinks();
   });
 }
 function listenReqs(){
