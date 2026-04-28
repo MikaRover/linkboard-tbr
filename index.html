@@ -400,8 +400,8 @@ tr:hover td{background:var(--bg3);}
   </div>
   <div class="card">
     <div class="tbl-wrap"><table>
-      <thead><tr><th><input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="toggleSort('date')">Date <span id="sort-date">↓</span></th><th>Domain</th><th style="cursor:pointer;" onclick="toggleSort('dr')">DR <span id="sort-dr"></span></th><th style="cursor:pointer;" onclick="toggleSort('traffic')">Traffic <span id="sort-traffic"></span></th><th>SS</th><th>Category</th><th>Price</th><th>Anchor</th><th>Link in</th><th>Link to</th><th>Project</th><th>Builder</th><th>Status</th><th>Link check</th><th>Dup</th><th class="adm"></th></tr></thead>
-      <tbody id="all-tbody"><tr><td colspan="15" class="loading">Loading...</td></tr></tbody>
+      <thead><tr><th><input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="toggleSort('date')">Date <span id="sort-date">↓</span></th><th>Domain</th><th style="cursor:pointer;" onclick="toggleSort('dr')">DR <span id="sort-dr"></span></th><th style="cursor:pointer;" onclick="toggleSort('traffic')">Traffic <span id="sort-traffic"></span></th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th><th>Link check</th><th class="adm"></th></tr></thead>
+      <tbody id="all-tbody"><tr><td colspan="11" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -867,15 +867,21 @@ function renderDetailLinks(){
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
       <td colspan="13" style="padding:14px 16px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+          ${l.linkin?`<a href="${l.linkin}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
+          ${l.linkto?`<a href="${l.linkto}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
+          <span style="font-size:11px;color:var(--text3);">${l.ss?'SS: '+l.ss+' ':''}${l.category?'· '+l.category+' ':''}${l.price?'· $'+String(l.price).replace(/^\$+/,''):''}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
           <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" type="number" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" type="number" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Spam Score %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" type="number" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Anchor text</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${String(l.price||'').replace(/^\$+/,'')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
         <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
       </td>
@@ -1456,47 +1462,55 @@ function renderLinks(){
   });
 
   const tb=document.getElementById('all-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="17" class="loading">No links</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="11" class="loading">No links</td></tr>';return;}
 
   const rowFn=(l)=>{
-    const trafficVal=l.traffic&&!isNaN(Number(l.traffic))?Number(l.traffic).toLocaleString():'—';
-    const priceVal=l.price?'$'+String(l.price).replace(/^\$+/,''):'—';
+    const trafficVal=l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||l.traffic:'—';
     const canDelete=cu.role==='admin';
     const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto);
     const lid=l.id;
     const isDup=domainCount[nd(l.domain)+'|'+(l.project||'')]>1;
     const safeLinkin=(l.linkin||'').replace(/"/g,'&quot;');
     const safeLinkto=(l.linkto||'').replace(/"/g,'&quot;');
+    const priceVal=l.price?'$'+String(l.price).replace(/\$+/g,''):'';
+    const ssVal=l.ss?String(l.ss).replace(/%/g,'')+'%':'';
     return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${lid}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td>${l.date||''}</td>
+      <td style="color:var(--text3);font-size:11px;">${l.date||''}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.domain}</a></td>
-      <td>${l.dr||'—'}</td><td>${trafficVal}</td><td>${l.ss||'—'}</td><td>${catBadge(l.category)}</td><td>${priceVal}</td><td>${l.anchor}</td>
-      <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="event.stopPropagation()" title="${(l.linkin||'').replace(/"/g,'&quot;')}">${safeLink(l.linkin,'↗ '+tryPath(l.linkin,25),'font-size:10px;color:var(--text3);text-decoration:none;')}</td>
-      <td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="event.stopPropagation()" title="${(l.linkto||'').replace(/"/g,'&quot;')}">${safeLink(l.linkto,'↗ '+tryPath(l.linkto,20),'font-size:10px;color:var(--text3);text-decoration:none;')}</td>
-      <td>${l.project}</td><td>${l.builder}</td>
+      <td>${l.dr||'—'}</td>
+      <td>${trafficVal}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.anchor||'—'}</td>
+      <td>${l.project||'—'}</td>
+      <td>${l.builder||'—'}</td>
       <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option></select></td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="checkSingleLink('${lid}',null,null,null,this)">▶</button></td>
-      <td>${dupB(l,domainCount)}</td>
       <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button>`:''}</td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
-      <td colspan="17" style="padding:14px 16px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <td colspan="11" style="padding:14px 16px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+          ${l.linkin?`<a href="${l.linkin}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
+          ${l.linkto?`<a href="${l.linkto}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
+          <span style="font-size:11px;color:var(--text3);">${ssVal?'SS: '+ssVal:''} ${l.category?'· '+l.category:''} ${priceVal?'· '+priceVal:''}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
           <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Link in ${l.linkin?`<a href="${l.linkin}" target="_blank" style="font-size:10px;color:var(--teal);margin-left:6px;">↗ open</a>`:''}</div><input id="ei-linkin-${lid}" value="${safeLinkin}" placeholder="https://example.com/blog/post" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Link to ${l.linkto?`<a href="${l.linkto}" target="_blank" style="font-size:10px;color:var(--teal);margin-left:6px;">↗ open</a>`:''}</div><input id="ei-linkto-${lid}" value="${safeLinkto}" placeholder="https://project.com/page" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" type="number" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" type="number" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Spam Score %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" type="number" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Anchor text</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" type="number" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${String(l.price||'').replace(/\$+/g,'')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${safeLinkin}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${safeLinkto}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
         <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
       </td>
     </tr>`;
   };
-  tb.innerHTML=renderRowsGrouped(fl,rowFn,17);
+  tb.innerHTML=renderRowsGrouped(fl,rowFn,11);
+
 }
 
 function tryPath(url,maxLen){
@@ -1685,9 +1699,9 @@ async function saveEditRow(id){
   const traffic=(document.getElementById('ei-traffic-'+id)?.value||'').trim();
   const ss=(document.getElementById('ei-ss-'+id)?.value||'').trim();
   const anchor=(document.getElementById('ei-anchor-'+id)?.value||'').trim();
+  const price=String(document.getElementById('ei-price-'+id)?.value||'').replace(/^\$+/,'').trim();
   const comments=(document.getElementById('ei-comments-'+id)?.value||'').trim();
-
-  await db.collection('links').doc(id).update({date,linkin,linkto,dr,traffic,ss,anchor,comments});
+  await db.collection('links').doc(id).update({date,linkin,linkto,dr,traffic,ss,anchor,price,comments});
 
   const saved=document.getElementById('ei-saved-'+id);
   if(saved){saved.style.display='inline';setTimeout(()=>saved.style.display='none',2000);}
