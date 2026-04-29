@@ -845,7 +845,13 @@ async function addProject(){
 }
 async function deleteProject(id,name){
   const count=allLinks.filter(l=>l.project===name).length;
-  if(count>0){if(!confirm('This project has '+count+' links. Delete anyway?'))return;}
+  if(count>0){if(!confirm('This project has '+count+' links. Delete project AND all links?'))return;}
+  // Delete all links for this project
+  const batch=db.batch();
+  const snap=await db.collection('links').where('project','==',name).get();
+  snap.docs.forEach(d=>batch.delete(d.ref));
+  await batch.commit();
+  // Delete project
   await db.collection('projects').doc(id).delete();
 }
 function renderProjectsPage(){
