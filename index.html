@@ -1053,9 +1053,29 @@ function onDomainInput(){
     dupEl.style.display='none';
   }
 
-  // Debounce detection
+  // Debounce detection + metrics fetch
   clearTimeout(catDetectTimer);
-  catDetectTimer=setTimeout(()=>detectCategory(d),700);
+  catDetectTimer=setTimeout(async()=>{
+    // Fetch Ahrefs metrics
+    const metricsEl=document.getElementById('cat-status');
+    try{
+      const mResp=await fetch('/api/get-metrics',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({domain:d})
+      });
+      const mData=await mResp.json();
+      if(mData.dr!==null&&mData.dr!==undefined){
+        document.getElementById('f-dr').value=mData.dr;
+      }
+      if(mData.traffic!==null&&mData.traffic!==undefined){
+        document.getElementById('f-traffic').value=mData.traffic;
+      }
+      if(mData.dr||mData.traffic) renderCompatCards();
+    }catch(e){}
+    // Then detect category
+    detectCategory(d);
+  },700);
 }
 
 // ─── PROJECT COMPATIBILITY CARDS ─────────────────────────
