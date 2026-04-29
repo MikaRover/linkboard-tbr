@@ -17,12 +17,11 @@ module.exports = async function handler(req, res) {
     .split('/')[0]
     .trim();
 
-  const target = 'https://' + cleanDomain;
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
   try {
-    // Fetch DR
-    const drUrl = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=today`;
-    const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date_to=today&date_from=today&mode=domain&select=org_traffic`;
+    const drUrl = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=${today}`;
+    const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date_to=${today}&date_from=${today}&mode=domain&select=org_traffic`;
 
     const headers = {
       'Authorization': `Bearer ${AHREFS_KEY}`,
