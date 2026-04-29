@@ -393,7 +393,14 @@ tr:hover td{background:var(--bg3);}
 
 <!-- DASHBOARD -->
 <div id="p-dashboard" class="page active">
-  <div class="page-top"><div class="page-title">Dashboard</div><button class="btn-sm" onclick="gotoPage('add',document.querySelectorAll('.nav')[1])">+ Add link</button></div>
+  <div class="page-top">
+    <div class="page-title">Dashboard</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn-sm" onclick="gotoPage('add',document.querySelectorAll('.nav')[1])" style="width:auto;">+ Add link</button>
+      <button class="btn-sm adm" onclick="bulkRefreshMetrics(6,this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">↺ Refresh DR/Traffic (6mo)</button>
+      <button class="btn-sm" onclick="bulkCheckMyLinks(this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">🔗 Check my links</button>
+    </div>
+  </div>
   <div class="stats">
     <div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
     <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)" id="ds-live">—</div></div>
@@ -845,10 +852,20 @@ function startApp(){
   document.getElementById('s-app').classList.add('active');
   document.getElementById('sb-name').textContent=cu.name||cu.email;
   document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':'Builder';
+  // Show/hide admin-only elements
   document.querySelectorAll('.adm').forEach(el=>el.style.display=cu.role==='admin'?'block':'none');
+  // Builder: hide admin nav items except dashboard, add link, their projects
+  if(cu.role!=='admin'){
+    document.querySelectorAll('.nav').forEach(el=>{
+      const t=el.textContent.trim();
+      if(!['Dashboard','Add link','All links'].includes(t)) el.style.display='none';
+    });
+  }
   const lb=document.getElementById('ls-b');
   lb.innerHTML='<option value="">All builders</option>';
   BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;lb.appendChild(o);});
+  // Builder: auto-filter to own links
+  if(cu.role!=='admin'&&lb){lb.value=cu.name||'';}
   listenProjects();listenLinks();listenReqs();listenQualityReqs();
   renderCatButtons('');
   gotoPage('dashboard',document.querySelector('.nav.active'));
@@ -1678,24 +1695,126 @@ function dupB(l, domainCount){
   return'<span class="badge b-ok">OK</span>';
 }
 
+// ─── BULK REFRESH DR/TRAFFIC ──────────────────────────────
+async function bulkRefreshMetrics(months, btn){
+  const cutoff=new Date();
+  cutoff.setMonth(cutoff.getMonth()-months);
+  const targets = (cu.role==='admin' ? allLinks : allLinks.filter(l=>l.builder===cu.name))
+    .filter(l=>{
+      if(!l.date)return false;
+      const p=l.date.split(/[.\-\/]/);
+      if(p.length<3)return false;
+      const d=new Date(`${p[2].length===2?'20'+p[2]:p[2]}-${p[1]}-${p[0]}`);
+      return d>=cutoff;
+    });
+  if(!targets.length){alert('No links in last '+months+' months');return;}
+  btn.disabled=true;
+  btn.textContent=`↺ 0/${targets.length}`;
+  let done=0;
+  // 3 concurrent
+  const CONCUR=3;
+  for(let i=0;i<targets.length;i+=CONCUR){
+    const batch=targets.slice(i,i+CONCUR);
+    await Promise.all(batch.map(async l=>{
+      try{
+        const r=await fetch('/api/get-metrics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:l.domain})});
+        const d=await r.json();
+        const upd={};
+        if(d.dr!==null&&d.dr!==undefined)upd.dr=String(d.dr);
+        if(d.traffic!==null&&d.traffic!==undefined)upd.traffic=String(d.traffic);
+        if(Object.keys(upd).length) await db.collection('links').doc(l.id).update(upd);
+      }catch(e){}
+      done++;
+      btn.textContent=`↺ ${done}/${targets.length}`;
+    }));
+  }
+  btn.textContent='✅ Done';
+  btn.disabled=false;
+  setTimeout(()=>btn.textContent='↺ Refresh DR/Traffic ('+months+'mo)',3000);
+}
+
+// ─── BULK CHECK MY LINKS ──────────────────────────────────
+async function bulkCheckMyLinks(btn){
+  const myLinks=(cu.role==='admin'?allLinks:allLinks.filter(l=>l.builder===cu.name))
+    .filter(l=>l.status==='live'&&l.linkin);
+  if(!myLinks.length){alert('No live links with Link in URL');return;}
+  btn.disabled=true;
+  btn.textContent=`🔗 0/${myLinks.length}`;
+  let done=0;
+  const CONCUR=2;
+  for(let i=0;i<myLinks.length;i+=CONCUR){
+    const batch=myLinks.slice(i,i+CONCUR);
+    await Promise.all(batch.map(async l=>{
+      try{await checkSingleLink(l.id,l.linkin,l.linkto,l.anchor,null);}catch(e){}
+      done++;
+      btn.textContent=`🔗 ${done}/${myLinks.length}`;
+    }));
+  }
+  btn.textContent='✅ Done';
+  btn.disabled=false;
+  setTimeout(()=>btn.textContent='🔗 Check my links',3000);
+}
+
 function renderDashboard(){
-  const live=allLinks.filter(l=>l.status==='live');
-  const pend=allLinks.filter(l=>l.status==='pending');
+  // Filter by builder if not admin
+  const myLinks = cu.role==='admin' ? allLinks : allLinks.filter(l=>l.builder===cu.name);
+
+  // This month
+  const now=new Date();
+  const thisMonth=`${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()}`;
+  const thisMonthLinks=myLinks.filter(l=>{
+    if(!l.date)return false;
+    const p=l.date.split(/[.\-\/]/);
+    if(p.length<3)return false;
+    return `${p[1]}.${p[2]}`===thisMonth||`${p[1]}.20${p[2]}`===thisMonth;
+  });
+
+  const live=myLinks.filter(l=>l.status==='live');
+  const pend=myLinks.filter(l=>l.status==='pending');
+  const thisLive=thisMonthLinks.filter(l=>l.status==='live');
+  const thisPend=thisMonthLinks.filter(l=>l.status==='pending');
   const domainCnt={};
-  allLinks.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domainCnt[key]=(domainCnt[key]||0)+1;});
-  const dupCount=allLinks.filter(l=>domainCnt[nd(l.domain)+'|'+(l.project||'')]>1).length;
-  document.getElementById('ds-total').textContent=allLinks.length;
+  myLinks.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domainCnt[key]=(domainCnt[key]||0)+1;});
+  const dupCount=myLinks.filter(l=>domainCnt[nd(l.domain)+'|'+(l.project||'')]>1).length;
+
+  document.getElementById('ds-total').textContent=myLinks.length;
   document.getElementById('ds-live').textContent=live.length;
   document.getElementById('ds-pend').textContent=pend.length;
   document.getElementById('ds-dup').textContent=dupCount;
-  document.getElementById('lc').textContent=live.length+' links';
-  document.getElementById('pc').textContent=pend.length+' links';
+
+  // Show this month stats for builder
+  if(cu.role!=='admin'){
+    document.getElementById('lc').textContent=`This month: ${thisLive.length} live · ${thisPend.length} pending`;
+    document.getElementById('pc').textContent=`All pending: ${pend.length} links`;
+  } else {
+    document.getElementById('lc').textContent=live.length+' links';
+    document.getElementById('pc').textContent=pend.length+' links';
+  }
+
   const rr=(arr,id)=>{
     const tb=document.getElementById(id);
     if(!arr.length){tb.innerHTML='<tr><td colspan="9" class="loading">No links</td></tr>';return;}
-    tb.innerHTML=arr.slice(0,20).map(l=>`<tr><td>${l.date||''}</td><td class="domain-teal">${l.domain}</td><td>${l.dr||'—'}</td><td>${l.traffic?Number(l.traffic).toLocaleString():'—'}</td><td>${l.ss||'—'}</td><td>${catBadge(l.category)}</td><td>${l.anchor}</td><td>${l.project}</td><td>${l.builder}</td></tr>`).join('');
+    tb.innerHTML=arr.slice(0,20).map(l=>`<tr>
+      <td style="color:var(--text3);font-size:11px;">${l.date||''}</td>
+      <td class="domain-teal"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;">${l.domain}</a></td>
+      <td>${l.dr||'—'}</td>
+      <td>${l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||l.traffic:'—'}</td>
+      <td>${l.ss||'—'}</td>
+      <td>${catBadge(l.category)}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.anchor||'—'}</td>
+      <td>${l.project||'—'}</td>
+      <td>${l.builder||'—'}</td>
+    </tr>`).join('');
   };
-  rr(live,'dash-live');rr(pend,'dash-pend');
+
+  // For builder: show this month live first, then all pending
+  if(cu.role!=='admin'){
+    rr(thisLive.length?thisLive:live,'dash-live');
+    rr(thisPend.length?thisPend:pend,'dash-pend');
+  } else {
+    rr(live,'dash-live');
+    rr(pend,'dash-pend');
+  }
 }
 
 function renderLinks(){
