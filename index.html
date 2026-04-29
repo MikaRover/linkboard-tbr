@@ -1638,31 +1638,15 @@ async function importReqFromImage(input){
       r.readAsDataURL(file);
     });
 
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    const resp=await fetch('/api/image-req',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        messages:[{
-          role:'user',
-          content:[
-            {type:'image',source:{type:'base64',media_type:file.type,data:base64}},
-            {type:'text',text:`Extract anchor requirements from this image. Return ONLY a JSON array, no other text:
-[{"anchor":"anchor text","linkto":"https://...","max":3}, ...]
-- anchor: the anchor text (lowercase)
-- linkto: the target URL (full URL if visible, otherwise null)
-- max: number of links (integer)
-Extract ALL rows you see.`}
-          ]
-        }]
-      })
+      body:JSON.stringify({imageBase64:base64,mediaType:file.type})
     });
 
     const data=await resp.json();
-    const text=data.content?.[0]?.text||'';
-    const clean=text.replace(/```json|```/g,'').trim();
-    const rows=JSON.parse(clean);
+    if(data.error){status.textContent='❌ '+data.error;return;}
+    const rows=data.rows;
 
     if(!Array.isArray(rows)||!rows.length){status.textContent='❌ Could not parse data';return;}
 
