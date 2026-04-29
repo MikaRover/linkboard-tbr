@@ -460,7 +460,7 @@ tr:hover td{background:var(--bg3);}
       </div>
 
       <div class="form-grid" style="margin-top:4px;">
-        <div><div class="section-label">Project</div><select id="f-proj" onchange="onDomainInput();onAnchorInput()"><option value="">Select project</option></select></div>
+        <div><div class="section-label">Project</div><select id="f-proj" onchange="onDomainInput();onAnchorInput();renderAnchorReqs()"><option value="">Select project</option></select></div>
         <div><div class="section-label">Status</div><select id="f-status"><option value="pending">Pending</option><option value="live">Live</option></select></div>
       </div>
       <div class="section-label">Link in (full URL)</div>
@@ -468,6 +468,10 @@ tr:hover td{background:var(--bg3);}
       <div class="section-label">Link to (target URL)</div>
       <input id="f-linkto" placeholder="https://project.com/page"/>
       <div class="section-label">Anchor text</div>
+      <div id="anchor-req-wrap" style="display:none;margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">This month's anchors</div>
+        <div id="anchor-req-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;"></div>
+      </div>
       <input id="f-anchor" placeholder="anchor text" oninput="onAnchorInput()"/>
       <div class="form-grid">
         <div><div class="section-label">Price ($)</div><input id="f-price" placeholder="25" oninput="this.value=this.value.replace(/[^0-9.]/g,'')"/></div>
@@ -579,8 +583,9 @@ tr:hover td{background:var(--bg3);}
             <option>September</option><option>October</option><option>November</option><option>December</option>
           </select></div>
         </div>
-        <label>Anchor text</label><input id="r-anchor" placeholder="anchor text"/>
-        <label>Max links</label><input id="r-max" type="number" placeholder="5"/>
+        <label>Anchor text</label><input id="r-anchor" placeholder="e.g. Dexatel SMS Pricing"/>
+        <label>Target page (Link to URL)</label><input id="r-linkto" placeholder="https://dexatel.com/pricing/sms/"/>
+        <label>Max links</label><input id="r-max" type="number" placeholder="3"/>
         <button class="btn-sm" onclick="addReq()" style="width:auto;padding:8px 20px;">Add anchor requirement →</button>
       </div>
     </div>
@@ -599,7 +604,7 @@ tr:hover td{background:var(--bg3);}
   <div class="card" style="margin-top:1rem;">
     <div class="card-head">Anchor requirements</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Project</th><th>Month</th><th>Anchor</th><th>Progress</th><th>Max</th><th></th></tr></thead>
+      <thead><tr><th>Project</th><th>Month</th><th>Anchor</th><th>Target page</th><th>Progress</th><th>Max</th><th></th></tr></thead>
       <tbody id="req-tbody"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
@@ -1448,6 +1453,38 @@ function renderCompatCards(){
 }
 
 // ─── ANCHOR CHECK ─────────────────────────────────────────
+function renderAnchorReqs(){
+  const proj=document.getElementById('f-proj').value;
+  const wrap=document.getElementById('anchor-req-wrap');
+  const list=document.getElementById('anchor-req-list');
+  if(!wrap||!list)return;
+  if(!proj){wrap.style.display='none';return;}
+
+  // Current month name
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const curMonth=months[new Date().getMonth()];
+
+  const reqs=allReqs.filter(r=>r.project===proj&&r.month===curMonth);
+  if(!reqs.length){wrap.style.display='none';return;}
+
+  wrap.style.display='block';
+  list.innerHTML=reqs.map(r=>{
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor).length;
+    const pct=Math.min(100,Math.round(used/r.max*100));
+    const full=used>=r.max;
+    const color=full?'var(--red)':used>0?'var(--yellow)':'var(--teal)';
+    return`<div onclick="${full?'':''}" style="background:var(--bg3);border:1px solid ${full?'rgba(255,95,95,0.3)':'var(--border)'};border-radius:8px;padding:8px 12px;cursor:${full?'not-allowed':'pointer'};opacity:${full?0.6:1};"
+      onclick="if(!${full}){document.getElementById('f-anchor').value='${r.anchor.replace(/'/g,"\\'")}';${r.linkto?`document.getElementById('f-linkto').value='${r.linkto.replace(/'/g,"\\'")}';`:''}onAnchorInput();}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-size:12px;font-weight:600;color:${full?'var(--red)':'var(--text)'};">${r.anchor}</span>
+        <span style="font-size:11px;font-weight:700;color:${color};">${used}/${r.max} ${full?'❌ Full':'✓'}</span>
+      </div>
+      ${r.linkto?`<div style="font-size:10px;color:var(--text3);">→ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,40)}</div>`:''}
+      <div class="req-bar-bg" style="margin-top:4px;"><div class="req-bar-fill" style="width:${pct}%;background:${color};"></div></div>
+    </div>`;
+  }).join('');
+}
+
 function onAnchorInput(){
   const anchor=document.getElementById('f-anchor').value.trim().toLowerCase();
   const proj=document.getElementById('f-proj').value;
@@ -1578,12 +1615,14 @@ async function addReq(){
   const proj=document.getElementById('r-proj').value;
   const month=document.getElementById('r-month').value;
   const anchor=document.getElementById('r-anchor').value.trim().toLowerCase();
+  const linkto=document.getElementById('r-linkto').value.trim();
   const max=parseInt(document.getElementById('r-max').value);
   if(!proj||!anchor||!max){alert('Fill all fields');return;}
   const existing=allReqs.find(r=>r.project===proj&&r.month===month&&r.anchor===anchor);
-  if(existing)await db.collection('requirements').doc(existing.id).update({max});
-  else await db.collection('requirements').add({project:proj,month,anchor,max});
+  if(existing) await db.collection('requirements').doc(existing.id).update({max,linkto});
+  else await db.collection('requirements').add({project:proj,month,anchor,linkto,max});
   document.getElementById('r-anchor').value='';
+  document.getElementById('r-linkto').value='';
   document.getElementById('r-max').value='';
 }
 
@@ -1941,11 +1980,18 @@ function safeLink(url, label, style){
 
 function renderReqs(){
   const tb=document.getElementById('req-tbody');
-  if(!allReqs.length){tb.innerHTML='<tr><td colspan="6" class="loading">No requirements</td></tr>';return;}
+  if(!allReqs.length){tb.innerHTML='<tr><td colspan="7" class="loading">No requirements</td></tr>';return;}
   tb.innerHTML=allReqs.map(r=>{
     const used=allLinks.filter(l=>l.project===r.project&&(l.anchor||'').toLowerCase()===r.anchor).length;
     const pct=Math.min(100,Math.round(used/r.max*100));const over=used>r.max;
-    return`<tr><td>${r.project}</td><td>${r.month}</td><td>${r.anchor}</td><td style="min-width:130px;"><div class="req-bar-bg"><div class="req-bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':'var(--teal)'}"></div></div><span style="font-size:11px;color:${over?'#ff6b6b':'var(--text2)'};">${used}/${r.max}</span></td><td>${r.max}</td><td><button class="btn-ghost" onclick="db.collection('requirements').doc('${r.id}').delete()">Remove</button></td></tr>`;
+    const linktoHtml=r.linkto?`<a href="${r.linkto}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none;" title="${r.linkto}">↗ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,30)}</a>`:'<span style="color:var(--text3);font-size:11px;">—</span>';
+    return`<tr>
+      <td>${r.project}</td><td>${r.month}</td><td>${r.anchor}</td>
+      <td>${linktoHtml}</td>
+      <td style="min-width:130px;"><div class="req-bar-bg"><div class="req-bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':'var(--teal)'}"></div></div><span style="font-size:11px;color:${over?'#ff6b6b':'var(--text2)'};">${used}/${r.max}</span></td>
+      <td>${r.max}</td>
+      <td><button class="btn-ghost" onclick="db.collection('requirements').doc('${r.id}').delete()">Remove</button></td>
+    </tr>`;
   }).join('');
 }
 
