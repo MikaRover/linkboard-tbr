@@ -10,47 +10,44 @@ module.exports = async function handler(req, res) {
 
   const AHREFS_KEY = '7dNernlzY4mixkKwyIEOVsZK8e0Rx0Hgq3YszXti';
 
-  // Normalize domain
   const cleanDomain = domain
     .replace(/^https?:\/\//i, '')
     .replace(/^www\./i, '')
     .split('/')[0]
     .trim();
 
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const today = new Date().toISOString().slice(0, 10);
+  const dateFrom = new Date(Date.now() - 30*24*60*60*1000).toISOString().slice(0, 10);
+
+  const drUrl = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=${today}`;
+  const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date_to=${today}&date_from=${dateFrom}&mode=domain&select=org_traffic`;
+
+  const headers = {
+    'Authorization': `Bearer ${AHREFS_KEY}`,
+    'Accept': 'application/json'
+  };
 
   try {
-    const drUrl = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=${today}`;
-    const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date=${today}&mode=domain&select=org_traffic`;
-
-    const headers = {
-      'Authorization': `Bearer ${AHREFS_KEY}`,
-      'Accept': 'application/json'
-    };
-
     const [drResp, metricsResp] = await Promise.all([
       fetch(drUrl, { headers, signal: AbortSignal.timeout(10000) }),
       fetch(metricsUrl, { headers, signal: AbortSignal.timeout(10000) })
     ]);
 
     let dr = null, traffic = null;
-    let drRaw = null, metricsRaw = null;
 
     if (drResp.ok) {
-      drRaw = await drResp.json();
-      dr = drRaw?.domain_rating?.domain_rating ?? drRaw?.domain_rating ?? null;
-    } else {
-      drRaw = { status: drResp.status, text: await drResp.text() };
+      const d = await drResp.json();
+      dr = d?.domain_rating?.domain_rating ?? null;
+      if (dr !== null) dr = Math.round(dr);
     }
 
     if (metricsResp.ok) {
-      metricsRaw = await metricsResp.json();
-      traffic = metricsRaw?.metrics?.org_traffic ?? metricsRaw?.org_traffic ?? null;
-    } else {
-      metricsRaw = { status: metricsResp.status, text: await metricsResp.text() };
+      const m = await metricsResp.json();
+      traffic = m?.metrics?.org_traffic ?? m?.org_traffic ?? null;
+      if (traffic !== null) traffic = Math.round(traffic);
     }
 
-    return res.json({ domain: cleanDomain, dr, traffic, _debug: { drRaw, metricsRaw } });
+    return res.json({ domain: cleanDomain, dr, traffic });
 
   } catch (e) {
     return res.json({ error: e.message.slice(0, 100) });
