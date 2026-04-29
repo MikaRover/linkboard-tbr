@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const drUrl = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=${today}`;
-    const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date_to=${today}&date_from=${today}&mode=domain&select=org_traffic`;
+    const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date=${today}&mode=domain&select=org_traffic`;
 
     const headers = {
       'Authorization': `Bearer ${AHREFS_KEY}`,
