@@ -31,13 +31,13 @@ module.exports = async function handler(req, res) {
             },
             {
               type: 'text',
-              text: `Extract anchor requirements from this image. Return ONLY a valid JSON array, no markdown, no explanation:
-[{"anchor":"anchor text","linkto":"https://...","max":3}]
-Rules:
-- anchor: the anchor text exactly as shown (keep original case)
-- linkto: the full target URL if visible, otherwise null
-- max: the number in the "Number of links" column (integer)
-Extract ALL rows visible in the table.`
+              text: `Look at this image and extract the anchor requirements table.
+RESPOND WITH ONLY A JSON ARRAY. NO OTHER TEXT. NO EXPLANATION. NO MARKDOWN.
+Format: [{"anchor":"text","linkto":"url or null","max":3}]
+- anchor: exact anchor text from the table
+- linkto: the URL from Target page column, or null if not visible
+- max: integer from Number of links column
+Start your response with [ and end with ]`
             }
           ]
         }]
