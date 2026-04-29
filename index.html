@@ -574,7 +574,14 @@ tr:hover td{background:var(--bg3);}
 
       <!-- Anchor Requirements -->
       <div class="req-form-section">
-        <div class="req-form-title">Anchor requirements (limits)</div>
+        <div class="req-form-title" style="display:flex;justify-content:space-between;align-items:center;">
+          Anchor requirements (limits)
+          <label style="cursor:pointer;margin:0;">
+            <input type="file" accept="image/*" id="req-img-input" style="display:none;" onchange="importReqFromImage(this)"/>
+            <span class="btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="document.getElementById('req-img-input').click()">📷 Import from image</span>
+          </label>
+        </div>
+        <div id="req-img-status" style="display:none;font-size:12px;color:var(--teal);margin-bottom:10px;padding:8px 12px;background:var(--bg4);border-radius:6px;"></div>
         <div class="form-grid">
           <div><label>Project</label><select id="r-proj"><option value="">Select</option></select></div>
           <div><label>Month</label><select id="r-month">
@@ -1611,6 +1618,75 @@ function listenQualityReqs(){
 }
 
 // ─── REQUIREMENTS ─────────────────────────────────────────
+async function importReqFromImage(input){
+  const file=input.files[0];
+  if(!file)return;
+  const proj=document.getElementById('r-proj').value;
+  const month=document.getElementById('r-month').value;
+  if(!proj||!month){alert('Select project and month first');input.value='';return;}
+
+  const status=document.getElementById('req-img-status');
+  status.style.display='block';
+  status.textContent='🔍 Reading image with GPT-4o...';
+
+  try{
+    // Convert image to base64
+    const base64=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(',')[1]);
+      r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image',source:{type:'base64',media_type:file.type,data:base64}},
+            {type:'text',text:`Extract anchor requirements from this image. Return ONLY a JSON array, no other text:
+[{"anchor":"anchor text","linkto":"https://...","max":3}, ...]
+- anchor: the anchor text (lowercase)
+- linkto: the target URL (full URL if visible, otherwise null)
+- max: number of links (integer)
+Extract ALL rows you see.`}
+          ]
+        }]
+      })
+    });
+
+    const data=await resp.json();
+    const text=data.content?.[0]?.text||'';
+    const clean=text.replace(/```json|```/g,'').trim();
+    const rows=JSON.parse(clean);
+
+    if(!Array.isArray(rows)||!rows.length){status.textContent='❌ Could not parse data';return;}
+
+    status.textContent=`⏳ Saving ${rows.length} anchors...`;
+    let saved=0;
+    for(const row of rows){
+      if(!row.anchor)continue;
+      const anchor=(row.anchor||'').toLowerCase().trim();
+      const linkto=(row.linkto||'').trim();
+      const max=parseInt(row.max)||1;
+      const existing=allReqs.find(r=>r.project===proj&&r.month===month&&r.anchor===anchor);
+      if(existing) await db.collection('requirements').doc(existing.id).update({max,linkto});
+      else await db.collection('requirements').add({project:proj,month,anchor,linkto,max});
+      saved++;
+      status.textContent=`⏳ Saved ${saved}/${rows.length}...`;
+    }
+    status.textContent=`✅ Imported ${saved} anchors for ${proj} – ${month}`;
+    setTimeout(()=>status.style.display='none',4000);
+  }catch(e){
+    status.textContent='❌ Error: '+e.message.slice(0,80);
+  }
+  input.value='';
+}
+
 async function addReq(){
   const proj=document.getElementById('r-proj').value;
   const month=document.getElementById('r-month').value;
