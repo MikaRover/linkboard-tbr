@@ -35,18 +35,23 @@ module.exports = async function handler(req, res) {
     ]);
 
     let dr = null, traffic = null;
+    let drRaw = null, metricsRaw = null;
 
     if (drResp.ok) {
-      const drData = await drResp.json();
-      dr = drData?.domain_rating?.domain_rating ?? drData?.domain_rating ?? null;
+      drRaw = await drResp.json();
+      dr = drRaw?.domain_rating?.domain_rating ?? drRaw?.domain_rating ?? null;
+    } else {
+      drRaw = { status: drResp.status, text: await drResp.text() };
     }
 
     if (metricsResp.ok) {
-      const mData = await metricsResp.json();
-      traffic = mData?.metrics?.org_traffic ?? mData?.org_traffic ?? null;
+      metricsRaw = await metricsResp.json();
+      traffic = metricsRaw?.metrics?.org_traffic ?? metricsRaw?.org_traffic ?? null;
+    } else {
+      metricsRaw = { status: metricsResp.status, text: await metricsResp.text() };
     }
 
-    return res.json({ domain: cleanDomain, dr: dr !== null ? Math.round(dr) : null, traffic: traffic !== null ? Math.round(traffic) : null });
+    return res.json({ domain: cleanDomain, dr, traffic, _debug: { drRaw, metricsRaw } });
 
   } catch (e) {
     return res.json({ error: e.message.slice(0, 100) });
