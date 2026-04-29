@@ -41,13 +41,17 @@ module.exports = async function handler(req, res) {
       if (dr !== null) dr = Math.round(dr);
     }
 
+    let metricsDebug = null;
     if (metricsResp.ok) {
       const m = await metricsResp.json();
+      metricsDebug = m;
       traffic = m?.metrics?.org_traffic ?? m?.org_traffic ?? null;
       if (traffic !== null) traffic = Math.round(traffic);
+    } else {
+      metricsDebug = { status: metricsResp.status, text: await metricsResp.text() };
     }
 
-    return res.json({ domain: cleanDomain, dr, traffic });
+    return res.json({ domain: cleanDomain, dr, traffic, _m: metricsDebug });
 
   } catch (e) {
     return res.json({ error: e.message.slice(0, 100) });
