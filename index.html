@@ -382,6 +382,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('projects',this)">Projects</div>
   <div class="nav adm" onclick="gotoPage('reqs',this)">Requirements</div>
   <div class="nav adm" onclick="gotoPage('team',this)">Team</div>
+  <div class="nav adm" onclick="gotoPage('checker',this)">Data Checker</div>
   <div class="nav adm" onclick="gotoPage('import',this)">Import CSV</div>
   <div class="sb-bottom">
     <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" style="width:100%;margin-bottom:10px;text-align:left;">🌙 Dark mode</button>
@@ -692,11 +693,43 @@ tr:hover td{background:var(--bg3);}
   </div>
 </div>
 
-</div>
-</div>
+<!-- DATA CHECKER -->
+<div id="p-checker" class="page">
+  <div class="page-top">
+    <div class="page-title">Data Checker</div>
+    <button class="btn-sm" onclick="runDataCheck()" style="width:auto;">🔍 Scan now</button>
+  </div>
+  <div id="checker-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem;"></div>
+  <div class="filters" style="gap:8px;margin-bottom:10px;">
+    <select id="chk-proj" onchange="renderCheckerResults()" style="margin-bottom:0;font-size:12px;padding:7px 10px;"><option value="">All projects</option></select>
+    <select id="chk-issue" onchange="renderCheckerResults()" style="margin-bottom:0;font-size:12px;padding:7px 10px;">
+      <option value="">All issues</option>
+      <option value="shifted">Shifted columns</option>
+      <option value="no-domain">Missing domain</option>
+      <option value="no-anchor">Missing anchor</option>
+      <option value="bad-date">Bad date</option>
+      <option value="dup">Duplicate domain</option>
+    </select>
+  </div>
+  <div id="chk-batch-bar" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;">
+    <span id="chk-batch-count" style="font-size:13px;color:var(--text2);"></span>
+    <button class="btn-danger" onclick="chkBatchDelete()">🗑 Delete selected</button>
+    <button class="btn-ghost" onclick="clearChkSelection()" style="margin-left:auto;">Clear</button>
+  </div>
+  <div class="card">
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th><input type="checkbox" id="chk-select-all" onclick="toggleChkSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th>
+        <th>Issue</th><th>Date</th><th>Domain</th><th>Anchor (raw)</th><th>Project</th><th>Builder</th><th></th>
+      </tr></thead>
+      <tbody id="chk-tbody"><tr><td colspan="8" class="loading">Click "Scan now" to find issues</td></tr></tbody>
+    </table></div>
+  </div>
 </div>
 
-<script>
+</div>
+</div>
+</div>
 // ─── CONFIG ───────────────────────────────────────────────
 const OPENAI_KEY = "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";
 
@@ -896,6 +929,107 @@ function parseDate(str){
 
 let currentDetailProject='';
 let pdSortField='date', pdSortDir='desc';
+
+// ─── DATA CHECKER ─────────────────────────────────────────
+let checkerResults=[];
+
+function detectIssues(l){
+  const issues=[];
+  const anc=String(l.anchor||'');
+  // Shifted columns detection
+  if(anc.startsWith('http'))issues.push('shifted');
+  else if(/^\d+\s+\d/.test(anc))issues.push('shifted');
+  else if(anc.length>80)issues.push('shifted');
+  else if(/https?:\/\//.test(anc))issues.push('shifted');
+  // Missing domain
+  if(!l.domain||l.domain.trim()===''||l.domain==='—')issues.push('no-domain');
+  // Missing anchor
+  if(!anc||anc==='—'||anc==='')issues.push('no-anchor');
+  // Bad date
+  const d=String(l.date||'');
+  if(!d||d==='—'||!/\d{2}[.\-\/]\d{2}[.\-\/]\d{4}/.test(d))issues.push('bad-date');
+  return[...new Set(issues)];
+}
+
+function runDataCheck(){
+  const domainCount={};
+  allLinks.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domainCount[key]=(domainCount[key]||0)+1;});
+  checkerResults=allLinks.map(l=>{
+    const issues=detectIssues(l);
+    if(domainCount[nd(l.domain)+'|'+(l.project||'')]>1)issues.push('dup');
+    return{...l,_issues:[...new Set(issues)]};
+  }).filter(l=>l._issues.length>0);
+
+  const proj=document.getElementById('chk-proj');
+  proj.innerHTML='<option value="">All projects</option>';
+  [...new Set(checkerResults.map(l=>l.project))].sort().forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;proj.appendChild(o);});
+
+  const shifted=checkerResults.filter(l=>l._issues.includes('shifted')).length;
+  const missing=checkerResults.filter(l=>l._issues.includes('no-domain')||l._issues.includes('no-anchor')).length;
+  const dups=checkerResults.filter(l=>l._issues.includes('dup')).length;
+  document.getElementById('checker-stats').innerHTML=`
+    <div class="stat"><div class="stat-l">Total issues</div><div class="stat-v" style="color:var(--red)">${checkerResults.length}</div></div>
+    <div class="stat"><div class="stat-l">Shifted columns</div><div class="stat-v" style="color:var(--yellow)">${shifted}</div></div>
+    <div class="stat"><div class="stat-l">Missing data</div><div class="stat-v" style="color:var(--yellow)">${missing}</div></div>
+    <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:var(--red)">${dups}</div></div>`;
+  renderCheckerResults();
+}
+
+function renderCheckerResults(){
+  const proj=document.getElementById('chk-proj').value;
+  const issue=document.getElementById('chk-issue').value;
+  let fl=checkerResults.filter(l=>{
+    if(proj&&l.project!==proj)return false;
+    if(issue&&!l._issues.includes(issue))return false;
+    return true;
+  });
+  const tb=document.getElementById('chk-tbody');
+  if(!fl.length){tb.innerHTML='<tr><td colspan="8" class="loading">No issues found ✅</td></tr>';return;}
+  const iLabel={
+    shifted:'<span style="color:var(--yellow);font-weight:700;">⚠ Shifted</span>',
+    'no-domain':'<span style="color:var(--red);font-weight:700;">❌ No domain</span>',
+    'no-anchor':'<span style="color:var(--text3);">— No anchor</span>',
+    'bad-date':'<span style="color:var(--text3);">📅 Bad date</span>',
+    dup:'<span style="color:var(--red);">🔁 Dup</span>'
+  };
+  tb.innerHTML=fl.map(l=>{
+    const lid=l.id;
+    const ancPreview=String(l.anchor||'').slice(0,70);
+    const issuesHtml=l._issues.map(i=>iLabel[i]||i).join(' ');
+    return`<tr style="${l._issues.includes('shifted')?'background:rgba(240,165,0,0.04);':''}">
+      <td><input type="checkbox" class="chk-cb" data-id="${lid}" onchange="onChkSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
+      <td style="min-width:140px;">${issuesHtml}</td>
+      <td style="color:var(--text3);font-size:11px;">${l.date||'—'}</td>
+      <td class="domain-teal">${l.domain||'—'}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;color:${l._issues.includes('shifted')?'var(--yellow)':'var(--text2)'};" title="${String(l.anchor||'').replace(/"/g,'&quot;')}">${ancPreview}</td>
+      <td>${l.project||'—'}</td>
+      <td>${l.builder||'—'}</td>
+      <td><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function onChkSelect(){
+  const ids=Array.from(document.querySelectorAll('.chk-cb:checked')).map(c=>c.dataset.id);
+  const bar=document.getElementById('chk-batch-bar');
+  if(ids.length){bar.style.display='flex';document.getElementById('chk-batch-count').textContent=ids.length+' selected';}
+  else bar.style.display='none';
+}
+function toggleChkSelectAll(el){document.querySelectorAll('.chk-cb').forEach(c=>c.checked=el.checked);onChkSelect();}
+function clearChkSelection(){document.querySelectorAll('.chk-cb').forEach(c=>c.checked=false);const el=document.getElementById('chk-select-all');if(el)el.checked=false;document.getElementById('chk-batch-bar').style.display='none';}
+async function chkBatchDelete(){
+  const ids=Array.from(document.querySelectorAll('.chk-cb:checked')).map(c=>c.dataset.id);
+  if(!ids.length)return;
+  if(!confirm('Delete '+ids.length+' links?'))return;
+  for(let i=0;i<ids.length;i+=400){
+    const b=db.batch();
+    ids.slice(i,i+400).forEach(id=>b.delete(db.collection('links').doc(id)));
+    await b.commit();
+  }
+  checkerResults=checkerResults.filter(l=>!ids.includes(l.id));
+  clearChkSelection();
+  runDataCheck();
+}
 
 function openProjectDetail(projName){
   currentDetailProject=projName;
