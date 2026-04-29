@@ -1,131 +1,2017 @@
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LinkBoard · TBR</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body,body *{transition:background-color 0.3s ease,color 0.2s ease,border-color 0.2s ease;}
 
-  const { linkIn, linkTo, anchor } = req.body || {};
-  if (!linkIn || !linkTo) return res.status(400).json({ error: 'linkIn and linkTo required' });
+/* ── PAGE TRANSITIONS ── */
+.page{display:none;padding:2rem;animation:fadeSlideIn 0.25s ease both;}
+.page.active{display:block;}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 
-  const USER_AGENTS = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
-  ];
+/* ── SIDEBAR NAV ── */
+.nav{padding:9px 1.25rem;font-size:13px;cursor:pointer;color:var(--text2);border-left:2px solid transparent;transition:all 0.2s ease;position:relative;overflow:hidden;}
+.nav::after{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:0;height:60%;background:var(--teal);opacity:0.08;border-radius:0 4px 4px 0;transition:width 0.2s ease;}
+.nav:hover::after{width:100%;}
+.nav:hover{color:var(--text);background:transparent;}
+.nav.active{color:var(--teal);background:var(--bg3);border-left-color:var(--teal);font-weight:600;}
 
-  let html = null;
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-bottom:1.25rem;overflow:hidden;transition:box-shadow 0.2s ease,transform 0.2s ease;}
+.proj-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;transition:all 0.2s ease;}
+.proj-card:hover{border-color:var(--teal);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,180,160,0.12);}
 
-  for (const ua of USER_AGENTS) {
-    try {
-      const response = await fetch(linkIn, {
-        headers: {
-          'User-Agent': ua,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        redirect: 'follow',
-        signal: AbortSignal.timeout(12000)
-      });
+/* ── STAT CARDS ── */
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.25rem;transition:all 0.2s ease;cursor:default;}
+.stat:hover{border-color:var(--teal);transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,180,160,0.1);}
 
-      if (response.ok) {
-        html = await response.text();
-        break;
-      }
-      if (response.status === 403) continue;
-      return res.json({ result: `❌ HTTP ${response.status}` });
+/* ── BUTTONS ── */
+.btn{width:100%;padding:11px;font-size:14px;border-radius:8px;border:none;background:var(--teal);color:#0a1628;cursor:pointer;font-weight:700;position:relative;overflow:hidden;transition:background 0.2s ease,transform 0.1s ease,box-shadow 0.2s ease;}
+.btn:hover{background:var(--teal2);box-shadow:0 4px 15px rgba(0,180,160,0.35);}
+.btn:active{transform:scale(0.98);}
+.btn-sm{padding:5px 14px;font-size:12px;background:var(--teal);color:#0a1628;border:none;border-radius:6px;cursor:pointer;font-weight:600;position:relative;overflow:hidden;transition:all 0.2s ease;}
+.btn-sm:hover{background:var(--teal2);box-shadow:0 3px 10px rgba(0,180,160,0.3);}
+.btn-sm:active{transform:scale(0.97);}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2);padding:5px 12px;font-size:12px;border-radius:6px;cursor:pointer;transition:all 0.2s ease;}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal);background:rgba(0,180,160,0.05);}
+.btn-danger{background:transparent;border:1px solid rgba(255,107,107,0.4);color:#ff6b6b;padding:5px 12px;font-size:12px;border-radius:6px;cursor:pointer;transition:all 0.2s ease;}
+.btn-danger:hover{background:rgba(255,107,107,0.1);transform:scale(1.05);}
 
-    } catch (e) {
-      if (e.name === 'TimeoutError') return res.json({ result: '⚠️ Timeout — site took too long' });
-      return res.json({ result: `⚠️ Error: ${e.message.slice(0, 60)}` });
-    }
-  }
+/* ── TABLE ROWS ── */
+.link-row{transition:background 0.15s ease;}
+tr:hover td{background:var(--bg3);}
 
-  if (!html) return res.json({ result: '⚠️ HTTP 403 — site blocks crawlers' });
+/* ── INPUTS ── */
+input,select{width:100%;padding:10px 12px;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);margin-bottom:14px;outline:none;transition:border-color 0.2s ease,box-shadow 0.2s ease;}
+input:focus,select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,180,160,0.12);}
 
-  return res.json({ result: evaluateLinkCheck(html, linkTo, anchor || '') });
+/* ── BADGES ── */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;transition:transform 0.15s ease;}
+.badge:hover{transform:scale(1.05);}
+
+/* ── COMPAT PILLS ── */
+.compat-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid;cursor:pointer;transition:all 0.2s ease;position:relative;}
+.compat-pill:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,0.2);}
+.compat-pill.ok{background:rgba(0,180,160,0.1);border-color:rgba(0,180,160,0.4);color:#00c9b0;}
+.compat-pill.ok:hover{background:rgba(0,180,160,0.18);}
+.compat-pill.fail{background:rgba(255,107,107,0.08);border-color:rgba(255,107,107,0.3);color:#ff6b6b;}
+.compat-pill.fail:hover{background:rgba(255,107,107,0.14);}
+.compat-pill.no-req{background:var(--bg3);border-color:var(--border);color:var(--text3);opacity:0.7;}
+
+/* ── TOOLTIP ── */
+.compat-tooltip{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:100;background:#0a1e35;border:1px solid var(--border);border-radius:8px;padding:8px 12px;min-width:180px;box-shadow:0 4px 20px rgba(0,0,0,0.4);animation:fadeIn 0.15s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+.compat-pill:hover .compat-tooltip{display:block;}
+
+/* ── LOADING SPINNER ── */
+.spin{display:inline-block;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── ALERTS ── */
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;animation:slideDown 0.2s ease;}
+@keyframes slideDown{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── DC BOX ── */
+.dc-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;display:none;animation:expandIn 0.2s ease;}
+.dc-box.show{display:block;}
+@keyframes expandIn{from{opacity:0;transform:scaleY(0.95);transform-origin:top;}to{opacity:1;transform:scaleY(1);}}
+
+/* ── EDIT ROW ── */
+#all-tbody tr[id^="edit-"]{animation:expandIn 0.2s ease;}
+
+/* ── GLOBAL SEARCH RESULTS ── */
+#global-results{animation:fadeIn 0.15s ease;}
+
+/* ── IMPORT DROP ── */
+.import-drop{border:2px dashed var(--border);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s ease;}
+.import-drop:hover{border-color:var(--teal);background:rgba(0,180,160,0.03);transform:scale(1.01);}
+
+/* ── PROGRESS BAR ── */
+.progress-fill{height:8px;border-radius:4px;background:linear-gradient(90deg,var(--teal),var(--teal2));transition:width 0.4s ease;box-shadow:0 0 8px rgba(0,180,160,0.4);}
+
+/* ── CAT BADGE ── */
+.cat-badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2);transition:all 0.2s ease;}
+.cat-badge:hover{border-color:var(--teal);color:var(--teal);}
+.cat-badge.selected{border-color:var(--teal);color:var(--teal);background:rgba(0,180,160,0.1);box-shadow:0 0 8px rgba(0,180,160,0.2);}
+
+/* ── LOGIN BOX ── */
+.login-box{width:360px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:2.5rem;animation:fadeSlideIn 0.4s ease;}
+
+/* ── SKELETON LOADING ── */
+.loading{text-align:center;padding:2rem;color:var(--text2);font-size:13px;}
+.loading::after{content:'';display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin 0.8s linear infinite;margin-left:8px;vertical-align:middle;}
+:root{--bg:#0a1628;--bg2:#0f1f35;--bg3:#162840;--teal:#00b4a0;--teal2:#00d4bc;--border:#1e3a52;--text:#e8f4f0;--text2:#7a9db5;--text3:#4a7a94;}
+body.light{--bg:#f0f4f8;--bg2:#ffffff;--bg3:#e8eef5;--teal:#00897b;--teal2:#00a896;--border:#d0dce8;--text:#1a2a3a;--text2:#5a7a94;--text3:#8aaabf;}
+body.light input,body.light select{background:var(--bg3);color:var(--text);border-color:var(--border);}
+body.light select option{background:var(--bg2);color:var(--text);}
+body.light .btn{color:#fff;}
+body.light .btn-sm{color:#fff;}
+.theme-toggle{cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);transition:all 0.15s;}
+.theme-toggle:hover{border-color:var(--teal);color:var(--teal);}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.screen{display:none;}.screen.active{display:block;}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;}
+.login-logo{font-size:24px;font-weight:700;color:var(--text);margin-bottom:4px;text-align:center;}
+.login-logo span{color:var(--teal);}
+.login-sub{font-size:13px;color:var(--text2);text-align:center;margin-bottom:2rem;}
+label{font-size:12px;color:var(--text2);margin-bottom:5px;display:block;}
+select option{background:var(--bg2);}
+.err{font-size:12px;color:#ff6b6b;margin-bottom:12px;display:none;padding:8px 12px;background:rgba(255,107,107,0.1);border-radius:6px;animation:slideDown 0.2s ease;}
+.app{display:flex;min-height:100vh;}
+.sidebar{width:220px;min-width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1.25rem 0;position:fixed;height:100vh;overflow-y:auto;}
+.sb-top{padding:0 1.25rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:10px;}
+.sb-logo{font-size:18px;font-weight:700;color:var(--text);margin-bottom:10px;}
+.sb-logo span{color:var(--teal);}
+.sb-name{font-size:14px;font-weight:600;color:var(--text);}
+.sb-role{font-size:11px;color:var(--text2);margin-top:2px;}
+.nav{padding:9px 1.25rem;font-size:13px;cursor:pointer;color:var(--text2);border-left:2px solid transparent;transition:all 0.15s;}
+.nav:hover{color:var(--text);background:var(--bg3);}
+.nav.active{color:var(--teal);background:var(--bg3);border-left-color:var(--teal);font-weight:600;}
+.sb-bottom{margin-top:auto;padding:1.25rem;}
+.logout{font-size:13px;color:var(--text3);cursor:pointer;}
+.logout:hover{color:#ff6b6b;}
+.content{flex:1;margin-left:220px;background:var(--bg);}
+.page{display:none;padding:2rem;}
+.page.active{display:block;}
+.page-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;}
+.page-title{font-size:22px;font-weight:700;letter-spacing:-0.5px;}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:1.5rem;}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.25rem;}
+.stat-l{font-size:11px;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;}
+.stat-v{font-size:28px;font-weight:700;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-bottom:1.25rem;overflow:hidden;}
+.card-head{padding:1rem 1.25rem;border-bottom:1px solid var(--border);font-size:14px;font-weight:600;display:flex;justify-content:space-between;align-items:center;}
+.card-head.pend{background:rgba(240,165,0,0.06);}
+.card-body{padding:1.25rem;}
+.tbl-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{text-align:left;font-size:10px;font-weight:500;color:var(--text2);padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:0.3px;}
+td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--bg3);}
+/* Compact specific columns */
+#all-tbody td:nth-child(1){width:28px;} /* checkbox */
+#all-tbody td:nth-child(2){width:90px;font-size:11px;color:var(--text3);} /* date */
+#all-tbody td:nth-child(3){max-width:160px;overflow:hidden;text-overflow:ellipsis;} /* domain */
+#all-tbody td:nth-child(4){width:40px;text-align:center;} /* dr */
+#all-tbody td:nth-child(5){width:70px;text-align:right;} /* traffic */
+#all-tbody td:nth-child(6){width:40px;text-align:center;} /* ss */
+#all-tbody td:nth-child(7){width:70px;} /* category */
+#all-tbody td:nth-child(8){width:50px;} /* price */
+#all-tbody td:nth-child(9){max-width:140px;overflow:hidden;text-overflow:ellipsis;} /* anchor */
+#all-tbody td:nth-child(10){width:80px;} /* project */
+#all-tbody td:nth-child(11){width:70px;} /* builder */
+#all-tbody td:nth-child(12){width:100px;} /* status */
+#all-tbody td:nth-child(13){max-width:160px;} /* link check */
+#all-tbody td:nth-child(14){width:40px;} /* dup */
+#all-tbody td:nth-child(15){width:32px;} /* delete */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.b-live{background:rgba(0,180,160,0.15);color:var(--teal);}
+.b-pend{background:rgba(240,165,0,0.12);color:#f0a500;}
+.b-ok{background:rgba(0,180,160,0.15);color:var(--teal);}
+.b-dup{background:rgba(255,107,107,0.15);color:#ff6b6b;}
+.b-warn{background:rgba(240,165,0,0.12);color:#f0a500;}
+.b-noreq{background:rgba(120,150,255,0.15);color:#7896ff;}
+.b-saas{background:rgba(120,150,255,0.15);color:#7896ff;}
+.b-service{background:rgba(0,180,160,0.15);color:var(--teal);}
+.b-blog{background:rgba(240,165,0,0.12);color:#f0a500;}
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;}
+.a-dup{background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3);}
+.a-ok{background:rgba(0,180,160,0.1);color:var(--teal);border:1px solid rgba(0,180,160,0.3);}
+.a-warn{background:rgba(240,165,0,0.1);color:#f0a500;border:1px solid rgba(240,165,0,0.3);}
+.filters{display:flex;gap:10px;margin-bottom:1rem;flex-wrap:wrap;}
+.filters input,.filters select{margin-bottom:0;flex:1;min-width:120px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.domain-teal{color:var(--teal);font-size:13px;}
+.domain-dup{color:#ff6b6b;font-size:13px;font-weight:600;}
+.loading{text-align:center;padding:2rem;color:var(--text2);font-size:13px;}
+.req-bar-bg{height:5px;background:var(--bg3);border-radius:3px;margin-bottom:3px;}
+.req-bar-fill{height:5px;border-radius:3px;}
+.dc-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;display:none;}
+.dc-box.show{display:block;}
+.dc-title{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;display:flex;justify-content:space-between;align-items:center;}
+.dc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;}
+.dc-item{background:var(--bg2);border-radius:8px;padding:10px;text-align:center;}
+.dc-label{font-size:10px;color:var(--text3);margin-bottom:4px;}
+.dc-input{background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;width:100%;text-align:center;font-size:15px;font-weight:700;color:var(--text);padding:4px;margin:0;outline:none;}
+.cat-suggest{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;}
+.cat-suggest-label{font-size:12px;color:var(--text2);}
+.cat-badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2);transition:all 0.15s;}
+.cat-badge.selected{border-color:var(--teal);color:var(--teal);background:rgba(0,180,160,0.1);}
+.import-drop{border:2px dashed var(--border);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:1rem;}
+.import-drop:hover{border-color:var(--teal);}
+.import-drop input[type=file]{display:none;}
+.progress-bar{height:8px;background:var(--bg3);border-radius:4px;margin:10px 0;}
+.progress-fill{height:8px;border-radius:4px;background:var(--teal);transition:width 0.3s;}
+.import-log{max-height:200px;overflow-y:auto;font-size:12px;color:var(--text2);font-family:monospace;background:var(--bg3);border-radius:8px;padding:10px;margin-top:10px;}
+.section-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
+.spin{display:inline-block;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:1rem;}
+.proj-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;}
+.proj-name{font-size:14px;font-weight:600;}
+.proj-count{font-size:11px;color:var(--text2);}
+
+/* ── PROJECT COMPATIBILITY PILLS ── */
+.compat-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid;cursor:pointer;transition:all 0.15s;position:relative;}
+.compat-pill.ok{background:rgba(0,180,160,0.1);border-color:rgba(0,180,160,0.4);color:#00c9b0;}
+.compat-pill.ok:hover{background:rgba(0,180,160,0.18);}
+.compat-pill.fail{background:rgba(255,107,107,0.08);border-color:rgba(255,107,107,0.3);color:#ff6b6b;}
+.compat-pill.fail:hover{background:rgba(255,107,107,0.14);}
+.compat-pill.no-req{background:var(--bg3);border-color:var(--border);color:var(--text3);opacity:0.7;}
+.compat-pill-icon{font-size:13px;}
+.compat-tooltip{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:100;background:#0a1e35;border:1px solid var(--border);border-radius:8px;padding:8px 12px;min-width:180px;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+.compat-pill:hover .compat-tooltip{display:block;}
+.compat-tooltip-row{font-size:11px;display:flex;align-items:center;gap:5px;margin-bottom:3px;font-weight:400;}
+.compat-tooltip-row:last-child{margin-bottom:0;}
+.compat-tooltip-row.pass{color:#00c9b0;}
+.compat-tooltip-row.fail-item{color:#ff6b6b;}
+.compat-tooltip-row.neutral{color:var(--text3);}
+
+/* ── REQUIREMENTS PAGE ENHANCED ── */
+.req-form-section{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;}
+.req-form-title{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.cat-checkboxes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.cat-check-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;}
+.cat-check-item input[type=checkbox]{width:auto;margin:0;cursor:pointer;}
+.det-status{font-size:11px;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;}
+.det-heuristic{background:rgba(240,165,0,0.12);color:#f0a500;}
+.det-gpt{background:rgba(0,180,160,0.12);color:var(--teal);}
+.det-loading{background:rgba(120,150,255,0.12);color:#7896ff;}
+</style>
+</head>
+<body>
+
+<div id="s-login" class="screen active">
+<div class="login-wrap">
+<div class="login-box">
+  <div class="login-logo">Link<span>Board</span></div>
+  <div class="login-sub">TBR · Link building management</div>
+  <div class="err" id="lerr">Wrong email or password</div>
+  <label>Email</label><input id="lu" type="email" placeholder="your@email.com"/>
+  <label>Password</label><input id="lp" type="password" placeholder="password"/>
+  <button class="btn" onclick="doLogin()">Sign in →</button>
+</div>
+</div>
+</div>
+
+<div id="s-app" class="screen">
+<div class="app">
+<div class="sidebar">
+  <div class="sb-top">
+    <div class="sb-logo">Link<span>Board</span></div>
+    <div class="sb-name" id="sb-name">—</div>
+    <div class="sb-role" id="sb-role">—</div>
+  </div>
+  <div style="padding:0 1rem 10px;">
+    <input id="global-search" placeholder="🔍 Search..." oninput="globalSearch()" style="margin-bottom:0;font-size:12px;padding:7px 10px;"/>
+    <div id="global-results" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:280px;overflow-y:auto;position:absolute;width:188px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,0.3);"></div>
+  </div>
+  <div class="nav active" onclick="gotoPage('dashboard',this)">Dashboard</div>
+  <div class="nav" onclick="gotoPage('add',this)">Add link</div>
+  <div class="nav" onclick="gotoPage('links',this)">All links</div>
+  <div class="nav adm" onclick="gotoPage('projects',this)">Projects</div>
+  <div class="nav adm" onclick="gotoPage('reqs',this)">Requirements</div>
+  <div class="nav adm" onclick="gotoPage('team',this)">Team</div>
+  <div class="nav adm" onclick="gotoPage('import',this)">Import CSV</div>
+  <div class="sb-bottom">
+    <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" style="width:100%;margin-bottom:10px;text-align:left;">🌙 Dark mode</button>
+    <span class="logout" onclick="doLogout()">Sign out</span>
+  </div>
+</div>
+<div class="content">
+
+<!-- DASHBOARD -->
+<div id="p-dashboard" class="page active">
+  <div class="page-top"><div class="page-title">Dashboard</div><button class="btn-sm" onclick="gotoPage('add',document.querySelectorAll('.nav')[1])">+ Add link</button></div>
+  <div class="stats">
+    <div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
+    <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)" id="ds-live">—</div></div>
+    <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
+    <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:#ff6b6b" id="ds-dup">—</div></div>
+  </div>
+  <div class="card">
+    <div class="card-head">Live links <span style="font-size:12px;color:var(--text2)" id="lc"></span></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Category</th><th>Anchor</th><th>Project</th><th>Builder</th></tr></thead>
+      <tbody id="dash-live"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+  <div class="card">
+    <div class="card-head pend">Pending <span style="font-size:12px;color:#f0a500" id="pc"></span></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Category</th><th>Anchor</th><th>Project</th><th>Builder</th></tr></thead>
+      <tbody id="dash-pend"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ADD LINK -->
+<div id="p-add" class="page">
+  <div class="page-top"><div class="page-title">Add link</div></div>
+  <div class="card" style="max-width:720px;">
+    <div class="card-body">
+      <div id="al-dup" class="alert a-dup"></div>
+      <div id="al-req" class="alert a-warn"></div>
+      <div id="al-ok" class="alert a-ok"></div>
+
+      <div class="section-label">Domain</div>
+      <input id="f-domain" placeholder="example.com" oninput="onDomainInput()" style="margin-bottom:8px;"/>
+
+      <div class="dc-box" id="dc-box">
+        <div class="dc-title">
+          <span>Domain metrics</span>
+          <span id="cat-status"></span>
+        </div>
+        <div class="dc-grid">
+          <div class="dc-item"><div class="dc-label">DR</div><input class="dc-input" id="f-dr" type="text" placeholder="—" oninput="renderCompatCards()"/></div>
+          <div class="dc-item"><div class="dc-label">Traffic</div><input class="dc-input" id="f-traffic" type="text" placeholder="—" oninput="renderCompatCards()"/></div>
+          <div class="dc-item"><div class="dc-label">US Traffic %</div><input class="dc-input" id="f-us-traffic" type="text" placeholder="—"/></div>
+          <div class="dc-item"><div class="dc-label">Spam Score %</div><input class="dc-input" id="f-ss" type="text" placeholder="—" oninput="renderCompatCards()"/></div>
+        </div>
+        <div class="cat-suggest">
+          <span class="cat-suggest-label">Category:</span>
+          <div id="cat-buttons"></div>
+        </div>
+        <input type="hidden" id="f-category" value=""/>
+
+        <!-- PROJECT COMPATIBILITY — inline, inside metrics box -->
+        <div id="compat-section" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Link available for clients</div>
+          <div id="compat-grid" style="display:flex;flex-wrap:wrap;gap:7px;"></div>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-top:4px;">
+        <div><div class="section-label">Project</div><select id="f-proj" onchange="onDomainInput();onAnchorInput()"><option value="">Select project</option></select></div>
+        <div><div class="section-label">Status</div><select id="f-status"><option value="pending">Pending</option><option value="live">Live</option></select></div>
+      </div>
+      <div class="section-label">Link in (full URL)</div>
+      <input id="f-linkin" placeholder="https://example.com/blog/post"/>
+      <div class="section-label">Link to (target URL)</div>
+      <input id="f-linkto" placeholder="https://project.com/page"/>
+      <div class="section-label">Anchor text</div>
+      <input id="f-anchor" placeholder="anchor text" oninput="onAnchorInput()"/>
+      <div class="form-grid">
+        <div><div class="section-label">Price ($)</div><input id="f-price" placeholder="25" oninput="this.value=this.value.replace(/[^0-9.]/g,'')"/></div>
+        <div><div class="section-label">Invoice link</div><input id="f-invoice" placeholder="optional"/></div>
+      </div>
+      <div class="section-label">Comments</div>
+      <input id="f-comments" placeholder="optional"/>
+      <button class="btn" onclick="addLink()" style="margin-top:4px;">Add link →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ALL LINKS -->
+<div id="p-links" class="page">
+  <div class="page-top">
+    <div class="page-title">All links</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="check-proj-select" style="margin:0;padding:6px 10px;font-size:12px;width:auto;">
+        <option value="">All projects</option>
+      </select>
+      <button id="check-all-btn" class="btn-sm" onclick="checkProjectLinks()" style="white-space:nowrap;">▶ Check links</button>
+      <button class="btn-sm adm" onclick="exportCSV()" style="background:transparent;color:var(--teal);border:1px solid var(--teal);white-space:nowrap;">Export CSV</button>
+    </div>
+  </div>
+  <div class="filters" style="gap:6px;margin-bottom:8px;">
+    <input id="ls-s" placeholder="Search..." oninput="renderLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
+    <select id="ls-p" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;">><option value="">All projects</option></select>
+    <select id="ls-st" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All statuses</option><option value="live">Live</option><option value="pending">Pending</option></select>
+    <select id="ls-b" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All builders</option></select>
+    <select id="ls-cat" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All categories</option><option>SaaS</option><option>Service</option><option>Blog/Magazine</option><option>News</option><option>Agency</option><option>Other</option></select>
+    <select id="ls-dup" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All</option><option value="dup">Duplicates only</option></select>
+  </div>
+  <div id="batch-bar" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap;">
+    <span id="batch-count" style="font-size:13px;color:var(--text2);"></span>
+    <button class="btn-sm" onclick="batchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
+    <button class="btn-sm" onclick="batchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
+    <button class="btn-ghost" onclick="batchCheck(this)">Check selected</button>
+    <button class="btn-ghost" onclick="batchDelete()" style="color:#ff6b6b;border-color:rgba(255,107,107,0.4);">Delete selected</button>
+    <button class="btn-ghost" onclick="clearSelection()" style="margin-left:auto;">Clear</button>
+  </div>
+  <div class="card">
+    <div class="tbl-wrap"><table>
+      <thead><tr><th><input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="toggleSort('date')">Date <span id="sort-date">↓</span></th><th>Domain</th><th style="cursor:pointer;" onclick="toggleSort('dr')">DR <span id="sort-dr"></span></th><th style="cursor:pointer;" onclick="toggleSort('traffic')">Traffic <span id="sort-traffic"></span></th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th><th>Link check</th><th class="adm"></th></tr></thead>
+      <tbody id="all-tbody"><tr><td colspan="11" class="loading">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- PROJECTS -->
+<div id="p-projects" class="page">
+  <div class="page-top"><div class="page-title">Projects</div></div>
+  <div class="card" style="max-width:500px;">
+    <div class="card-body">
+      <div class="section-label">Add new project</div>
+      <div style="display:flex;gap:10px;">
+        <input id="new-proj-name" placeholder="Project name" style="margin-bottom:0;flex:1;"/>
+        <button class="btn-sm" onclick="addProject()" style="white-space:nowrap;">Add →</button>
+      </div>
+    </div>
+  </div>
+  <div id="proj-grid" class="proj-grid"></div>
+</div>
+
+<!-- REQUIREMENTS -->
+<div id="p-reqs" class="page">
+  <div class="page-top"><div class="page-title">Requirements</div></div>
+  <div class="card" style="max-width:620px;">
+    <div class="card-body">
+
+      <!-- Quality Requirements -->
+      <div class="req-form-section">
+        <div class="req-form-title">Quality requirements (DR / Traffic / Spam / Category)</div>
+        <div style="margin-bottom:10px;">
+          <label>Project</label>
+          <select id="rq-proj" onchange="loadQualityReq()" style="margin-bottom:0;"><option value="">Select project</option></select>
+        </div>
+        <div class="form-grid-3" style="margin-bottom:10px;">
+          <div><label>Min DR</label><input id="rq-mindr" type="number" placeholder="e.g. 50" style="margin-bottom:0;"/></div>
+          <div><label>Min Traffic</label><input id="rq-mintraffic" type="number" placeholder="e.g. 5000" style="margin-bottom:0;"/></div>
+          <div><label>Max Spam Score %</label><input id="rq-maxss" type="number" placeholder="e.g. 5" style="margin-bottom:0;"/></div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label>Allowed categories</label>
+          <div class="cat-checkboxes" id="rq-cats">
+            <label class="cat-check-item"><input type="checkbox" value="SaaS"/> SaaS</label>
+            <label class="cat-check-item"><input type="checkbox" value="Service"/> Service</label>
+            <label class="cat-check-item"><input type="checkbox" value="Blog/Magazine"/> Blog/Magazine</label>
+            <label class="cat-check-item"><input type="checkbox" value="News"/> News</label>
+            <label class="cat-check-item"><input type="checkbox" value="Agency"/> Agency</label>
+            <label class="cat-check-item"><input type="checkbox" value="Other"/> Other</label>
+          </div>
+        </div>
+        <div style="margin-bottom:6px;">
+          <label>Notes (optional)</label>
+          <input id="rq-notes" placeholder="e.g. Only SaaS websites (science, biotech)"/>
+        </div>
+        <button class="btn-sm" onclick="saveQualityReq()" style="width:auto;padding:8px 20px;">Save quality requirements →</button>
+        <span id="rq-saved" style="font-size:12px;color:var(--teal);margin-left:10px;display:none;">✓ Saved</span>
+      </div>
+
+      <!-- Anchor Requirements -->
+      <div class="req-form-section">
+        <div class="req-form-title">Anchor requirements (limits)</div>
+        <div class="form-grid">
+          <div><label>Project</label><select id="r-proj"><option value="">Select</option></select></div>
+          <div><label>Month</label><select id="r-month">
+            <option>January</option><option>February</option><option>March</option><option>April</option>
+            <option>May</option><option>June</option><option>July</option><option>August</option>
+            <option>September</option><option>October</option><option>November</option><option>December</option>
+          </select></div>
+        </div>
+        <label>Anchor text</label><input id="r-anchor" placeholder="anchor text"/>
+        <label>Max links</label><input id="r-max" type="number" placeholder="5"/>
+        <button class="btn-sm" onclick="addReq()" style="width:auto;padding:8px 20px;">Add anchor requirement →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quality Reqs Summary -->
+  <div class="card" style="margin-top:1rem;">
+    <div class="card-head">Quality requirements per project</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Project</th><th>Min DR</th><th>Min Traffic</th><th>Max SS</th><th>Categories</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="qreq-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- Anchor Reqs -->
+  <div class="card" style="margin-top:1rem;">
+    <div class="card-head">Anchor requirements</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Project</th><th>Month</th><th>Anchor</th><th>Progress</th><th>Max</th><th></th></tr></thead>
+      <tbody id="req-tbody"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- PROJECT DETAIL -->
+<div id="p-project-detail" class="page">
+  <div class="page-top">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="btn-ghost" onclick="gotoPage('projects',document.querySelectorAll('.nav')[3])" style="padding:5px 10px;">← Back</button>
+      <div class="page-title" id="pd-title">Project</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn-ghost" onclick="checkDetailProjectLinks(this)" style="white-space:nowrap;">▶ Check links</button>
+      <button class="btn-sm" onclick="gotoPage('add',document.querySelectorAll('.nav')[1]);setTimeout(()=>{const s=document.getElementById('f-proj');if(s)s.value=currentDetailProject;},100)" style="white-space:nowrap;">+ Add link</button>
+    </div>
+  </div>
+  <div class="stats" id="pd-stats" style="grid-template-columns:repeat(4,1fr);"></div>
+  <div class="filters" style="gap:6px;margin-bottom:8px;">
+    <input id="pd-s" placeholder="Search..." oninput="renderDetailLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
+    <select id="pd-st" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All statuses</option><option value="live">Live</option><option value="pending">Pending</option></select>
+    <select id="pd-b" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All builders</option></select>
+    <select id="pd-dup" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All</option><option value="dup">Duplicates</option></select>
+  </div>
+  <div class="card">
+    <div class="tbl-wrap"><table>
+      <thead><tr><th><input type="checkbox" id="pd-select-all" onclick="togglePdSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="togglePdSort('date')">Date <span id="pd-sort-date">↓</span></th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Link check</th><th>Dup</th><th></th></tr></thead>
+      <tbody id="pd-tbody"><tr><td colspan="13" class="loading">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+  <div id="pd-batch-bar" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap;">
+    <span id="pd-batch-count" style="font-size:13px;color:var(--text2);"></span>
+    <button class="btn-sm" onclick="pdBatchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
+    <button class="btn-sm" onclick="pdBatchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
+    <button class="btn-ghost" onclick="pdBatchDelete()" style="color:#ff6b6b;border-color:rgba(255,107,107,0.4);">Delete</button>
+    <button class="btn-ghost" onclick="pdBatchCheck(this)">Check selected</button>
+    <button class="btn-ghost" onclick="clearPdSelection()" style="margin-left:auto;">Clear</button>
+  </div>
+</div>
+<div id="p-team" class="page">
+  <div class="page-top"><div class="page-title">Team</div></div>
+  <div class="stats" id="team-stats" style="grid-template-columns:repeat(3,1fr);"></div>
+  <div class="card">
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Builder</th><th>Total</th><th>Live</th><th>Pending</th><th>Duplicates</th></tr></thead>
+      <tbody id="team-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- IMPORT CSV -->
+<div id="p-import" class="page">
+  <div class="page-top"><div class="page-title">Import CSV</div></div>
+
+  <!-- Import Links -->
+  <div class="card" style="max-width:600px;margin-bottom:1.5rem;">
+    <div class="card-head">Import links</div>
+    <div class="card-body">
+      <div style="margin-bottom:14px;"><label>Project</label><select id="imp-proj"><option value="">Select project</option></select></div>
+      <div class="import-drop" id="imp-drop" onclick="document.getElementById('imp-file').click()">
+        <input type="file" id="imp-file" accept=".csv" onchange="handleCsvFile(this.files[0])"/>
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Drop CSV or click to upload</div>
+        <div style="font-size:12px;color:var(--text2);">Date, Domain, DR, Traffic, SS, Price, Link in, Link to, Anchor, Invoice, Builder, Comments</div>
+      </div>
+      <div id="imp-preview" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:13px;color:var(--text2);" id="imp-count"></span>
+          <button class="btn-sm" onclick="startImport()">Import all →</button>
+        </div>
+        <div class="progress-bar" id="imp-prog-wrap" style="display:none;"><div class="progress-fill" id="imp-prog" style="width:0%"></div></div>
+        <div class="import-log" id="imp-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Anchor Requirements -->
+  <div class="card" style="max-width:600px;">
+    <div class="card-head">Import anchor requirements</div>
+    <div class="card-body">
+      <div style="margin-bottom:14px;">
+        <label>Project</label>
+        <select id="req-imp-proj"><option value="">Select project</option></select>
+      </div>
+      <div class="import-drop" id="req-imp-drop" onclick="document.getElementById('req-imp-file').click()">
+        <input type="file" id="req-imp-file" accept=".csv" onchange="handleReqCsvFile(this.files[0])"/>
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Drop anchor CSV or click to upload</div>
+        <div style="font-size:12px;color:var(--text2);">Format: Month header row → Target page, Keyword/Anchor, Number of links/monthly</div>
+      </div>
+      <div id="req-imp-preview" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:13px;color:var(--text2);" id="req-imp-count"></span>
+          <button class="btn-sm" onclick="startReqImport()">Import requirements →</button>
+        </div>
+        <div class="progress-bar" id="req-imp-prog-wrap" style="display:none;"><div class="progress-fill" id="req-imp-prog" style="width:0%"></div></div>
+        <div class="import-log" id="req-imp-log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────
+const OPENAI_KEY = "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";
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCrcZvfeT04BASPS7qQ-j0F4x0ukvZaddA",
+  authDomain: "link-board-tbr.firebaseapp.com",
+  projectId: "link-board-tbr",
+  storageBucket: "link-board-tbr.firebasestorage.app",
+  messagingSenderId: "762084454897",
+  appId: "1:762084454897:web:7c3ec291cee4e327741450"
 };
 
-function normalizeUrl(u) {
-  return String(u || '').toLowerCase()
-    .replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
-}
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-function parseUrlPath(u) {
-  try {
-    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
-    const url = new URL(u);
-    return { host: url.hostname.replace(/^www\./i, ''), path: (url.pathname || '/').replace(/\/+$/, '') || '/' };
-  } catch { return { host: '', path: '' }; }
-}
+const BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik'];
+const CATEGORIES=['SaaS','Service','Blog/Magazine','News','Agency','Other'];
 
-function anchorMatch(want, got) {
-  if (!want) return true;
-  const split = s => s.toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').split(/\s+/).filter(Boolean);
-  const W = split(want), G = split(got);
-  return W.filter(w => G.includes(w)).length >= Math.max(1, Math.ceil(W.length * 0.6));
-}
+let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[];
+let catDetectTimer=null, currentDetectedCategory='', catDetectAbort=false;
 
-function evaluateLinkCheck(html, linkTo, anchor) {
-  const lower = (html || '').toLowerCase();
-  const targetNorm = normalizeUrl(linkTo);
-  const targetParts = parseUrlPath(linkTo);
-  const wantAnchor = (anchor || '').trim().toLowerCase();
-  const hasAnchorReq = wantAnchor.length > 0;
+// ─── AUTH ─────────────────────────────────────────────────
+function globalSearch(){
+  const q=(document.getElementById('global-search').value||'').toLowerCase().trim();
+  const res=document.getElementById('global-results');
+  if(!q){res.style.display='none';return;}
 
-  // Page-level meta robots
-  const pageFlags = [];
-  const robotsMatch = lower.match(/<meta[^>]+name=["']robots["'][^>]+content=["']([^"']+)["']/i);
-  if (robotsMatch) {
-    const r = robotsMatch[1];
-    if (/\bnoindex\b/.test(r)) pageFlags.push('noindex');
-    if (/\bnofollow\b/.test(r)) pageFlags.push('page-nofollow');
+  const matches=allLinks.filter(l=>
+    (l.domain||'').toLowerCase().includes(q)||
+    (l.anchor||'').toLowerCase().includes(q)||
+    (l.project||'').toLowerCase().includes(q)||
+    (l.builder||'').toLowerCase().includes(q)||
+    (l.linkin||'').toLowerCase().includes(q)
+  ).slice(0,12);
+
+  if(!matches.length){
+    res.style.display='block';
+    res.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--text3);">No results</div>';
+    return;
   }
 
-  // Find the link
-  const aRe = /<a\s[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  let m, found = false, anchorOk = !hasAnchorReq, foundAnchorText = '';
-  let nofollow = false, sponsored = false, ugc = false;
+  res.style.display='block';
+  res.innerHTML=matches.map(l=>`
+    <div onclick="openSearchResult('${l.id}','${l.project}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.1s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      <div style="font-size:12px;font-weight:600;color:${allLinks.filter(x=>nd(x.domain)===nd(l.domain)&&x.project===l.project).length>1?'#ff6b6b':'var(--teal)'};">${l.domain}</div>
+      <div style="font-size:11px;color:var(--text2);">${l.project} · ${l.builder||'—'} · <span style="color:${l.status==='live'?'var(--teal)':'#f0a500'}">${l.status}</span></div>
+      ${l.anchor?`<div style="font-size:10px;color:var(--text3);">${l.anchor}</div>`:''}
+    </div>
+  `).join('');
+}
 
-  while ((m = aRe.exec(lower))) {
-    const rawHref = (m[1] || '').trim();
-    const hrefNorm = normalizeUrl(rawHref);
-    let match = false;
+function openSearchResult(id, project){
+  document.getElementById('global-search').value='';
+  document.getElementById('global-results').style.display='none';
+  gotoPage('links', document.querySelectorAll('.nav')[2]);
+  document.getElementById('ls-p').value=project||'';
+  renderLinks();
+  // Scroll to and highlight the row after render
+  setTimeout(()=>{
+    const row=document.querySelector(`[data-id="${id}"]`);
+    if(row){row.closest('tr').scrollIntoView({behavior:'smooth',block:'center'});row.checked=true;onRowSelect();}
+  },200);
+}
 
-    if (hrefNorm && hrefNorm.indexOf(targetNorm) !== -1) match = true;
-    else if (rawHref.startsWith('/')) {
-      const hrefPath = rawHref.replace(/\/+$/, '') || '/';
-      if (hrefPath === targetParts.path || targetParts.path.endsWith(hrefPath)) match = true;
+// Close search on outside click
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#global-search')&&!e.target.closest('#global-results')){
+    const res=document.getElementById('global-results');
+    if(res)res.style.display='none';
+  }
+});
+
+function toggleTheme(){
+  const isLight=document.body.classList.toggle('light');
+  document.getElementById('theme-btn').textContent=isLight?'🌙 Dark mode':'☀️ Light mode';
+  localStorage.setItem('theme',isLight?'light':'dark');
+}
+
+// Apply saved theme on load
+(function(){
+  const saved=localStorage.getItem('theme');
+  if(saved==='light'){
+    document.body.classList.add('light');
+    const btn=document.getElementById('theme-btn');
+    if(btn)btn.textContent='🌙 Dark mode';
+  }
+})();
+
+auth.onAuthStateChanged(async user=>{
+  if(user){
+    const doc=await db.collection('users').doc(user.uid).get();
+    if(doc.exists){cu={...doc.data(),uid:user.uid};startApp();}
+    else auth.signOut();
+  } else {
+    document.getElementById('s-login').classList.add('active');
+    document.getElementById('s-app').classList.remove('active');
+  }
+});
+
+async function doLogin(){
+  const email=document.getElementById('lu').value.trim();
+  const pass=document.getElementById('lp').value;
+  try{await auth.signInWithEmailAndPassword(email,pass);document.getElementById('lerr').style.display='none';}
+  catch(e){document.getElementById('lerr').style.display='block';}
+}
+function doLogout(){auth.signOut();}
+
+function startApp(){
+  document.getElementById('s-login').classList.remove('active');
+  document.getElementById('s-app').classList.add('active');
+  document.getElementById('sb-name').textContent=cu.name||cu.email;
+  document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':'Builder';
+  document.querySelectorAll('.adm').forEach(el=>el.style.display=cu.role==='admin'?'block':'none');
+  const lb=document.getElementById('ls-b');
+  lb.innerHTML='<option value="">All builders</option>';
+  BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;lb.appendChild(o);});
+  listenProjects();listenLinks();listenReqs();listenQualityReqs();
+  renderCatButtons('');
+  gotoPage('dashboard',document.querySelector('.nav.active'));
+}
+
+// ─── PROJECTS ─────────────────────────────────────────────
+function listenProjects(){
+  db.collection('projects').orderBy('name').onSnapshot(snap=>{
+    allProjects=snap.docs.map(d=>({id:d.id,...d.data()}));
+    populateProjectSelects();renderProjectsPage();
+  });
+}
+function populateProjectSelects(){
+  const names=allProjects.map(p=>p.name);
+  ['f-proj','r-proj','rq-proj','imp-proj','req-imp-proj','ls-p','check-proj-select'].forEach(id=>{
+    const s=document.getElementById(id);if(!s)return;
+    const isFilter=id==='ls-p';const cur=s.value;
+    s.innerHTML=isFilter?'<option value="">All projects</option>':'<option value="">Select project</option>';
+    names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});
+    if(cur)s.value=cur;
+  });
+}
+async function addProject(){
+  const name=document.getElementById('new-proj-name').value.trim();
+  if(!name)return;
+  if(allProjects.find(p=>p.name.toLowerCase()===name.toLowerCase())){alert('Project already exists');return;}
+  await db.collection('projects').add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+  document.getElementById('new-proj-name').value='';
+}
+async function deleteProject(id,name){
+  const count=allLinks.filter(l=>l.project===name).length;
+  if(count>0){if(!confirm('This project has '+count+' links. Delete anyway?'))return;}
+  await db.collection('projects').doc(id).delete();
+}
+function renderProjectsPage(){
+  const grid=document.getElementById('proj-grid');if(!grid)return;
+  if(!allProjects.length){grid.innerHTML='<div style="color:var(--text2);font-size:13px;">No projects yet</div>';return;}
+  grid.innerHTML=allProjects.map(p=>{
+    const count=allLinks.filter(l=>l.project===p.name).length;
+    const live=allLinks.filter(l=>l.project===p.name&&l.status==='live').length;
+    const pend=allLinks.filter(l=>l.project===p.name&&l.status==='pending').length;
+    return`<div class="proj-card">
+      <div style="cursor:pointer;flex:1;" onclick="openProjectDetail('${p.name}')">
+        <div class="proj-name">${p.name}</div>
+        <div class="proj-count" style="color:var(--teal);">${count} links →</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px;">✅ ${live} · ⏳ ${pend}</div>
+      </div>
+      <button class="btn-danger" onclick="deleteProject('${p.id}','${p.name}')">✕</button>
+    </div>`;
+  }).join('');
+}
+let sortField='date', sortDir='desc';
+
+function toggleSort(field){
+  if(sortField===field) sortDir=sortDir==='desc'?'asc':'desc';
+  else{sortField=field;sortDir='desc';}
+  // Update indicators
+  ['date','dr','traffic'].forEach(f=>{
+    const el=document.getElementById('sort-'+f);
+    if(el) el.textContent=sortField===f?(sortDir==='desc'?'↓':'↑'):'';
+  });
+  renderLinks();
+}
+
+function parseDate(str){
+  if(!str)return 0;
+  const p=str.split(/[.\-\/]/);
+  if(p.length===3){
+    // dd.mm.yyyy
+    return new Date(p[2],p[1]-1,p[0]).getTime()||0;
+  }
+  return new Date(str).getTime()||0;
+}
+
+let currentDetailProject='';
+let pdSortField='date', pdSortDir='desc';
+
+function openProjectDetail(projName){
+  currentDetailProject=projName;
+  document.getElementById('pd-title').textContent=projName;
+
+  // Populate builder filter
+  const builders=[...new Set(allLinks.filter(l=>l.project===projName).map(l=>l.builder).filter(Boolean))].sort();
+  const bdSel=document.getElementById('pd-b');
+  bdSel.innerHTML='<option value="">All builders</option>';
+  builders.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;bdSel.appendChild(o);});
+
+  // Reset filters
+  document.getElementById('pd-s').value='';
+  document.getElementById('pd-st').value='';
+  document.getElementById('pd-dup').value='';
+
+  gotoPage('project-detail', null);
+  renderDetailLinks();
+}
+
+function renderDetailLinks(){
+  const proj=currentDetailProject;
+  const s=(document.getElementById('pd-s').value||'').toLowerCase();
+  const st=document.getElementById('pd-st').value;
+  const b=document.getElementById('pd-b').value;
+  const dup=document.getElementById('pd-dup').value;
+
+  const domainCount={};
+  allLinks.filter(l=>l.project===proj).forEach(l=>{const d=nd(l.domain);domainCount[d]=(domainCount[d]||0)+1;});
+
+  let fl=allLinks.filter(l=>{
+    if(l.project!==proj)return false;
+    if(st&&l.status!==st)return false;
+    if(b&&l.builder!==b)return false;
+    if(dup==='dup'&&domainCount[nd(l.domain)]<=1)return false;
+    if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s))return false;
+    return true;
+  });
+
+  fl.sort((a,b)=>{
+    const am=getMonthKey(a.date), bm=getMonthKey(b.date);
+    const av=parseDate(a.date), bv=parseDate(b.date);
+    if(am!==bm) return pdSortDir==='desc'?bv-av:av-bv;
+    if(a.status==='live'&&b.status!=='live')return -1;
+    if(a.status!=='live'&&b.status==='live')return 1;
+    return bv-av;
+  });
+
+  // Stats
+  const live=fl.filter(l=>l.status==='live').length;
+  const pend=fl.filter(l=>l.status==='pending').length;
+  const dups=fl.filter(l=>domainCount[nd(l.domain)]>1).length;
+  document.getElementById('pd-stats').innerHTML=`
+    <div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--teal)">${fl.length}</div></div>
+    <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)">${live}</div></div>
+    <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500">${pend}</div></div>
+    <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:#ff6b6b">${dups}</div></div>`;
+
+  const tb=document.getElementById('pd-tbody');
+  if(!fl.length){tb.innerHTML='<tr><td colspan="13" class="loading">No links</td></tr>';return;}
+
+  const pdRowFn=(l)=>{
+    const lid=l.id;
+    const isDup=domainCount[nd(l.domain)]>1;
+    const trafficVal=l.traffic&&!isNaN(Number(l.traffic))?Number(l.traffic).toLocaleString():'—';
+    const priceVal=l.price?'$'+String(l.price).replace(/^\$+/,''):'—';
+    const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto);
+    return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${lid}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
+      <td>${l.date||''}</td>
+      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.domain}</a></td>
+      <td>${l.dr||'—'}</td><td>${trafficVal}</td><td>${l.ss||'—'}</td><td>${priceVal}</td><td>${l.anchor||'—'}</td><td>${l.builder||'—'}</td>
+      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option></select></td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="checkSingleLink('${lid}',null,null,null,this)">▶</button></td>
+      <td>${dupB(l,domainCount)}</td>
+      <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button></td>
+    </tr>
+    <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
+      <td colspan="13" style="padding:14px 16px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+          ${l.linkin?`<a href="${l.linkin}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
+          ${l.linkto?`<a href="${l.linkto}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
+          <span style="font-size:11px;color:var(--text3);">${l.ss?'SS: '+l.ss+' ':''}${l.category?'· '+l.category+' ':''}${l.price?'· $'+String(l.price).replace(/^\$+/,''):''}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${String(l.price||'').replace(/^\$+/,'')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
+        </div>
+        <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+      </td>
+    </tr>`;
+  };
+  tb.innerHTML=renderRowsGrouped(fl,pdRowFn,13);
+}
+
+function togglePdSort(field){
+  pdSortDir=pdSortDir==='desc'?'asc':'desc';
+  document.getElementById('pd-sort-date').textContent=pdSortDir==='desc'?'↓':'↑';
+  renderDetailLinks();
+}
+
+function onPdRowSelect(){
+  const ids=Array.from(document.querySelectorAll('.pd-cb:checked')).map(cb=>cb.dataset.id);
+  const bar=document.getElementById('pd-batch-bar');
+  if(ids.length>0){bar.style.display='flex';document.getElementById('pd-batch-count').textContent=ids.length+' selected';}
+  else bar.style.display='none';
+}
+function togglePdSelectAll(el){document.querySelectorAll('.pd-cb').forEach(cb=>cb.checked=el.checked);onPdRowSelect();}
+function clearPdSelection(){document.querySelectorAll('.pd-cb').forEach(cb=>cb.checked=false);if(document.getElementById('pd-select-all'))document.getElementById('pd-select-all').checked=false;document.getElementById('pd-batch-bar').style.display='none';}
+function getPdSelectedIds(){return Array.from(document.querySelectorAll('.pd-cb:checked')).map(cb=>cb.dataset.id);}
+
+async function pdBatchSetStatus(status){
+  const ids=getPdSelectedIds();if(!ids.length)return;
+  for(const id of ids) await db.collection('links').doc(id).update({status});
+  clearPdSelection();
+}
+async function pdBatchDelete(){
+  const ids=getPdSelectedIds();if(!ids.length)return;
+  if(!confirm('Delete '+ids.length+' links?'))return;
+  for(const id of ids) await db.collection('links').doc(id).delete();
+  clearPdSelection();
+}
+async function pdBatchCheck(btn){
+  const ids=getPdSelectedIds();if(!ids.length)return;
+  const orig=btn.textContent;btn.disabled=true;let done=0;
+  for(const id of ids){
+    const l=allLinks.find(x=>x.id===id);
+    if(!l?.linkin||!l?.linkto){await db.collection('links').doc(id).update({linkcheck:'⚠️ Link in/out missing'});done++;btn.textContent=`⏳ ${done}/${ids.length}`;continue;}
+    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(id).update({linkcheck:data.result||'⚠️ No response'});}
+    catch(e){await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});}
+    done++;btn.textContent=`⏳ ${done}/${ids.length}`;
+  }
+  btn.textContent='✅ Done';setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},2000);
+}
+
+async function checkDetailProjectLinks(btn){
+  const proj=currentDetailProject;
+  const toCheck=allLinks.filter(l=>l.project===proj&&l.linkin&&l.linkto);
+  if(!toCheck.length){alert('No links with URLs.');return;}
+  if(!confirm(`Check ${toCheck.length} links in ${proj}?`))return;
+  const orig=btn.textContent;btn.disabled=true;let done=0;
+  for(const l of toCheck){
+    btn.textContent=`⏳ ${done}/${toCheck.length}`;
+    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(l.id).update({linkcheck:data.result||'⚠️ No response'});}
+    catch(e){await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});}
+    done++;
+  }
+  btn.textContent='✅ Done';setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},2500);
+}
+
+function gotoPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav').forEach(n=>n.classList.remove('active'));
+  document.getElementById('p-'+name).classList.add('active');
+  if(el)el.classList.add('active');
+  if(name==='projects')renderProjectsPage();
+}
+function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
+
+// ─── CATEGORY DETECTION ───────────────────────────────────
+function renderCatButtons(selected){
+  const wrap=document.getElementById('cat-buttons');if(!wrap)return;
+  wrap.innerHTML=CATEGORIES.map(c=>`<span class="cat-badge ${selected===c?'selected':''}" onclick="selectCategory('${c}')">${c}</span>`).join(' ');
+  document.getElementById('f-category').value=selected;
+  currentDetectedCategory=selected;
+}
+function selectCategory(cat){
+  renderCatButtons(cat);
+  renderCompatCards();
+}
+
+// Heuristic classification (instant, no API)
+function heuristicClassify(text){
+  const t=(text||'').toLowerCase();
+  const saasKw=['free trial','start free','sign up','signup','log in','login','book demo','request demo','get started','pricing','pricing plans','product','platform','software','tool','dashboard','workspace','integrations','integration','api','extension','automation','saas','app'];
+  const serviceKw=['agency','consulting','consultancy','our services','done for you','done-for-you','managed services','hire us','outsourcing','professional services','service provider'];
+  const blogKw=['latest news','editorial','magazine','newsroom','journal','articles','article archive','stories','press release','press','news','blog post'];
+  let ss=countHits(t,saasKw), sv=countHits(t,serviceKw), bl=countHits(t,blogKw);
+  if(t.includes('/pricing'))ss+=3;if(t.includes('/login'))ss+=3;if(t.includes('/signup'))ss+=3;
+  if(t.includes('/integrations'))ss+=2;if(t.includes('/demo'))ss+=2;
+  if(t.includes('our services'))sv+=3;if(t.includes('managed services'))sv+=3;
+  if(t.includes('/blog'))bl+=2;if(t.includes('newsroom'))bl+=2;
+  const strongSaas=['free trial','book demo','sign up','login','integrations','api','dashboard'];
+  if(countHits(t,strongSaas)>=3)return'SaaS';
+  if(ss>=sv&&ss>=bl)return'SaaS';
+  if(sv>=ss&&sv>=bl)return'Service';
+  return'Blog/Magazine';
+}
+function countHits(text,kws){let s=0;for(const k of kws){if(text.includes(k))s++;}return s;}
+
+// Full detection via serverless endpoint
+async function detectCategory(domain){
+  const statusEl=document.getElementById('cat-status');
+  statusEl.innerHTML='<span class="det-status det-loading"><span class="spin">↻</span> Detecting...</span>';
+  try{
+    const resp=await fetch('/api/detect-category',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({domain, openaiKey:OPENAI_KEY})
+    });
+    const data=await resp.json();
+    const cat=normalizeCategory(data.category||'Other');
+    renderCatButtons(cat);
+    renderCompatCards();
+    const isGpt=data.method==='gpt';
+    const label=isGpt?`🤖 ${cat} (GPT${data.confidence?' '+data.confidence+'%':''})`:`⚡ ${cat} (heuristic)`;
+    statusEl.innerHTML=`<span class="det-status ${isGpt?'det-gpt':'det-heuristic'}">${label}</span>`;
+  }catch(e){
+    statusEl.innerHTML='<span class="det-status det-heuristic">⚡ Detection failed</span>';
+  }
+}
+
+function normalizeCategory(cat){
+  const v=(cat||'').toLowerCase().trim();
+  if(v==='saas')return'SaaS';
+  if(v==='service'||v==='services')return'Service';
+  if(v==='blog'||v==='blog/magazine'||v==='magazine')return'Blog/Magazine';
+  if(v==='news')return'News';
+  if(v==='agency')return'Agency';
+  return'Other';
+}
+function stripHtmlClient(html){
+  return(html||'').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+}
+
+// ─── DOMAIN INPUT → DETECTION + COMPAT CARDS ─────────────
+function onDomainInput(){
+  const raw=document.getElementById('f-domain').value.trim();
+  const d=nd(raw);
+  const dupEl=document.getElementById('al-dup');
+  const dcBox=document.getElementById('dc-box');
+  const compatSection=document.getElementById('compat-section');
+
+  if(!d){
+    dupEl.style.display='none';
+    dcBox.classList.remove('show');
+    compatSection.style.display='none';
+    return;
+  }
+  dcBox.classList.add('show');
+
+  // Duplicate check per-project — show inline in compat cards, not as alert
+  const dupProjects=allProjects.filter(p=>allLinks.some(l=>nd(l.domain)===d&&l.project===p.name));
+  if(dupProjects.length){
+    dupEl.style.display='block';
+    dupEl.style.background='transparent';
+    dupEl.style.border='none';
+    dupEl.style.padding='0';
+    dupEl.style.color='var(--text)';
+    dupEl.innerHTML='<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Already used in</div>'
+      +dupProjects.map(p=>{
+        const link=allLinks.find(l=>nd(l.domain)===d&&l.project===p.name);
+        return`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;margin-right:6px;margin-bottom:4px;">❌ ${p.name} <span style="font-weight:400;font-size:10px;color:rgba(255,107,107,0.7);">${link.status} · ${link.builder||'—'}</span></span>`;
+      }).join('');
+  } else {
+    dupEl.style.display='none';
+  }
+
+  // Debounce detection + metrics fetch
+  clearTimeout(catDetectTimer);
+  catDetectTimer=setTimeout(async()=>{
+    // Fetch Ahrefs metrics
+    const metricsEl=document.getElementById('cat-status');
+    try{
+      const mResp=await fetch('/api/get-metrics',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({domain:d})
+      });
+      const mData=await mResp.json();
+      if(mData.dr!==null&&mData.dr!==undefined){
+        document.getElementById('f-dr').value=mData.dr;
+      }
+      if(mData.traffic!==null&&mData.traffic!==undefined){
+        document.getElementById('f-traffic').value=mData.traffic;
+      }
+      // Show US traffic % if available
+      if(mData.usTrafficPct!==null&&mData.usTrafficPct!==undefined){
+        const usEl=document.getElementById('f-us-traffic');
+        if(usEl) usEl.value=mData.usTrafficPct;
+        // Update status with top countries
+        const cats=document.getElementById('cat-status');
+        if(cats&&mData.topCountries&&mData.topCountries.length){
+          const countriesStr=mData.topCountries.map(c=>`${c.country} ${c.pct}%`).join(' · ');
+          cats.setAttribute('data-countries',countriesStr);
+        }
+      }
+      if(mData.dr||mData.traffic) renderCompatCards();
+    }catch(e){}
+    // Then detect category
+    detectCategory(d);
+  },700);
+}
+
+// ─── PROJECT COMPATIBILITY CARDS ─────────────────────────
+function renderCompatCards(){
+  const compatSection=document.getElementById('compat-section');
+  const compatGrid=document.getElementById('compat-grid');
+
+  if(!allProjects.length){compatSection.style.display='none';return;}
+
+  const dr=parseFloat(document.getElementById('f-dr').value)||null;
+  const traffic=parseFloat(document.getElementById('f-traffic').value)||null;
+  const ss=parseFloat(document.getElementById('f-ss').value);
+  const ssVal=isNaN(ss)?null:ss;
+  const category=document.getElementById('f-category').value||currentDetectedCategory||'';
+
+  // Only show if we have at least category or some metrics
+  if(!category&&dr===null&&traffic===null&&ssVal===null){
+    compatSection.style.display='none';return;
+  }
+  compatSection.style.display='block';
+
+  // Get current month name
+  // Get quality req for this project (no month)
+  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const currentMonth=monthNames[new Date().getMonth()];
+
+  const pills=allProjects.map(proj=>{
+    const qr=allQualityReqs.find(r=>r.project===proj.name);
+
+    if(!qr){
+      const alreadyUsed=allLinks.some(l=>nd(l.domain)===nd(document.getElementById('f-domain').value)&&l.project===proj.name);
+      if(alreadyUsed){
+        return`<div class="compat-pill fail">
+          <span class="compat-pill-icon">❌</span>${proj.name}
+          <div class="compat-tooltip"><div class="compat-tooltip-row fail-item">Already used in this project</div></div>
+        </div>`;
+      }
+      return`<div class="compat-pill no-req">
+        <span class="compat-pill-icon">○</span>${proj.name}
+        <div class="compat-tooltip"><div class="compat-tooltip-row neutral">No requirements set</div></div>
+      </div>`;
     }
-    if (!match) continue;
 
-    found = true;
-    foundAnchorText = (m[2] || '').replace(/<[^>]*>/g, '').trim();
-    if (hasAnchorReq) anchorOk = anchorMatch(wantAnchor, foundAnchorText.toLowerCase());
-
-    const relMatch = /rel\s*=\s*["']([^"']+)["']/.exec(m[0]);
-    if (relMatch) {
-      const rel = relMatch[1];
-      if (/\bnofollow\b/.test(rel)) nofollow = true;
-      if (/\bsponsored\b/.test(rel)) sponsored = true;
-      if (/\bugc\b/.test(rel)) ugc = true;
+    const alreadyUsed=allLinks.some(l=>nd(l.domain)===nd(document.getElementById('f-domain').value)&&l.project===proj.name);
+    if(alreadyUsed){
+      return`<div class="compat-pill fail">
+        <span class="compat-pill-icon">❌</span>${proj.name}
+        <div class="compat-tooltip"><div class="compat-tooltip-row fail-item">Already used in this project</div></div>
+      </div>`;
     }
-    break;
-  }
 
-  if (!found) return '❌ Link not found';
+    const checks=[];let hasFailure=false;
 
-  const linkFlags = [];
-  if (nofollow) linkFlags.push('nofollow');
-  if (sponsored) linkFlags.push('sponsored');
-  if (ugc) linkFlags.push('ugc');
-  const allFlags = [...linkFlags, ...pageFlags];
-  const flagStr = allFlags.length ? ' · ' + allFlags.join(', ') : '';
+    if(qr.minDR){
+      if(dr===null) checks.push({label:`DR ≥ ${qr.minDR}`,pass:null});
+      else if(dr>=qr.minDR) checks.push({label:`DR ${dr} ≥ ${qr.minDR}`,pass:true});
+      else{checks.push({label:`DR ${dr} < ${qr.minDR}`,pass:false});hasFailure=true;}
+    }
+    if(qr.minTraffic){
+      if(traffic===null) checks.push({label:`Traffic ≥ ${Number(qr.minTraffic).toLocaleString()}`,pass:null});
+      else if(traffic>=qr.minTraffic) checks.push({label:`Traffic ${Number(traffic).toLocaleString()}`,pass:true});
+      else{checks.push({label:`Traffic ${Number(traffic).toLocaleString()} < ${Number(qr.minTraffic).toLocaleString()}`,pass:false});hasFailure=true;}
+    }
+    if(qr.maxSS!=null&&qr.maxSS!==''){
+      if(ssVal===null) checks.push({label:`SS ≤ ${qr.maxSS}%`,pass:null});
+      else if(ssVal<=qr.maxSS) checks.push({label:`SS ${ssVal}%`,pass:true});
+      else{checks.push({label:`SS ${ssVal}% > ${qr.maxSS}%`,pass:false});hasFailure=true;}
+    }
+    if(qr.allowedCategories&&qr.allowedCategories.length>0){
+      if(!category) checks.push({label:`Cat: ${qr.allowedCategories.join('/')}`,pass:null});
+      else if(qr.allowedCategories.includes(category)) checks.push({label:category,pass:true});
+      else{checks.push({label:`${category} ✗`,pass:false});hasFailure=true;}
+    }
 
-  if (hasAnchorReq && !anchorOk) {
-    const actual = foundAnchorText ? ` (found: "${foundAnchorText.slice(0, 40)}")` : '';
-    return `⚠️ Anchor missing${actual}${flagStr}`;
-  }
+    if(!checks.length){
+      return`<div class="compat-pill no-req">
+        <span class="compat-pill-icon">○</span>${proj.name}
+        <div class="compat-tooltip"><div class="compat-tooltip-row neutral">No criteria set</div></div>
+      </div>`;
+    }
 
-  return allFlags.length ? `✅ Link found${flagStr}` : '✅ Link found';
+    const pillClass=hasFailure?'fail':'ok';
+    const icon=hasFailure?'❌':'✅';
+    const tooltipRows=checks.map(c=>{
+      const cls=c.pass===true?'pass':c.pass===false?'fail-item':'neutral';
+      const sym=c.pass===true?'✓':c.pass===false?'✗':'·';
+      return`<div class="compat-tooltip-row ${cls}">${sym} ${c.label}</div>`;
+    }).join('');
+    const notes=qr.notes?`<div class="compat-tooltip-row neutral" style="margin-top:5px;border-top:1px solid var(--border);padding-top:5px;">${qr.notes}</div>`:'';
+
+    return`<div class="compat-pill ${pillClass}" onclick="document.getElementById('f-proj').value='${proj.name}';onAnchorInput();">
+      <span class="compat-pill-icon">${icon}</span>${proj.name}
+      <div class="compat-tooltip">${tooltipRows}${notes}</div>
+    </div>`;
+  }).join('');
+
+  compatGrid.innerHTML=pills;
 }
+
+// ─── ANCHOR CHECK ─────────────────────────────────────────
+function onAnchorInput(){
+  const anchor=document.getElementById('f-anchor').value.trim().toLowerCase();
+  const proj=document.getElementById('f-proj').value;
+  const el=document.getElementById('al-req');
+  if(!anchor||!proj){el.style.display='none';return;}
+  const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor);
+  if(!req){el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No anchor requirement for "'+anchor+'" in '+proj;return;}
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor).length;
+  if(used>=req.max){el.style.display='block';el.className='alert a-dup';el.textContent='🚫 Limit reached! '+used+'/'+req.max+' for "'+anchor+'" in '+proj;}
+  else{el.style.display='block';el.className='alert a-ok';el.textContent='✅ Anchor OK — '+used+' of '+req.max+' used';}
+}
+
+function getCheck(domain,anchor,proj){
+  if(allLinks.some(l=>nd(l.domain)===nd(domain)))return'dup';
+  const req=allReqs.find(r=>r.project===proj&&r.anchor.toLowerCase()===(anchor||'').toLowerCase());
+  if(!req)return'noreq';
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===(anchor||'').toLowerCase()).length;
+  return used>=req.max?'limit':'ok';
+}
+
+// ─── ADD LINK (with quality validation) ──────────────────
+async function addLink(){
+  const domain=document.getElementById('f-domain').value.trim();
+  const anchor=document.getElementById('f-anchor').value.trim();
+  const proj=document.getElementById('f-proj').value;
+  const dr=parseFloat(document.getElementById('f-dr').value)||null;
+  const traffic=parseFloat(document.getElementById('f-traffic').value)||null;
+  const ssVal=document.getElementById('f-ss').value;
+  const ss=ssVal!==''?parseFloat(ssVal):null;
+  const category=document.getElementById('f-category').value||'';
+
+  if(!domain||!anchor||!proj){alert('Domain, anchor and project are required');return;}
+
+  // Duplicate check per project
+  const existing=allLinks.find(l=>nd(l.domain)===nd(domain)&&l.project===proj);
+  if(existing){if(!confirm('Duplicate! '+domain+' already exists in '+proj+'. Add anyway?'))return;}
+
+  // Quality requirements validation (hard stop)
+  const qr=allQualityReqs.find(r=>r.project===proj);
+
+  if(qr){
+    const failures=[];
+    if(qr.minDR&&dr!==null&&dr<qr.minDR) failures.push(`DR ${dr} is below minimum ${qr.minDR}`);
+    if(qr.minTraffic&&traffic!==null&&traffic<qr.minTraffic) failures.push(`Traffic ${Number(traffic).toLocaleString()} is below minimum ${Number(qr.minTraffic).toLocaleString()}`);
+    if(qr.maxSS!=null&&qr.maxSS!==''&&ss!==null&&ss>qr.maxSS) failures.push(`Spam Score ${ss}% exceeds maximum ${qr.maxSS}%`);
+    if(qr.allowedCategories&&qr.allowedCategories.length>0&&category&&!qr.allowedCategories.includes(category)) failures.push(`Category "${category}" is not allowed for ${proj}`);
+
+    if(failures.length>0){
+      alert('🚫 Quality requirements not met for '+proj+':\n\n• '+failures.join('\n• '));
+      return; // hard stop
+    }
+  }
+
+  // Anchor limit check
+  const anchor_lc=anchor.toLowerCase();
+  const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor_lc);
+  if(req){
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc).length;
+    if(used>=req.max){alert('🚫 Anchor limit reached ('+used+'/'+req.max+')');return;}
+  }
+
+  const btn=document.querySelector('#p-add .btn');
+  btn.textContent='Saving...';btn.disabled=true;
+  try{
+    await db.collection('links').add({
+      domain,anchor,project:proj,
+      status:document.getElementById('f-status').value,
+      dr:document.getElementById('f-dr').value||'',
+      traffic:document.getElementById('f-traffic').value||'',
+      ss:ssVal||'',category,
+      price:String(document.getElementById('f-price').value||'').replace(/\$+/g,'').trim(),
+      linkin:document.getElementById('f-linkin').value||'',
+      linkto:document.getElementById('f-linkto').value||'',
+      invoice:document.getElementById('f-invoice').value||'',
+      comments:document.getElementById('f-comments').value||'',
+      builder:cu.name||cu.email,
+      check:getCheck(domain,anchor,proj),
+      relevancy:'',linkcheck:'',
+      createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+      date:new Date().toLocaleDateString('en-GB')
+    });
+    const ok=document.getElementById('al-ok');
+    ok.style.display='block';ok.textContent='✅ Link added!';
+    setTimeout(()=>{
+      ok.style.display='none';
+      // Redirect to All Links filtered by pending + current project
+      const proj=document.getElementById('f-proj').value;
+      gotoPage('links',document.querySelectorAll('.nav')[2]);
+      document.getElementById('ls-st').value='pending';
+      if(proj) document.getElementById('ls-p').value=proj;
+      renderLinks();
+    },1200);
+    ['f-domain','f-linkin','f-linkto','f-anchor','f-dr','f-traffic','f-ss','f-price','f-invoice','f-comments'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-category').value='';
+    document.getElementById('al-dup').style.display='none';
+    document.getElementById('al-req').style.display='none';
+    document.getElementById('dc-box').classList.remove('show');
+    document.getElementById('compat-section').style.display='none';
+    document.getElementById('cat-status').innerHTML='';
+    renderCatButtons('');
+  }catch(e){alert('Error: '+e.message);}
+  btn.textContent='Add link →';btn.disabled=false;
+}
+
+// ─── LINKS LISTENER ───────────────────────────────────────
+function listenLinks(){
+  db.collection('links').orderBy('createdAt','desc').onSnapshot(snap=>{
+    allLinks=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderDashboard();renderLinks();renderTeam();renderProjectsPage();
+    if(currentDetailProject) renderDetailLinks();
+  });
+}
+function listenReqs(){
+  db.collection('requirements').onSnapshot(snap=>{
+    allReqs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderReqs();
+  });
+}
+function listenQualityReqs(){
+  db.collection('qualityRequirements').onSnapshot(snap=>{
+    allQualityReqs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderQualityReqs();
+  });
+}
+
+// ─── REQUIREMENTS ─────────────────────────────────────────
+async function addReq(){
+  const proj=document.getElementById('r-proj').value;
+  const month=document.getElementById('r-month').value;
+  const anchor=document.getElementById('r-anchor').value.trim().toLowerCase();
+  const max=parseInt(document.getElementById('r-max').value);
+  if(!proj||!anchor||!max){alert('Fill all fields');return;}
+  const existing=allReqs.find(r=>r.project===proj&&r.month===month&&r.anchor===anchor);
+  if(existing)await db.collection('requirements').doc(existing.id).update({max});
+  else await db.collection('requirements').add({project:proj,month,anchor,max});
+  document.getElementById('r-anchor').value='';
+  document.getElementById('r-max').value='';
+}
+
+function getMonthKey(dateStr){
+  if(!dateStr)return'Unknown';
+  const p=dateStr.split(/[.\-\/]/);
+  if(p.length===3){
+    const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const month=months[parseInt(p[1])-1]||'Unknown';
+    const year=p[2].length===2?'20'+p[2]:p[2];
+    return`${month} ${year}`;
+  }
+  return dateStr.slice(0,7)||'Unknown';
+}
+
+function monthSeparatorRow(monthKey, count, colspan){
+  return`<tr style="background:var(--bg3);border-top:2px solid var(--border);">
+    <td colspan="${colspan}" style="padding:8px 12px;">
+      <span style="font-size:12px;font-weight:700;color:var(--teal);">${monthKey}</span>
+      <span style="font-size:11px;color:var(--text3);margin-left:8px;">${count} links</span>
+    </td>
+  </tr>`;
+}
+
+function renderRowsGrouped(links, rowFn, colspan){
+  if(!links.length)return`<tr><td colspan="${colspan}" class="loading">No links</td></tr>`;
+  let html='';
+  let lastMonth='';
+  let monthCount=0;
+  let monthStart=0;
+
+  // Pre-group
+  const rows=links.map(l=>({l,month:getMonthKey(l.date)}));
+  let i=0;
+  while(i<rows.length){
+    const month=rows[i].month;
+    let j=i;
+    while(j<rows.length&&rows[j].month===month)j++;
+    html+=monthSeparatorRow(month,j-i,colspan);
+    for(let k=i;k<j;k++) html+=rowFn(rows[k].l);
+    i=j;
+  }
+  return html;
+}
+
+// Load existing quality req into form when project changes
+async function loadQualityReq(){
+  const proj=document.getElementById('rq-proj').value;
+  if(!proj)return;
+  const existing=allQualityReqs.find(r=>r.project===proj);
+  document.getElementById('rq-mindr').value=existing?.minDR||'';
+  document.getElementById('rq-mintraffic').value=existing?.minTraffic||'';
+  document.getElementById('rq-maxss').value=existing?.maxSS!=null?existing.maxSS:'';
+  document.getElementById('rq-notes').value=existing?.notes||'';
+  const allowed=existing?.allowedCategories||[];
+  document.querySelectorAll('#rq-cats input[type=checkbox]').forEach(cb=>{
+    cb.checked=allowed.includes(cb.value);
+  });
+}
+
+async function saveQualityReq(){
+  const proj=document.getElementById('rq-proj').value;
+  if(!proj){alert('Select a project');return;}
+  const minDR=document.getElementById('rq-mindr').value!==''?parseFloat(document.getElementById('rq-mindr').value):null;
+  const minTraffic=document.getElementById('rq-mintraffic').value!==''?parseFloat(document.getElementById('rq-mintraffic').value):null;
+  const maxSS=document.getElementById('rq-maxss').value!==''?parseFloat(document.getElementById('rq-maxss').value):null;
+  const notes=document.getElementById('rq-notes').value.trim();
+  const allowedCategories=[];
+  document.querySelectorAll('#rq-cats input[type=checkbox]:checked').forEach(cb=>allowedCategories.push(cb.value));
+
+  const data={project:proj,minDR,minTraffic,maxSS,allowedCategories,notes,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  const existing=allQualityReqs.find(r=>r.project===proj);
+  if(existing)await db.collection('qualityRequirements').doc(existing.id).update(data);
+  else await db.collection('qualityRequirements').add(data);
+
+  const saved=document.getElementById('rq-saved');
+  saved.style.display='inline';
+  setTimeout(()=>saved.style.display='none',2000);
+}
+
+function renderQualityReqs(){
+  const tb=document.getElementById('qreq-tbody');
+  if(!allQualityReqs.length){tb.innerHTML='<tr><td colspan="8" class="loading">No quality requirements yet</td></tr>';return;}
+  tb.innerHTML=allQualityReqs.map(r=>{
+    const cats=(r.allowedCategories||[]).map(c=>`<span class="badge b-saas" style="font-size:10px;padding:2px 7px;">${c}</span>`).join(' ')||'<span style="color:var(--text3)">Any</span>';
+    return`<tr>
+      <td style="font-weight:600;">${r.project}</td>
+      <td>${r.minDR!=null?'≥ '+r.minDR:'—'}</td>
+      <td>${r.minTraffic!=null?'≥ '+Number(r.minTraffic).toLocaleString():'—'}</td>
+      <td>${r.maxSS!=null?'≤ '+r.maxSS+'%':'—'}</td>
+      <td>${cats}</td>
+      <td style="font-size:11px;color:var(--text3);">${r.notes||'—'}</td>
+      <td><button class="btn-ghost" onclick="db.collection('qualityRequirements').doc('${r.id}').delete()">Remove</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── RENDER HELPERS ───────────────────────────────────────
+function catBadge(c){
+  if(!c)return'<span style="color:var(--text3);font-size:11px;">—</span>';
+  const cls=c==='SaaS'?'b-saas':c==='Service'?'b-service':'b-blog';
+  return`<span class="badge ${cls}">${c}</span>`;
+}
+function dupB(l, domainCount){
+  const isDup=domainCount&&domainCount[nd(l.domain)+'|'+(l.project||'')]>1;
+  if(isDup)return'<span class="badge b-dup">Dup</span>';
+  if(l.check==='noreq')return'<span class="badge b-noreq">No req</span>';
+  if(l.check==='limit')return'<span class="badge b-warn">Limit</span>';
+  return'<span class="badge b-ok">OK</span>';
+}
+
+function renderDashboard(){
+  const live=allLinks.filter(l=>l.status==='live');
+  const pend=allLinks.filter(l=>l.status==='pending');
+  const domainCnt={};
+  allLinks.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domainCnt[key]=(domainCnt[key]||0)+1;});
+  const dupCount=allLinks.filter(l=>domainCnt[nd(l.domain)+'|'+(l.project||'')]>1).length;
+  document.getElementById('ds-total').textContent=allLinks.length;
+  document.getElementById('ds-live').textContent=live.length;
+  document.getElementById('ds-pend').textContent=pend.length;
+  document.getElementById('ds-dup').textContent=dupCount;
+  document.getElementById('lc').textContent=live.length+' links';
+  document.getElementById('pc').textContent=pend.length+' links';
+  const rr=(arr,id)=>{
+    const tb=document.getElementById(id);
+    if(!arr.length){tb.innerHTML='<tr><td colspan="9" class="loading">No links</td></tr>';return;}
+    tb.innerHTML=arr.slice(0,20).map(l=>`<tr><td>${l.date||''}</td><td class="domain-teal">${l.domain}</td><td>${l.dr||'—'}</td><td>${l.traffic?Number(l.traffic).toLocaleString():'—'}</td><td>${l.ss||'—'}</td><td>${catBadge(l.category)}</td><td>${l.anchor}</td><td>${l.project}</td><td>${l.builder}</td></tr>`).join('');
+  };
+  rr(live,'dash-live');rr(pend,'dash-pend');
+}
+
+function renderLinks(){
+  const s=(document.getElementById('ls-s').value||'').toLowerCase();
+  const p=document.getElementById('ls-p').value;
+  const st=document.getElementById('ls-st').value;
+  const b=document.getElementById('ls-b').value;
+  const cat=document.getElementById('ls-cat').value;
+  const dupFilter=document.getElementById('ls-dup').value;
+
+  // Duplicate detection per-project
+  const domainCount={};
+  allLinks.forEach(l=>{
+    const key=nd(l.domain)+'|'+(l.project||'');
+    domainCount[key]=(domainCount[key]||0)+1;
+  });
+
+  let fl=allLinks.filter(l=>{
+    if(cu.role!=='admin'&&l.builder!==(cu.name||cu.email))return false;
+    if(p&&l.project!==p)return false;
+    if(st&&l.status!==st)return false;
+    if(b&&l.builder!==b)return false;
+    if(cat&&l.category!==cat)return false;
+    if(dupFilter==='dup'&&domainCount[nd(l.domain)+'|'+(l.project||'')]<=1)return false;
+    if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s)&&!(l.project||'').toLowerCase().includes(s))return false;
+    return true;
+  });
+  // Sort
+  fl.sort((a,b)=>{
+    const am=getMonthKey(a.date), bm=getMonthKey(b.date);
+    // Sort months descending
+    const av=parseDate(a.date), bv=parseDate(b.date);
+    if(am!==bm) return sortDir==='desc'?bv-av:av-bv;
+    // Within same month: live first
+    if(a.status==='live'&&b.status!=='live')return -1;
+    if(a.status!=='live'&&b.status==='live')return 1;
+    // Within same status: date descending
+    return bv-av;
+  });
+
+  const tb=document.getElementById('all-tbody');
+  if(!fl.length){tb.innerHTML='<tr><td colspan="11" class="loading">No links</td></tr>';return;}
+
+  const rowFn=(l)=>{
+    const trafficVal=l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||l.traffic:'—';
+    const canDelete=cu.role==='admin';
+    const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto);
+    const lid=l.id;
+    const isDup=domainCount[nd(l.domain)+'|'+(l.project||'')]>1;
+    const safeLinkin=(l.linkin||'').replace(/"/g,'&quot;');
+    const safeLinkto=(l.linkto||'').replace(/"/g,'&quot;');
+    const priceVal=l.price?'$'+String(l.price).replace(/\$+/g,''):'';
+    const ssVal=l.ss?String(l.ss).replace(/%/g,'')+'%':'';
+    return`<tr class="link-row" onclick="toggleEditRow('${lid}',event)" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${lid}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
+      <td style="color:var(--text3);font-size:11px;">${l.date||''}</td>
+      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.domain}</a></td>
+      <td>${l.dr||'—'}</td>
+      <td>${trafficVal}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.anchor||'—'}</td>
+      <td>${l.project||'—'}</td>
+      <td>${l.builder||'—'}</td>
+      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option></select></td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="checkSingleLink('${lid}',null,null,null,this)">▶</button></td>
+      <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button>`:''}</td>
+    </tr>
+    <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
+      <td colspan="11" style="padding:14px 16px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+          ${l.linkin?`<a href="${l.linkin}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
+          ${l.linkto?`<a href="${l.linkto}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
+          <span style="font-size:11px;color:var(--text3);">${ssVal?'SS: '+ssVal:''} ${l.category?'· '+l.category:''} ${priceVal?'· '+priceVal:''}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${String(l.price||'').replace(/\$+/g,'')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${safeLinkin}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${safeLinkto}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
+        </div>
+        <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+      </td>
+    </tr>`;
+  };
+  tb.innerHTML=renderRowsGrouped(fl,rowFn,11);
+
+}
+
+function tryPath(url,maxLen){
+  if(!url)return'';
+  try{
+    const u=new URL(url.startsWith('http')?url:'https://'+url);
+    const path=u.pathname||'/';
+    return path.length>maxLen?path.slice(0,maxLen)+'…':path;
+  }catch(e){return url.slice(0,maxLen);}
+}
+
+function cleanNum(v){
+  const s=String(v||'').trim();
+  if(!s||s==='-'||s==='—')return'';
+  // Handle K/M suffixes
+  const m=s.match(/^([\d.]+)\s*([KkMm])?/);
+  if(m){
+    let n=parseFloat(m[1]);
+    if(m[2]&&m[2].toLowerCase()==='k')n=Math.round(n*1000);
+    if(m[2]&&m[2].toLowerCase()==='m')n=Math.round(n*1000000);
+    if(!isNaN(n))return String(n);
+  }
+  // Strip commas, %, $, spaces
+  const clean=s.replace(/,/g,'').replace(/%/g,'').replace(/\$/g,'').replace(/\s+/g,'').trim();
+  const num=parseFloat(clean);
+  return isNaN(num)?'':String(num);
+}
+
+function safeLink(url, label, style){
+  if(!url) return '<span style="color:var(--text3);font-size:10px;">—</span>';
+  const safe=url.replace(/"/g,'&quot;');
+  return `<a href="${safe}" target="_blank" style="${style}" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text3)'">${label}</a>`;
+}
+
+function renderReqs(){
+  const tb=document.getElementById('req-tbody');
+  if(!allReqs.length){tb.innerHTML='<tr><td colspan="6" class="loading">No requirements</td></tr>';return;}
+  tb.innerHTML=allReqs.map(r=>{
+    const used=allLinks.filter(l=>l.project===r.project&&(l.anchor||'').toLowerCase()===r.anchor).length;
+    const pct=Math.min(100,Math.round(used/r.max*100));const over=used>r.max;
+    return`<tr><td>${r.project}</td><td>${r.month}</td><td>${r.anchor}</td><td style="min-width:130px;"><div class="req-bar-bg"><div class="req-bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':'var(--teal)'}"></div></div><span style="font-size:11px;color:${over?'#ff6b6b':'var(--text2)'};">${used}/${r.max}</span></td><td>${r.max}</td><td><button class="btn-ghost" onclick="db.collection('requirements').doc('${r.id}').delete()">Remove</button></td></tr>`;
+  }).join('');
+}
+
+function renderTeam(){
+  document.getElementById('team-stats').innerHTML=`<div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--teal)">${allLinks.length}</div></div><div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)">${allLinks.filter(l=>l.status==='live').length}</div></div><div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500">${allLinks.filter(l=>l.status==='pending').length}</div></div>`;
+  document.getElementById('team-tbody').innerHTML=BUILDERS.map(b=>{
+    const bl=allLinks.filter(l=>l.builder===b);const d=bl.filter(l=>l.check==='dup').length;
+    return`<tr><td style="font-weight:600;">${b}</td><td>${bl.length}</td><td style="color:var(--teal);">${bl.filter(l=>l.status==='live').length}</td><td style="color:#f0a500;">${bl.filter(l=>l.status==='pending').length}</td><td style="${d?'color:#ff6b6b;font-weight:600;':'color:var(--text3);'}">${d}</td></tr>`;
+  }).join('');
+}
+
+function linkCheckBadge(v, linkin, linkto){
+  if(!v)return'<span style="color:var(--text3);font-size:11px;">—</span>';
+  let tooltip='';
+  if(v.includes('⚠️')){
+    if(!linkin&&!linkto) tooltip='Link in և Link to դատարկ են';
+    else if(!linkin) tooltip='Link in դատարկ է';
+    else if(!linkto) tooltip='Link to դատարկ է';
+    else tooltip=v.replace('⚠️','').trim();
+  }
+  const tip=tooltip?`title="${tooltip}"`:'';
+  if(v.includes('✅'))return`<span style="color:#00c9b0;font-size:11px;">${v}</span>`;
+  if(v.includes('❌'))return`<span style="color:#ff6b6b;font-size:11px;" ${tip}>${v}</span>`;
+  if(v.includes('⚠️'))return`<span style="color:#f0a500;font-size:11px;cursor:help;border-bottom:1px dashed #f0a500;" ${tip}>${v}</span>`;
+  return`<span style="font-size:11px;color:var(--text2);">${v}</span>`;
+}
+
+async function checkSingleLink(id, _li, _lt, _anc, btn){
+  // Always read fresh data from allLinks or Firebase
+  const link=allLinks.find(l=>l.id===id);
+  const linkIn=link?.linkin||'';
+  const linkTo=link?.linkto||'';
+  const anchor=link?.anchor||'';
+
+  if(!linkIn||!linkTo){
+    alert('Link in կամ Link to դատարկ է։ Նախ edit-ով լրացրու և Save արա։');return;
+  }
+  const orig=btn.textContent;
+  btn.textContent='⏳';btn.disabled=true;
+  try{
+    const resp=await fetch('/api/check-link',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({linkIn,linkTo,anchor})
+    });
+    const data=await resp.json();
+    const result=data.result||'⚠️ No response';
+    await db.collection('links').doc(id).update({linkcheck:result});
+  }catch(e){
+    await db.collection('links').doc(id).update({linkcheck:'⚠️ Error: '+e.message.slice(0,40)});
+  }
+  btn.textContent=orig;btn.disabled=false;
+}
+
+async function checkProjectLinks(){
+  const proj=document.getElementById('check-proj-select').value;
+  const toCheck=allLinks.filter(l=>{
+    if(proj&&l.project!==proj)return false;
+    return l.linkin&&l.linkto;
+  });
+  if(!toCheck.length){alert(proj?`No links with URLs in "${proj}"`:'No links with URLs found.');return;}
+  if(!confirm(`Check ${toCheck.length} links${proj?' in '+proj:''}?`))return;
+
+  const btn=document.getElementById('check-all-btn');
+  btn.disabled=true;
+  let done=0;
+  for(const l of toCheck){
+    btn.textContent=`⏳ ${done}/${toCheck.length}`;
+    try{
+      const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
+      const data=await resp.json();
+      await db.collection('links').doc(l.id).update({linkcheck:data.result||'⚠️ No response'});
+    }catch(e){
+      await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});
+    }
+    done++;
+  }
+  btn.textContent='✅ Done';
+  setTimeout(()=>{btn.textContent='▶ Check links';btn.disabled=false;},2500);
+}
+
+async function checkAllLinks(){await checkProjectLinks();}
+
+function getSelectedIds(){
+  return Array.from(document.querySelectorAll('.row-cb:checked')).map(cb=>cb.dataset.id);
+}
+function onRowSelect(){
+  const ids=getSelectedIds();
+  const bar=document.getElementById('batch-bar');
+  if(ids.length>0){bar.style.display='flex';document.getElementById('batch-count').textContent=ids.length+' selected';}
+  else bar.style.display='none';
+  const all=document.getElementById('select-all');
+  const total=document.querySelectorAll('.row-cb').length;
+  if(all)all.checked=ids.length===total&&total>0;
+}
+function toggleSelectAll(el){
+  document.querySelectorAll('.row-cb').forEach(cb=>cb.checked=el.checked);
+  onRowSelect();
+}
+function clearSelection(){
+  document.querySelectorAll('.row-cb').forEach(cb=>cb.checked=false);
+  const all=document.getElementById('select-all');
+  if(all)all.checked=false;
+  document.getElementById('batch-bar').style.display='none';
+}
+async function batchSetStatus(status){
+  const ids=getSelectedIds();if(!ids.length)return;
+  for(const id of ids) await db.collection('links').doc(id).update({status});
+  clearSelection();
+}
+async function batchCheck(btn){
+  const ids=getSelectedIds();if(!ids.length)return;
+  const orig=btn.textContent;
+  btn.disabled=true;
+  let done=0;
+  for(const id of ids){
+    const l=allLinks.find(x=>x.id===id);
+    if(!l?.linkin||!l?.linkto){
+      await db.collection('links').doc(id).update({linkcheck:'⚠️ Link in/out missing'});
+      done++;btn.textContent=`⏳ ${done}/${ids.length}`;
+      continue;
+    }
+    try{
+      const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
+      const data=await resp.json();
+      await db.collection('links').doc(id).update({linkcheck:data.result||'⚠️ No response'});
+    }catch(e){
+      await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});
+    }
+    done++;btn.textContent=`⏳ ${done}/${ids.length}`;
+  }
+  btn.textContent='✅ Done';
+  setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},2000);
+}
+
+async function batchDelete(){
+  const ids=getSelectedIds();if(!ids.length)return;
+  if(!confirm('Delete '+ids.length+' links?'))return;
+  for(const id of ids) await db.collection('links').doc(id).delete();
+  clearSelection();
+}
+
+function toggleEditRow(id, event, forceClose){
+  if(event&&event.target){
+    const tag=event.target.tagName;
+    if(tag==='BUTTON'||tag==='SELECT'||tag==='INPUT'||tag==='A')return;
+  }
+  const row=document.getElementById('edit-'+id);
+  if(!row){console.warn('edit row not found:',id);return;}
+  const isOpen=row.style.display==='table-row';
+  document.querySelectorAll('[id^="edit-"]').forEach(r=>r.style.display='none');
+  if(!isOpen&&!forceClose) row.style.display='table-row';
+}
+
+async function saveEditRow(id){
+  const date=(document.getElementById('ei-date-'+id)?.value||'').trim();
+  const linkin=(document.getElementById('ei-linkin-'+id)?.value||'').trim();
+  const linkto=(document.getElementById('ei-linkto-'+id)?.value||'').trim();
+  const dr=(document.getElementById('ei-dr-'+id)?.value||'').trim();
+  const traffic=(document.getElementById('ei-traffic-'+id)?.value||'').trim();
+  const ss=(document.getElementById('ei-ss-'+id)?.value||'').trim();
+  const anchor=(document.getElementById('ei-anchor-'+id)?.value||'').trim();
+  const price=String(document.getElementById('ei-price-'+id)?.value||'').replace(/^\$+/,'').trim();
+  const comments=(document.getElementById('ei-comments-'+id)?.value||'').trim();
+  await db.collection('links').doc(id).update({date,linkin,linkto,dr,traffic,ss,anchor,price,comments});
+
+  const saved=document.getElementById('ei-saved-'+id);
+  if(saved){saved.style.display='inline';setTimeout(()=>saved.style.display='none',2000);}
+}
+
+async function deleteLink(id, domain){
+  if(!confirm('Delete "'+domain+'"?'))return;
+  await db.collection('links').doc(id).delete();
+}
+
+async function updateLinkStatus(id, status){
+  await db.collection('links').doc(id).update({status});
+}
+
+// ─── EXPORT ───────────────────────────────────────────────
+function exportCSV(){
+  if(cu.role!=='admin'){alert('Only admin can export');return;}
+  const h=['Date','Domain','DR','Traffic','SS','Category','Price','Link in','Link to','Anchor','Project','Builder','Status','Comments'];
+  const rows=allLinks.map(l=>[l.date,l.domain,l.dr,l.traffic,l.ss,l.category,l.price,l.linkin,l.linkto,l.anchor,l.project,l.builder,l.status,l.comments].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
+  a.download='linkboard_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+// ─── CSV IMPORT ───────────────────────────────────────────
+function parseCSV(text){
+  return text.split(/\r?\n/).map(line=>{
+    const cols=[];let cur='',inQ=false;
+    for(const c of line){
+      if(c==='"'&&!inQ)inQ=true;
+      else if(c==='"'&&inQ)inQ=false;
+      else if(c===','&&!inQ){cols.push(cur.trim());cur='';}
+      else cur+=c;
+    }
+    cols.push(cur.trim());return cols;
+  });
+}
+function handleCsvFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const rows=parseCSV(e.target.result);
+    const proj=document.getElementById('imp-proj').value;
+    csvRows=[];
+    let status='live';
+    let currentMonth='';
+    const MONTHS=['january','february','march','april','may','june','july','august','september','october','november','december'];
+
+    for(let i=1;i<rows.length;i++){
+      const row=rows[i];
+      const c0=(row[0]||'').trim();
+      const c1=(row[1]||'').trim();
+      const c0l=c0.toLowerCase();
+
+      // Detect section header
+      const isPending=c0l==='pending'||c0l.startsWith('pending ');
+      const isLiveHeader=MONTHS.some(m=>c0l.includes(m))&&(c0l.includes('live')||c0l.includes('link'));
+      const isMonthHeader=MONTHS.some(m=>c0l.startsWith(m));
+
+      if(isPending){status='pending';continue;}
+      if(isLiveHeader||isMonthHeader){
+        status='live';
+        // Extract month name
+        const m=MONTHS.find(m=>c0l.includes(m));
+        if(m)currentMonth=m.charAt(0).toUpperCase()+m.slice(1);
+        continue;
+      }
+
+      // Skip header row or empty domain
+      if(!c1||c1.toLowerCase()==='domain')continue;
+
+      csvRows.push({
+        date:c0,
+        domain:c1,
+        dr:(row[2]||'').trim(),
+        traffic:(row[3]||'').trim(),
+        ss:(row[4]||'').trim(),
+        price:String(row[5]||'').replace(/\$+/g,'').trim(),
+        linkin:(row[6]||'').trim(),
+        linkto:(row[7]||'').trim(),
+        anchor:(row[8]||'').trim(),
+        invoice:(row[9]||'').trim(),
+        builder:(row[10]||'').trim(),
+        comments:(row[11]||'').trim(),
+        relevancy:(row[12]||'').trim(),
+        status,
+        month:currentMonth,
+        project:proj||'Unknown',
+        check:'ok',
+        category:''
+      });
+    }
+
+    document.getElementById('imp-count').textContent=csvRows.length+' links found';
+    document.getElementById('imp-preview').style.display='block';
+
+    // Summary by status
+    const live=csvRows.filter(r=>r.status==='live').length;
+    const pend=csvRows.filter(r=>r.status==='pending').length;
+    document.getElementById('imp-log').innerHTML=
+      `<div style="margin-bottom:6px;"><span style="color:var(--teal);">✅ Live: ${live}</span> &nbsp; <span style="color:#f0a500;">⏳ Pending: ${pend}</span></div>`
+      +csvRows.slice(0,6).map(r=>`<div><span style="color:${r.status==='live'?'var(--teal)':'#f0a500'}">${r.status==='live'?'✅':'⏳'}</span> ${r.domain} — ${r.builder||'?'} ${r.month?'· '+r.month:''}</div>`).join('')
+      +(csvRows.length>6?`<div style="color:var(--text3);">...and ${csvRows.length-6} more</div>`:'');
+  };
+  reader.readAsText(file);
+}
+async function startImport(){
+  const proj=document.getElementById('imp-proj').value;
+  if(!proj){alert('Select a project');return;}
+  if(!csvRows.length){alert('No data');return;}
+  const progWrap=document.getElementById('imp-prog-wrap');
+  const prog=document.getElementById('imp-prog');
+  const log=document.getElementById('imp-log');
+  progWrap.style.display='block';log.innerHTML='';
+  let done=0,errors=0;const BATCH=400,total=csvRows.length;
+  for(let i=0;i<total;i+=BATCH){
+    const batch=db.batch();
+    csvRows.slice(i,i+BATCH).forEach(row=>{batch.set(db.collection('links').doc(),{...row,project:proj,createdAt:firebase.firestore.FieldValue.serverTimestamp()});});
+    try{
+      await batch.commit();done+=Math.min(BATCH,total-i);
+      const pct=Math.round(done/total*100);
+      prog.style.width=pct+'%';
+      log.innerHTML+=`<div style="color:var(--teal);">✓ ${done}/${total} (${pct}%)</div>`;
+      log.scrollTop=log.scrollHeight;
+    }catch(e){errors++;log.innerHTML+=`<div style="color:#ff6b6b;">✗ ${e.message}</div>`;}
+  }
+  log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${done} imported${errors?' ('+errors+' errors)':''}.</div>`;
+}
+
+// ─── ANCHOR REQUIREMENTS CSV IMPORT ──────────────────────────
+let reqCsvRows = [];
+
+function handleReqCsvFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    reqCsvRows=parseReqCSV(e.target.result);
+    const proj=document.getElementById('req-imp-proj').value;
+    const log=document.getElementById('req-imp-log');
+    const preview=document.getElementById('req-imp-preview');
+    const countEl=document.getElementById('req-imp-count');
+
+    if(!reqCsvRows.length){
+      preview.style.display='block';
+      log.innerHTML='<div style="color:#ff6b6b;">❌ No valid rows found. Check CSV format.</div>';
+      countEl.textContent='';
+      return;
+    }
+
+    // Summary by month
+    const byMonth={};
+    reqCsvRows.forEach(r=>{byMonth[r.month]=(byMonth[r.month]||0)+1;});
+    const summary=Object.entries(byMonth).map(([m,c])=>`${m}: ${c}`).join(' · ');
+
+    countEl.textContent=`${reqCsvRows.length} anchors found`;
+    preview.style.display='block';
+    log.innerHTML=`<div style="color:var(--text2);margin-bottom:6px;">${summary}</div>`
+      +reqCsvRows.slice(0,8).map(r=>`<div>✓ [${r.month}] "${r.anchor}" — max ${r.max}</div>`).join('')
+      +(reqCsvRows.length>8?`<div style="color:var(--text3);">...and ${reqCsvRows.length-8} more</div>`:'');
+  };
+  reader.readAsText(file);
+}
+
+function parseReqCSV(text){
+  const MONTHS=['january','february','march','april','may','june','july','august','september','october','november','december'];
+  const lines=text.split(/\r?\n/);
+  const result=[];
+  let currentMonth=null;
+
+  for(const line of lines){
+    const cols=[];let cur='',inQ=false;
+    for(const c of line){
+      if(c==='"'&&!inQ){inQ=true;continue;}
+      if(c==='"'&&inQ){inQ=false;continue;}
+      if(c===','&&!inQ){cols.push(cur.trim());cur='';continue;}
+      cur+=c;
+    }
+    cols.push(cur.trim());
+
+    const c0=(cols[0]||'').trim().toLowerCase();
+    const c1=(cols[1]||'').trim();
+    const c2=(cols[2]||'').trim();
+
+    // Month header
+    if(MONTHS.some(m=>c0.startsWith(m))&&!c0.startsWith('http')){
+      const m=MONTHS.find(m=>c0.startsWith(m));
+      currentMonth=m.charAt(0).toUpperCase()+m.slice(1);
+      continue;
+    }
+
+    // Skip non-data rows
+    if(!currentMonth)continue;
+    if(!c0.startsWith('http'))continue;
+    if(!c1||['keyword','anchor','keyword/anchor'].includes(c1.toLowerCase()))continue;
+
+    const max=parseInt(c2)||1;
+    result.push({
+      month:currentMonth,
+      anchor:c1.toLowerCase().trim(),
+      linkto:c0,
+      max
+    });
+  }
+  return result;
+}
+
+async function startReqImport(){
+  const proj=document.getElementById('req-imp-proj').value;
+  if(!proj){alert('Select a project');return;}
+  if(!reqCsvRows.length){alert('No data');return;}
+
+  const progWrap=document.getElementById('req-imp-prog-wrap');
+  const prog=document.getElementById('req-imp-prog');
+  const log=document.getElementById('req-imp-log');
+  progWrap.style.display='block';
+  log.innerHTML='';
+
+  let done=0,updated=0,errors=0;
+  const total=reqCsvRows.length;
+
+  for(const item of reqCsvRows){
+    try{
+      // Check existing
+      const snap=await db.collection('requirements')
+        .where('project','==',proj)
+        .where('month','==',item.month)
+        .where('anchor','==',item.anchor)
+        .get();
+
+      const data={project:proj,month:item.month,anchor:item.anchor,linkto:item.linkto||'',max:item.max,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+
+      if(!snap.empty){
+        await db.collection('requirements').doc(snap.docs[0].id).update(data);
+        updated++;
+      } else {
+        await db.collection('requirements').add(data);
+        done++;
+      }
+
+      const pct=Math.round((done+updated)/total*100);
+      prog.style.width=pct+'%';
+      if((done+updated)%5===0||done+updated===total){
+        log.innerHTML=`<div style="color:var(--teal);">✓ ${done+updated}/${total} (${pct}%)</div>`;
+        log.scrollTop=log.scrollHeight;
+      }
+    }catch(e){
+      errors++;
+      log.innerHTML+=`<div style="color:#ff6b6b;">✗ "${item.anchor}": ${e.message}</div>`;
+    }
+  }
+
+  log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${done} created, ${updated} updated${errors?' ('+errors+' errors)':''}.</div>`;
+}
+
+const reqDrop=document.getElementById('req-imp-drop');
+reqDrop.addEventListener('dragover',e=>{e.preventDefault();reqDrop.style.borderColor='var(--teal)';});
+reqDrop.addEventListener('dragleave',()=>reqDrop.style.borderColor='');
+reqDrop.addEventListener('drop',e=>{e.preventDefault();reqDrop.style.borderColor='';handleReqCsvFile(e.dataTransfer.files[0]);});
+
+const drop=document.getElementById('imp-drop');
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.style.borderColor='var(--teal)';});
+drop.addEventListener('dragleave',()=>drop.style.borderColor='');
+drop.addEventListener('drop',e=>{e.preventDefault();drop.style.borderColor='';handleCsvFile(e.dataTransfer.files[0]);});
+</script>
+</body>
+</html>
