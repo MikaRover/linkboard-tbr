@@ -20,33 +20,33 @@ module.exports = async function handler(req, res) {
   const target = 'https://' + cleanDomain;
 
   try {
-    // Ahrefs v3 API — domain-overview
-    const url = `https://api.ahrefs.com/v3/site-explorer/overview?target=${encodeURIComponent(target)}&mode=domain&date_to=today&date_from=today`;
+    // Fetch DR
+    const drUrl = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=today`;
+    const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date_to=today&date_from=today&mode=domain&select=org_traffic`;
 
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${AHREFS_KEY}`,
-        'Accept': 'application/json'
-      },
-      signal: AbortSignal.timeout(10000)
-    });
+    const headers = {
+      'Authorization': `Bearer ${AHREFS_KEY}`,
+      'Accept': 'application/json'
+    };
 
-    if (!response.ok) {
-      const err = await response.text();
-      return res.json({ error: `Ahrefs API error: ${response.status}`, detail: err.slice(0, 200) });
+    const [drResp, metricsResp] = await Promise.all([
+      fetch(drUrl, { headers, signal: AbortSignal.timeout(10000) }),
+      fetch(metricsUrl, { headers, signal: AbortSignal.timeout(10000) })
+    ]);
+
+    let dr = null, traffic = null;
+
+    if (drResp.ok) {
+      const drData = await drResp.json();
+      dr = drData?.domain_rating?.domain_rating ?? drData?.domain_rating ?? null;
     }
 
-    const data = await response.json();
-    const overview = data?.domain_overview || data?.overview || data;
+    if (metricsResp.ok) {
+      const mData = await metricsResp.json();
+      traffic = mData?.metrics?.org_traffic ?? mData?.org_traffic ?? null;
+    }
 
-    const dr = overview?.domain_rating ?? overview?.dr ?? null;
-    const traffic = overview?.org_traffic ?? overview?.traffic ?? overview?.organic_traffic ?? null;
-
-    return res.json({
-      domain: cleanDomain,
-      dr: dr !== null ? Math.round(dr) : null,
-      traffic: traffic !== null ? Math.round(traffic) : null
-    });
+    return res.json({ domain: cleanDomain, dr: dr !== null ? Math.round(dr) : null, traffic: traffic !== null ? Math.round(traffic) : null });
 
   } catch (e) {
     return res.json({ error: e.message.slice(0, 100) });
