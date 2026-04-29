@@ -17,10 +17,9 @@ module.exports = async function handler(req, res) {
     .trim();
 
   const today = new Date().toISOString().slice(0, 10);
-  const dateFrom = new Date(Date.now() - 30*24*60*60*1000).toISOString().slice(0, 10);
 
   const drUrl = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=${today}`;
-  const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date_to=${today}&date_from=${dateFrom}&mode=domain&select=org_traffic`;
+  const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date=${today}&mode=domain&select=org_traffic`;
 
   const headers = {
     'Authorization': `Bearer ${AHREFS_KEY}`,
@@ -41,17 +40,13 @@ module.exports = async function handler(req, res) {
       if (dr !== null) dr = Math.round(dr);
     }
 
-    let metricsDebug = null;
     if (metricsResp.ok) {
       const m = await metricsResp.json();
-      metricsDebug = m;
       traffic = m?.metrics?.org_traffic ?? m?.org_traffic ?? null;
       if (traffic !== null) traffic = Math.round(traffic);
-    } else {
-      metricsDebug = { status: metricsResp.status, text: await metricsResp.text() };
     }
 
-    return res.json({ domain: cleanDomain, dr, traffic, _m: metricsDebug });
+    return res.json({ domain: cleanDomain, dr, traffic });
 
   } catch (e) {
     return res.json({ error: e.message.slice(0, 100) });
