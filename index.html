@@ -20,6 +20,17 @@
   --shadow:0 2px 16px rgba(0,0,0,0.4);
   --shadow-teal:0 4px 24px rgba(0,196,174,0.18);
 }
+/* ── NEON BACKGROUND ── */
+@keyframes neonFloat1{0%,100%{transform:translate(0,0) scale(1);}33%{transform:translate(30px,-20px) scale(1.05);}66%{transform:translate(-20px,15px) scale(0.97);}}
+@keyframes neonFloat2{0%,100%{transform:translate(0,0) scale(1);}33%{transform:translate(-25px,20px) scale(1.03);}66%{transform:translate(20px,-25px) scale(0.98);}}
+@keyframes neonFloat3{0%,100%{transform:translate(0,0);}50%{transform:translate(15px,10px);}}
+.neon-bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+.neon-orb{position:absolute;border-radius:50%;filter:blur(80px);}
+.neon-orb.o1{width:600px;height:600px;background:radial-gradient(circle,rgba(0,196,174,0.5),transparent 70%);top:-150px;left:-150px;opacity:0.25;animation:neonFloat1 14s ease-in-out infinite;}
+.neon-orb.o2{width:500px;height:500px;background:radial-gradient(circle,rgba(0,80,255,0.5),transparent 70%);bottom:-100px;right:-100px;opacity:0.2;animation:neonFloat2 17s ease-in-out infinite;}
+.neon-orb.o3{width:400px;height:400px;background:radial-gradient(circle,rgba(0,229,204,0.4),transparent 70%);top:45%;left:55%;opacity:0.15;animation:neonFloat3 11s ease-in-out infinite;}
+.neon-orb.o4{width:350px;height:350px;background:radial-gradient(circle,rgba(100,0,255,0.35),transparent 70%);top:15%;right:25%;opacity:0.1;animation:neonFloat1 20s ease-in-out infinite reverse;}
+
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
 
 /* ── LIGHT THEME ── */
@@ -43,8 +54,8 @@ body,body *{transition:background-color 0.18s ease,color 0.15s ease,border-color
 
 /* ── LAYOUT ── */
 .screen{display:none;}.screen.active{display:block;}
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 60% 40%,rgba(0,196,174,0.07) 0%,transparent 60%);}
-.login-box{width:380px;background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:2.5rem;box-shadow:var(--shadow),0 0 40px rgba(0,196,174,0.06);animation:fadeSlideIn 0.35s ease;}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;}
+.login-box{width:380px;background:rgba(12,24,41,0.85);backdrop-filter:blur(20px);border:1px solid rgba(0,196,174,0.25);border-radius:20px;padding:2.5rem;box-shadow:0 0 80px rgba(0,196,174,0.15),0 0 0 1px rgba(0,196,174,0.08),0 4px 40px rgba(0,0,0,0.6);animation:fadeSlideIn 0.35s ease;position:relative;z-index:1;}
 .login-logo{font-size:26px;font-weight:800;color:var(--text);margin-bottom:4px;text-align:center;letter-spacing:-0.5px;}
 .login-logo span{color:var(--teal);}
 .login-sub{font-size:13px;color:var(--text2);text-align:center;margin-bottom:2rem;}
@@ -351,6 +362,7 @@ tr:hover td{background:var(--bg3);}
 </head>
 <body>
 
+<div class="neon-bg"><div class="neon-orb o1"></div><div class="neon-orb o2"></div><div class="neon-orb o3"></div><div class="neon-orb o4"></div></div>
 <div id="s-login" class="screen active">
 <div class="login-wrap">
 <div class="login-box">
@@ -364,7 +376,7 @@ tr:hover td{background:var(--bg3);}
 </div>
 </div>
 
-<div id="s-app" class="screen">
+<div id="s-app" style="position:relative;z-index:1;" class="screen">
 <div class="app">
 <div class="sidebar">
   <div class="sb-top">
@@ -504,7 +516,7 @@ tr:hover td{background:var(--bg3);}
     <select id="ls-cat" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All categories</option><option>SaaS</option><option>Service</option><option>Blog/Magazine</option><option>News</option><option>Agency</option><option>Other</option></select>
     <select id="ls-dup" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All</option><option value="dup">Duplicates only</option></select>
   </div>
-  <div id="batch-bar" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap;">
+  <div id="batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-sm" onclick="batchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
     <button class="btn-sm" onclick="batchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
@@ -642,7 +654,7 @@ tr:hover td{background:var(--bg3);}
       <tbody id="pd-tbody"><tr><td colspan="13" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
-  <div id="pd-batch-bar" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap;">
+  <div id="pd-batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="pd-batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-sm" onclick="pdBatchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
     <button class="btn-sm" onclick="pdBatchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
@@ -730,7 +742,7 @@ tr:hover td{background:var(--bg3);}
       <option value="dup">Duplicate domain</option>
     </select>
   </div>
-  <div id="chk-batch-bar" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;">
+  <div id="chk-batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="chk-batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-danger" onclick="chkBatchDelete()">🗑 Delete selected</button>
     <button class="btn-ghost" onclick="clearChkSelection()" style="margin-left:auto;">Clear</button>
