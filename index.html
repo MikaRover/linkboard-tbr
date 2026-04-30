@@ -211,8 +211,15 @@ select option{background:var(--bg2);}
 #global-results{animation:fadeIn 0.12s ease;}
 
 /* ── THEME TOGGLE ── */
-.theme-toggle{cursor:pointer;font-size:14px;padding:5px 10px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);transition:all 0.15s ease;width:100%;text-align:left;}
-.theme-toggle:hover{border-color:var(--teal);color:var(--teal);}
+.theme-toggle{cursor:pointer;width:100%;background:transparent;border:none;padding:4px 0;display:flex;align-items:center;gap:10px;color:var(--text2);transition:color 0.15s ease;}
+.theme-toggle:hover{color:var(--text);}
+.theme-switch{width:44px;height:24px;background:var(--bg4);border-radius:12px;border:1px solid var(--border2);position:relative;transition:background 0.25s ease,border-color 0.25s ease;flex-shrink:0;}
+.theme-switch.on{background:var(--teal);border-color:var(--teal);}
+.theme-switch-knob{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1),background 0.2s ease;box-shadow:0 1px 4px rgba(0,0,0,0.3);}
+.theme-switch.on .theme-switch-knob{transform:translateX(20px);}
+.theme-toggle-label{font-size:12px;font-weight:600;letter-spacing:0.3px;}
+.theme-icon{font-size:14px;transition:transform 0.3s ease;}
+.theme-toggle:hover .theme-icon{transform:rotate(20deg);}
 
 /* ── REQ FORM ── */
 .req-form-section{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px;}
@@ -397,7 +404,11 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('checker',this)">Data Checker</div>
   <div class="nav adm" onclick="gotoPage('import',this)">Import CSV</div>
   <div class="sb-bottom">
-    <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" style="width:100%;margin-bottom:10px;text-align:left;">🌙 Dark mode</button>
+    <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" style="margin-bottom:10px;">
+      <span class="theme-icon" id="theme-icon">🌙</span>
+      <div class="theme-switch" id="theme-switch"><div class="theme-switch-knob"></div></div>
+      <span class="theme-toggle-label" id="theme-label">Dark mode</span>
+    </button>
     <span class="logout" onclick="doLogout()">Sign out</span>
   </div>
 </div>
@@ -838,7 +849,12 @@ document.addEventListener('click',e=>{
 
 function toggleTheme(){
   const isLight=document.body.classList.toggle('light');
-  document.getElementById('theme-btn').textContent=isLight?'🌙 Dark mode':'☀️ Light mode';
+  const sw=document.getElementById('theme-switch');
+  const icon=document.getElementById('theme-icon');
+  const label=document.getElementById('theme-label');
+  if(sw){if(isLight)sw.classList.add('on');else sw.classList.remove('on');}
+  if(icon)icon.textContent=isLight?'☀️':'🌙';
+  if(label)label.textContent=isLight?'Light mode':'Dark mode';
   localStorage.setItem('theme',isLight?'light':'dark');
 }
 
@@ -848,7 +864,14 @@ function toggleTheme(){
   if(saved==='light'){
     document.body.classList.add('light');
     const btn=document.getElementById('theme-btn');
-    if(btn)btn.textContent='🌙 Dark mode';
+    if(btn){
+      const sw=document.getElementById('theme-switch');
+      const icon=document.getElementById('theme-icon');
+      const label=document.getElementById('theme-label');
+      if(sw)sw.classList.remove('on');
+      if(icon)icon.textContent='🌙';
+      if(label)label.textContent='Dark mode';
+    }
   }
 })();
 
