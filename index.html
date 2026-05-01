@@ -1052,7 +1052,10 @@ function startApp(){
     'Davit':'#3d9fff','Mika':'#ff9f1c','Nick':'#c8ff00','Diana Y':'#ff5ca8',
     'Rubik':'#7b61ff','Admin':'#00c4ae'
   };
-  const displayName=cu.name||cu.email||'—';
+  // Extract first name from email if name not set
+  const emailFirst=(cu.email||'').split('@')[0].split('.')[0];
+  const emailName=emailFirst.charAt(0).toUpperCase()+emailFirst.slice(1);
+  const displayName=cu.name||emailName||cu.email||'—';
   const neonColor=NEON_COLORS[displayName]||NEON_COLORS['Admin'];
   const sbName=document.getElementById('sb-name');
   sbName.textContent=displayName;
