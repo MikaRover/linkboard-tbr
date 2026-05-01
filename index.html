@@ -2459,7 +2459,11 @@ function renderTeam(){
     if(!users.length){tb.innerHTML='<tr><td colspan="6" class="loading">No team members yet</td></tr>';return;}
     tb.innerHTML=users.map(u=>{
       const name=u.name||u.email||'—';
-      const bl=allLinks.filter(l=>l.builder===name);
+      const emailPrefix=(u.email||'').split('@')[0].toLowerCase();
+      const bl=allLinks.filter(l=>{
+        const b=(l.builder||'').toLowerCase();
+        return b===name.toLowerCase()||b===emailPrefix||(u.name&&b===u.name.toLowerCase());
+      });
       const domCnt={};
       bl.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domCnt[key]=(domCnt[key]||0)+1;});
       const dups=bl.filter(l=>domCnt[nd(l.domain)+'|'+(l.project||'')]>1).length;
