@@ -387,6 +387,27 @@ tr:hover td{background:var(--bg3);}
 .det-heuristic{background:rgba(240,165,0,0.12);color:#f0a500;}
 .det-gpt{background:rgba(0,180,160,0.12);color:var(--teal);}
 .det-loading{background:rgba(120,150,255,0.12);color:#7896ff;}
+
+/* ── BUILDER STYLES ── */
+.nav-bld{display:none;}
+.quota-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:1.5rem;}
+.quota-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;transition:all 0.15s ease;}
+.quota-card:hover{border-color:var(--teal);box-shadow:var(--shadow-teal);}
+.quota-proj{font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.quota-proj-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--teal-glow);color:var(--teal);border:1px solid rgba(0,196,174,0.3);}
+.quota-row{margin-bottom:10px;}
+.quota-anchor{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;}
+.quota-anchor-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;}
+.quota-count{font-size:11px;font-weight:700;white-space:nowrap;}
+.quota-bar{height:6px;background:var(--bg4);border-radius:4px;overflow:hidden;}
+.quota-fill{height:6px;border-radius:4px;transition:width 0.4s ease;}
+.link-status-tabs{display:flex;gap:8px;margin-bottom:1rem;}
+.status-tab{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2);transition:all 0.15s ease;}
+.status-tab:hover{border-color:var(--teal);color:var(--teal);}
+.status-tab.active-live{background:rgba(0,196,174,0.12);border-color:rgba(0,196,174,0.4);color:var(--teal);}
+.status-tab.active-pend{background:rgba(240,165,0,0.1);border-color:rgba(240,165,0,0.35);color:var(--yellow);}
+.status-tab.active-all{background:var(--bg3);border-color:var(--border2);color:var(--text);}
+.month-sep-row td{background:var(--bg3) !important;padding:6px 10px !important;border-top:2px solid var(--border) !important;}
 </style>
 </head>
 <body>
@@ -425,6 +446,10 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('team',this)">Team</div>
   <div class="nav adm" onclick="gotoPage('checker',this)">Data Checker</div>
   <div class="nav adm" onclick="gotoPage('import',this)">Import CSV</div>
+  <!-- BUILDER NAV -->
+  <div class="nav nav-bld" id="bld-nav-dashboard" onclick="gotoPage('b-dashboard',this)">Dashboard</div>
+  <div class="nav nav-bld" id="bld-nav-links" onclick="gotoPage('b-links',this)">My Links</div>
+  <div class="nav nav-bld" id="bld-nav-add" onclick="gotoPage('add',this)">Add link</div>
   <div class="sb-bottom">
     <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" style="margin-bottom:10px;">
       <div class="theme-switch" id="theme-switch">
@@ -699,10 +724,50 @@ tr:hover td{background:var(--bg3);}
 </div>
 <div id="p-team" class="page">
   <div class="page-top"><div class="page-title">Team</div></div>
+
+  <!-- Add User Card -->
+  <div class="card" style="max-width:520px;margin-bottom:1.5rem;">
+    <div class="card-head">Add team member</div>
+    <div class="card-body">
+      <div id="team-add-ok" class="alert a-ok"></div>
+      <div id="team-add-err" class="alert a-dup"></div>
+      <div class="form-grid">
+        <div>
+          <div class="section-label">Full name</div>
+          <input id="tm-name" placeholder="e.g. Anna" style="margin-bottom:0;"/>
+        </div>
+        <div>
+          <div class="section-label">Role</div>
+          <select id="tm-role" style="margin-bottom:0;">
+            <option value="builder">Builder</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="section-label">Email</div>
+        <input id="tm-email" type="email" placeholder="name@company.com" style="margin-bottom:12px;"/>
+      </div>
+      <div class="form-grid">
+        <div>
+          <div class="section-label">Password</div>
+          <input id="tm-pass" type="text" placeholder="min 6 characters" style="margin-bottom:0;"/>
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn-sm" onclick="addTeamMember()" style="width:100%;padding:9px;">Add member →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
   <div class="stats" id="team-stats" style="grid-template-columns:repeat(3,1fr);"></div>
+
+  <!-- Team Table -->
   <div class="card">
+    <div class="card-head">Team members</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Builder</th><th>Total</th><th>Live</th><th>Pending</th><th>Duplicates</th></tr></thead>
+      <thead><tr><th>Name</th><th>Role</th><th>Total links</th><th>Live</th><th>Pending</th><th>Dups</th></tr></thead>
       <tbody id="team-tbody"></tbody>
     </table></div>
   </div>
@@ -790,11 +855,67 @@ tr:hover td{background:var(--bg3);}
       <tbody id="chk-tbody"><tr><td colspan="8" class="loading">Click "Scan now" to find issues</td></tr></tbody>
     </table></div>
   </div>
+
+<!-- ══ BUILDER DASHBOARD ══ -->
+<div id="p-b-dashboard" class="page" style="display:none;">
+  <div class="page-top">
+    <div>
+      <div class="page-title" id="b-greeting">Dashboard</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px;" id="b-month-label"></div>
+    </div>
+    <button class="btn-sm" onclick="gotoPage('add',document.getElementById('bld-nav-add'))" style="width:auto;">+ Add link</button>
+  </div>
+  <div class="stats" style="grid-template-columns:repeat(3,1fr);">
+    <div class="stat"><div class="stat-l">My total</div><div class="stat-v" style="color:var(--teal)" id="b-total">—</div></div>
+    <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)" id="b-live">—</div></div>
+    <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500" id="b-pend">—</div></div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);">This month's quotas</div>
+    <div style="font-size:11px;color:var(--text3);" id="b-quota-month"></div>
+  </div>
+  <div class="quota-grid" id="b-quota-grid">
+    <div class="loading" style="grid-column:1/-1;">Loading quotas...</div>
+  </div>
+  <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;margin-top:8px;">Recent links</div>
+  <div class="card">
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>Anchor</th><th>Project</th><th>Status</th><th>Link check</th></tr></thead>
+      <tbody id="b-recent"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
 </div>
 
+<!-- ══ BUILDER MY LINKS ══ -->
+<div id="p-b-links" class="page" style="display:none;">
+  <div class="page-top">
+    <div class="page-title">My Links</div>
+    <button class="btn-sm" onclick="gotoPage('add',document.getElementById('bld-nav-add'))" style="width:auto;">+ Add link</button>
+  </div>
+  <div class="link-status-tabs">
+    <div class="status-tab active-all" id="tab-all" onclick="setBTab('all',this)">All</div>
+    <div class="status-tab" id="tab-live" onclick="setBTab('live',this)">✅ Live</div>
+    <div class="status-tab" id="tab-pend" onclick="setBTab('pend',this)">⏳ Pending</div>
+  </div>
+  <div class="filters" style="gap:6px;margin-bottom:8px;">
+    <input id="bl-s" placeholder="Search domain, anchor..." oninput="renderBuilderLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
+    <select id="bl-p" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All projects</option></select>
+  </div>
+  <div class="card">
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th style="cursor:pointer;" onclick="toggleBSort()">Date <span id="b-sort-date">↓</span></th>
+        <th>Domain</th><th>DR</th><th>Traffic</th><th>Anchor</th><th>Project</th>
+        <th>Status</th><th>Link check</th>
+      </tr></thead>
+      <tbody id="b-tbody"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
 </div>
-</div>
-</div>
+
+</div><!-- /content -->
+</div><!-- /app -->
+</div><!-- /s-app -->
 
 <script>
 // ─── CONFIG ───────────────────────────────────────────────
@@ -922,23 +1043,38 @@ function startApp(){
   document.getElementById('s-app').classList.add('active');
   document.getElementById('sb-name').textContent=cu.name||cu.email;
   document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':'Builder';
+
+  const isAdmin=cu.role==='admin';
+
   // Show/hide admin-only elements
-  document.querySelectorAll('.adm').forEach(el=>el.style.display=cu.role==='admin'?'block':'none');
-  // Builder: hide admin nav items except dashboard, add link, their projects
-  if(cu.role!=='admin'){
+  document.querySelectorAll('.adm').forEach(el=>el.style.display=isAdmin?'block':'none');
+
+  if(isAdmin){
+    // Admin sees all admin nav, builder nav hidden
+    document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='none');
+  } else {
+    // Builder sees only builder nav, admin nav hidden
     document.querySelectorAll('.nav').forEach(el=>{
-      const t=el.textContent.trim();
-      if(!['Dashboard','Add link','All links'].includes(t)) el.style.display='none';
+      if(!el.classList.contains('nav-bld')) el.style.display='none';
     });
+    document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='');
+    // Hide admin pages, show builder dashboard by default
+    document.getElementById('p-dashboard').style.display='none';
   }
+
   const lb=document.getElementById('ls-b');
   lb.innerHTML='<option value="">All builders</option>';
   BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;lb.appendChild(o);});
-  // Builder: auto-filter to own links
-  if(cu.role!=='admin'&&lb){lb.value=cu.name||'';}
+  if(!isAdmin&&lb){lb.value=cu.name||'';}
+
   listenProjects();listenLinks();listenReqs();listenQualityReqs();
   renderCatButtons('');
-  gotoPage('dashboard',document.querySelector('.nav.active'));
+
+  if(isAdmin){
+    gotoPage('dashboard',document.querySelector('.nav:not(.nav-bld).active')||document.querySelector('.nav:not(.nav-bld)'));
+  } else {
+    gotoPage('b-dashboard',document.getElementById('bld-nav-dashboard'));
+  }
 }
 
 // ─── PROJECTS ─────────────────────────────────────────────
@@ -950,9 +1086,9 @@ function listenProjects(){
 }
 function populateProjectSelects(){
   const names=allProjects.map(p=>p.name);
-  ['f-proj','r-proj','rq-proj','imp-proj','req-imp-proj','ls-p','check-proj-select'].forEach(id=>{
+  ['f-proj','r-proj','rq-proj','imp-proj','req-imp-proj','ls-p','check-proj-select','bl-p'].forEach(id=>{
     const s=document.getElementById(id);if(!s)return;
-    const isFilter=id==='ls-p';const cur=s.value;
+    const isFilter=['ls-p','bl-p','check-proj-select'].includes(id);const cur=s.value;
     s.innerHTML=isFilter?'<option value="">All projects</option>':'<option value="">Select project</option>';
     names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});
     if(cur)s.value=cur;
@@ -1279,9 +1415,12 @@ async function checkDetailProjectLinks(btn){
 function gotoPage(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav').forEach(n=>n.classList.remove('active'));
-  document.getElementById('p-'+name).classList.add('active');
+  const page=document.getElementById('p-'+name);
+  if(page){page.classList.add('active');page.style.display='';}
   if(el)el.classList.add('active');
   if(name==='projects')renderProjectsPage();
+  if(name==='b-dashboard')renderBuilderDashboard();
+  if(name==='b-links')renderBuilderLinks();
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
 
@@ -1635,12 +1774,16 @@ async function addLink(){
     ok.style.display='block';ok.textContent='✅ Link added!';
     setTimeout(()=>{
       ok.style.display='none';
-      // Redirect to All Links filtered by pending + current project
       const proj=document.getElementById('f-proj').value;
-      gotoPage('links',document.querySelectorAll('.nav')[2]);
-      document.getElementById('ls-st').value='pending';
-      if(proj) document.getElementById('ls-p').value=proj;
-      renderLinks();
+      if(cu.role==='admin'){
+        gotoPage('links',document.querySelectorAll('.nav')[2]);
+        document.getElementById('ls-st').value='pending';
+        if(proj) document.getElementById('ls-p').value=proj;
+        renderLinks();
+      } else {
+        gotoPage('b-links',document.getElementById('bld-nav-links'));
+        renderBuilderLinks();
+      }
     },1200);
     ['f-domain','f-linkin','f-linkto','f-anchor','f-dr','f-traffic','f-ss','f-price','f-invoice','f-comments'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('f-category').value='';
@@ -1660,6 +1803,7 @@ function listenLinks(){
     allLinks=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderDashboard();renderLinks();renderTeam();renderProjectsPage();
     if(currentDetailProject) renderDetailLinks();
+    if(cu&&cu.role!=='admin'){renderBuilderDashboard();renderBuilderLinks();}
   });
 }
 function listenReqs(){
@@ -2113,12 +2257,82 @@ function renderReqs(){
   }).join('');
 }
 
+async function addTeamMember(){
+  const name = document.getElementById('tm-name').value.trim();
+  const email = document.getElementById('tm-email').value.trim();
+  const pass = document.getElementById('tm-pass').value.trim();
+  const role = document.getElementById('tm-role').value;
+  const okEl = document.getElementById('team-add-ok');
+  const errEl = document.getElementById('team-add-err');
+  okEl.style.display='none'; errEl.style.display='none';
+
+  if(!name||!email||!pass){errEl.style.display='block';errEl.textContent='Fill all fields';return;}
+  if(pass.length<6){errEl.style.display='block';errEl.textContent='Password must be at least 6 characters';return;}
+
+  // Save current user state
+  const currentUser = auth.currentUser;
+
+  try{
+    // Create user in Firebase Auth using secondary app instance trick via REST API
+    const API_KEY = 'AIzaSyCrcZvfeT04BASPS7qQ-j0F4x0ukvZaddA';
+    const resp = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key='+API_KEY, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({email, password: pass, returnSecureToken: true})
+    });
+    const data = await resp.json();
+    if(data.error){errEl.style.display='block';errEl.textContent='Error: '+data.error.message;return;}
+
+    const uid = data.localId;
+
+    // Save to Firestore users collection
+    await db.collection('users').doc(uid).set({
+      name, email, role,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    okEl.style.display='block';
+    okEl.textContent='✅ '+name+' added successfully! They can now log in.';
+    document.getElementById('tm-name').value='';
+    document.getElementById('tm-email').value='';
+    document.getElementById('tm-pass').value='';
+    document.getElementById('tm-role').value='builder';
+
+    renderTeam();
+  }catch(e){
+    errEl.style.display='block';
+    errEl.textContent='Error: '+e.message;
+  }
+}
+
 function renderTeam(){
-  document.getElementById('team-stats').innerHTML=`<div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--teal)">${allLinks.length}</div></div><div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)">${allLinks.filter(l=>l.status==='live').length}</div></div><div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500">${allLinks.filter(l=>l.status==='pending').length}</div></div>`;
-  document.getElementById('team-tbody').innerHTML=BUILDERS.map(b=>{
-    const bl=allLinks.filter(l=>l.builder===b);const d=bl.filter(l=>l.check==='dup').length;
-    return`<tr><td style="font-weight:600;">${b}</td><td>${bl.length}</td><td style="color:var(--teal);">${bl.filter(l=>l.status==='live').length}</td><td style="color:#f0a500;">${bl.filter(l=>l.status==='pending').length}</td><td style="${d?'color:#ff6b6b;font-weight:600;':'color:var(--text3);'}">${d}</td></tr>`;
-  }).join('');
+  document.getElementById('team-stats').innerHTML=`
+    <div class="stat"><div class="stat-l">Total links</div><div class="stat-v" style="color:var(--teal)">${allLinks.length}</div></div>
+    <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)">${allLinks.filter(l=>l.status==='live').length}</div></div>
+    <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500">${allLinks.filter(l=>l.status==='pending').length}</div></div>`;
+
+  // Load users from Firestore + merge with link stats
+  db.collection('users').get().then(snap=>{
+    const users=snap.docs.map(d=>({uid:d.id,...d.data()}));
+    const tb=document.getElementById('team-tbody');
+    if(!users.length){tb.innerHTML='<tr><td colspan="6" class="loading">No team members yet</td></tr>';return;}
+    tb.innerHTML=users.map(u=>{
+      const name=u.name||u.email||'—';
+      const bl=allLinks.filter(l=>l.builder===name);
+      const domCnt={};
+      bl.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domCnt[key]=(domCnt[key]||0)+1;});
+      const dups=bl.filter(l=>domCnt[nd(l.domain)+'|'+(l.project||'')]>1).length;
+      const roleColor=u.role==='admin'?'var(--teal)':'var(--text2)';
+      return`<tr>
+        <td style="font-weight:700;">${name}</td>
+        <td><span class="badge" style="background:rgba(0,196,174,0.1);color:${roleColor};">${u.role||'builder'}</span></td>
+        <td>${bl.length}</td>
+        <td style="color:var(--teal);">${bl.filter(l=>l.status==='live').length}</td>
+        <td style="color:#f0a500;">${bl.filter(l=>l.status==='pending').length}</td>
+        <td style="${dups?'color:#ff6b6b;font-weight:600;':'color:var(--text3);'}">${dups}</td>
+      </tr>`;
+    }).join('');
+  });
 }
 
 function linkCheckBadge(v, linkin, linkto){
@@ -2529,7 +2743,162 @@ async function startReqImport(){
   log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${done} created, ${updated} updated${errors?' ('+errors+' errors)':''}.</div>`;
 }
 
-const reqDrop=document.getElementById('req-imp-drop');
+// ─── BUILDER FUNCTIONS ────────────────────────────────────
+const MONTHS_EN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function currentMonthName(){return MONTHS_EN[new Date().getMonth()];}
+let bSortDir='desc', bStatusFilter='all';
+
+function renderBuilderDashboard(){
+  if(!cu||cu.role==='admin')return;
+  const myName=cu.name||cu.email;
+  const myLinks=allLinks.filter(l=>l.builder===myName);
+  const curMonth=currentMonthName();
+  const curYear=new Date().getFullYear();
+  const hour=new Date().getHours();
+  document.getElementById('b-greeting').textContent=(hour<12?'Good morning ☀️':hour<18?'Good afternoon 👋':'Good evening 🌙')+', '+(myName.split(' ')[0]||myName);
+  document.getElementById('b-month-label').textContent=`${curMonth} ${curYear}`;
+  document.getElementById('b-total').textContent=myLinks.length;
+  document.getElementById('b-live').textContent=myLinks.filter(l=>l.status==='live').length;
+  document.getElementById('b-pend').textContent=myLinks.filter(l=>l.status==='pending').length;
+  document.getElementById('b-quota-month').textContent=`${curMonth} ${curYear}`;
+
+  const quotaGrid=document.getElementById('b-quota-grid');
+  const curMonthReqs=allReqs.filter(r=>r.month===curMonth);
+  if(!curMonthReqs.length){
+    quotaGrid.innerHTML=`<div style="color:var(--text2);font-size:13px;grid-column:1/-1;padding:1rem 0;">No quotas set for ${curMonth}. Ask admin to set requirements.</div>`;
+  } else {
+    const byProject={};
+    curMonthReqs.forEach(r=>{if(!byProject[r.project])byProject[r.project]=[];byProject[r.project].push(r);});
+    quotaGrid.innerHTML=Object.entries(byProject).map(([proj,reqs])=>{
+      const projLinksThisMonth=myLinks.filter(l=>l.project===proj&&getMonthKey(l.date)===`${curMonth} ${curYear}`);
+      const rowsHtml=reqs.map(r=>{
+        const used=myLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&getMonthKey(l.date)===`${curMonth} ${curYear}`).length;
+        const pct=Math.min(100,Math.round(used/r.max*100));
+        const full=used>=r.max;
+        const color=full?'var(--red)':used>0?'var(--yellow)':'var(--teal)';
+        return`<div style="margin-bottom:10px;">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px;" title="${r.anchor}">${r.anchor}</span>
+            <span style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;">${used}/${r.max}${full?' ❌':''}</span>
+          </div>
+          ${r.linkto?`<div style="font-size:10px;color:var(--text3);margin-bottom:3px;">→ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,40)}</div>`:''}
+          <div style="height:6px;background:var(--bg4);border-radius:4px;overflow:hidden;"><div style="height:6px;border-radius:4px;background:${color};width:${pct}%;transition:width 0.4s;"></div></div>
+        </div>`;
+      }).join('');
+      return`<div class="quota-card">
+        <div class="quota-proj"><span>${proj}</span><span class="quota-proj-badge">${projLinksThisMonth.length} this month</span></div>
+        ${rowsHtml}
+      </div>`;
+    }).join('');
+  }
+
+  const recent=myLinks.slice(0,10);
+  const tb=document.getElementById('b-recent');
+  if(!recent.length){tb.innerHTML='<tr><td colspan="8" class="loading">No links yet</td></tr>';return;}
+  tb.innerHTML=recent.map(l=>`<tr>
+    <td style="color:var(--text3);font-size:11px;">${l.date||''}</td>
+    <td class="domain-teal"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;">${l.domain}</a></td>
+    <td>${l.dr||'—'}</td>
+    <td>${l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—'}</td>
+    <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;">${l.anchor||'—'}</td>
+    <td>${l.project||'—'}</td>
+    <td><span style="color:${l.status==='live'?'var(--teal)':'#f0a500'};">${l.status}</span></td>
+    <td>${linkCheckBadge(l.linkcheck,l.linkin,l.linkto)}</td>
+  </tr>`).join('');
+}
+
+function setBTab(tab,el){
+  bStatusFilter=tab;
+  document.querySelectorAll('.status-tab').forEach(t=>t.className='status-tab');
+  el.className='status-tab active-'+tab;
+  renderBuilderLinks();
+}
+
+function toggleBSort(){
+  bSortDir=bSortDir==='desc'?'asc':'desc';
+  const el=document.getElementById('b-sort-date');
+  if(el)el.textContent=bSortDir==='desc'?'↓':'↑';
+  renderBuilderLinks();
+}
+
+function renderBuilderLinks(){
+  if(!cu||cu.role==='admin')return;
+  const myName=cu.name||cu.email;
+  const s=(document.getElementById('bl-s')?.value||'').toLowerCase();
+  const p=document.getElementById('bl-p')?.value||'';
+  let fl=allLinks.filter(l=>{
+    if(l.builder!==myName)return false;
+    if(bStatusFilter==='live'&&l.status!=='live')return false;
+    if(bStatusFilter==='pend'&&l.status!=='pending')return false;
+    if(p&&l.project!==p)return false;
+    if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s))return false;
+    return true;
+  });
+  fl.sort((a,b)=>{const av=parseDate(a.date),bv=parseDate(b.date);return bSortDir==='desc'?bv-av:av-bv;});
+  const tb=document.getElementById('b-tbody');
+  if(!fl.length){tb.innerHTML='<tr><td colspan="8" class="loading">No links found</td></tr>';return;}
+  const rowFn=(l)=>{
+    const lid=l.id;
+    const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
+    const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto);
+    return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;">
+      <td style="color:var(--text3);font-size:11px;">${l.date||''}</td>
+      <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;">${l.domain}</a></td>
+      <td>${l.dr||'—'}</td><td>${trafficVal}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.anchor||'—'}</td>
+      <td>${l.project||'—'}</td>
+      <td onclick="event.stopPropagation()">
+        <select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;">
+          <option value="live" ${l.status==='live'?'selected':''}>✅ Live</option>
+          <option value="pending" ${l.status==='pending'?'selected':''}>⏳ Pending</option>
+        </select>
+      </td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
+        <button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="checkSingleLink('${lid}',null,null,null,this)">▶</button>
+      </td>
+    </tr>
+    <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
+      <td colspan="8" style="padding:14px 16px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+          ${l.linkin?`<a href="${l.linkin}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
+          ${l.linkto?`<a href="${l.linkto}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
+          <span style="font-size:11px;color:var(--text3);">${l.ss?'SS: '+l.ss:''}${l.category?' · '+l.category:''}${l.price?' · $'+String(l.price).replace(/^\$+/,''):''}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${String(l.price||'').replace(/^\$+/,'')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
+        </div>
+        <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRowById('${lid}',true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+      </td>
+    </tr>`;
+  };
+  tb.innerHTML=renderRowsGrouped(fl,rowFn,8);
+}
+
+function toggleEditRowById(id,forceClose){
+  const row=document.getElementById('edit-'+id);
+  if(!row)return;
+  const isOpen=row.style.display==='table-row';
+  document.querySelectorAll('[id^="edit-"]').forEach(r=>r.style.display='none');
+  if(!isOpen&&!forceClose)row.style.display='table-row';
+}
+
+// Also update listenReqs to re-render builder dashboard
+const _origListenReqs=listenReqs;
+function listenReqs(){
+  db.collection('requirements').onSnapshot(snap=>{
+    allReqs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderReqs();
+    if(cu&&cu.role!=='admin')renderBuilderDashboard();
+  });
+}
 reqDrop.addEventListener('dragover',e=>{e.preventDefault();reqDrop.style.borderColor='var(--teal)';});
 reqDrop.addEventListener('dragleave',()=>reqDrop.style.borderColor='');
 reqDrop.addEventListener('drop',e=>{e.preventDefault();reqDrop.style.borderColor='';handleReqCsvFile(e.dataTransfer.files[0]);});
