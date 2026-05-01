@@ -856,8 +856,9 @@ tr:hover td{background:var(--bg3);}
     </table></div>
   </div>
 
+</div>
 <!-- ══ BUILDER DASHBOARD ══ -->
-<div id="p-b-dashboard" class="page" style="display:none;">
+<div id="p-b-dashboard" class="page">
   <div class="page-top">
     <div>
       <div class="page-title" id="b-greeting">Dashboard</div>
@@ -887,7 +888,7 @@ tr:hover td{background:var(--bg3);}
 </div>
 
 <!-- ══ BUILDER MY LINKS ══ -->
-<div id="p-b-links" class="page" style="display:none;">
+<div id="p-b-links" class="page">
   <div class="page-top">
     <div class="page-title">My Links</div>
     <button class="btn-sm" onclick="gotoPage('add',document.getElementById('bld-nav-add'))" style="width:auto;">+ Add link</button>
@@ -1041,7 +1042,7 @@ function doLogout(){auth.signOut();}
 function startApp(){
   document.getElementById('s-login').classList.remove('active');
   document.getElementById('s-app').classList.add('active');
-  document.getElementById('sb-name').textContent=cu.name||cu.email;
+  document.getElementById('sb-name').textContent=cu.name||cu.email||'—';
   document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':'Builder';
 
   const isAdmin=cu.role==='admin';
@@ -1058,8 +1059,6 @@ function startApp(){
       if(!el.classList.contains('nav-bld')) el.style.display='none';
     });
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='');
-    // Hide admin pages, show builder dashboard by default
-    document.getElementById('p-dashboard').style.display='none';
   }
 
   const lb=document.getElementById('ls-b');
