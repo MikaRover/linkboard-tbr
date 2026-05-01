@@ -2782,8 +2782,8 @@ function renderBuilderDashboard(){
   const curMonth=currentMonthName();
   const curYear=new Date().getFullYear();
   const hour=new Date().getHours();
-  const firstName=(cu.name||(myName||'').split('@')[0]||'').split(' ')[0]||'';
-  document.getElementById('b-greeting').textContent=(hour<12?'Good morning ☀️':hour<18?'Good afternoon 👋':'Good evening 🌙')+(firstName?', '+firstName:'');
+  const firstName=cu.name||(myName||'').split('@')[0].replace(/^./,c=>c.toUpperCase())||'';
+  document.getElementById('b-greeting').textContent=(hour<12?'Good morning ☀️':hour<18?'Good afternoon 👋':'Good evening 🌙')+(firstName?' '+firstName:'');
   document.getElementById('b-month-label').textContent=`${curMonth} ${curYear}`;
   document.getElementById('b-total').textContent=myLinks.length;
   document.getElementById('b-live').textContent=myLinks.filter(l=>l.status==='live').length;
@@ -2852,7 +2852,8 @@ function toggleBSort(){
 function renderBuilderLinks(){
   if(!cu||cu.role==='admin')return;
   const myName=cu.name||cu.email;
-  console.log('Builder name:', myName, '| Links count:', allLinks.length, '| Sample builders:', allLinks.slice(0,3).map(l=>l.builder));
+  const allBuilderNames=[...new Set(allLinks.map(l=>l.builder))].filter(Boolean);
+  console.log('cu.name:', cu.name, '| cu.email:', cu.email, '| myName:', myName, '| All builders in DB:', allBuilderNames);
   const s=(document.getElementById('bl-s')?.value||'').toLowerCase();
   const p=document.getElementById('bl-p')?.value||'';
   let fl=allLinks.filter(l=>{
