@@ -1043,7 +1043,7 @@ function startApp(){
   document.getElementById('s-login').classList.remove('active');
   document.getElementById('s-app').classList.add('active');
   document.getElementById('sb-name').textContent=cu.name||cu.email||'—';
-  document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':'Builder';
+  document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':(cu.name||'Builder');
 
   const isAdmin=cu.role==='admin';
 
@@ -1058,7 +1058,7 @@ function startApp(){
     document.querySelectorAll('.nav').forEach(el=>{
       if(!el.classList.contains('nav-bld')) el.style.display='none';
     });
-    document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='');
+    document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='block');
   }
 
   const lb=document.getElementById('ls-b');
