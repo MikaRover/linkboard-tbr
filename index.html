@@ -931,6 +931,15 @@ tr:hover td{background:var(--bg3);}
           <div id="load-builder-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;"></div>
         </div>
       </div>
+      <div>
+        <div class="section-label" style="margin-bottom:8px;">Projects
+          <span style="margin-left:8px;">
+            <span onclick="toggleAllLoadProjects(true)" style="cursor:pointer;color:var(--teal);font-size:10px;margin-right:6px;">All</span>
+            <span onclick="toggleAllLoadProjects(false)" style="cursor:pointer;color:var(--text3);font-size:10px;">None</span>
+          </span>
+        </div>
+        <div id="load-project-checks" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      </div>
     </div>
   </div>
 
@@ -3098,19 +3107,32 @@ async function saveCapacity(){
 let loadBuilders = [];
 
 function initLoadPage(){
-  // Set current month
   const monthSel = document.getElementById('load-month');
   if(monthSel) monthSel.value = MONTHS_EN[new Date().getMonth()];
 
-  // Render builder checkboxes
+  // Builder checkboxes
   const wrap = document.getElementById('load-builder-checks');
-  if(!wrap) return;
-  wrap.innerHTML = BUILDERS.map(b => `
+  if(wrap) wrap.innerHTML = BUILDERS.map(b => `
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;transition:all 0.15s;"
       onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
       <input type="checkbox" value="${b}" onchange="renderLoadTable()" style="width:auto;margin:0;cursor:pointer;" checked/>
       ${b}
     </label>`).join('');
+
+  // Project checkboxes
+  const pwrap = document.getElementById('load-project-checks');
+  if(pwrap) pwrap.innerHTML = allProjects.map(p => `
+    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;transition:all 0.15s;"
+      onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
+      <input type="checkbox" value="${p.name}" onchange="renderLoadTable()" style="width:auto;margin:0;cursor:pointer;" checked/>
+      ${p.name}
+    </label>`).join('');
+
+  renderLoadTable();
+}
+
+function toggleAllLoadProjects(checked){
+  document.querySelectorAll('#load-project-checks input').forEach(c=>c.checked=checked);
   renderLoadTable();
 }
 
@@ -3120,7 +3142,7 @@ function getSelectedBuilders(){
 
 function renderLoadTable(){
   const builders = getSelectedBuilders();
-  const projects = allProjects.map(p=>p.name);
+  const projects = Array.from(document.querySelectorAll('#load-project-checks input:checked')).map(c=>c.value);
   if(!projects.length || !builders.length){
     document.getElementById('load-tbody').innerHTML = '<tr><td colspan="20" class="loading">No projects or builders selected</td></tr>';
     return;
