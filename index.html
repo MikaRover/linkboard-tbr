@@ -2773,12 +2773,14 @@ let bSortDir='desc', bStatusFilter='all';
 
 function renderBuilderDashboard(){
   if(!cu||cu.role==='admin')return;
-  const myName=cu.name||cu.email;
+  const myName=cu.name||cu.email||'';
+  if(!myName)return;
   const myLinks=allLinks.filter(l=>l.builder===myName);
   const curMonth=currentMonthName();
   const curYear=new Date().getFullYear();
   const hour=new Date().getHours();
-  document.getElementById('b-greeting').textContent=(hour<12?'Good morning ☀️':hour<18?'Good afternoon 👋':'Good evening 🌙')+', '+(myName.split(' ')[0]||myName);
+  const firstName=(myName||'').split(' ')[0]||myName||'';
+  document.getElementById('b-greeting').textContent=(hour<12?'Good morning ☀️':hour<18?'Good afternoon 👋':'Good evening 🌙')+(firstName?', '+firstName:'');
   document.getElementById('b-month-label').textContent=`${curMonth} ${curYear}`;
   document.getElementById('b-total').textContent=myLinks.length;
   document.getElementById('b-live').textContent=myLinks.filter(l=>l.status==='live').length;
