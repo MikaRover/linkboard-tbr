@@ -446,6 +446,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('team',this)">Team</div>
   <div class="nav adm" onclick="gotoPage('checker',this)">Data Checker</div>
   <div class="nav adm" onclick="gotoPage('import',this)">Import CSV</div>
+  <div class="nav adm" onclick="gotoPage('load',this)">📊 Load</div>
   <!-- BUILDER NAV -->
   <div class="nav nav-bld" id="bld-nav-dashboard" onclick="gotoPage('b-dashboard',this)">Dashboard</div>
   <div class="nav nav-bld" id="bld-nav-links" onclick="gotoPage('b-links',this)">My Links</div>
@@ -861,6 +862,54 @@ tr:hover td{background:var(--bg3);}
   </div>
 
 </div>
+
+<!-- ══ LOAD DISTRIBUTION ══ -->
+<div id="p-load" class="page">
+  <div class="page-top">
+    <div class="page-title">📊 Load Distribution</div>
+    <button class="btn-sm" onclick="saveLoad()" style="width:auto;">Save to Requirements →</button>
+  </div>
+
+  <div id="load-ok" class="alert a-ok"></div>
+  <div id="load-err" class="alert a-dup"></div>
+
+  <!-- Month + Builder selection -->
+  <div class="card" style="max-width:900px;margin-bottom:1rem;">
+    <div class="card-body">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;">
+        <div style="flex:1;min-width:140px;">
+          <div class="section-label">Month</div>
+          <select id="load-month" style="margin:0;" onchange="renderLoadTable()">
+            <option>January</option><option>February</option><option>March</option>
+            <option>April</option><option>May</option><option>June</option>
+            <option>July</option><option>August</option><option>September</option>
+            <option>October</option><option>November</option><option>December</option>
+          </select>
+        </div>
+        <div style="flex:2;min-width:200px;">
+          <div class="section-label">Builders</div>
+          <div id="load-builder-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Distribution table -->
+  <div class="card" style="max-width:900px;">
+    <div class="card-head">
+      Link distribution
+      <span style="font-size:11px;color:var(--text3);">Enter total per project → auto-splits equally</span>
+    </div>
+    <div class="tbl-wrap">
+      <table id="load-table">
+        <thead id="load-thead"></thead>
+        <tbody id="load-tbody"></tbody>
+        <tfoot id="load-tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- ══ BUILDER DASHBOARD ══ -->
 <div id="p-b-dashboard" class="page">
   <div class="page-top">
@@ -1454,6 +1503,7 @@ function gotoPage(name,el){
   if(name==='projects')renderProjectsPage();
   if(name==='b-dashboard')renderBuilderDashboard();
   if(name==='b-links')renderBuilderLinks();
+  if(name==='load')initLoadPage();
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
 
@@ -2775,6 +2825,153 @@ async function startReqImport(){
   }
 
   log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${done} created, ${updated} updated${errors?' ('+errors+' errors)':''}.</div>`;
+}
+
+
+// ─── LOAD DISTRIBUTION ────────────────────────────────────
+let loadBuilders = [];
+
+function initLoadPage(){
+  // Set current month
+  const monthSel = document.getElementById('load-month');
+  if(monthSel) monthSel.value = MONTHS_EN[new Date().getMonth()];
+
+  // Render builder checkboxes
+  const wrap = document.getElementById('load-builder-checks');
+  if(!wrap) return;
+  wrap.innerHTML = BUILDERS.map(b => `
+    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;transition:all 0.15s;"
+      onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
+      <input type="checkbox" value="${b}" onchange="renderLoadTable()" style="width:auto;margin:0;cursor:pointer;" checked/>
+      ${b}
+    </label>`).join('');
+  renderLoadTable();
+}
+
+function getSelectedBuilders(){
+  return Array.from(document.querySelectorAll('#load-builder-checks input:checked')).map(c=>c.value);
+}
+
+function renderLoadTable(){
+  const builders = getSelectedBuilders();
+  const projects = allProjects.map(p=>p.name);
+  if(!projects.length || !builders.length){
+    document.getElementById('load-tbody').innerHTML = '<tr><td colspan="20" class="loading">No projects or builders selected</td></tr>';
+    return;
+  }
+
+  // Header
+  document.getElementById('load-thead').innerHTML = `<tr>
+    <th style="min-width:120px;">Project</th>
+    <th style="text-align:center;color:var(--teal);">Total</th>
+    ${builders.map(b=>`<th style="text-align:center;">${b}</th>`).join('')}
+  </tr>`;
+
+  // Body
+  document.getElementById('load-tbody').innerHTML = projects.map(proj => `
+    <tr>
+      <td style="font-weight:600;">${proj}</td>
+      <td style="text-align:center;">
+        <input type="number" min="0" placeholder="0"
+          id="load-total-${proj.replace(/\s/g,'_')}"
+          oninput="splitLoad('${proj.replace(/\s/g,'_')}', ${builders.length})"
+          style="width:60px;text-align:center;margin:0;padding:4px;font-size:13px;font-weight:700;background:var(--bg4);border:1px solid var(--border);border-radius:6px;"/>
+      </td>
+      ${builders.map((b,i)=>`
+        <td style="text-align:center;">
+          <input type="number" min="0" placeholder="0"
+            id="load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}"
+            oninput="updateRowTotal('${proj.replace(/\s/g,'_')}', ${builders.length})"
+            style="width:55px;text-align:center;margin:0;padding:4px;font-size:12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;"/>
+        </td>`).join('')}
+    </tr>`).join('');
+
+  // Footer totals
+  document.getElementById('load-tfoot').innerHTML = `<tr style="background:var(--bg3);border-top:2px solid var(--border);">
+    <td style="font-weight:700;padding:8px 10px;">Total</td>
+    <td style="text-align:center;font-weight:700;color:var(--teal);" id="load-grand-total">0</td>
+    ${builders.map(b=>`<td style="text-align:center;font-weight:700;color:var(--teal);" id="load-btotal-${b.replace(/\s/g,'_')}">0</td>`).join('')}
+  </tr>`;
+}
+
+function splitLoad(projId, builderCount){
+  const total = parseInt(document.getElementById('load-total-'+projId)?.value)||0;
+  const builders = getSelectedBuilders();
+  if(!total || !builders.length) return;
+
+  const base = Math.floor(total / builders.length);
+  const remainder = total % builders.length;
+
+  builders.forEach((b, i) => {
+    const cell = document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`);
+    if(cell) cell.value = base + (i < remainder ? 1 : 0);
+  });
+  updateGrandTotals();
+}
+
+function updateRowTotal(projId, builderCount){
+  updateGrandTotals();
+}
+
+function updateGrandTotals(){
+  const builders = getSelectedBuilders();
+  const projects = allProjects.map(p=>p.name);
+  let grand = 0;
+
+  builders.forEach(b => {
+    let bTotal = 0;
+    projects.forEach(proj => {
+      const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+      bTotal += parseInt(cell?.value)||0;
+    });
+    const el = document.getElementById(`load-btotal-${b.replace(/\s/g,'_')}`);
+    if(el) el.textContent = bTotal;
+    grand += bTotal;
+  });
+
+  const grandEl = document.getElementById('load-grand-total');
+  if(grandEl) grandEl.textContent = grand;
+}
+
+async function saveLoad(){
+  const month = document.getElementById('load-month').value;
+  const builders = getSelectedBuilders();
+  const projects = allProjects.map(p=>p.name);
+  const okEl = document.getElementById('load-ok');
+  const errEl = document.getElementById('load-err');
+  okEl.style.display='none'; errEl.style.display='none';
+
+  if(!builders.length){errEl.style.display='block';errEl.textContent='Select at least one builder';return;}
+
+  let saved = 0;
+  for(const proj of projects){
+    for(const b of builders){
+      const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+      const val = parseInt(cell?.value)||0;
+      if(!val) continue;
+
+      // Save as requirement — anchor = builder name, max = count
+      const anchor = b.toLowerCase();
+      const existing = allReqs.find(r=>r.project===proj&&r.month===month&&r.anchor===anchor&&r.isLoad);
+      try{
+        if(existing){
+          await db.collection('requirements').doc(existing.id).update({max:val});
+        } else {
+          await db.collection('requirements').add({
+            project:proj, month, anchor, max:val,
+            isLoad:true, builderName:b,
+            createdAt:firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+        saved++;
+      }catch(e){
+        errEl.style.display='block';errEl.textContent='Error: '+e.message;return;
+      }
+    }
+  }
+
+  okEl.style.display='block';
+  okEl.textContent=`✅ Saved! ${saved} assignments for ${month}`;
 }
 
 // ─── BUILDER FUNCTIONS ────────────────────────────────────
