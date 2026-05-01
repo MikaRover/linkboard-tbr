@@ -1075,7 +1075,7 @@ function startApp(){
   const fbWrap=document.getElementById('f-builder-wrap');
   if(isAdmin){
     fbWrap.style.display='block';
-    fb.innerHTML='<option value=''>Select builder</option>';
+    fb.innerHTML=`<option value="">Select builder</option>`;
     BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;fb.appendChild(o);});
   }
 
