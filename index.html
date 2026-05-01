@@ -1027,7 +1027,15 @@ function toggleTheme(){
 auth.onAuthStateChanged(async user=>{
   if(user){
     const doc=await db.collection('users').doc(user.uid).get();
-    if(doc.exists){cu={...doc.data(),uid:user.uid};startApp();}
+    if(doc.exists){
+      const data=doc.data();
+      // Try to match name from BUILDERS array by email prefix
+      const emailPrefix=(user.email||'').split('@')[0].toLowerCase();
+      const BUILDERS_LIST=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik'];
+      const matchedName=data.name||BUILDERS_LIST.find(b=>b.toLowerCase()===emailPrefix||b.toLowerCase().startsWith(emailPrefix))||'';
+      cu={...data,uid:user.uid,email:user.email,name:matchedName||data.name||''};
+      startApp();
+    }
     else auth.signOut();
   } else {
     document.getElementById('s-login').classList.add('active');
@@ -2778,7 +2786,7 @@ function renderBuilderDashboard(){
   if(!cu||cu.role==='admin')return;
   const myName=cu.name||cu.email||'';
   if(!myName)return;
-  const myLinks=allLinks.filter(l=>l.builder===myName);
+  const myLinks=allLinks.filter(l=>l.builder===myName||l.builder===cu.name||l.builder===cu.email);
   const curMonth=currentMonthName();
   const curYear=new Date().getFullYear();
   const hour=new Date().getHours();
@@ -2857,7 +2865,7 @@ function renderBuilderLinks(){
   const s=(document.getElementById('bl-s')?.value||'').toLowerCase();
   const p=document.getElementById('bl-p')?.value||'';
   let fl=allLinks.filter(l=>{
-    if(l.builder!==myName)return false;
+    if(l.builder!==myName && l.builder!==(cu.name||'') && l.builder!==(cu.email||''))return false;
     if(bStatusFilter==='live'&&l.status!=='live')return false;
     if(bStatusFilter==='pend'&&l.status!=='pending')return false;
     if(p&&l.project!==p)return false;
