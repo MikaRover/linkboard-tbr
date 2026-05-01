@@ -652,12 +652,51 @@ tr:hover td{background:var(--bg3);}
       <div class="req-form-section">
         <div class="req-form-title" style="display:flex;justify-content:space-between;align-items:center;">
           Anchor requirements (limits)
-          <label style="cursor:pointer;margin:0;">
-            <input type="file" accept="image/*" id="req-img-input" style="display:none;" onchange="importReqFromImage(this)"/>
-            <span class="btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="document.getElementById('req-img-input').click()">📷 Import from image</span>
-          </label>
+          <div style="display:flex;gap:6px;">
+            <label style="cursor:pointer;margin:0;">
+              <input type="file" accept="image/*" id="req-img-input" style="display:none;" onchange="importReqFromImage(this)"/>
+              <span class="btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="document.getElementById('req-img-input').click()">📷 Image</span>
+            </label>
+            <label style="cursor:pointer;margin:0;">
+              <input type="file" accept=".csv" id="req-csv-input" style="display:none;" onchange="importReqFromCsvDirect(this)"/>
+              <span class="btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="document.getElementById('req-csv-input').click()">📄 CSV</span>
+            </label>
+            <span class="btn-ghost" style="font-size:11px;padding:4px 10px;cursor:pointer;" onclick="togglePasteArea()">📋 Paste</span>
+          </div>
         </div>
         <div id="req-img-status" style="display:none;font-size:12px;color:var(--teal);margin-bottom:10px;padding:8px 12px;background:var(--bg4);border-radius:6px;"></div>
+
+        <!-- Paste from Sheets -->
+        <div id="paste-area-wrap" style="display:none;margin-bottom:14px;">
+          <div style="margin-bottom:8px;">
+            <div style="display:flex;gap:10px;margin-bottom:8px;">
+              <div style="flex:1;">
+                <label>Project</label>
+                <select id="paste-proj" style="margin-bottom:0;"><option value="">Select project</option></select>
+              </div>
+              <div style="flex:1;">
+                <label>Month</label>
+                <select id="paste-month" style="margin-bottom:0;">
+                  <option>January</option><option>February</option><option>March</option><option>April</option>
+                  <option>May</option><option>June</option><option>July</option><option>August</option>
+                  <option>September</option><option>October</option><option>November</option><option>December</option>
+                </select>
+              </div>
+            </div>
+            <label>Paste from Google Sheets (URL, Anchor, _, Count)</label>
+            <textarea id="paste-input" placeholder="https://example.com/page&#10;anchor text&#10;&#10;3" 
+              style="width:100%;height:120px;padding:8px 12px;font-size:12px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:8px;outline:none;"
+              onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn-sm" onclick="importFromPaste()" style="width:auto;">Import →</button>
+              <span id="paste-status" style="font-size:12px;color:var(--teal);"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CSV import for reqs -->
+        <div id="req-csv-status" style="display:none;font-size:12px;color:var(--teal);margin-bottom:10px;padding:8px 12px;background:var(--bg4);border-radius:6px;"></div>
+
         <div class="form-grid">
           <div><label>Project</label><select id="r-proj"><option value="">Select</option></select></div>
           <div><label>Month</label><select id="r-month">
@@ -666,10 +705,10 @@ tr:hover td{background:var(--bg3);}
             <option>September</option><option>October</option><option>November</option><option>December</option>
           </select></div>
         </div>
-        <label>Anchor text</label><input id="r-anchor" placeholder="e.g. Dexatel SMS Pricing"/>
-        <label>Target page (Link to URL)</label><input id="r-linkto" placeholder="https://dexatel.com/pricing/sms/"/>
+        <label>Anchor text</label><input id="r-anchor" placeholder="e.g. electronic lab notebook"/>
+        <label>Target page (Link to URL)</label><input id="r-linkto" placeholder="https://example.com/page"/>
         <label>Max links</label><input id="r-max" type="number" placeholder="3"/>
-        <button class="btn-sm" onclick="addReq()" style="width:auto;padding:8px 20px;">Add anchor requirement →</button>
+        <button class="btn-sm" onclick="addReq()" style="width:auto;padding:8px 20px;">Add →</button>
       </div>
     </div>
   </div>
@@ -988,7 +1027,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-const BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik'];
+let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik']; // fallback, updated from Firestore
 const CATEGORIES=['SaaS','Service','Blog/Magazine','News','Agency','Other'];
 
 let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[];
@@ -1149,7 +1188,7 @@ function startApp(){
     BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;fb.appendChild(o);});
   }
 
-  listenProjects();listenLinks();listenReqs();listenQualityReqs();
+  listenBuilders();listenProjects();listenLinks();listenReqs();listenQualityReqs();
   renderCatButtons('');
 
   if(isAdmin){
@@ -1160,6 +1199,24 @@ function startApp(){
 }
 
 // ─── PROJECTS ─────────────────────────────────────────────
+function listenBuilders(){
+  db.collection('users').onSnapshot(snap=>{
+    const users=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const builders=users.filter(u=>u.role==='builder'&&u.name).map(u=>u.name).sort();
+    if(builders.length) BUILDERS=builders;
+    // Refresh builder dropdowns
+    const lb=document.getElementById('ls-b');
+    if(lb&&cu){
+      const cur=lb.value;
+      lb.innerHTML='<option value="">All builders</option>';
+      BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;lb.appendChild(o);});
+      lb.value=cur;
+    }
+    // Refresh load page if open
+    if(document.getElementById('p-load')?.classList.contains('active')) initLoadPage();
+  });
+}
+
 function listenProjects(){
   db.collection('projects').orderBy('name').onSnapshot(snap=>{
     allProjects=snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -2827,6 +2884,114 @@ async function startReqImport(){
   log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${done} created, ${updated} updated${errors?' ('+errors+' errors)':''}.</div>`;
 }
 
+
+
+// ─── PASTE & CSV IMPORT FOR REQUIREMENTS ──────────────────
+function togglePasteArea(){
+  const wrap = document.getElementById('paste-area-wrap');
+  wrap.style.display = wrap.style.display==='none' ? 'block' : 'none';
+  // Sync project selects
+  const pasteProj = document.getElementById('paste-proj');
+  if(pasteProj){
+    const cur = pasteProj.value;
+    pasteProj.innerHTML = '<option value="">Select project</option>';
+    allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;pasteProj.appendChild(o);});
+    if(cur) pasteProj.value = cur;
+  }
+  // Set current month
+  const pm = document.getElementById('paste-month');
+  if(pm) pm.value = MONTHS_EN[new Date().getMonth()];
+}
+
+async function importFromPaste(){
+  const proj = document.getElementById('paste-proj').value;
+  const month = document.getElementById('paste-month').value;
+  const text = document.getElementById('paste-input').value.trim();
+  const status = document.getElementById('paste-status');
+
+  if(!proj){status.style.color='var(--red)';status.textContent='Select project';return;}
+  if(!text){status.style.color='var(--red)';status.textContent='Paste data first';return;}
+
+  // Parse: each row is tab-separated (from Google Sheets)
+  // Format: URL \t Anchor \t (empty) \t Count
+  const rows = text.split('\n').filter(r=>r.trim());
+  const parsed = [];
+
+  for(const row of rows){
+    const cols = row.split('\t').map(c=>c.trim());
+    if(cols.length < 2) continue;
+
+    let url='', anchor='', count=1;
+
+    // Detect format: URL, Anchor, _, Count OR Anchor, Count
+    if(cols[0].startsWith('http')){
+      url = cols[0];
+      anchor = cols[1];
+      count = parseInt(cols[3]||cols[2])||1;
+    } else {
+      anchor = cols[0];
+      count = parseInt(cols[1])||1;
+    }
+
+    if(!anchor) continue;
+    parsed.push({linkto:url, anchor:anchor.toLowerCase().trim(), max:count});
+  }
+
+  if(!parsed.length){status.style.color='var(--red)';status.textContent='Could not parse data';return;}
+
+  status.style.color='var(--teal)';status.textContent=`Saving ${parsed.length} anchors...`;
+
+  let saved=0;
+  for(const item of parsed){
+    const existing = allReqs.find(r=>r.project===proj&&r.month===month&&r.anchor===item.anchor);
+    const data = {project:proj, month, anchor:item.anchor, linkto:item.linkto||'', max:item.max, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+    if(existing) await db.collection('requirements').doc(existing.id).update(data);
+    else await db.collection('requirements').add(data);
+    saved++;
+  }
+
+  status.style.color='var(--teal)';
+  status.textContent=`✅ ${saved} anchors saved for ${proj} — ${month}`;
+  document.getElementById('paste-input').value='';
+}
+
+async function importReqFromCsvDirect(input){
+  const file = input.files[0];
+  if(!file) return;
+
+  // Show project/month selector
+  const proj = document.getElementById('r-proj').value;
+  const month = document.getElementById('r-month').value;
+  const status = document.getElementById('req-csv-status');
+  status.style.display='block';
+
+  if(!proj||!month){
+    status.textContent='❌ Select project and month first (in the form below)';
+    input.value='';return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const rows = parseReqCSV(e.target.result);
+    if(!rows.length){status.textContent='❌ No valid rows found';input.value='';return;}
+
+    status.textContent=`⏳ Saving ${rows.length} anchors...`;
+    let saved=0, updated=0;
+
+    for(const item of rows){
+      const m = item.month||month;
+      const existing = allReqs.find(r=>r.project===proj&&r.month===m&&r.anchor===item.anchor);
+      const data = {project:proj, month:m, anchor:item.anchor, linkto:item.linkto||'', max:item.max, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+      if(existing){await db.collection('requirements').doc(existing.id).update(data);updated++;}
+      else{await db.collection('requirements').add(data);saved++;}
+    }
+
+    status.textContent=`✅ Done! ${saved} created, ${updated} updated for ${proj}`;
+    setTimeout(()=>{status.style.display='none';},4000);
+    input.value='';
+  };
+  reader.readAsText(file);
+}
 
 // ─── LOAD DISTRIBUTION ────────────────────────────────────
 let loadBuilders = [];
