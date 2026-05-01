@@ -2849,6 +2849,7 @@ function toggleBSort(){
 function renderBuilderLinks(){
   if(!cu||cu.role==='admin')return;
   const myName=cu.name||cu.email;
+  console.log('Builder name:', myName, '| Links count:', allLinks.length, '| Sample builders:', allLinks.slice(0,3).map(l=>l.builder));
   const s=(document.getElementById('bl-s')?.value||'').toLowerCase();
   const p=document.getElementById('bl-p')?.value||'';
   let fl=allLinks.filter(l=>{
