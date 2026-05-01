@@ -2931,26 +2931,8 @@ async function startReqImport(){
 async function generateMotivation(name){
   const el = document.getElementById('b-motivation');
   if(!el) return;
-  el.textContent = '...';
-
+  // Use local pool - API call blocked by CORS from browser
   try{
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 60,
-        messages: [{
-          role: 'user',
-          content: `Write one short motivational sentence (max 12 words) for a link builder named ${name}. Make it energetic, specific to link building / SEO work. No quotes, no emoji, just the sentence.`
-        }]
-      })
-    });
-    const data = await resp.json();
-    const text = data.content?.[0]?.text?.trim();
-    if(text) el.textContent = '✨ ' + text;
-    else el.textContent = '✨ Every great link starts with one bold outreach.';
-  } catch(e){
     // Fallback pool
     const pool = [
       'Every link you build is a vote of confidence from the web.',
@@ -3310,8 +3292,7 @@ function renderBuilderDashboard(){
   const quotaGrid=document.getElementById('b-quota-grid');
 
   // Load assignments from 'load' collection for this builder this month
-  console.log('allLoads total:', allLoads.length, '| myName:', myName, '| curMonth:', curMonth, '| sample:', allLoads.slice(0,2));
-  const myLoads=allLoads.filter(l=>l.month===curMonth&&l.builder===myName&&l.count>0);
+  const myLoads=allLoads.filter(l=>l.month===curMonth&&(l.builder===myName||l.builder===(cu.name||'')||l.builder===(cu.email||'').split('@')[0].charAt(0).toUpperCase()+(cu.email||'').split('@')[0].slice(1))&&l.count>0);
 
   if(!myLoads.length){
     quotaGrid.innerHTML=`<div style="color:var(--text2);font-size:13px;grid-column:1/-1;padding:1rem 0;">No load assigned for ${curMonth}. Ask admin to set load distribution.</div>`;
