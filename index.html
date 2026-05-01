@@ -447,6 +447,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('checker',this)">Data Checker</div>
   <div class="nav adm" onclick="gotoPage('import',this)">Import CSV</div>
   <div class="nav adm" onclick="gotoPage('load',this)">📊 Load</div>
+  <div class="nav adm" onclick="gotoPage('capacity',this)">⚡ Capacity</div>
   <!-- BUILDER NAV -->
   <div class="nav nav-bld" id="bld-nav-dashboard" onclick="gotoPage('b-dashboard',this)">Dashboard</div>
   <div class="nav nav-bld" id="bld-nav-links" onclick="gotoPage('b-links',this)">My Links</div>
@@ -949,6 +950,23 @@ tr:hover td{background:var(--bg3);}
   </div>
 </div>
 
+
+<!-- ══ CAPACITY ══ -->
+<div id="p-capacity" class="page">
+  <div class="page-top">
+    <div class="page-title">⚡ Builder Capacity</div>
+    <button class="btn-sm" onclick="saveCapacity()" style="width:auto;">Save →</button>
+  </div>
+  <div id="cap-ok" class="alert a-ok"></div>
+  <div class="card" style="max-width:500px;">
+    <div class="card-head">Monthly link capacity per builder</div>
+    <div class="card-body">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">How many links each builder can build per month maximum.</div>
+      <div id="capacity-list"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ BUILDER DASHBOARD ══ -->
 <div id="p-b-dashboard" class="page">
   <div class="page-top">
@@ -1189,7 +1207,7 @@ function startApp(){
     BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;fb.appendChild(o);});
   }
 
-  listenBuilders();listenProjects();listenLinks();listenReqs();listenQualityReqs();
+  listenBuilders();listenCapacities();listenProjects();listenLinks();listenReqs();listenQualityReqs();
   renderCatButtons('');
 
   if(isAdmin){
@@ -1562,6 +1580,7 @@ function gotoPage(name,el){
   if(name==='b-dashboard')renderBuilderDashboard();
   if(name==='b-links')renderBuilderLinks();
   if(name==='load')initLoadPage();
+  if(name==='capacity'){listenCapacities();renderCapacityList();}
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
 
@@ -3037,6 +3056,42 @@ async function importReqFromCsvDirect(input){
   reader.readAsText(file);
 }
 
+
+// ─── CAPACITY ─────────────────────────────────────────────
+let allCapacities = {};
+
+function listenCapacities(){
+  db.collection('capacities').onSnapshot(snap=>{
+    allCapacities = {};
+    snap.docs.forEach(d=>{ allCapacities[d.id] = d.data().capacity||0; });
+    if(document.getElementById('p-capacity')?.classList.contains('active')) renderCapacityList();
+  });
+}
+
+function renderCapacityList(){
+  const list = document.getElementById('capacity-list');
+  if(!list) return;
+  list.innerHTML = BUILDERS.map(b => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:14px;font-weight:600;color:var(--text);">${b}</span>
+      <input type="number" min="0" max="200" id="cap-${b.replace(/\s/g,'_')}"
+        value="${allCapacities[b]||0}"
+        style="width:80px;text-align:center;margin:0;padding:6px;font-size:14px;font-weight:700;"/>
+    </div>`).join('');
+}
+
+async function saveCapacity(){
+  const okEl = document.getElementById('cap-ok');
+  okEl.style.display='none';
+  for(const b of BUILDERS){
+    const val = parseInt(document.getElementById('cap-'+b.replace(/\s/g,'_'))?.value)||0;
+    await db.collection('capacities').doc(b).set({capacity:val, updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  }
+  okEl.style.display='block';
+  okEl.textContent='✅ Capacities saved!';
+  setTimeout(()=>okEl.style.display='none', 2000);
+}
+
 // ─── LOAD DISTRIBUTION ────────────────────────────────────
 let loadBuilders = [];
 
@@ -3108,13 +3163,31 @@ function splitLoad(projId, builderCount){
   const builders = getSelectedBuilders();
   if(!total || !builders.length) return;
 
-  const base = Math.floor(total / builders.length);
-  const remainder = total % builders.length;
+  // Check if capacities exist
+  const totalCap = builders.reduce((s,b)=>s+(allCapacities[b]||0),0);
 
-  builders.forEach((b, i) => {
-    const cell = document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`);
-    if(cell) cell.value = base + (i < remainder ? 1 : 0);
-  });
+  if(totalCap > 0){
+    // Split proportionally by capacity
+    let assigned = 0;
+    builders.forEach((b, i) => {
+      const cell = document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`);
+      if(!cell) return;
+      const ratio = (allCapacities[b]||0) / totalCap;
+      const val = i === builders.length-1
+        ? total - assigned
+        : Math.round(total * ratio);
+      cell.value = val;
+      assigned += val;
+    });
+  } else {
+    // Equal split fallback
+    const base = Math.floor(total / builders.length);
+    const remainder = total % builders.length;
+    builders.forEach((b, i) => {
+      const cell = document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`);
+      if(cell) cell.value = base + (i < remainder ? 1 : 0);
+    });
+  }
   updateGrandTotals();
 }
 
