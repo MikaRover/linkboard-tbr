@@ -1046,7 +1046,17 @@ function doLogout(){auth.signOut();}
 function startApp(){
   document.getElementById('s-login').classList.remove('active');
   document.getElementById('s-app').classList.add('active');
-  document.getElementById('sb-name').textContent=cu.name||cu.email||'—';
+  const NEON_COLORS={
+    'Tam':'#00e5ff','Lusine':'#ff4db8','Sofya':'#a259ff','Vahe':'#00ffb3',
+    'Syuzi':'#ff007f','Anna':'#ffdd00','Liana':'#4dffb4','Diana H':'#ff3d7f',
+    'Davit':'#3d9fff','Mika':'#ff9f1c','Nick':'#c8ff00','Diana Y':'#ff5ca8',
+    'Rubik':'#7b61ff','Admin':'#00c4ae'
+  };
+  const displayName=cu.name||cu.email||'—';
+  const neonColor=NEON_COLORS[displayName]||NEON_COLORS['Admin'];
+  const sbName=document.getElementById('sb-name');
+  sbName.textContent=displayName;
+  sbName.style.cssText=`color:${neonColor};font-weight:700;text-shadow:0 0 8px ${neonColor}88,0 0 20px ${neonColor}44;`;
   document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':(cu.name||'Builder');
 
   const isAdmin=cu.role==='admin';
@@ -2783,9 +2793,9 @@ function renderBuilderDashboard(){
     const byProject={};
     curMonthReqs.forEach(r=>{if(!byProject[r.project])byProject[r.project]=[];byProject[r.project].push(r);});
     quotaGrid.innerHTML=Object.entries(byProject).map(([proj,reqs])=>{
-      const projLinksThisMonth=myLinks.filter(l=>l.project===proj&&getMonthKey(l.date)===`${curMonth} ${curYear}`);
+      const projLinksThisMonth=myLinks.filter(l=>l.project===proj&&l.date&&getMonthKey(l.date)===`${curMonth} ${curYear}`);
       const rowsHtml=reqs.map(r=>{
-        const used=myLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&getMonthKey(l.date)===`${curMonth} ${curYear}`).length;
+        const used=myLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===`${curMonth} ${curYear}`).length;
         const pct=Math.min(100,Math.round(used/r.max*100));
         const full=used>=r.max;
         const color=full?'var(--red)':used>0?'var(--yellow)':'var(--teal)';
@@ -2912,14 +2922,19 @@ function listenReqs(){
     if(cu&&cu.role!=='admin')renderBuilderDashboard();
   });
 }
-reqDrop.addEventListener('dragover',e=>{e.preventDefault();reqDrop.style.borderColor='var(--teal)';});
-reqDrop.addEventListener('dragleave',()=>reqDrop.style.borderColor='');
-reqDrop.addEventListener('drop',e=>{e.preventDefault();reqDrop.style.borderColor='';handleReqCsvFile(e.dataTransfer.files[0]);});
-
-const drop=document.getElementById('imp-drop');
-drop.addEventListener('dragover',e=>{e.preventDefault();drop.style.borderColor='var(--teal)';});
-drop.addEventListener('dragleave',()=>drop.style.borderColor='');
-drop.addEventListener('drop',e=>{e.preventDefault();drop.style.borderColor='';handleCsvFile(e.dataTransfer.files[0]);});
+// ─── DRAG & DROP ──────────────────────────────────────────
+const reqDropEl=document.getElementById('req-imp-drop');
+if(reqDropEl){
+  reqDropEl.addEventListener('dragover',e=>{e.preventDefault();reqDropEl.style.borderColor='var(--teal)';});
+  reqDropEl.addEventListener('dragleave',()=>reqDropEl.style.borderColor='');
+  reqDropEl.addEventListener('drop',e=>{e.preventDefault();reqDropEl.style.borderColor='';handleReqCsvFile(e.dataTransfer.files[0]);});
+}
+const dropEl=document.getElementById('imp-drop');
+if(dropEl){
+  dropEl.addEventListener('dragover',e=>{e.preventDefault();dropEl.style.borderColor='var(--teal)';});
+  dropEl.addEventListener('dragleave',()=>dropEl.style.borderColor='');
+  dropEl.addEventListener('drop',e=>{e.preventDefault();dropEl.style.borderColor='';handleCsvFile(e.dataTransfer.files[0]);});
+}
 
 // Event delegation for link-row clicks
 document.addEventListener('click', function(e){
