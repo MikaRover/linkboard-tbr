@@ -1058,7 +1058,7 @@ const db = firebase.firestore();
 let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik']; // fallback, updated from Firestore
 const CATEGORIES=['SaaS','Service','Blog/Magazine','News','Agency','Other'];
 
-let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[];
+let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[], allLoads=[];
 let catDetectTimer=null, currentDetectedCategory='', catDetectAbort=false;
 
 // ─── AUTH ─────────────────────────────────────────────────
@@ -1216,7 +1216,7 @@ function startApp(){
     BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;fb.appendChild(o);});
   }
 
-  listenBuilders();listenCapacities();listenProjects();listenLinks();listenReqs();listenQualityReqs();
+  listenBuilders();listenCapacities();listenLoads();listenProjects();listenLinks();listenReqs();listenQualityReqs();
   renderCatButtons('');
 
   if(isAdmin){
@@ -1227,6 +1227,13 @@ function startApp(){
 }
 
 // ─── PROJECTS ─────────────────────────────────────────────
+function listenLoads(){
+  db.collection('load').onSnapshot(snap=>{
+    allLoads=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(cu&&cu.role!=='admin') renderBuilderDashboard();
+  });
+}
+
 function listenBuilders(){
   db.collection('users').onSnapshot(snap=>{
     const users=snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -3242,42 +3249,40 @@ function updateGrandTotals(){
 async function saveLoad(){
   const month = document.getElementById('load-month').value;
   const builders = getSelectedBuilders();
-  const projects = allProjects.map(p=>p.name);
+  const selectedProjects = Array.from(document.querySelectorAll('#load-project-checks input:checked')).map(c=>c.value);
   const okEl = document.getElementById('load-ok');
   const errEl = document.getElementById('load-err');
   okEl.style.display='none'; errEl.style.display='none';
 
   if(!builders.length){errEl.style.display='block';errEl.textContent='Select at least one builder';return;}
 
-  let saved = 0;
-  for(const proj of projects){
+  // Save to 'load' collection — separate from requirements
+  const batch = db.batch();
+  let count = 0;
+
+  for(const proj of selectedProjects){
     for(const b of builders){
       const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
       const val = parseInt(cell?.value)||0;
-      if(!val) continue;
-
-      // Save as requirement — anchor = builder name, max = count
-      const anchor = b.toLowerCase();
-      const existing = allReqs.find(r=>r.project===proj&&r.month===month&&r.anchor===anchor&&r.isLoad);
-      try{
-        if(existing){
-          await db.collection('requirements').doc(existing.id).update({max:val});
-        } else {
-          await db.collection('requirements').add({
-            project:proj, month, anchor, max:val,
-            isLoad:true, builderName:b,
-            createdAt:firebase.firestore.FieldValue.serverTimestamp()
-          });
-        }
-        saved++;
-      }catch(e){
-        errEl.style.display='block';errEl.textContent='Error: '+e.message;return;
-      }
+      // Save even 0 to allow clearing
+      const docId = `${month}_${proj}_${b}`.replace(/\s/g,'_');
+      batch.set(db.collection('load').doc(docId), {
+        month, project:proj, builder:b, count:val,
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      count++;
     }
   }
 
-  okEl.style.display='block';
-  okEl.textContent=`✅ Saved! ${saved} assignments for ${month}`;
+  try{
+    await batch.commit();
+    okEl.style.display='block';
+    okEl.textContent=`✅ Saved ${count} assignments for ${month}!`;
+    setTimeout(()=>okEl.style.display='none', 3000);
+  }catch(e){
+    errEl.style.display='block';
+    errEl.textContent='Error: '+e.message;
+  }
 }
 
 // ─── BUILDER FUNCTIONS ────────────────────────────────────
@@ -3303,31 +3308,29 @@ function renderBuilderDashboard(){
   document.getElementById('b-quota-month').textContent=`${curMonth} ${curYear}`;
 
   const quotaGrid=document.getElementById('b-quota-grid');
-  const curMonthReqs=allReqs.filter(r=>r.month===curMonth);
-  if(!curMonthReqs.length){
-    quotaGrid.innerHTML=`<div style="color:var(--text2);font-size:13px;grid-column:1/-1;padding:1rem 0;">No quotas set for ${curMonth}. Ask admin to set requirements.</div>`;
+
+  // Load assignments from 'load' collection for this builder this month
+  const myLoads=allLoads.filter(l=>l.month===curMonth&&l.builder===myName&&l.count>0);
+
+  if(!myLoads.length){
+    quotaGrid.innerHTML=`<div style="color:var(--text2);font-size:13px;grid-column:1/-1;padding:1rem 0;">No load assigned for ${curMonth}. Ask admin to set load distribution.</div>`;
   } else {
-    const byProject={};
-    curMonthReqs.forEach(r=>{if(!byProject[r.project])byProject[r.project]=[];byProject[r.project].push(r);});
-    quotaGrid.innerHTML=Object.entries(byProject).map(([proj,reqs])=>{
-      const projLinksThisMonth=myLinks.filter(l=>l.project===proj&&l.date&&getMonthKey(l.date)===`${curMonth} ${curYear}`);
-      const rowsHtml=reqs.map(r=>{
-        const used=myLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===`${curMonth} ${curYear}`).length;
-        const pct=Math.min(100,Math.round(used/r.max*100));
-        const full=used>=r.max;
-        const color=full?'var(--red)':used>0?'var(--yellow)':'var(--teal)';
-        return`<div style="margin-bottom:10px;">
-          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px;" title="${r.anchor}">${r.anchor}</span>
-            <span style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;">${used}/${r.max}${full?' ❌':''}</span>
-          </div>
-          ${r.linkto?`<div style="font-size:10px;color:var(--text3);margin-bottom:3px;">→ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,40)}</div>`:''}
-          <div style="height:6px;background:var(--bg4);border-radius:4px;overflow:hidden;"><div style="height:6px;border-radius:4px;background:${color};width:${pct}%;transition:width 0.4s;"></div></div>
-        </div>`;
-      }).join('');
+    quotaGrid.innerHTML=myLoads.map(load=>{
+      const proj=load.project;
+      const target=load.count;
+      const done=myLinks.filter(l=>l.project===proj&&l.date&&getMonthKey(l.date)===`${curMonth} ${curYear}`).length;
+      const pct=Math.min(100,Math.round(done/target*100));
+      const full=done>=target;
+      const color=full?'var(--teal)':done>0?'var(--yellow)':'var(--text3)';
       return`<div class="quota-card">
-        <div class="quota-proj"><span>${proj}</span><span class="quota-proj-badge">${projLinksThisMonth.length} this month</span></div>
-        ${rowsHtml}
+        <div class="quota-proj">
+          <span>${proj}</span>
+          <span class="quota-proj-badge" style="color:${color};">${done}/${target}</span>
+        </div>
+        <div style="height:8px;background:var(--bg4);border-radius:4px;overflow:hidden;margin-top:8px;">
+          <div style="height:8px;border-radius:4px;background:${full?'var(--teal)':done>0?'var(--yellow)':'var(--border)'};width:${pct}%;transition:width 0.4s;"></div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;">${pct}% complete${full?' ✅':''}</div>
       </div>`;
     }).join('');
   }
