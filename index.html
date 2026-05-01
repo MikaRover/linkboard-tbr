@@ -2928,23 +2928,22 @@ async function startReqImport(){
 
 
 // ─── MOTIVATION GENERATOR ─────────────────────────────────
-async function generateMotivation(name){
+function generateMotivation(name){
   const el = document.getElementById('b-motivation');
   if(!el) return;
-  // Use local pool - API call blocked by CORS from browser
-  try{
-    // Fallback pool
-    const pool = [
-      'Every link you build is a vote of confidence from the web.',
-      'Quality over quantity — one great link beats ten weak ones.',
-      'Your links are bridges connecting people to great content.',
-      'Consistency in outreach is the secret to domain authority.',
-      'Each live link is proof of your hustle and expertise.',
-      'The best time to build a link was yesterday — today is second best.',
-      "Strong backlinks don't just happen, they're earned by people like you."
-    ];
-    el.textContent = '✨ ' + pool[Math.floor(Math.random()*pool.length)];
-  }
+  const pool = [
+    'Every link you build is a vote of confidence from the web.',
+    'Quality over quantity — one great link beats ten weak ones.',
+    'Your links are bridges connecting people to great content.',
+    'Consistency in outreach is the secret to domain authority.',
+    'Each live link is proof of your hustle and expertise.',
+    'The best time to build a link was yesterday — today is second best.',
+    "Strong backlinks are earned by people like you.",
+    'One quality link today keeps the rankings rising tomorrow.',
+    'Your outreach is someone else's discovery.',
+    'Great SEOs build links. Legends build relationships.'
+  ];
+  el.textContent = '✨ ' + pool[Math.floor(Math.random()*pool.length)];
 }
 
 // ─── PASTE & CSV IMPORT FOR REQUIREMENTS ──────────────────
