@@ -550,7 +550,11 @@ tr:hover td{background:var(--bg3);}
       </div>
       <div class="section-label">Comments</div>
       <input id="f-comments" placeholder="optional"/>
-      <button class="btn" onclick="addLink()" style="margin-top:4px;">Add link →</button>
+      <div id="f-builder-wrap" style="display:none;margin-top:4px;">
+        <div class="section-label">Builder (admin only)</div>
+        <select id="f-builder" style="margin-bottom:0;"><option value="">Select builder</option></select>
+      </div>
+      <button class="btn" onclick="addLink()" style="margin-top:12px;">Add link →</button>
     </div>
   </div>
 </div>
@@ -1065,6 +1069,15 @@ function startApp(){
   lb.innerHTML='<option value="">All builders</option>';
   BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;lb.appendChild(o);});
   if(!isAdmin&&lb){lb.value=cu.name||'';}
+
+  // Populate f-builder select for admin
+  const fb=document.getElementById('f-builder');
+  const fbWrap=document.getElementById('f-builder-wrap');
+  if(isAdmin){
+    fbWrap.style.display='block';
+    fb.innerHTML='<option value=''>Select builder</option>';
+    BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;fb.appendChild(o);});
+  }
 
   listenProjects();listenLinks();listenReqs();listenQualityReqs();
   renderCatButtons('');
@@ -1763,7 +1776,7 @@ async function addLink(){
       linkto:document.getElementById('f-linkto').value||'',
       invoice:document.getElementById('f-invoice').value||'',
       comments:document.getElementById('f-comments').value||'',
-      builder:cu.name||cu.email,
+      builder:cu.role==='admin'?(document.getElementById('f-builder').value||cu.name||cu.email):(cu.name||cu.email),
       check:getCheck(domain,anchor,proj),
       relevancy:'',linkcheck:'',
       createdAt:firebase.firestore.FieldValue.serverTimestamp(),
@@ -1785,6 +1798,7 @@ async function addLink(){
       }
     },1200);
     ['f-domain','f-linkin','f-linkto','f-anchor','f-dr','f-traffic','f-ss','f-price','f-invoice','f-comments'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-builder').value='';
     document.getElementById('f-category').value='';
     document.getElementById('al-dup').style.display='none';
     document.getElementById('al-req').style.display='none';
