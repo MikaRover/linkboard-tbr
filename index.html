@@ -907,7 +907,10 @@ tr:hover td{background:var(--bg3);}
 <div id="p-load" class="page">
   <div class="page-top">
     <div class="page-title">📊 Load Distribution</div>
-    <button class="btn-sm" onclick="saveLoad()" style="width:auto;">Save to Requirements →</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-ghost" onclick="resetLoad()" style="color:var(--red);border-color:rgba(255,107,107,0.4);">↺ Reset</button>
+      <button class="btn-sm" onclick="saveLoad()" style="width:auto;">Save →</button>
+    </div>
   </div>
 
   <div id="load-ok" class="alert a-ok"></div>
@@ -3310,6 +3313,13 @@ function renderLoadTable(){
     if(totalEl&&rowTotal>0) totalEl.value = rowTotal;
   });
   updateGrandTotals();
+}
+
+function resetLoad(){
+  if(!confirm('Clear all load values?')) return;
+  document.querySelectorAll('#load-tbody input[type=number]').forEach(el=>el.value='');
+  document.getElementById('load-grand-total').textContent='0';
+  document.querySelectorAll('[id^="load-btotal-"]').forEach(el=>el.textContent='0');
 }
 
 function splitLoad(projId, builderCount){
