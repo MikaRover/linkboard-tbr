@@ -1167,6 +1167,7 @@ auth.onAuthStateChanged(async user=>{
       const emailPrefix=(user.email||'').split('@')[0].toLowerCase();
       const BUILDERS_LIST=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik'];
       const matchedName=data.name||BUILDERS_LIST.find(b=>b.toLowerCase()===emailPrefix||b.toLowerCase().startsWith(emailPrefix))||'';
+      console.log('Firestore data:', JSON.stringify(data), '| matchedName:', matchedName);
       cu={...data,uid:user.uid,email:user.email,name:matchedName||data.name||''};
       startApp();
     }
