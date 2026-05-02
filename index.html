@@ -1165,7 +1165,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik']; // fallback, updated from Firestore
+let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik']; // fallback, updated from Firestore
 const CATEGORIES=['SaaS','Service','Blog/Magazine','News','Agency','Other'];
 
 let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[], allLoads=[];
@@ -1256,7 +1256,7 @@ auth.onAuthStateChanged(async user=>{
     if(doc.exists){
       const data=doc.data();
       const emailPrefix=(user.email||'').split('@')[0].toLowerCase();
-      const BUILDERS_LIST=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik'];
+      const BUILDERS_LIST=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik'];
       const matchedName=data.name||BUILDERS_LIST.find(b=>b.toLowerCase()===emailPrefix||b.toLowerCase().startsWith(emailPrefix))||'';
       cu={...data,uid:user.uid,email:user.email,name:matchedName||data.name||''};
       startApp();
@@ -1281,10 +1281,10 @@ function startApp(){
   document.getElementById('s-login').classList.remove('active');
   document.getElementById('s-app').classList.add('active');
   const NEON_COLORS={
-    'Tam':'#00e5ff','Lusine':'#ff4db8','Sofya':'#a259ff','Vahe':'#00ffb3',
-    'Syuzi':'#ff69b4','Anna':'#ffdd00','Liana':'#4dffb4','Diana H':'#ff3d7f',
-    'Davit':'#3d9fff','Mika':'#ff9f1c','Nick':'#c8ff00','Diana Y':'#ff5ca8',
-    'Rubik':'#7b61ff','Admin':'#00c4ae'
+    'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
+    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
+    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
+    'Rubik':'#ea80fc','Admin':'#2d6a4f'
   };
   // Extract first name from email if name not set
   const emailFirst=(cu.email||'').split('@')[0].split('.')[0];
@@ -3271,10 +3271,10 @@ function initOnlinePage(){
     const online = snap.docs.map(d=>({id:d.id,...d.data()})).filter(u=>u.online);
     const onlineNow = document.getElementById('online-now');
     const NEON_COLORS={
-      'Tam':'#00e5ff','Lusine':'#ff4db8','Sofya':'#a259ff','Vahe':'#00ffb3',
-      'Syuzi':'#ff69b4','Anna':'#ffdd00','Liana':'#4dffb4','Diana H':'#ff3d7f',
-      'Davit':'#3d9fff','Mika':'#ff9f1c','Nick':'#c8ff00','Diana Y':'#ff5ca8',
-      'Rubik':'#7b61ff','Admin':'#00c4ae'
+      'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
+    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
+    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
+    'Rubik':'#ea80fc','Admin':'#2d6a4f'
     };
     if(!online.length){
       onlineNow.innerHTML='<div style="color:var(--text3);font-size:13px;">No one online right now</div>';
@@ -3318,10 +3318,10 @@ async function renderOnlinePage(){
   });
 
   const NEON_COLORS={
-    'Tam':'#00e5ff','Lusine':'#ff4db8','Sofya':'#a259ff','Vahe':'#00ffb3',
-    'Syuzi':'#ff69b4','Anna':'#ffdd00','Liana':'#4dffb4','Diana H':'#ff3d7f',
-    'Davit':'#3d9fff','Mika':'#ff9f1c','Nick':'#c8ff00','Diana Y':'#ff5ca8',
-    'Rubik':'#7b61ff','Admin':'#00c4ae'
+    'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
+    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
+    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
+    'Rubik':'#ea80fc','Admin':'#2d6a4f'
   };
 
   document.getElementById('online-tbody').innerHTML = Object.entries(byBuilder).map(([builder, bSessions])=>{
@@ -3433,10 +3433,10 @@ function renderAnalytics(){
 
   // Bar chart — links per builder
   const NEON_COLORS = {
-    'Tam':'#00e5ff','Lusine':'#ff4db8','Sofya':'#a259ff','Vahe':'#00ffb3',
-    'Syuzi':'#ff69b4','Anna':'#ffdd00','Liana':'#4dffb4','Diana H':'#ff3d7f',
-    'Davit':'#3d9fff','Mika':'#ff9f1c','Nick':'#c8ff00','Diana Y':'#ff5ca8',
-    'Rubik':'#7b61ff'
+    'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
+    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
+    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
+    'Rubik':'#ea80fc'
   };
 
   const builderCounts = BUILDERS.map(b=>({
@@ -3574,10 +3574,10 @@ function closeBuilderModal(e){
 function openBuilderModal(builderName){
   const overlay = document.getElementById('builder-modal-overlay');
   const NEON_COLORS={
-    'Tam':'#00e5ff','Lusine':'#ff4db8','Sofya':'#a259ff','Vahe':'#00ffb3',
-    'Syuzi':'#ff69b4','Anna':'#ffdd00','Liana':'#4dffb4','Diana H':'#ff3d7f',
-    'Davit':'#3d9fff','Mika':'#ff9f1c','Nick':'#c8ff00','Diana Y':'#ff5ca8',
-    'Rubik':'#7b61ff'
+    'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
+    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
+    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
+    'Rubik':'#ea80fc'
   };
   const color = NEON_COLORS[builderName] || 'var(--teal)';
 
