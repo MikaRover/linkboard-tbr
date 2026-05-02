@@ -1167,7 +1167,6 @@ auth.onAuthStateChanged(async user=>{
       const emailPrefix=(user.email||'').split('@')[0].toLowerCase();
       const BUILDERS_LIST=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik'];
       const matchedName=data.name||BUILDERS_LIST.find(b=>b.toLowerCase()===emailPrefix||b.toLowerCase().startsWith(emailPrefix))||'';
-      console.log('Firestore data:', JSON.stringify(data), '| matchedName:', matchedName);
       cu={...data,uid:user.uid,email:user.email,name:matchedName||data.name||''};
       startApp();
     }
@@ -1249,7 +1248,10 @@ function startApp(){
 function listenLoads(){
   db.collection('load').onSnapshot(snap=>{
     allLoads=snap.docs.map(d=>({id:d.id,...d.data()}));
-    if(cu&&cu.role!=='admin') renderBuilderDashboard();
+    if(cu&&cu.role!=='admin'){
+      renderBuilderDashboard();
+      renderBuilderLinks();
+    }
   });
 }
 
@@ -3431,7 +3433,8 @@ function renderBuilderDashboard(){
   const quotaGrid=document.getElementById('b-quota-grid');
 
   // Load assignments from 'load' collection for this builder this month
-  const myLoads=allLoads.filter(l=>l.month===curMonth&&(l.builder===myName||l.builder===(cu.name||'')||l.builder===(cu.email||'').split('@')[0].charAt(0).toUpperCase()+(cu.email||'').split('@')[0].slice(1))&&l.count>0);
+  const builderName=cu.name||myName;
+  const myLoads=allLoads.filter(l=>l.month===curMonth&&l.builder===builderName&&l.count>0);
 
   if(!myLoads.length){
     quotaGrid.innerHTML=`<div style="color:var(--text2);font-size:13px;grid-column:1/-1;padding:1rem 0;">No load assigned for ${curMonth}. Ask admin to set load distribution.</div>`;
@@ -3488,8 +3491,6 @@ function toggleBSort(){
 function renderBuilderLinks(){
   if(!cu||cu.role==='admin')return;
   const myName=cu.name||cu.email;
-  const allBuilderNames=[...new Set(allLinks.map(l=>l.builder))].filter(Boolean);
-  console.log('cu.name:', cu.name, '| cu.email:', cu.email, '| myName:', myName, '| All builders in DB:', allBuilderNames);
   const s=(document.getElementById('bl-s')?.value||'').toLowerCase();
   const p=document.getElementById('bl-p')?.value||'';
   let fl=allLinks.filter(l=>{
