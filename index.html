@@ -3285,6 +3285,28 @@ function renderLoadTable(){
     <td style="text-align:center;font-weight:700;color:var(--teal);" id="load-grand-total">0</td>
     ${builders.map(b=>`<td style="text-align:center;font-weight:700;color:var(--teal);" id="load-btotal-${b.replace(/\s/g,'_')}">0</td>`).join('')}
   </tr>`;
+
+  // Fill saved values from Firebase allLoads
+  const month = document.getElementById('load-month').value;
+  projects.forEach(proj=>{
+    builders.forEach(b=>{
+      const saved = allLoads.find(l=>l.month===month&&l.project===proj&&l.builder===b);
+      if(saved&&saved.count){
+        const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+        if(cell) cell.value = saved.count;
+      }
+    });
+    // Update total column
+    const builders2 = getSelectedBuilders();
+    let rowTotal = 0;
+    builders2.forEach(b=>{
+      const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+      rowTotal += parseInt(cell?.value)||0;
+    });
+    const totalEl = document.getElementById(`load-total-${proj.replace(/\s/g,'_')}`);
+    if(totalEl&&rowTotal>0) totalEl.value = rowTotal;
+  });
+  updateGrandTotals();
 }
 
 function splitLoad(projId, builderCount){
