@@ -419,9 +419,13 @@ tr:hover td{background:var(--bg3);}
   <div class="login-logo">Link<span>Board</span></div>
   <div class="login-sub">TBR · Link building management</div>
   <div class="err" id="lerr">Wrong email or password</div>
+  <div class="alert a-ok" id="reset-ok" style="display:none;">✅ Reset email sent! Check your inbox.</div>
   <label>Email</label><input id="lu" type="email" placeholder="your@email.com"/>
-  <label>Password</label><input id="lp" type="password" placeholder="password"/>
+  <label>Password</label><input id="lp" type="password" placeholder="password" onkeydown="if(event.key==='Enter')doLogin()"/>
   <button class="btn" onclick="doLogin()">Sign in →</button>
+  <div style="text-align:center;margin-top:10px;">
+    <span onclick="doResetPassword()" style="font-size:12px;color:var(--text3);cursor:pointer;transition:color 0.15s;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text3)'">Forgot password?</span>
+  </div>
 </div>
 </div>
 </div>
@@ -447,6 +451,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('checker',this)">Data Checker</div>
   <div class="nav adm" onclick="gotoPage('import',this)">Import CSV</div>
   <div class="nav adm" onclick="gotoPage('analytics',this)">📈 Analytics</div>
+  <div class="nav adm" onclick="gotoPage('online',this)">🟢 Online</div>
   <div class="nav adm" onclick="gotoPage('load',this)">📊 Load</div>
   <div class="nav adm" onclick="gotoPage('capacity',this)">⚡ Capacity</div>
   <!-- BUILDER NAV -->
@@ -981,6 +986,43 @@ tr:hover td{background:var(--bg3);}
 </div>
 
 
+
+<!-- ══ ONLINE TRACKING ══ -->
+<div id="p-online" class="page">
+  <div class="page-top">
+    <div class="page-title">🟢 Online Tracking</div>
+    <input type="date" id="online-date" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderOnlinePage()"/>
+  </div>
+
+  <!-- Who is online now -->
+  <div style="margin-bottom:1.5rem;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">Currently online</div>
+    <div id="online-now" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+  </div>
+
+  <!-- Daily activity table -->
+  <div class="card">
+    <div class="card-head">Daily activity log <span id="online-date-label" style="font-size:12px;color:var(--text3);margin-left:8px;"></span></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th>Builder</th>
+        <th>First seen</th>
+        <th>Last seen</th>
+        <th>Total time</th>
+        <th>Sessions</th>
+        <th>Status</th>
+      </tr></thead>
+      <tbody id="online-tbody"></tbody>
+    </table></div>
+  </div>
+
+  <!-- Session timeline -->
+  <div class="card" style="margin-top:1rem;">
+    <div class="card-head">Session timeline</div>
+    <div class="card-body" id="online-timeline"></div>
+  </div>
+</div>
+
 <!-- ══ ANALYTICS ══ -->
 <div id="p-analytics" class="page">
   <div class="page-top">
@@ -1213,12 +1255,12 @@ auth.onAuthStateChanged(async user=>{
     const doc=await db.collection('users').doc(user.uid).get();
     if(doc.exists){
       const data=doc.data();
-      // Try to match name from BUILDERS array by email prefix
       const emailPrefix=(user.email||'').split('@')[0].toLowerCase();
       const BUILDERS_LIST=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Davit','Mika','Nick','Diana Y','Rubik'];
       const matchedName=data.name||BUILDERS_LIST.find(b=>b.toLowerCase()===emailPrefix||b.toLowerCase().startsWith(emailPrefix))||'';
       cu={...data,uid:user.uid,email:user.email,name:matchedName||data.name||''};
       startApp();
+      trackSession('login');
     }
     else auth.signOut();
   } else {
@@ -1233,7 +1275,7 @@ async function doLogin(){
   try{await auth.signInWithEmailAndPassword(email,pass);document.getElementById('lerr').style.display='none';}
   catch(e){document.getElementById('lerr').style.display='block';}
 }
-function doLogout(){auth.signOut();}
+function doLogout(){trackSession('logout');auth.signOut();}
 
 function startApp(){
   document.getElementById('s-login').classList.remove('active');
@@ -1668,6 +1710,7 @@ function gotoPage(name,el){
   if(name==='b-links')renderBuilderLinks();
   if(name==='load')initLoadPage();
   if(name==='analytics')initAnalytics();
+  if(name==='online')initOnlinePage();
   if(name==='capacity'){listenCapacities();renderCapacityList();}
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
@@ -3127,6 +3170,225 @@ async function importReqFromCsvDirect(input){
 
 
 
+
+
+// ─── PASSWORD RESET ───────────────────────────────────────
+async function doResetPassword(){
+  const email = document.getElementById('lu').value.trim();
+  if(!email){
+    document.getElementById('lerr').style.display='block';
+    document.getElementById('lerr').textContent='Enter your email first';
+    return;
+  }
+  try{
+    await auth.sendPasswordResetEmail(email);
+    document.getElementById('lerr').style.display='none';
+    document.getElementById('reset-ok').style.display='block';
+    setTimeout(()=>document.getElementById('reset-ok').style.display='none', 5000);
+  }catch(e){
+    document.getElementById('lerr').style.display='block';
+    document.getElementById('lerr').textContent='Error: '+e.message;
+  }
+}
+
+// ─── ONLINE TRACKING ──────────────────────────────────────
+let onlineListener = null;
+
+function trackSession(action){
+  if(!cu) return;
+  const now = new Date();
+  const dateKey = now.toISOString().slice(0,10);
+  const docId = `${cu.name||cu.email}_${dateKey}_${now.getTime()}`;
+
+  if(action === 'login'){
+    // Mark online
+    db.collection('presence').doc(cu.name||cu.email).set({
+      name: cu.name||cu.email,
+      online: true,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+      loginAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // Log session start
+    db.collection('sessions').add({
+      builder: cu.name||cu.email,
+      date: dateKey,
+      loginAt: firebase.firestore.FieldValue.serverTimestamp(),
+      logoutAt: null
+    });
+  } else if(action === 'logout'){
+    db.collection('presence').doc(cu.name||cu.email).update({
+      online: false,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // Update latest session with logout time
+    db.collection('sessions')
+      .where('builder','==',cu.name||cu.email)
+      .where('date','==',dateKey)
+      .where('logoutAt','==',null)
+      .orderBy('loginAt','desc')
+      .limit(1)
+      .get()
+      .then(snap=>{
+        if(!snap.empty) snap.docs[0].ref.update({logoutAt: firebase.firestore.FieldValue.serverTimestamp()});
+      });
+  }
+}
+
+// Track page visibility for auto logout
+document.addEventListener('visibilitychange', ()=>{
+  if(!cu) return;
+  if(document.hidden){
+    db.collection('presence').doc(cu.name||cu.email).update({
+      online: false,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(()=>{});
+  } else {
+    db.collection('presence').doc(cu.name||cu.email).update({
+      online: true,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(()=>{});
+  }
+});
+
+// Heartbeat every 2 minutes
+setInterval(()=>{
+  if(!cu || document.hidden) return;
+  db.collection('presence').doc(cu.name||cu.email).update({
+    online: true,
+    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(()=>{});
+}, 120000);
+
+function initOnlinePage(){
+  // Set today as default
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('online-date').value = today;
+  document.getElementById('online-date-label').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+
+  // Listen to presence
+  if(onlineListener) onlineListener();
+  onlineListener = db.collection('presence').onSnapshot(snap=>{
+    const online = snap.docs.map(d=>({id:d.id,...d.data()})).filter(u=>u.online);
+    const onlineNow = document.getElementById('online-now');
+    const NEON_COLORS={
+      'Tam':'#00e5ff','Lusine':'#ff4db8','Sofya':'#a259ff','Vahe':'#00ffb3',
+      'Syuzi':'#ff69b4','Anna':'#ffdd00','Liana':'#4dffb4','Diana H':'#ff3d7f',
+      'Davit':'#3d9fff','Mika':'#ff9f1c','Nick':'#c8ff00','Diana Y':'#ff5ca8',
+      'Rubik':'#7b61ff','Admin':'#00c4ae'
+    };
+    if(!online.length){
+      onlineNow.innerHTML='<div style="color:var(--text3);font-size:13px;">No one online right now</div>';
+    } else {
+      onlineNow.innerHTML = online.map(u=>{
+        const color = NEON_COLORS[u.name]||'var(--teal)';
+        const lastSeen = u.lastSeen?.toDate ? u.lastSeen.toDate().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
+        return `<div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid ${color}44;border-radius:10px;padding:8px 14px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color};animation:pulse 2s infinite;"></div>
+          <span style="font-size:13px;font-weight:700;color:${color};">${u.name}</span>
+          <span style="font-size:10px;color:var(--text3);">since ${lastSeen}</span>
+        </div>`;
+      }).join('');
+    }
+  });
+
+  renderOnlinePage();
+}
+
+async function renderOnlinePage(){
+  const dateVal = document.getElementById('online-date').value;
+  if(!dateVal) return;
+
+  document.getElementById('online-date-label').textContent =
+    new Date(dateVal+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  const snap = await db.collection('sessions').where('date','==',dateVal).get();
+  const sessions = snap.docs.map(d=>({id:d.id,...d.data()}));
+
+  if(!sessions.length){
+    document.getElementById('online-tbody').innerHTML='<tr><td colspan="6" class="loading">No activity on this date</td></tr>';
+    document.getElementById('online-timeline').innerHTML='<div style="color:var(--text3);font-size:13px;">No sessions found</div>';
+    return;
+  }
+
+  // Group by builder
+  const byBuilder = {};
+  sessions.forEach(s=>{
+    if(!byBuilder[s.builder]) byBuilder[s.builder]=[];
+    byBuilder[s.builder].push(s);
+  });
+
+  const NEON_COLORS={
+    'Tam':'#00e5ff','Lusine':'#ff4db8','Sofya':'#a259ff','Vahe':'#00ffb3',
+    'Syuzi':'#ff69b4','Anna':'#ffdd00','Liana':'#4dffb4','Diana H':'#ff3d7f',
+    'Davit':'#3d9fff','Mika':'#ff9f1c','Nick':'#c8ff00','Diana Y':'#ff5ca8',
+    'Rubik':'#7b61ff','Admin':'#00c4ae'
+  };
+
+  document.getElementById('online-tbody').innerHTML = Object.entries(byBuilder).map(([builder, bSessions])=>{
+    const color = NEON_COLORS[builder]||'var(--teal)';
+    const logins = bSessions.map(s=>s.loginAt?.toDate?.()||null).filter(Boolean).sort((a,b)=>a-b);
+    const logouts = bSessions.map(s=>s.logoutAt?.toDate?.()||null).filter(Boolean).sort((a,b)=>a-b);
+    const first = logins[0] ? logins[0].toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
+    const last = logouts.length ? logouts[logouts.length-1].toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : 'Active';
+
+    // Total time
+    let totalMs = 0;
+    bSessions.forEach(s=>{
+      const login = s.loginAt?.toDate?.();
+      const logout = s.logoutAt?.toDate?.() || new Date();
+      if(login) totalMs += logout - login;
+    });
+    const totalHrs = Math.floor(totalMs/3600000);
+    const totalMins = Math.floor((totalMs%3600000)/60000);
+    const totalStr = totalMs>0 ? `${totalHrs}h ${totalMins}m` : '—';
+
+    // Check if currently online
+    const isOnline = bSessions.some(s=>!s.logoutAt);
+
+    return `<tr>
+      <td style="font-weight:700;color:${color};">${builder}</td>
+      <td style="font-size:12px;">${first}</td>
+      <td style="font-size:12px;">${last}</td>
+      <td style="font-weight:700;color:var(--teal);">${totalStr}</td>
+      <td style="text-align:center;">${bSessions.length}</td>
+      <td>${isOnline?
+        `<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:#00e676;box-shadow:0 0 4px #00e676;animation:pulse 2s infinite;"></span><span style="font-size:11px;color:#00e676;">Online</span></span>`:
+        `<span style="font-size:11px;color:var(--text3);">Offline</span>`
+      }</td>
+    </tr>`;
+  }).join('');
+
+  // Timeline
+  const dayStart = new Date(dateVal+'T00:00:00').getTime();
+  const dayEnd = new Date(dateVal+'T23:59:59').getTime();
+  const dayMs = dayEnd - dayStart;
+
+  const timelineHtml = Object.entries(byBuilder).map(([builder, bSessions])=>{
+    const color = NEON_COLORS[builder]||'var(--teal)';
+    const bars = bSessions.map(s=>{
+      const login = s.loginAt?.toDate?.();
+      const logout = s.logoutAt?.toDate?.() || new Date();
+      if(!login) return '';
+      const left = Math.max(0, (login.getTime()-dayStart)/dayMs*100);
+      const width = Math.min(100-left, (logout.getTime()-login.getTime())/dayMs*100);
+      const loginStr = login.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      const logoutStr = s.logoutAt ? logout.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : 'now';
+      return `<div title="${loginStr} – ${logoutStr}" style="position:absolute;left:${left}%;width:${Math.max(width,0.5)}%;height:100%;background:${color};border-radius:3px;opacity:0.8;"></div>`;
+    }).join('');
+
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <span style="font-size:12px;font-weight:600;color:${color};min-width:70px;">${builder}</span>
+      <div style="flex:1;height:20px;background:var(--bg4);border-radius:4px;position:relative;overflow:hidden;">${bars}</div>
+    </div>`;
+  }).join('');
+
+  // Hour markers
+  const hours = '<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:4px;padding-left:80px;">'
+    + Array.from({length:13},(_,i)=>`<span>${i*2}:00</span>`).join('')+'</div>';
+
+  document.getElementById('online-timeline').innerHTML =
+    `<div style="padding-left:80px;position:relative;">${timelineHtml}</div>${hours}`;
+}
 
 // ─── ANALYTICS ────────────────────────────────────────────
 function initAnalytics(){
