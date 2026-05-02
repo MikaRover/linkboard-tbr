@@ -446,6 +446,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('team',this)">Team</div>
   <div class="nav adm" onclick="gotoPage('checker',this)">Data Checker</div>
   <div class="nav adm" onclick="gotoPage('import',this)">Import CSV</div>
+  <div class="nav adm" onclick="gotoPage('analytics',this)">📈 Analytics</div>
   <div class="nav adm" onclick="gotoPage('load',this)">📊 Load</div>
   <div class="nav adm" onclick="gotoPage('capacity',this)">⚡ Capacity</div>
   <!-- BUILDER NAV -->
@@ -977,6 +978,52 @@ tr:hover td{background:var(--bg3);}
       <div id="capacity-list"></div>
     </div>
   </div>
+</div>
+
+
+<!-- ══ ANALYTICS ══ -->
+<div id="p-analytics" class="page">
+  <div class="page-top">
+    <div class="page-title">📈 Analytics</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:11px;color:var(--text3);margin:0;">From</label>
+        <input type="date" id="an-from" style="margin:0;padding:6px 10px;font-size:12px;width:auto;"/>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:11px;color:var(--text3);margin:0;">To</label>
+        <input type="date" id="an-to" style="margin:0;padding:6px 10px;font-size:12px;width:auto;"/>
+      </div>
+      <button class="btn-sm" onclick="renderAnalytics()" style="width:auto;">Generate →</button>
+      <button class="btn-ghost" onclick="exportAnalyticsCSV()" style="font-size:12px;">Export CSV</button>
+    </div>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="stats" id="an-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.5rem;"></div>
+
+  <!-- Bar chart -->
+  <div class="card" style="margin-bottom:1.25rem;">
+    <div class="card-head">Links per builder</div>
+    <div class="card-body" style="padding:1.25rem;">
+      <div id="an-chart" style="display:flex;align-items:flex-end;gap:8px;height:200px;overflow-x:auto;padding-bottom:8px;"></div>
+    </div>
+  </div>
+
+  <!-- Builder × Project matrix -->
+  <div class="card" style="margin-bottom:1.25rem;">
+    <div class="card-head">Builder × Project breakdown</div>
+    <div class="tbl-wrap">
+      <table id="an-matrix-table">
+        <thead id="an-matrix-head"></thead>
+        <tbody id="an-matrix-body"></tbody>
+        <tfoot id="an-matrix-foot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Per builder detail -->
+  <div id="an-builder-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;"></div>
 </div>
 
 <!-- ══ BUILDER DASHBOARD ══ -->
@@ -1620,6 +1667,7 @@ function gotoPage(name,el){
   if(name==='b-dashboard')renderBuilderDashboard();
   if(name==='b-links')renderBuilderLinks();
   if(name==='load')initLoadPage();
+  if(name==='analytics')initAnalytics();
   if(name==='capacity'){listenCapacities();renderCapacityList();}
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
@@ -3078,6 +3126,181 @@ async function importReqFromCsvDirect(input){
 }
 
 
+
+
+// ─── ANALYTICS ────────────────────────────────────────────
+function initAnalytics(){
+  // Default: current month
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  document.getElementById('an-from').value = firstDay.toISOString().slice(0,10);
+  document.getElementById('an-to').value = lastDay.toISOString().slice(0,10);
+  renderAnalytics();
+}
+
+function renderAnalytics(){
+  const fromVal = document.getElementById('an-from').value;
+  const toVal = document.getElementById('an-to').value;
+  if(!fromVal||!toVal) return;
+
+  const from = new Date(fromVal);
+  const to = new Date(toVal);
+  to.setHours(23,59,59);
+
+  // Filter links in range
+  const filtered = allLinks.filter(l=>{
+    if(!l.date) return false;
+    const p = l.date.split(/[.\-\/]/);
+    if(p.length<3) return false;
+    const d = new Date(p[2].length===2?'20'+p[2]:p[2], p[1]-1, p[0]);
+    return d>=from && d<=to;
+  });
+
+  // Summary stats
+  const live = filtered.filter(l=>l.status==='live').length;
+  const pend = filtered.filter(l=>l.status==='pending').length;
+  const builders = [...new Set(filtered.map(l=>l.builder).filter(Boolean))];
+  const projects = [...new Set(filtered.map(l=>l.project).filter(Boolean))];
+
+  document.getElementById('an-stats').innerHTML = `
+    <div class="stat"><div class="stat-l">Total links</div><div class="stat-v" style="color:var(--teal)">${filtered.length}</div></div>
+    <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)">${live}</div></div>
+    <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:var(--yellow)">${pend}</div></div>
+    <div class="stat"><div class="stat-l">Active builders</div><div class="stat-v" style="color:var(--teal)">${builders.length}</div></div>`;
+
+  // Bar chart — links per builder
+  const NEON_COLORS = {
+    'Tam':'#00e5ff','Lusine':'#ff4db8','Sofya':'#a259ff','Vahe':'#00ffb3',
+    'Syuzi':'#ff69b4','Anna':'#ffdd00','Liana':'#4dffb4','Diana H':'#ff3d7f',
+    'Davit':'#3d9fff','Mika':'#ff9f1c','Nick':'#c8ff00','Diana Y':'#ff5ca8',
+    'Rubik':'#7b61ff'
+  };
+
+  const builderCounts = BUILDERS.map(b=>({
+    name:b,
+    total:filtered.filter(l=>l.builder===b).length,
+    live:filtered.filter(l=>l.builder===b&&l.status==='live').length,
+    color:NEON_COLORS[b]||'var(--teal)'
+  })).filter(b=>b.total>0).sort((a,b)=>b.total-a.total);
+
+  const maxCount = Math.max(...builderCounts.map(b=>b.total), 1);
+  const chartEl = document.getElementById('an-chart');
+  chartEl.innerHTML = builderCounts.map(b=>{
+    const pct = Math.round(b.total/maxCount*100);
+    const livePct = Math.round(b.live/b.total*100);
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:60px;flex:1;max-width:80px;">
+      <span style="font-size:11px;font-weight:700;color:${b.color};">${b.total}</span>
+      <div style="width:100%;background:var(--bg4);border-radius:4px 4px 0 0;overflow:hidden;position:relative;height:${Math.max(pct*1.8,4)}px;min-height:4px;transition:height 0.3s;">
+        <div style="position:absolute;bottom:0;left:0;right:0;height:${livePct}%;background:${b.color};opacity:0.9;"></div>
+        <div style="position:absolute;bottom:${livePct}%;left:0;right:0;height:${100-livePct}%;background:${b.color};opacity:0.3;"></div>
+      </div>
+      <span style="font-size:10px;color:var(--text3);text-align:center;word-break:break-word;">${b.name}</span>
+    </div>`;
+  }).join('');
+
+  if(!builderCounts.length) chartEl.innerHTML = '<div style="color:var(--text3);font-size:13px;">No data for selected period</div>';
+
+  // Matrix: builders × projects
+  const allBldrs = BUILDERS.filter(b=>filtered.some(l=>l.builder===b));
+  const allProjs = [...new Set(filtered.map(l=>l.project).filter(Boolean))].sort();
+
+  if(allBldrs.length && allProjs.length){
+    document.getElementById('an-matrix-head').innerHTML = `<tr>
+      <th style="position:sticky;left:0;background:var(--bg2);z-index:2;min-width:100px;">Builder</th>
+      <th style="text-align:center;color:var(--teal);">Total</th>
+      ${allProjs.map(p=>`<th style="text-align:center;font-size:10px;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="${p}">${p.slice(0,10)}${p.length>10?'…':''}</th>`).join('')}
+    </tr>`;
+
+    document.getElementById('an-matrix-body').innerHTML = allBldrs.map(b=>{
+      const bLinks = filtered.filter(l=>l.builder===b);
+      const color = NEON_COLORS[b]||'var(--teal)';
+      return `<tr>
+        <td style="font-weight:700;color:${color};position:sticky;left:0;background:var(--bg2);z-index:1;">${b}</td>
+        <td style="text-align:center;font-weight:700;color:${color};">${bLinks.length}</td>
+        ${allProjs.map(p=>{
+          const cnt = bLinks.filter(l=>l.project===p).length;
+          return `<td style="text-align:center;${cnt>0?`color:var(--teal);font-weight:600;`:'color:var(--text3);opacity:0.4;'}">${cnt||'—'}</td>`;
+        }).join('')}
+      </tr>`;
+    }).join('');
+
+    // Footer totals
+    document.getElementById('an-matrix-foot').innerHTML = `<tr style="background:var(--bg3);border-top:2px solid var(--border);">
+      <td style="font-weight:700;position:sticky;left:0;background:var(--bg3);">Total</td>
+      <td style="text-align:center;font-weight:700;color:var(--teal);">${filtered.length}</td>
+      ${allProjs.map(p=>{
+        const cnt = filtered.filter(l=>l.project===p).length;
+        return `<td style="text-align:center;font-weight:700;color:var(--teal);">${cnt}</td>`;
+      }).join('')}
+    </tr>`;
+  } else {
+    document.getElementById('an-matrix-body').innerHTML = '<tr><td colspan="20" class="loading">No data</td></tr>';
+  }
+
+  // Per builder cards
+  document.getElementById('an-builder-cards').innerHTML = allBldrs.map(b=>{
+    const bLinks = filtered.filter(l=>l.builder===b);
+    const bLive = bLinks.filter(l=>l.status==='live').length;
+    const bPend = bLinks.filter(l=>l.status==='pending').length;
+    const color = NEON_COLORS[b]||'var(--teal)';
+    const byProj = {};
+    bLinks.forEach(l=>{byProj[l.project]=(byProj[l.project]||0)+1;});
+    const topProjs = Object.entries(byProj).sort((a,b)=>b[1]-a[1]).slice(0,4);
+
+    // Load target for period
+    const months = [...new Set(bLinks.map(l=>getMonthKey(l.date)).filter(m=>m!=='Unknown'))];
+    const target = months.reduce((s,m)=>{
+      const mo = m.split(' ')[0];
+      return s + allLoads.filter(l=>l.builder===b&&l.month===mo).reduce((ss,l)=>ss+l.count,0);
+    },0);
+
+    return `<div class="quota-card" style="cursor:pointer;" onclick="openBuilderModal('${b}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:14px;font-weight:700;color:${color};text-shadow:0 0 8px ${color}44;">${b}</span>
+        <span style="font-size:20px;font-weight:800;color:${color};">${bLinks.length}</span>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:10px;">
+        <span style="font-size:11px;color:var(--teal);">✅ ${bLive} live</span>
+        <span style="font-size:11px;color:var(--yellow);">⏳ ${bPend} pending</span>
+        ${target>0?`<span style="font-size:11px;color:var(--text3);">🎯 ${target} target</span>`:''}
+      </div>
+      ${target>0?`<div style="height:4px;background:var(--bg4);border-radius:2px;margin-bottom:10px;overflow:hidden;">
+        <div style="height:4px;background:${color};width:${Math.min(100,Math.round(bLinks.length/target*100))}%;border-radius:2px;"></div>
+      </div>`:''}
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        ${topProjs.map(([p,c])=>`<div style="display:flex;justify-content:space-between;font-size:11px;">
+          <span style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;max-width:160px;">${p}</span>
+          <span style="color:${color};font-weight:600;">${c}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function exportAnalyticsCSV(){
+  const fromVal = document.getElementById('an-from').value;
+  const toVal = document.getElementById('an-to').value;
+  const from = new Date(fromVal);
+  const to = new Date(toVal);
+  to.setHours(23,59,59);
+
+  const filtered = allLinks.filter(l=>{
+    if(!l.date) return false;
+    const p = l.date.split(/[.\-\/]/);
+    if(p.length<3) return false;
+    const d = new Date(p[2].length===2?'20'+p[2]:p[2], p[1]-1, p[0]);
+    return d>=from && d<=to;
+  });
+
+  const h = ['Builder','Project','Domain','Anchor','Status','Date','DR','Traffic'];
+  const rows = filtered.map(l=>[l.builder,l.project,l.domain,l.anchor,l.status,l.date,l.dr,l.traffic]
+    .map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
+  a.download = `analytics_${fromVal}_${toVal}.csv`;
+  a.click();
+}
 
 // ─── BUILDER PROFILE MODAL ────────────────────────────────
 function closeBuilderModal(e){
