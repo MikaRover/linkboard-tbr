@@ -450,6 +450,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('team',this)">Team</div>
   <div class="nav adm" onclick="gotoPage('checker',this)">Data Checker</div>
   <div class="nav adm" onclick="gotoPage('import',this)">Import CSV</div>
+  <div class="nav adm" onclick="gotoPage('kpi',this)">🏆 KPI</div>
   <div class="nav adm" onclick="gotoPage('analytics',this)">📈 Analytics</div>
   <div class="nav adm" onclick="gotoPage('online',this)">🟢 Online</div>
   <div class="nav adm" onclick="gotoPage('load',this)">📊 Load</div>
@@ -987,6 +988,75 @@ tr:hover td{background:var(--bg3);}
 
 
 
+
+<!-- ══ KPI ══ -->
+<div id="p-kpi" class="page">
+  <div class="page-top">
+    <div class="page-title">🏆 KPI</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="kpi-month" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderKPI()">
+        <option>January</option><option>February</option><option>March</option><option>April</option>
+        <option>May</option><option>June</option><option>July</option><option>August</option>
+        <option>September</option><option>October</option><option>November</option><option>December</option>
+      </select>
+      <select id="kpi-year" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderKPI()">
+        <option>2024</option><option>2025</option><option>2026</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- KPI Targets Settings -->
+  <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
+    <div class="card-head">
+      Monthly KPI Targets
+      <button class="btn-sm" onclick="saveKPITargets()" style="width:auto;">Save targets →</button>
+    </div>
+    <div class="card-body">
+      <div id="kpi-targets-ok" class="alert a-ok"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+        <div>
+          <div class="section-label">Min links/month</div>
+          <input type="number" id="kpi-t-links" placeholder="e.g. 20" style="margin:0;"/>
+        </div>
+        <div>
+          <div class="section-label">Min DR average</div>
+          <input type="number" id="kpi-t-dr" placeholder="e.g. 50" style="margin:0;"/>
+        </div>
+        <div>
+          <div class="section-label">Min traffic average</div>
+          <input type="number" id="kpi-t-traffic" placeholder="e.g. 5000" style="margin:0;"/>
+        </div>
+        <div>
+          <div class="section-label">Min live %</div>
+          <input type="number" id="kpi-t-live" placeholder="e.g. 80" style="margin:0;"/>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Leaderboard -->
+  <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">Performance leaderboard</div>
+  <div id="kpi-leaderboard" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:1.5rem;"></div>
+
+  <!-- KPI Table -->
+  <div class="card">
+    <div class="card-head">Detailed breakdown</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th>Builder</th>
+        <th style="text-align:center;">Links</th>
+        <th style="text-align:center;">Target</th>
+        <th style="text-align:center;">Avg DR</th>
+        <th style="text-align:center;">Avg Traffic</th>
+        <th style="text-align:center;">Live %</th>
+        <th style="text-align:center;">Score</th>
+        <th style="text-align:center;">Badge</th>
+      </tr></thead>
+      <tbody id="kpi-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
 <!-- ══ ONLINE TRACKING ══ -->
 <div id="p-online" class="page">
   <div class="page-top">
@@ -1326,7 +1396,7 @@ function startApp(){
     BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;fb.appendChild(o);});
   }
 
-  listenBuilders();listenCapacities();listenLoads();listenProjects();listenLinks();listenReqs();listenQualityReqs();
+  listenBuilders();listenCapacities();listenLoads();listenKPITargets();listenProjects();listenLinks();listenReqs();listenQualityReqs();
   renderCatButtons('');
 
   if(isAdmin){
@@ -1710,6 +1780,7 @@ function gotoPage(name,el){
   if(name==='b-links')renderBuilderLinks();
   if(name==='load')initLoadPage();
   if(name==='analytics')initAnalytics();
+  if(name==='kpi')initKPI();
   if(name==='online')initOnlinePage();
   if(name==='capacity'){listenCapacities();renderCapacityList();}
 }
@@ -3388,6 +3459,180 @@ async function renderOnlinePage(){
 
   document.getElementById('online-timeline').innerHTML =
     `<div style="padding-left:80px;position:relative;">${timelineHtml}</div>${hours}`;
+}
+
+
+// ─── KPI SYSTEM ───────────────────────────────────────────
+let kpiTargets = {};
+
+function listenKPITargets(){
+  db.collection('kpi').doc('targets').onSnapshot(doc=>{
+    if(doc.exists){
+      kpiTargets = doc.data();
+      const el = id => document.getElementById(id);
+      if(el('kpi-t-links')) el('kpi-t-links').value = kpiTargets.links||'';
+      if(el('kpi-t-dr')) el('kpi-t-dr').value = kpiTargets.dr||'';
+      if(el('kpi-t-traffic')) el('kpi-t-traffic').value = kpiTargets.traffic||'';
+      if(el('kpi-t-live')) el('kpi-t-live').value = kpiTargets.live||'';
+    }
+    if(document.getElementById('p-kpi')?.classList.contains('active')) renderKPI();
+  });
+}
+
+async function saveKPITargets(){
+  const targets = {
+    links: parseFloat(document.getElementById('kpi-t-links').value)||0,
+    dr: parseFloat(document.getElementById('kpi-t-dr').value)||0,
+    traffic: parseFloat(document.getElementById('kpi-t-traffic').value)||0,
+    live: parseFloat(document.getElementById('kpi-t-live').value)||0,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  await db.collection('kpi').doc('targets').set(targets);
+  kpiTargets = targets;
+  const ok = document.getElementById('kpi-targets-ok');
+  ok.style.display='block'; ok.textContent='✅ Targets saved!';
+  setTimeout(()=>ok.style.display='none', 2000);
+  renderKPI();
+}
+
+function initKPI(){
+  const now = new Date();
+  const monthSel = document.getElementById('kpi-month');
+  const yearSel = document.getElementById('kpi-year');
+  if(monthSel) monthSel.value = MONTHS_EN[now.getMonth()];
+  if(yearSel) yearSel.value = String(now.getFullYear());
+  renderKPI();
+}
+
+function getKPIBadge(score){
+  if(score >= 90) return {badge:'🏆 Top performer', cls:'top', color:'#ffd700'};
+  if(score >= 70) return {badge:'✅ On track', cls:'ok', color:'var(--teal)'};
+  if(score >= 40) return {badge:'⚠️ Behind', cls:'warn', color:'var(--yellow)'};
+  return {badge:'❌ Off track', cls:'bad', color:'var(--red)'};
+}
+
+function renderKPI(){
+  const month = document.getElementById('kpi-month')?.value;
+  const year = document.getElementById('kpi-year')?.value;
+  if(!month||!year) return;
+
+  const NEON_COLORS={
+    'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
+    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
+    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
+    'Rubik':'#ea80fc'
+  };
+
+  // Filter links for this month+year
+  const filtered = allLinks.filter(l=>{
+    if(!l.date) return false;
+    const p = l.date.split(/[.\-\/]/);
+    if(p.length<3) return false;
+    const lMonth = MONTHS_EN[parseInt(p[1])-1];
+    const lYear = p[2].length===2?'20'+p[2]:p[2];
+    return lMonth===month && lYear===year;
+  });
+
+  const t = kpiTargets;
+  const hasTargets = t.links||t.dr||t.traffic||t.live;
+
+  // Per builder stats
+  const builderStats = BUILDERS.map(b=>{
+    const bl = filtered.filter(l=>l.builder===b);
+    if(!bl.length) return null;
+
+    const live = bl.filter(l=>l.status==='live').length;
+    const livePct = bl.length>0 ? Math.round(live/bl.length*100) : 0;
+    const avgDR = bl.length>0 ? Math.round(bl.reduce((s,l)=>s+(parseFloat(l.dr)||0),0)/bl.length) : 0;
+    const avgTraffic = bl.length>0 ? Math.round(bl.reduce((s,l)=>s+(parseFloat(String(l.traffic||'').replace(/,/g,''))||0),0)/bl.length) : 0;
+
+    // Load target for this builder this month
+    const loadTarget = allLoads.filter(l=>l.builder===b&&l.month===month).reduce((s,l)=>s+l.count,0);
+
+    // Score calculation (0-100)
+    let score = 0;
+    let criteria = 0;
+
+    if(t.links>0){
+      const linkTarget = loadTarget||t.links;
+      score += Math.min(100, (bl.length/linkTarget)*100) * 0.4;
+      criteria++;
+    }
+    if(t.dr>0){ score += Math.min(100, (avgDR/t.dr)*100) * 0.25; criteria++; }
+    if(t.traffic>0){ score += Math.min(100, (avgTraffic/t.traffic)*100) * 0.2; criteria++; }
+    if(t.live>0){ score += Math.min(100, (livePct/t.live)*100) * 0.15; criteria++; }
+
+    if(!criteria) score = (bl.length>0)?75:0;
+    score = Math.round(Math.min(100, score));
+
+    return { name:b, links:bl.length, loadTarget, live, livePct, avgDR, avgTraffic, score,
+      color:NEON_COLORS[b]||'var(--teal)' };
+  }).filter(Boolean).sort((a,b)=>b.score-a.score);
+
+  if(!builderStats.length){
+    document.getElementById('kpi-leaderboard').innerHTML='<div style="color:var(--text2);font-size:13px;grid-column:1/-1;">No data for '+month+' '+year+'</div>';
+    document.getElementById('kpi-tbody').innerHTML='<tr><td colspan="8" class="loading">No data</td></tr>';
+    return;
+  }
+
+  // Leaderboard cards
+  document.getElementById('kpi-leaderboard').innerHTML = builderStats.map((b,idx)=>{
+    const {badge,color:badgeColor} = getKPIBadge(b.score);
+    const rankEmoji = idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':`#${idx+1}`;
+    const loadPct = b.loadTarget>0 ? Math.min(100,Math.round(b.links/b.loadTarget*100)) : null;
+
+    return `<div class="quota-card" style="border-color:${b.color}22;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:10px;right:12px;font-size:20px;">${rankEmoji}</div>
+      <div style="font-size:16px;font-weight:800;color:${b.color};margin-bottom:6px;text-shadow:0 0 8px ${b.color}44;">${b.name}</div>
+      <div style="font-size:11px;font-weight:700;color:${badgeColor};margin-bottom:10px;">${badge}</div>
+
+      <!-- Score bar -->
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Score</span>
+          <span style="font-size:14px;font-weight:800;color:${b.color};">${b.score}%</span>
+        </div>
+        <div style="height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;">
+          <div style="height:6px;background:${b.color};width:${b.score}%;border-radius:3px;transition:width 0.5s;"></div>
+        </div>
+      </div>
+
+      <!-- Stats grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+        <div style="background:var(--bg4);border-radius:6px;padding:6px 8px;">
+          <div style="color:var(--text3);">Links</div>
+          <div style="font-weight:700;color:${b.color};">${b.links}${b.loadTarget?` / ${b.loadTarget}`:''}</div>
+        </div>
+        <div style="background:var(--bg4);border-radius:6px;padding:6px 8px;">
+          <div style="color:var(--text3);">Live</div>
+          <div style="font-weight:700;color:var(--teal);">${b.live} (${b.livePct}%)</div>
+        </div>
+        <div style="background:var(--bg4);border-radius:6px;padding:6px 8px;">
+          <div style="color:var(--text3);">Avg DR</div>
+          <div style="font-weight:700;${t.dr&&b.avgDR<t.dr?'color:var(--red);':'color:var(--text);'}">${b.avgDR||'—'}</div>
+        </div>
+        <div style="background:var(--bg4);border-radius:6px;padding:6px 8px;">
+          <div style="color:var(--text3);">Avg Traffic</div>
+          <div style="font-weight:700;${t.traffic&&b.avgTraffic<t.traffic?'color:var(--red);':'color:var(--text);'}">${b.avgTraffic?Number(b.avgTraffic).toLocaleString():'—'}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Table
+  document.getElementById('kpi-tbody').innerHTML = builderStats.map(b=>{
+    const {badge,color:badgeColor} = getKPIBadge(b.score);
+    return `<tr>
+      <td style="font-weight:700;color:${b.color};">${b.name}</td>
+      <td style="text-align:center;font-weight:700;">${b.links}</td>
+      <td style="text-align:center;color:var(--text3);">${b.loadTarget||t.links||'—'}</td>
+      <td style="text-align:center;${t.dr&&b.avgDR<t.dr?'color:var(--red);':'color:var(--teal);'}">${b.avgDR||'—'}</td>
+      <td style="text-align:center;${t.traffic&&b.avgTraffic<t.traffic?'color:var(--red);':'color:var(--teal);'}">${b.avgTraffic?Number(b.avgTraffic).toLocaleString():'—'}</td>
+      <td style="text-align:center;${t.live&&b.livePct<t.live?'color:var(--red);':'color:var(--teal);'}">${b.livePct}%</td>
+      <td style="text-align:center;font-weight:800;color:${b.color};">${b.score}%</td>
+      <td style="text-align:center;color:${badgeColor};font-weight:600;">${badge}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ─── ANALYTICS ────────────────────────────────────────────
