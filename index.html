@@ -1224,6 +1224,12 @@ tr:hover td{background:var(--bg3);}
   </div>
   <div class="filters" style="gap:6px;margin-bottom:8px;">
     <input id="bl-s" placeholder="Search domain, anchor..." oninput="renderBuilderLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
+    <select id="bl-month" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;">
+      <option value="">All months</option>
+      <option>January</option><option>February</option><option>March</option><option>April</option>
+      <option>May</option><option>June</option><option>July</option><option>August</option>
+      <option>September</option><option>October</option><option>November</option><option>December</option>
+    </select>
     <select id="bl-p" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All projects</option></select>
   </div>
   <div class="card">
@@ -1819,7 +1825,11 @@ function gotoPage(name,el){
   if(el)el.classList.add('active');
   if(name==='projects')renderProjectsPage();
   if(name==='b-dashboard')renderBuilderDashboard();
-  if(name==='b-links')renderBuilderLinks();
+  if(name==='b-links'){
+    const bm=document.getElementById('bl-month');
+    if(bm&&!bm.value) bm.value=MONTHS_EN[new Date().getMonth()];
+    renderBuilderLinks();
+  }
   if(name==='load')initLoadPage();
   if(name==='analytics')initAnalytics();
   if(name==='kpi')initKPI();
@@ -1911,18 +1921,25 @@ function onDomainInput(){
   }
   dcBox.classList.add('show');
 
-  // Duplicate check per-project — show inline in compat cards, not as alert
-  const dupProjects=allProjects.filter(p=>allLinks.some(l=>nd(l.domain)===d&&l.project===p.name));
+  // Duplicate check per-project
+  const dupLinks=allLinks.filter(l=>nd(l.domain)===d);
+  const dupProjects=[...new Set(dupLinks.map(l=>l.project).filter(Boolean))];
   if(dupProjects.length){
     dupEl.style.display='block';
     dupEl.style.background='transparent';
     dupEl.style.border='none';
-    dupEl.style.padding='0';
+    dupEl.style.padding='4px 0 6px';
     dupEl.style.color='var(--text)';
-    dupEl.innerHTML='<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Already used in</div>'
+    // Check if same domain + same project (strong warning)
+    const selectedProj=document.getElementById('f-proj')?.value||'';
+    const sameProject=selectedProj&&dupProjects.includes(selectedProj);
+    dupEl.innerHTML=(sameProject?
+      `<div style="padding:8px 12px;background:rgba(255,107,107,0.15);border:1px solid rgba(255,107,107,0.4);border-radius:8px;margin-bottom:6px;font-size:12px;font-weight:600;color:#ff6b6b;">⚠️ This domain already exists in ${selectedProj}!</div>`
+      :'')+
+      '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Already used in</div>'
       +dupProjects.map(p=>{
-        const link=allLinks.find(l=>nd(l.domain)===d&&l.project===p.name);
-        return`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;margin-right:6px;margin-bottom:4px;">❌ ${p.name} <span style="font-weight:400;font-size:10px;color:rgba(255,107,107,0.7);">${link.status} · ${link.builder||'—'}</span></span>`;
+        const links=dupLinks.filter(l=>l.project===p);
+        return links.map(link=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;margin-right:6px;margin-bottom:4px;">❌ ${p} <span style="font-weight:400;font-size:10px;color:rgba(255,107,107,0.7);">${link.status} · ${link.builder||'—'}</span></span>`).join('');
       }).join('');
   } else {
     dupEl.style.display='none';
@@ -4427,11 +4444,13 @@ function renderBuilderLinks(){
   const myName=cu.name||cu.email;
   const s=(document.getElementById('bl-s')?.value||'').toLowerCase();
   const p=document.getElementById('bl-p')?.value||'';
+  const blMonth=document.getElementById('bl-month')?.value||'';
   let fl=allLinks.filter(l=>{
     if(l.builder!==myName && l.builder!==(cu.name||'') && l.builder!==(cu.email||''))return false;
     if(bStatusFilter==='live'&&l.status!=='live')return false;
     if(bStatusFilter==='pend'&&l.status!=='pending')return false;
     if(p&&l.project!==p)return false;
+    if(blMonth&&l.date){const mk=getMonthKey(l.date);if(!mk.startsWith(blMonth))return false;}
     if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s))return false;
     return true;
   });
