@@ -3296,11 +3296,13 @@ function trackSession(action){
       .where('builder','==',cu.name||cu.email)
       .where('date','==',dateKey)
       .where('logoutAt','==',null)
-      .orderBy('loginAt','desc')
-      .limit(1)
       .get()
       .then(snap=>{
-        if(!snap.empty) snap.docs[0].ref.update({logoutAt: firebase.firestore.FieldValue.serverTimestamp()});
+        if(!snap.empty){
+          // Sort client-side, update most recent
+          const sorted = snap.docs.sort((a,b)=>(b.data().loginAt?.seconds||0)-(a.data().loginAt?.seconds||0));
+          sorted[0].ref.update({logoutAt: firebase.firestore.FieldValue.serverTimestamp()});
+        }
       });
   }
 }
