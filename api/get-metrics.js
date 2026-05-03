@@ -9,7 +9,6 @@ module.exports = async function handler(req, res) {
   if (!domain) return res.status(400).json({ error: 'domain required' });
 
   const AHREFS_KEY = '7dNernlzY4mixkKwyIEOVsZK8e0Rx0Hgq3YszXti';
-
   const cleanDomain = domain
     .replace(/^https?:\/\//i, '')
     .replace(/^www\./i, '')
@@ -18,23 +17,23 @@ module.exports = async function handler(req, res) {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const drUrl = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=${today}`;
-  const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date=${today}&mode=domain&select=org_traffic`;
-  const trafficByCountryUrl = `https://api.ahrefs.com/v3/site-explorer/organic-traffic-by-countries?target=${encodeURIComponent(cleanDomain)}&date=${today}&mode=domain&limit=5&select=country,traffic,traffic_percent`;
-
   const headers = {
     'Authorization': `Bearer ${AHREFS_KEY}`,
     'Accept': 'application/json'
   };
 
+  const drUrl = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=${today}`;
+  
+  // Try multiple traffic fields
+  const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date=${today}&mode=domain&select=org_traffic,org_keywords,paid_traffic`;
+
   try {
-    const [drResp, metricsResp, countryResp] = await Promise.all([
+    const [drResp, metricsResp] = await Promise.all([
       fetch(drUrl, { headers, signal: AbortSignal.timeout(10000) }),
-      fetch(metricsUrl, { headers, signal: AbortSignal.timeout(10000) }),
-      fetch(trafficByCountryUrl, { headers, signal: AbortSignal.timeout(10000) })
+      fetch(metricsUrl, { headers, signal: AbortSignal.timeout(10000) })
     ]);
 
-    let dr = null, traffic = null, usTrafficPct = null, topCountries = [];
+    let dr = null, traffic = null;
 
     if (drResp.ok) {
       const d = await drResp.json();
@@ -44,22 +43,16 @@ module.exports = async function handler(req, res) {
 
     if (metricsResp.ok) {
       const m = await metricsResp.json();
-      traffic = m?.metrics?.org_traffic ?? m?.org_traffic ?? null;
+      const metrics = m?.metrics || m || {};
+      // Try all possible traffic fields
+      traffic = metrics.org_traffic ?? metrics.paid_traffic ?? metrics.org_keywords ?? null;
       if (traffic !== null) traffic = Math.round(traffic);
+    } else {
+      // Log the error for debugging
+      console.log('Metrics error:', metricsResp.status, await metricsResp.text().catch(()=>''));
     }
 
-    if (countryResp.ok) {
-      const c = await countryResp.json();
-      const countries = c?.organic_traffic_by_countries ?? c?.countries ?? [];
-      topCountries = countries.slice(0, 5).map(ct => ({
-        country: ct.country,
-        pct: ct.traffic_percent != null ? Math.round(ct.traffic_percent) : null
-      }));
-      const us = countries.find(ct => (ct.country || '').toLowerCase() === 'us');
-      if (us) usTrafficPct = us.traffic_percent != null ? Math.round(us.traffic_percent) : null;
-    }
-
-    return res.json({ domain: cleanDomain, dr, traffic, usTrafficPct, topCountries });
+    return res.json({ domain: cleanDomain, dr, traffic, usTrafficPct: null, topCountries: [] });
 
   } catch (e) {
     return res.json({ error: e.message.slice(0, 100) });
