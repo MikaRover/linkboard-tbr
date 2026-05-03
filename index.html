@@ -34,12 +34,40 @@
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
 
 /* ── LIGHT THEME ── */
-body.light{--bg:#f2f6fb;--bg2:#ffffff;--bg3:#e8f0f7;--bg4:#dce8f2;--teal:#00897b;--teal2:#00a896;--teal-glow:rgba(0,137,123,0.1);--border:#c8d8e8;--border2:#b0c8dc;--text:#0f2030;--text2:#4a6a84;--text3:#8aacbf;}
-body.light input,body.light select{background:var(--bg3);color:var(--text);border-color:var(--border);}
-body.light select option{background:var(--bg2);color:var(--text);}
-body.light .btn,body.light .btn-sm{color:#fff;}
-body.light .sidebar{background:var(--bg2);border-color:var(--border);}
-body.light .card{background:var(--bg2);}
+body.light{
+  --bg:#f7f9fc;
+  --bg2:#ffffff;
+  --bg3:#eef2f7;
+  --bg4:#e2e9f0;
+  --teal:#0891b2;
+  --teal2:#06b6d4;
+  --teal-glow:rgba(8,145,178,0.08);
+  --yellow:#d97706;
+  --red:#dc2626;
+  --border:#dde5ee;
+  --border2:#c4d0de;
+  --text:#0f172a;
+  --text2:#475569;
+  --text3:#94a3b8;
+  --shadow-teal:0 0 0 3px rgba(8,145,178,0.12);
+}
+body.light input,body.light select{background:#fff;color:var(--text);border-color:var(--border);box-shadow:0 1px 2px rgba(0,0,0,0.04);}
+body.light select option{background:#fff;color:var(--text);}
+body.light .btn,body.light .btn-sm{color:#fff;background:var(--teal);}
+body.light .btn-ghost{color:var(--text2);border-color:var(--border2);}
+body.light .btn-ghost:hover{background:var(--bg3);}
+body.light .sidebar{background:#fff;border-color:var(--border);box-shadow:1px 0 8px rgba(0,0,0,0.05);}
+body.light .card{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+body.light .stat{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+body.light table thead th{background:#f1f5f9;color:var(--text2);}
+body.light table tbody tr:hover{background:#f8fafc;}
+body.light .nav{color:var(--text2);}
+body.light .nav:hover{background:var(--bg3);color:var(--text);}
+body.light .nav.active{background:rgba(8,145,178,0.1);color:var(--teal);}
+body.light .page-title{color:var(--text);}
+body.light .sb-logo span{color:var(--teal);}
+body.light .login-box{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.10);}
+body.light .neon-bg .neon-orb{opacity:0.04;}
 
 /* ── PERF: reduce transitions on scroll ── */
 body,body *{transition:background-color 0.18s ease,color 0.15s ease,border-color 0.15s ease;}
@@ -1193,7 +1221,7 @@ tr:hover td{background:var(--bg3);}
         <div style="font-size:13px;font-weight:700;color:var(--text);">This month's quotas</div>
         <div style="font-size:11px;color:var(--text3);" id="b-quota-month"></div>
       </div>
-      <div id="b-quota-grid">
+      <div id="b-quota-grid" style="display:flex;flex-direction:column;gap:6px;">
         <div class="loading">Loading quotas...</div>
       </div>
     </div>
@@ -4427,15 +4455,13 @@ function renderBuilderDashboard(){
       const pct=Math.min(100,Math.round(done/target*100));
       const full=done>=target;
       const color=full?'var(--teal)':done>0?'var(--yellow)':'var(--text3)';
-      return`<div class="quota-card">
-        <div class="quota-proj">
-          <span>${proj}</span>
-          <span class="quota-proj-badge" style="color:${color};">${done}/${target}</span>
+      return`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;">
+        <div style="font-size:12px;font-weight:600;color:var(--text);min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${proj}</div>
+        <div style="flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;">
+          <div style="height:4px;border-radius:2px;background:${full?'var(--teal)':done>0?'var(--yellow)':'var(--border)'};width:${pct}%;transition:width 0.4s;"></div>
         </div>
-        <div style="height:8px;background:var(--bg4);border-radius:4px;overflow:hidden;margin-top:8px;">
-          <div style="height:8px;border-radius:4px;background:${full?'var(--teal)':done>0?'var(--yellow)':'var(--border)'};width:${pct}%;transition:width 0.4s;"></div>
-        </div>
-        <div style="font-size:10px;color:var(--text3);margin-top:4px;">${pct}% complete${full?' ✅':''}</div>
+        <div style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;min-width:36px;text-align:right;">${done}/${target}</div>
+        ${full?'<span style="font-size:11px;">✅</span>':''}
       </div>`;
     }).join('');
   }
