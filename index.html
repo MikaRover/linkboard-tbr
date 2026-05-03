@@ -996,11 +996,6 @@ tr:hover td{background:var(--bg3);}
   <div class="page-top">
     <div class="page-title">⚓ Anchors</div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <select id="anc-month" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderAnchors()">
-        <option>January</option><option>February</option><option>March</option><option>April</option>
-        <option>May</option><option>June</option><option>July</option><option>August</option>
-        <option>September</option><option>October</option><option>November</option><option>December</option>
-      </select>
       <button class="btn-sm" onclick="gotoPage('reqs',document.querySelectorAll('.nav.adm')[4])" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">+ Add anchors</button>
     </div>
   </div>
@@ -3502,36 +3497,27 @@ async function renderOnlinePage(){
 let ancSelectedProj = null;
 
 function initAnchors(){
-  const now = new Date();
-  const monthSel = document.getElementById('anc-month');
-  if(monthSel) monthSel.value = MONTHS_EN[now.getMonth()];
   renderAnchors();
 }
 
 function renderAnchors(){
-  const month = document.getElementById('anc-month')?.value;
-  if(!month) return;
-
-  // Get all projects that have anchors for this month
-  const monthReqs = allReqs.filter(r=>r.month===month);
-  const projects = allProjects.filter(p=>monthReqs.some(r=>r.project===p.name));
-
-  // Project list (left sidebar)
+  // Get all projects that have ANY anchors
+  const projsWithReqs = allProjects.filter(p=>allReqs.some(r=>r.project===p.name));
   const projList = document.getElementById('anc-proj-list');
-  if(!projects.length){
-    projList.innerHTML = '<div style="font-size:12px;color:var(--text3);">No anchors for '+month+'</div>';
-    document.getElementById('anc-content').innerHTML = 
-      '<div style="color:var(--text2);font-size:13px;padding:2rem 0;">No anchor requirements set for '+month+'.<br><br>Go to Requirements page to add anchors.</div>';
+
+  if(!projsWithReqs.length){
+    projList.innerHTML = '<div style="font-size:12px;color:var(--text3);">No anchors yet</div>';
+    document.getElementById('anc-content').innerHTML =
+      '<div style="color:var(--text2);font-size:13px;padding:2rem 0;">No anchor requirements set.<br><br>Go to Requirements to add anchors.</div>';
     return;
   }
 
-  // Select first project if none selected or not in list
-  if(!ancSelectedProj || !projects.find(p=>p.name===ancSelectedProj)){
-    ancSelectedProj = projects[0].name;
+  if(!ancSelectedProj || !projsWithReqs.find(p=>p.name===ancSelectedProj)){
+    ancSelectedProj = projsWithReqs[0].name;
   }
 
-  projList.innerHTML = projects.map(p=>{
-    const reqs = monthReqs.filter(r=>r.project===p.name);
+  projList.innerHTML = projsWithReqs.map(p=>{
+    const reqs = allReqs.filter(r=>r.project===p.name);
     const totalUsed = reqs.reduce((s,r)=>{
       return s + allLinks.filter(l=>l.project===p.name&&(l.anchor||'').toLowerCase()===r.anchor).length;
     },0);
@@ -3539,23 +3525,24 @@ function renderAnchors(){
     const pct = totalMax>0 ? Math.min(100,Math.round(totalUsed/totalMax*100)) : 0;
     const isActive = ancSelectedProj===p.name;
     const color = pct>=100?'var(--teal)':pct>50?'var(--yellow)':'var(--text3)';
+    const months = [...new Set(reqs.map(r=>r.month).filter(Boolean))];
 
-    return `<div onclick="selectAnchorProject('${p.name}')" style="
+    return `<div onclick="selectAnchorProject('${p.name.replace(/'/g,"\'")}');" style="
       padding:10px 12px;border-radius:8px;cursor:pointer;
-      background:${isActive?'var(--teal-glow)':'transparent'};
+      background:${isActive?'var(--bg3)':'transparent'};
       border:1px solid ${isActive?'var(--teal)':'transparent'};
       transition:all 0.15s;
-    " onmouseover="if('${p.name}'!==ancSelectedProj)this.style.background='var(--bg3)'" 
-       onmouseout="if('${p.name}'!==ancSelectedProj)this.style.background='transparent'">
+    ">
       <div style="font-size:12px;font-weight:600;color:${isActive?'var(--teal)':'var(--text)'};">${p.name}</div>
       <div style="font-size:10px;color:${color};margin-top:2px;">${totalUsed}/${totalMax} links</div>
       <div style="height:3px;background:var(--bg4);border-radius:2px;margin-top:4px;overflow:hidden;">
         <div style="height:3px;background:${color};width:${pct}%;border-radius:2px;"></div>
       </div>
+      <div style="font-size:9px;color:var(--text3);margin-top:3px;">${months.join(', ')}</div>
     </div>`;
   }).join('');
 
-  renderAnchorDetail(month);
+  renderAnchorDetail();
 }
 
 function selectAnchorProject(projName){
@@ -3563,81 +3550,95 @@ function selectAnchorProject(projName){
   renderAnchors();
 }
 
-function renderAnchorDetail(month){
+function renderAnchorDetail(){
   const proj = ancSelectedProj;
   if(!proj) return;
 
-  const reqs = allReqs.filter(r=>r.project===proj&&r.month===month);
-  const content = document.getElementById('anc-content');
+  const contentEl = document.getElementById('anc-content');
+  const reqs = allReqs.filter(r=>r.project===proj);
 
   if(!reqs.length){
-    content.innerHTML = `<div style="color:var(--text2);font-size:13px;">No anchors for ${proj} in ${month}</div>`;
+    contentEl.innerHTML = `<div style="color:var(--text2);font-size:13px;">No anchors for ${proj}</div>`;
     return;
   }
 
-  // Stats
-  const totalMax = reqs.reduce((s,r)=>s+r.max,0);
-  const totalUsed = reqs.reduce((s,r)=>{
+  // Group by month
+  const months = [...new Set(reqs.map(r=>r.month).filter(Boolean))];
+  // Sort months: newest first
+  const monthOrder = MONTHS_EN;
+  months.sort((a,b)=>{
+    const [am,ay] = a.split(' '); const [bm,by_] = b.split(' ');
+    return (parseInt(by_||0)-parseInt(ay||0))||monthOrder.indexOf(bm)-monthOrder.indexOf(am);
+  });
+
+  const totalAllMax = reqs.reduce((s,r)=>s+r.max,0);
+  const totalAllUsed = reqs.reduce((s,r)=>{
     return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor).length;
   },0);
-  const pct = totalMax>0?Math.min(100,Math.round(totalUsed/totalMax*100)):0;
+  const overallPct = totalAllMax>0?Math.min(100,Math.round(totalAllUsed/totalAllMax*100)):0;
 
-  const rowsHtml = reqs.map(r=>{
-    const used = allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor).length;
-    const p = Math.min(100,Math.round(used/r.max*100));
-    const full = used>=r.max;
-    const color = full?'var(--teal)':used>0?'var(--yellow)':'var(--text3)';
+  const monthsHtml = months.map(month=>{
+    const mReqs = reqs.filter(r=>r.month===month);
+    const mMax = mReqs.reduce((s,r)=>s+r.max,0);
+    const mUsed = mReqs.reduce((s,r)=>{
+      return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===month+' '+(month.includes(' ')?'':new Date().getFullYear())).length;
+    },0);
+    // Actually count all links with this anchor for this project (no date filter - user controls dates)
+    const mUsedAll = mReqs.reduce((s,r)=>{
+      return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor).length;
+    },0);
+    const mPct = mMax>0?Math.min(100,Math.round(mUsedAll/mMax*100)):0;
+    const mColor = mPct>=100?'var(--teal)':mPct>50?'var(--yellow)':'var(--text3)';
 
-    // Links for this anchor
-    const anchorLinks = allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor);
+    const rowsHtml = mReqs.map(r=>{
+      const used = allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor).length;
+      const p = Math.min(100,Math.round(used/r.max*100));
+      const full = used>=r.max;
+      const color = full?'var(--teal)':used>0?'var(--yellow)':'var(--text3)';
 
-    return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div>
-          <div style="font-size:13px;font-weight:700;color:var(--text);">${r.anchor}</div>
-          ${r.linkto?`<a href="${r.linkto}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none;">↗ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,50)}</a>`:''}
+      return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div style="flex:1;min-width:0;margin-right:10px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.anchor}</div>
+            ${r.linkto?`<a href="${r.linkto}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;">↗ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,45)}</a>`:''}
+          </div>
+          <div style="text-align:right;white-space:nowrap;">
+            <div style="font-size:16px;font-weight:800;color:${color};">${used}/${r.max}</div>
+            <div style="font-size:9px;color:var(--text3);">${full?'✅':p+'%'}</div>
+          </div>
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:18px;font-weight:800;color:${color};">${used}/${r.max}</div>
-          <div style="font-size:10px;color:var(--text3);">${full?'✅ Complete':p+'%'}</div>
+        <div style="height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;">
+          <div style="height:5px;background:${color};width:${p}%;border-radius:3px;transition:width 0.4s;"></div>
         </div>
+      </div>`;
+    }).join('');
+
+    return `<div style="margin-bottom:1.25rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:13px;font-weight:700;color:var(--teal);">${month}</div>
+        <div style="font-size:12px;color:${mColor};font-weight:600;">${mUsedAll}/${mMax} · ${mPct}%</div>
       </div>
-      <div style="height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-bottom:${anchorLinks.length?'10px':'0'};">
-        <div style="height:6px;background:${color};width:${p}%;border-radius:3px;transition:width 0.4s;"></div>
+      <div style="height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;margin-bottom:10px;">
+        <div style="height:4px;background:${mColor};width:${mPct}%;border-radius:2px;transition:width 0.4s;"></div>
       </div>
-      ${anchorLinks.length?`
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          ${anchorLinks.map(l=>`
-            <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;padding:4px 8px;background:var(--bg3);border-radius:6px;">
-              <div style="display:flex;align-items:center;gap:8px;">
-                ${l.linkin?`<a href="${l.linkin}" target="_blank" style="color:var(--teal);text-decoration:none;font-weight:600;">${l.domain}</a>`:`<span style="color:var(--teal);font-weight:600;">${l.domain}</span>`}
-                <span style="color:var(--text3);">DR ${l.dr||'—'}</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="color:var(--text3);">${l.builder||'—'}</span>
-                <span style="color:${l.status==='live'?'var(--teal)':'var(--yellow)'};">${l.status}</span>
-              </div>
-            </div>`).join('')}
-        </div>` : ''}
+      ${rowsHtml}
     </div>`;
   }).join('');
 
-  content.innerHTML = `
+  contentEl.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
       <div>
         <div style="font-size:18px;font-weight:800;color:var(--text);">${proj}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px;">${month} · ${reqs.length} anchors · ${totalUsed}/${totalMax} links</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">${months.length} month(s) · ${reqs.length} anchors · ${totalAllUsed}/${totalAllMax} total</div>
       </div>
       <div style="text-align:right;">
-        <div style="font-size:28px;font-weight:800;color:${pct>=100?'var(--teal)':pct>50?'var(--yellow)':'var(--text2)'};">${pct}%</div>
-        <div style="font-size:10px;color:var(--text3);">completed</div>
+        <div style="font-size:28px;font-weight:800;color:${overallPct>=100?'var(--teal)':overallPct>50?'var(--yellow)':'var(--text2)'};">${overallPct}%</div>
+        <div style="font-size:10px;color:var(--text3);">overall</div>
       </div>
     </div>
-    <div style="height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-bottom:1.25rem;">
-      <div style="height:6px;background:${pct>=100?'var(--teal)':'linear-gradient(90deg,var(--teal),var(--teal2))'};width:${pct}%;border-radius:3px;transition:width 0.4s;"></div>
-    </div>
-    ${rowsHtml}`;
+    ${monthsHtml}`;
 }
+
 
 // ─── KPI SYSTEM ───────────────────────────────────────────
 let kpiTargets = {};
