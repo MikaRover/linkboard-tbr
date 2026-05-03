@@ -1167,6 +1167,7 @@ tr:hover td{background:var(--bg3);}
 
 <!-- ══ BUILDER DASHBOARD ══ -->
 <div id="p-b-dashboard" class="page">
+  <!-- Header -->
   <div class="page-top">
     <div>
       <div class="page-title" id="b-greeting">Dashboard</div>
@@ -1175,24 +1176,38 @@ tr:hover td{background:var(--bg3);}
     </div>
     <button class="btn-sm" onclick="gotoPage('add',document.getElementById('bld-nav-add'))" style="width:auto;">+ Add link</button>
   </div>
-  <div class="stats" style="grid-template-columns:repeat(3,1fr);">
-    <div class="stat"><div class="stat-l">My total</div><div class="stat-v" style="color:var(--teal)" id="b-total">—</div></div>
+
+  <!-- Stats row — 4 cards -->
+  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.5rem;">
+    <div class="stat"><div class="stat-l">This month</div><div class="stat-v" style="color:var(--teal)" id="b-total">—</div></div>
     <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)" id="b-live">—</div></div>
     <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500" id="b-pend">—</div></div>
+    <div class="stat"><div class="stat-l">Live %</div><div class="stat-v" id="b-live-pct" style="color:var(--teal)">—</div></div>
   </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-    <div style="font-size:13px;font-weight:700;color:var(--text);">This month's quotas</div>
-    <div style="font-size:11px;color:var(--text3);" id="b-quota-month"></div>
-  </div>
-  <div class="quota-grid" id="b-quota-grid">
-    <div class="loading" style="grid-column:1/-1;">Loading quotas...</div>
-  </div>
-  <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;margin-top:8px;">Recent links</div>
-  <div class="card">
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>Anchor</th><th>Project</th><th>Status</th><th>Link check</th></tr></thead>
-      <tbody id="b-recent"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
-    </table></div>
+
+  <!-- Two column layout: quotas + recent -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start;">
+    <!-- Quotas -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text);">This month's quotas</div>
+        <div style="font-size:11px;color:var(--text3);" id="b-quota-month"></div>
+      </div>
+      <div id="b-quota-grid">
+        <div class="loading">Loading quotas...</div>
+      </div>
+    </div>
+
+    <!-- Recent links -->
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">Recent links</div>
+      <div class="card" style="overflow:hidden;">
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Domain</th><th>Project</th><th>Status</th></tr></thead>
+          <tbody id="b-recent"><tr><td colspan="3" class="loading">Loading...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -4343,9 +4358,15 @@ function renderBuilderDashboard(){
   document.getElementById('b-greeting').textContent=(hour<12?'Good morning ☀️':hour<18?'Good afternoon 👋':'Good evening 🌙')+(firstName?' '+firstName:'');
   document.getElementById('b-month-label').textContent=`${curMonth} ${curYear}`;
   generateMotivation(firstName||'there');
-  document.getElementById('b-total').textContent=myLinks.length;
-  document.getElementById('b-live').textContent=myLinks.filter(l=>l.status==='live').length;
-  document.getElementById('b-pend').textContent=myLinks.filter(l=>l.status==='pending').length;
+  // This month only
+  const thisMonthLinks=myLinks.filter(l=>l.date&&getMonthKey(l.date)===`${curMonth} ${curYear}`);
+  const tmLive=thisMonthLinks.filter(l=>l.status==='live').length;
+  const tmPct=thisMonthLinks.length>0?Math.round(tmLive/thisMonthLinks.length*100):0;
+  document.getElementById('b-total').textContent=thisMonthLinks.length;
+  document.getElementById('b-live').textContent=tmLive;
+  document.getElementById('b-pend').textContent=thisMonthLinks.filter(l=>l.status==='pending').length;
+  const pctEl=document.getElementById('b-live-pct');
+  if(pctEl){pctEl.textContent=tmPct+'%';pctEl.style.color=tmPct>=80?'var(--teal)':tmPct>=50?'var(--yellow)':'var(--red)';}
   document.getElementById('b-quota-month').textContent=`${curMonth} ${curYear}`;
 
   const quotaGrid=document.getElementById('b-quota-grid');
@@ -4379,16 +4400,11 @@ function renderBuilderDashboard(){
 
   const recent=myLinks.slice(0,10);
   const tb=document.getElementById('b-recent');
-  if(!recent.length){tb.innerHTML='<tr><td colspan="8" class="loading">No links yet</td></tr>';return;}
+  if(!recent.length){tb.innerHTML='<tr><td colspan="3" class="loading">No links yet</td></tr>';return;}
   tb.innerHTML=recent.map(l=>`<tr>
-    <td style="color:var(--text3);font-size:11px;">${l.date||''}</td>
-    <td class="domain-teal"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;">${l.domain}</a></td>
-    <td>${l.dr||'—'}</td>
-    <td>${l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—'}</td>
-    <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;">${l.anchor||'—'}</td>
-    <td>${l.project||'—'}</td>
-    <td><span style="color:${l.status==='live'?'var(--teal)':'#f0a500'};">${l.status}</span></td>
-    <td>${linkCheckBadge(l.linkcheck,l.linkin,l.linkto)}</td>
+    <td class="domain-teal" style="font-size:12px;"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;">${l.domain}</a></td>
+    <td style="font-size:12px;color:var(--text2);">${l.project||'—'}</td>
+    <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'#f0a500'};">${l.status}</span></td>
   </tr>`).join('');
 }
 
