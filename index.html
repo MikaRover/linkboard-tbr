@@ -3550,8 +3550,14 @@ function renderAnchors(){
 
   projList.innerHTML = projsWithReqs.map(p=>{
     const reqs = allReqs.filter(r=>r.project===p.name);
+    const curYr = new Date().getFullYear();
     const totalUsed = reqs.reduce((s,r)=>{
-      return s + allLinks.filter(l=>l.project===p.name&&(l.anchor||'').toLowerCase()===r.anchor).length;
+      const cnt = allLinks.filter(l=>{
+        if(l.project!==p.name||(l.anchor||'').toLowerCase()!==r.anchor||!l.date) return false;
+        const mk=getMonthKey(l.date);
+        return mk===r.month+' '+curYr||mk===r.month+' '+(curYr-1);
+      }).length;
+      return s+cnt;
     },0);
     const totalMax = reqs.reduce((s,r)=>s+r.max,0);
     const pct = totalMax>0 ? Math.min(100,Math.round(totalUsed/totalMax*100)) : 0;
@@ -3594,36 +3600,55 @@ function renderAnchorDetail(){
     return;
   }
 
-  // Group by month
+  // Group reqs by month
   const months = [...new Set(reqs.map(r=>r.month).filter(Boolean))];
-  // Sort months: newest first
-  const monthOrder = MONTHS_EN;
   months.sort((a,b)=>{
-    const [am,ay] = a.split(' '); const [bm,by_] = b.split(' ');
-    return (parseInt(by_||0)-parseInt(ay||0))||monthOrder.indexOf(bm)-monthOrder.indexOf(am);
+    const mi = MONTHS_EN.indexOf(a), mj = MONTHS_EN.indexOf(b);
+    return mj - mi; // newest month first
   });
 
+  // Helper: get year from month context (use current year as fallback)
+  const curYear = new Date().getFullYear();
+
+  // Per-month stats for header
   const totalAllMax = reqs.reduce((s,r)=>s+r.max,0);
-  const totalAllUsed = reqs.reduce((s,r)=>{
-    return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor).length;
-  },0);
+  let totalAllUsed = 0;
+  months.forEach(month=>{
+    const mReqs = reqs.filter(r=>r.month===month);
+    mReqs.forEach(r=>{
+      // Count links for this anchor in this month
+      totalAllUsed += allLinks.filter(l=>{
+        if(l.project!==proj) return false;
+        if((l.anchor||'').toLowerCase()!==r.anchor) return false;
+        if(!l.date) return false;
+        const mk = getMonthKey(l.date);
+        return mk === month+' '+curYear || mk === month+' '+(curYear-1);
+      }).length;
+    });
+  });
   const overallPct = totalAllMax>0?Math.min(100,Math.round(totalAllUsed/totalAllMax*100)):0;
 
   const monthsHtml = months.map(month=>{
     const mReqs = reqs.filter(r=>r.month===month);
     const mMax = mReqs.reduce((s,r)=>s+r.max,0);
-    const mUsed = mReqs.reduce((s,r)=>{
-      return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===month+' '+(month.includes(' ')?'':new Date().getFullYear())).length;
-    },0);
-    // Actually count all links with this anchor for this project (no date filter - user controls dates)
-    const mUsedAll = mReqs.reduce((s,r)=>{
-      return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor).length;
-    },0);
-    const mPct = mMax>0?Math.min(100,Math.round(mUsedAll/mMax*100)):0;
+
+    // Count links strictly within this month (try both years)
+    const countForMonth = (anchor)=>{
+      return allLinks.filter(l=>{
+        if(l.project!==proj) return false;
+        if((l.anchor||'').toLowerCase()!==anchor) return false;
+        if(!l.date) return false;
+        const mk = getMonthKey(l.date);
+        return mk === month+' '+curYear || mk === month+' '+(curYear-1);
+      }).length;
+    };
+
+    const mUsed = mReqs.reduce((s,r)=>s+countForMonth(r.anchor),0);
+    const mPct = mMax>0?Math.min(100,Math.round(mUsed/mMax*100)):0;
     const mColor = mPct>=100?'var(--teal)':mPct>50?'var(--yellow)':'var(--text3)';
 
     const rowsHtml = mReqs.map(r=>{
-      const used = allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor).length;
+      const used = countForMonth(r.anchor);
       const p = Math.min(100,Math.round(used/r.max*100));
       const full = used>=r.max;
       const color = full?'var(--teal)':used>0?'var(--yellow)':'var(--text3)';
@@ -3648,7 +3673,7 @@ function renderAnchorDetail(){
     return `<div style="margin-bottom:1.25rem;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <div style="font-size:13px;font-weight:700;color:var(--teal);">${month}</div>
-        <div style="font-size:12px;color:${mColor};font-weight:600;">${mUsedAll}/${mMax} · ${mPct}%</div>
+        <div style="font-size:12px;color:${mColor};font-weight:600;">${mUsed}/${mMax} · ${mPct}%</div>
       </div>
       <div style="height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;margin-bottom:10px;">
         <div style="height:4px;background:${mColor};width:${mPct}%;border-radius:2px;transition:width 0.4s;"></div>
