@@ -4455,13 +4455,17 @@ function renderBuilderDashboard(){
       const pct=Math.min(100,Math.round(done/target*100));
       const full=done>=target;
       const color=full?'var(--teal)':done>0?'var(--yellow)':'var(--text3)';
-      return`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;">
-        <div style="font-size:12px;font-weight:600;color:var(--text);min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${proj}</div>
-        <div style="flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;">
-          <div style="height:4px;border-radius:2px;background:${full?'var(--teal)':done>0?'var(--yellow)':'var(--border)'};width:${pct}%;transition:width 0.4s;"></div>
+      const glowColor=full?'var(--teal)':done>0?'var(--yellow)':'transparent';
+      const glowRgb=full?'0,196,174':done>0?'240,165,0':'0,0,0';
+      return`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border:1px solid ${full?'rgba(0,196,174,0.3)':done>0?'rgba(240,165,0,0.2)':'var(--border)'};border-radius:8px;transition:all 0.2s;${full?'box-shadow:0 0 10px rgba(0,196,174,0.08);':''}">
+        <div style="font-size:12px;font-weight:600;color:var(--text);min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${proj}</div>
+        <div style="flex:1;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;">
+          <div style="height:3px;border-radius:2px;background:${glowColor};width:${pct}%;transition:width 0.5s;${pct>0?'box-shadow:0 0 6px rgba('+glowRgb+',0.6);':''}"></div>
         </div>
-        <div style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;min-width:36px;text-align:right;">${done}/${target}</div>
-        ${full?'<span style="font-size:11px;">✅</span>':''}
+        <div style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;min-width:36px;text-align:right;${pct>0?'text-shadow:0 0 8px rgba('+glowRgb+',0.5);':''}">
+          ${done}/${target}
+        </div>
+        ${full?'<span style="font-size:11px;filter:drop-shadow(0 0 4px rgba(0,196,174,0.6));">✅</span>':''}
       </div>`;
     }).join('');
   }
