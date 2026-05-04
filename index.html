@@ -592,7 +592,10 @@ tr:hover td{background:var(--bg3);}
         <div class="section-label">Builder (admin only)</div>
         <select id="f-builder" style="margin-bottom:0;"><option value="">Select builder</option></select>
       </div>
-      <button class="btn" onclick="addLink()" style="margin-top:12px;">Add link →</button>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn" onclick="addLink()" style="flex:1;">Add link →</button>
+        <button class="btn-ghost" onclick="openProspector()" style="white-space:nowrap;padding:11px 16px;" title="AI finds anchor opportunities">🔍 Find anchors</button>
+      </div>
     </div>
   </div>
 </div>
