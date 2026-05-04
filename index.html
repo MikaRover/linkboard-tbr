@@ -1252,7 +1252,7 @@ tr:hover td{background:var(--bg3);}
   </div>
   <div class="filters" style="gap:6px;margin-bottom:8px;">
     <input id="bl-s" placeholder="Search domain, anchor..." oninput="renderBuilderLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
-    <select id="bl-month" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All time</option></select>
+    <select id="bl-month" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;min-width:130px;"><option value="">All time</option></select>
     <select id="bl-p" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All projects</option></select>
   </div>
   <div class="card">
@@ -1878,16 +1878,7 @@ function gotoPage(name,el){
   if(name==='projects')renderProjectsPage();
   if(name==='b-dashboard')renderBuilderDashboard();
   if(name==='b-links'){
-    // Populate month options dynamically from allLinks
-    const blMonthSel = document.getElementById('bl-month');
-    if(blMonthSel && blMonthSel.options.length <= 1){
-      const months = [...new Set(allLinks.filter(l=>l.builder===(cu.name||cu.email)||l.builder===cu.name).map(l=>getMonthKey(l.date)).filter(m=>m&&m!=='Unknown'))];
-      months.sort((a,b)=>{
-        const [am,ay]=a.split(' '); const [bm,by_]=b.split(' ');
-        return (parseInt(by_)-parseInt(ay))||MONTHS_EN.indexOf(bm)-MONTHS_EN.indexOf(am);
-      });
-      months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;blMonthSel.appendChild(o);});
-    }
+    populateBLMonths();
     renderBuilderLinks();
   }
   if(name==='load')initLoadPage();
@@ -4593,6 +4584,24 @@ function toggleBSort(){
   const el=document.getElementById('b-sort-date');
   if(el)el.textContent=bSortDir==='desc'?'↓':'↑';
   renderBuilderLinks();
+}
+
+function populateBLMonths(){
+  const blMonthSel = document.getElementById('bl-month');
+  if(!blMonthSel) return;
+  const myName = cu.name||cu.email||'';
+  const emailPrefix = (cu.email||'').split('@')[0].toLowerCase();
+  const myLinks = allLinks.filter(l=>{
+    const b=(l.builder||'').toLowerCase();
+    return b===myName.toLowerCase()||b===emailPrefix||(cu.name&&b===cu.name.toLowerCase());
+  });
+  const months = [...new Set(myLinks.map(l=>getMonthKey(l.date)).filter(m=>m&&m!=='Unknown'))];
+  months.sort((a,b)=>{
+    const pa=a.split(' '), pb=b.split(' ');
+    return (parseInt(pb[1]||0)-parseInt(pa[1]||0))||MONTHS_EN.indexOf(pb[0])-MONTHS_EN.indexOf(pa[0]);
+  });
+  blMonthSel.innerHTML='<option value="">All time</option>';
+  months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;blMonthSel.appendChild(o);});
 }
 
 function renderBuilderLinks(){
