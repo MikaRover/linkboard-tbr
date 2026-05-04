@@ -3947,9 +3947,9 @@ function renderBulkRow(domain, data, action){
         <td style="white-space:nowrap;">
           ${p.email?`<button onclick="navigator.clipboard.writeText('${p.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>`:''}
           <a href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent((p.first_name||'')+' '+(p.last_name||'')+' '+domain)}" target="_blank" class="btn-ghost" style="font-size:10px;padding:2px 8px;text-decoration:none;">LI</a>
-          <button onclick="saveContactToDB(${JSON.stringify({domain, email:p.email||'', smtp:p.smtp||'unknown', firstName:p.first_name||'', lastName:p.last_name||'', position:p.position||''}).replace(/"/g,'&quot;')})" 
+          <button onclick="saveContactToDB({domain:'${domain}',email:'${(p.email||'').replace(/'/g,'')}',smtp:'${p.smtp||'unknown'}',firstName:'${(p.first_name||'').replace(/'/g,'')}',lastName:'${(p.last_name||'').replace(/'/g,'')}',position:'${(p.position||'').replace(/'/g,'')}'});" 
             class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾</button>
-        </td></tr>\`;
+        </td></tr>`;
     });
   } else {
     (data.emails||[]).forEach(e=>{
