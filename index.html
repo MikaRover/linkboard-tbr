@@ -482,13 +482,15 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('kpi',this)">🏆 KPI</div>
   <div class="nav adm" onclick="gotoPage('analytics',this)">📈 Analytics</div>
   <div class="nav adm" onclick="gotoPage('online',this)">🟢 Online</div>
-  <div class="nav adm" onclick="gotoPage('outreach',this)">🎯 Outreach</div>
+  <div class="nav adm" onclick="gotoPage('domains',this)">🗄 Domains DB</div>
+  <div class="nav" onclick="gotoPage('outreach',this)">🎯 Outreach</div>
   <div class="nav adm" onclick="gotoPage('load',this)">📊 Load</div>
   <div class="nav adm" onclick="gotoPage('capacity',this)">⚡ Capacity</div>
   <!-- BUILDER NAV -->
   <div class="nav nav-bld" id="bld-nav-dashboard" onclick="gotoPage('b-dashboard',this)">Dashboard</div>
   <div class="nav nav-bld" id="bld-nav-links" onclick="gotoPage('b-links',this)">My Links</div>
   <div class="nav nav-bld" id="bld-nav-add" onclick="gotoPage('add',this)">Add link</div>
+  <div class="nav nav-bld" onclick="gotoPage('outreach',this)">🎯 Outreach</div>
   <div class="sb-bottom">
     <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" style="margin-bottom:10px;">
       <div class="theme-switch" id="theme-switch">
@@ -1354,22 +1356,65 @@ tr:hover td{background:var(--bg3);}
       <div class="page-title">🎯 Outreach Finder</div>
       <div style="font-size:12px;color:var(--text2);margin-top:4px;">Find SEO & link building contacts via Snov.io + LinkedIn</div>
     </div>
+    <button class="btn-ghost" onclick="exportOutreachCSV()" id="ot-export-btn" style="display:none;">⬇ Export CSV</button>
   </div>
 
-  <!-- Search bar -->
-  <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
-    <div class="card-body">
-      <div style="display:flex;gap:10px;align-items:flex-end;">
-        <div style="flex:1;">
-          <div class="section-label">Website domain</div>
-          <input id="ot-domain" placeholder="e.g. ahrefs.com" style="margin:0;" onkeydown="if(event.key==='Enter')runOutreach()"/>
+  <!-- Mode tabs -->
+  <div style="display:flex;gap:8px;margin-bottom:1.25rem;">
+    <button id="ot-tab-single" onclick="setOtTab('single')" class="status-tab active-all" style="font-size:12px;">Single domain</button>
+    <button id="ot-tab-bulk" onclick="setOtTab('bulk')" class="status-tab" style="font-size:12px;">Bulk domains</button>
+  </div>
+
+  <!-- Single domain -->
+  <div id="ot-single-panel">
+    <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
+      <div class="card-body">
+        <div style="display:flex;gap:10px;align-items:flex-end;">
+          <div style="flex:1;">
+            <div class="section-label">Website domain</div>
+            <input id="ot-domain" placeholder="e.g. ahrefs.com" style="margin:0;" onkeydown="if(event.key==='Enter')runOutreach()"/>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0;">
+            <button class="btn-sm" onclick="runOutreach('prospects')" style="width:auto;padding:10px 18px;">🔍 Find contacts</button>
+            <button class="btn-ghost" onclick="runOutreach('scrape')" style="white-space:nowrap;padding:10px 14px;">🌐 Scrape emails</button>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;flex-shrink:0;">
-          <button class="btn-sm" onclick="runOutreach('prospects')" style="width:auto;padding:10px 18px;">🔍 Find contacts</button>
-          <button class="btn-ghost" onclick="runOutreach('scrape')" style="white-space:nowrap;padding:10px 14px;">🌐 Scrape emails</button>
-        </div>
+        <div id="ot-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
       </div>
-      <div id="ot-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
+    </div>
+  </div>
+
+  <!-- Bulk domains -->
+  <div id="ot-bulk-panel" style="display:none;">
+    <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
+      <div class="card-body">
+        <div class="section-label">Domains (one per line)</div>
+        <textarea id="ot-bulk-input" placeholder="ahrefs.com&#10;semrush.com&#10;moz.com&#10;whop.com"
+          style="width:100%;height:140px;padding:10px 12px;font-size:13px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:12px;outline:none;"
+          onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn-sm" onclick="runBulkOutreach('prospects')" style="width:auto;padding:10px 20px;">🔍 Find contacts (all)</button>
+          <button class="btn-ghost" onclick="runBulkOutreach('scrape')" style="white-space:nowrap;padding:10px 14px;">🌐 Scrape emails (all)</button>
+          <span id="ot-bulk-progress" style="font-size:12px;color:var(--text3);"></span>
+        </div>
+        <div id="ot-bulk-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
+      </div>
+    </div>
+
+    <!-- Bulk results table -->
+    <div id="ot-bulk-results" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text);" id="ot-bulk-count"></div>
+        <button class="btn-sm" onclick="exportOutreachCSV()" style="width:auto;">⬇ Export CSV</button>
+      </div>
+      <div class="card">
+        <div class="tbl-wrap"><table>
+          <thead><tr>
+            <th>Domain</th><th>Name</th><th>Position</th><th>Email</th><th>Status</th><th>Score</th><th></th>
+          </tr></thead>
+          <tbody id="ot-bulk-tbody"></tbody>
+        </table></div>
+      </div>
     </div>
   </div>
 
@@ -1377,23 +1422,18 @@ tr:hover td{background:var(--bg3);}
   <div id="ot-loading" style="display:none;text-align:center;padding:3rem;color:var(--text2);">
     <div style="font-size:32px;margin-bottom:12px;">🔍</div>
     <div style="font-size:14px;font-weight:600;" id="ot-loading-text">Searching LinkedIn via Snov.io...</div>
-    <div style="font-size:12px;color:var(--text3);margin-top:6px;">This may take 15-25 seconds</div>
-    <div style="margin-top:16px;display:flex;justify-content:center;gap:6px;" id="ot-progress-dots">
+    <div style="font-size:12px;color:var(--text3);margin-top:6px;">This may take 15-25 seconds per domain</div>
+    <div style="margin-top:16px;display:flex;justify-content:center;gap:6px;">
       <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out infinite;"></div>
       <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out 0.2s infinite;"></div>
       <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out 0.4s infinite;"></div>
     </div>
   </div>
 
-  <!-- Results -->
+  <!-- Single results -->
   <div id="ot-results" style="display:none;">
-    <!-- Summary bar -->
     <div id="ot-summary" style="display:flex;gap:12px;margin-bottom:1rem;flex-wrap:wrap;"></div>
-
-    <!-- Contacts grid -->
     <div id="ot-contacts" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;"></div>
-
-    <!-- Scraped emails table -->
     <div id="ot-emails-section" style="display:none;margin-top:1.5rem;">
       <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">📧 Scraped emails</div>
       <div class="card">
@@ -1403,6 +1443,121 @@ tr:hover td{background:var(--bg3);}
         </table></div>
       </div>
     </div>
+  </div>
+</div>
+
+
+<!-- ══ DOMAINS DATABASE ══ -->
+<div id="p-domains" class="page">
+  <div class="page-top">
+    <div class="page-title">🗄 Domains Database</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-ghost" onclick="exportDomainsCSV()" style="font-size:12px;">⬇ Export CSV</button>
+      <button class="btn-sm" onclick="openDomainModal()" style="width:auto;">+ Add domain</button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters" style="margin-bottom:12px;">
+    <input id="dom-search" placeholder="Search domain, email..." oninput="renderDomainsPage()" style="flex:2;margin-bottom:0;font-size:12px;padding:7px 10px;"/>
+    <select id="dom-filter-status" onchange="renderDomainsPage()" style="margin-bottom:0;font-size:12px;padding:7px 10px;">
+      <option value="">All statuses</option>
+      <option value="valid">✅ Valid email</option>
+      <option value="risky">⚠️ Risky</option>
+      <option value="unknown">❓ Unknown</option>
+      <option value="no-email">— No email</option>
+    </select>
+    <select id="dom-filter-proj" onchange="renderDomainsPage()" style="margin-bottom:0;font-size:12px;padding:7px 10px;">
+      <option value="">All projects</option>
+    </select>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="dom-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.25rem;"></div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th style="cursor:pointer;" onclick="toggleDomSort('domain')">Domain <span id="dom-sort-domain">↓</span></th>
+        <th style="cursor:pointer;" onclick="toggleDomSort('dr')">DR <span id="dom-sort-dr"></span></th>
+        <th style="cursor:pointer;" onclick="toggleDomSort('traffic')">Traffic <span id="dom-sort-traffic"></span></th>
+        <th>Email</th>
+        <th>Email status</th>
+        <th>Contact name</th>
+        <th>Position</th>
+        <th>Project</th>
+        <th>Notes</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="dom-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══ DOMAIN MODAL ══ -->
+<div id="dom-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:600;align-items:center;justify-content:center;" onclick="if(event.target===this)closeDomainModal()">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:560px;max-width:96vw;max-height:90vh;overflow-y:auto;padding:1.5rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+      <div style="font-size:16px;font-weight:800;color:var(--text);" id="dom-modal-title">Add domain</div>
+      <button onclick="closeDomainModal()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text2);cursor:pointer;">✕</button>
+    </div>
+
+    <input type="hidden" id="dom-edit-id"/>
+
+    <div class="form-grid" style="margin-bottom:0;">
+      <div>
+        <div class="section-label">Domain *</div>
+        <input id="dom-f-domain" placeholder="example.com" style="margin-bottom:12px;"/>
+      </div>
+      <div>
+        <div class="section-label">Project</div>
+        <select id="dom-f-proj" style="margin-bottom:12px;"><option value="">— none —</option></select>
+      </div>
+      <div>
+        <div class="section-label">DR</div>
+        <input id="dom-f-dr" type="number" placeholder="0-100" style="margin-bottom:12px;"/>
+      </div>
+      <div>
+        <div class="section-label">Traffic</div>
+        <input id="dom-f-traffic" type="number" placeholder="monthly organic" style="margin-bottom:12px;"/>
+      </div>
+      <div>
+        <div class="section-label">Contact email</div>
+        <input id="dom-f-email" placeholder="name@example.com" style="margin-bottom:12px;"/>
+      </div>
+      <div>
+        <div class="section-label">Email status</div>
+        <select id="dom-f-smtp" style="margin-bottom:12px;">
+          <option value="unknown">❓ Unknown</option>
+          <option value="valid">✅ Valid</option>
+          <option value="risky">⚠️ Risky</option>
+          <option value="invalid">❌ Invalid</option>
+        </select>
+      </div>
+      <div>
+        <div class="section-label">Contact first name</div>
+        <input id="dom-f-fname" placeholder="e.g. John" style="margin-bottom:12px;"/>
+      </div>
+      <div>
+        <div class="section-label">Contact last name</div>
+        <input id="dom-f-lname" placeholder="e.g. Smith" style="margin-bottom:12px;"/>
+      </div>
+    </div>
+    <div>
+      <div class="section-label">Position / Role</div>
+      <input id="dom-f-position" placeholder="e.g. SEO Manager" style="margin-bottom:12px;"/>
+    </div>
+    <div>
+      <div class="section-label">Notes</div>
+      <input id="dom-f-notes" placeholder="optional" style="margin-bottom:14px;"/>
+    </div>
+
+    <div style="display:flex;gap:8px;">
+      <button class="btn" onclick="saveDomain()" style="flex:1;">Save →</button>
+      <button class="btn-ghost" onclick="closeDomainModal()">Cancel</button>
+    </div>
+    <div id="dom-modal-err" style="display:none;margin-top:10px;font-size:12px;color:var(--red);"></div>
   </div>
 </div>
 
@@ -1430,7 +1585,7 @@ const db = firebase.firestore();
 let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik']; // fallback, updated from Firestore
 const CATEGORIES=['SaaS','Service','Blog/Magazine','News','Agency','Other'];
 
-let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[], allLoads=[];
+let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[], allLoads=[], allDomains=[];
 let catDetectTimer=null, currentDetectedCategory='', catDetectAbort=false;
 
 // ─── AUTH ─────────────────────────────────────────────────
@@ -1588,7 +1743,7 @@ function startApp(){
     BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;fb.appendChild(o);});
   }
 
-  listenBuilders();listenCapacities();listenLoads();listenKPITargets();listenProjects();listenLinks();listenReqs();listenQualityReqs();
+  listenBuilders();listenCapacities();listenLoads();listenKPITargets();listenProjects();listenLinks();listenReqs();listenQualityReqs();listenDomains();
   renderCatButtons('');
 
   if(isAdmin){
@@ -1979,6 +2134,10 @@ function gotoPage(name,el){
   if(name==='anchors')initAnchors();
   if(name==='online')initOnlinePage();
   if(name==='capacity'){listenCapacities();renderCapacityList();}
+  if(name==='domains')initDomainsPage();
+  if(name==='outreach'){
+    // populate project selects if needed
+  }
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
 
@@ -3633,6 +3792,8 @@ function renderScrapedEmails(data, domain){
       <td>
         <button onclick="navigator.clipboard.writeText('${e.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);"
           class="btn-ghost" style="font-size:11px;padding:3px 10px;">Copy</button>
+        <button onclick="saveContactToDB({domain:'${domain}', email:'${e.email}', smtp:'${e.smtp||'unknown'}', firstName:'', lastName:'', position:'Scraped'})"
+          class="btn-ghost" style="font-size:11px;padding:3px 10px;color:var(--teal);">💾 Save</button>
       </td>
     </tr>`).join('');
 }
@@ -3643,6 +3804,194 @@ function composeOutreach(firstName, email, domain){
   const body = `Hi ${firstName},\n\nI came across ${domain} and think there's a great opportunity for us to collaborate on some link building.\n\nWould you be open to a quick chat?\n\nBest regards`;
   const gmail = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   window.open(gmail, '_blank');
+}
+
+
+
+async function saveContactToDB(data){
+  if(!data) return;
+  const domain = (data.domain||'').replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').trim();
+  if(!domain) return;
+
+  // Check if already exists
+  const existing = allDomains.find(d=>d.domain===domain && d.email===data.email && data.email);
+  if(existing){
+    showToast('Already in DB: '+domain, 'warn');
+    return;
+  }
+
+  const doc = {
+    domain,
+    email: data.email||'',
+    smtp: data.smtp||'unknown',
+    firstName: data.firstName||'',
+    lastName: data.lastName||'',
+    position: data.position||'',
+    dr:'', traffic:'', project:'', notes:'',
+    addedBy: cu?.name||cu?.email||'',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  await db.collection('domains').add(doc);
+  showToast('✅ Saved: '+(data.email||domain), 'ok');
+}
+
+function showToast(msg, type='ok'){
+  const existing = document.getElementById('app-toast');
+  if(existing) existing.remove();
+  const t = document.createElement('div');
+  t.id = 'app-toast';
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;animation:fadeSlideIn 0.2s ease;box-shadow:0 4px 20px rgba(0,0,0,0.3);
+    background:${type==='ok'?'rgba(0,196,174,0.15)':type==='warn'?'rgba(240,165,0,0.15)':'rgba(255,95,95,0.15)'};
+    border:1px solid ${type==='ok'?'rgba(0,196,174,0.4)':type==='warn'?'rgba(240,165,0,0.4)':'rgba(255,95,95,0.4)'};
+    color:${type==='ok'?'var(--teal)':type==='warn'?'var(--yellow)':'var(--red)'};`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 3000);
+}
+
+// ─── OUTREACH BULK + EXPORT ───────────────────────────────
+let allOutreachData = []; // accumulated results for export
+
+function setOtTab(tab){
+  document.getElementById('ot-single-panel').style.display = tab==='single'?'block':'none';
+  document.getElementById('ot-bulk-panel').style.display = tab==='bulk'?'block':'none';
+  document.getElementById('ot-results').style.display = 'none';
+  document.getElementById('ot-bulk-results').style.display = 'none';
+  document.getElementById('ot-tab-single').className = tab==='single'?'status-tab active-all':'status-tab';
+  document.getElementById('ot-tab-bulk').className = tab==='bulk'?'status-tab active-all':'status-tab';
+  document.getElementById('ot-export-btn').style.display = 'none';
+}
+
+async function runBulkOutreach(action='prospects'){
+  const raw = document.getElementById('ot-bulk-input').value.trim();
+  if(!raw){ document.getElementById('ot-bulk-error').style.display='block'; document.getElementById('ot-bulk-error').textContent='Enter at least one domain'; return; }
+  document.getElementById('ot-bulk-error').style.display='none';
+
+  const domains = raw.split(/[\n,;]+/).map(d=>d.trim().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').trim()).filter(Boolean);
+  if(!domains.length) return;
+
+  allOutreachData = [];
+  document.getElementById('ot-bulk-results').style.display='none';
+  document.getElementById('ot-bulk-tbody').innerHTML='';
+  document.getElementById('ot-loading').style.display='block';
+
+  const prog = document.getElementById('ot-bulk-progress');
+  const loadText = document.getElementById('ot-loading-text');
+
+  for(let i=0; i<domains.length; i++){
+    const domain = domains[i];
+    loadText.textContent = `🔍 Searching ${domain} (${i+1}/${domains.length})...`;
+    prog.textContent = `${i+1}/${domains.length}`;
+
+    try {
+      const resp = await fetch('/api/snov',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({domain, action})
+      });
+      const data = await resp.json();
+
+      if(action==='prospects' && data.prospects){
+        for(const p of data.prospects){
+          allOutreachData.push({
+            domain, firstName:p.first_name||'', lastName:p.last_name||'',
+            position:p.position||'', email:p.email||'', smtp:p.smtp||'unknown',
+            score:p._score||0, type:'linkedin'
+          });
+        }
+      } else if(action==='scrape' && data.emails){
+        for(const e of data.emails){
+          allOutreachData.push({
+            domain, firstName:'', lastName:'', position:'Scraped',
+            email:e.email, smtp:e.smtp||'unknown', score:0, type:'scraped'
+          });
+        }
+      }
+
+      // Append to table immediately
+      renderBulkRow(domain, data, action);
+
+    } catch(e){
+      appendBulkError(domain, e.message);
+    }
+  }
+
+  document.getElementById('ot-loading').style.display='none';
+  document.getElementById('ot-bulk-results').style.display='block';
+  document.getElementById('ot-export-btn').style.display='block';
+  document.getElementById('ot-bulk-count').textContent =
+    `${allOutreachData.length} contacts found across ${domains.length} domains`;
+}
+
+function renderBulkRow(domain, data, action){
+  const tb = document.getElementById('ot-bulk-tbody');
+  if(action==='prospects'){
+    const prospects = (data.prospects||[]).filter(p=>p.email||p.first_name);
+    if(!prospects.length){
+      tb.innerHTML += `<tr style="background:rgba(255,95,95,0.03);">
+        <td style="color:var(--teal);font-weight:600;">${domain}</td>
+        <td colspan="5" style="color:var(--text3);font-size:12px;">No contacts found</td>
+        <td></td></tr>`;
+      return;
+    }
+    prospects.forEach(p=>{
+      const rs = roleScoreInfo(p.position);
+      tb.innerHTML += `<tr>
+        <td style="color:var(--teal);font-weight:600;font-size:12px;">${domain}</td>
+        <td style="font-weight:600;">${p.first_name||''} ${p.last_name||''}</td>
+        <td style="font-size:11px;color:${rs.color};">${p.position||'—'}</td>
+        <td style="font-weight:600;color:var(--teal);font-size:12px;">${p.email||'<span style="color:var(--text3);">—</span>'}</td>
+        <td>${p.email?smtpBadge(p.smtp||'unknown'):''}</td>
+        <td style="text-align:center;">${rs.stars}</td>
+        <td style="white-space:nowrap;">
+          ${p.email?`<button onclick="navigator.clipboard.writeText('${p.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>`:''}
+          <a href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent((p.first_name||'')+' '+(p.last_name||'')+' '+domain)}" target="_blank" class="btn-ghost" style="font-size:10px;padding:2px 8px;text-decoration:none;">LI</a>
+          <button onclick="saveContactToDB(${JSON.stringify({domain, email:p.email||'', smtp:p.smtp||'unknown', firstName:p.first_name||'', lastName:p.last_name||'', position:p.position||''}).replace(/"/g,'&quot;')})" 
+            class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾</button>
+        </td></tr>\`;
+    });
+  } else {
+    (data.emails||[]).forEach(e=>{
+      tb.innerHTML += `<tr>
+        <td style="color:var(--teal);font-weight:600;font-size:12px;">${domain}</td>
+        <td colspan="2" style="color:var(--text3);font-size:11px;">Scraped</td>
+        <td style="font-weight:600;color:var(--teal);font-size:12px;">${e.email}</td>
+        <td>${smtpBadge(e.smtp||'unknown')}</td>
+        <td>—</td>
+        <td><button onclick="navigator.clipboard.writeText('${e.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button></td>
+      </tr>`;
+    });
+  }
+}
+
+function appendBulkError(domain, msg){
+  document.getElementById('ot-bulk-tbody').innerHTML +=
+    `<tr><td style="color:var(--teal);">${domain}</td><td colspan="6" style="color:var(--red);font-size:11px;">⚠️ ${msg.slice(0,60)}</td></tr>`;
+}
+
+function roleScoreInfo(pos){
+  const p=(pos||'').toLowerCase();
+  if(p.includes('link build')||p.includes('backlink')) return{color:'#00e5ff',stars:'⭐⭐⭐'};
+  if(p.includes('outreach')) return{color:'#00c9b0',stars:'⭐⭐⭐'};
+  if(p.includes('off-page')) return{color:'#7c4dff',stars:'⭐⭐⭐'};
+  if(p.includes('seo')) return{color:'#76ff03',stars:'⭐⭐'};
+  if(p.includes('pr')) return{color:'#00bcd4',stars:'⭐⭐'};
+  return{color:'var(--text2)',stars:'⭐'};
+}
+
+function exportOutreachCSV(){
+  if(!allOutreachData.length){ alert('No data to export'); return; }
+  const headers = ['Domain','First Name','Last Name','Position','Email','Email Status','Score','Type'];
+  const rows = allOutreachData.map(r=>[
+    r.domain, r.firstName, r.lastName, r.position,
+    r.email, r.smtp, r.score, r.type
+  ].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'outreach_contacts_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
 }
 
 // ─── ONLINE TRACKING ──────────────────────────────────────
@@ -5048,6 +5397,161 @@ function listenReqs(){
     if(document.getElementById('p-anchors')?.classList.contains('active'))renderAnchors();
   });
 }
+// ─── DOMAINS DATABASE ─────────────────────────────────────
+let domSortField = 'domain', domSortDir = 'asc';
+
+function listenDomains(){
+  db.collection('domains').orderBy('createdAt','desc').onSnapshot(snap=>{
+    allDomains = snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(document.getElementById('p-domains')?.classList.contains('active')) renderDomainsPage();
+  });
+}
+
+function initDomainsPage(){
+  const pf = document.getElementById('dom-filter-proj');
+  if(pf){
+    const cur=pf.value;
+    pf.innerHTML='<option value="">All projects</option>';
+    allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;pf.appendChild(o);});
+    if(cur)pf.value=cur;
+  }
+  renderDomainsPage();
+}
+
+function toggleDomSort(field){
+  if(domSortField===field)domSortDir=domSortDir==='asc'?'desc':'asc';
+  else{domSortField=field;domSortDir='asc';}
+  ['domain','dr','traffic'].forEach(f=>{
+    const el=document.getElementById('dom-sort-'+f);
+    if(el)el.textContent=domSortField===f?(domSortDir==='asc'?'↑':'↓'):'';
+  });
+  renderDomainsPage();
+}
+
+function renderDomainsPage(){
+  const s=(document.getElementById('dom-search')?.value||'').toLowerCase();
+  const st=document.getElementById('dom-filter-status')?.value||'';
+  const proj=document.getElementById('dom-filter-proj')?.value||'';
+
+  let fl=allDomains.filter(d=>{
+    if(s&&!(d.domain||'').toLowerCase().includes(s)&&!(d.email||'').toLowerCase().includes(s)&&
+      !(d.firstName||'').toLowerCase().includes(s)&&!(d.lastName||'').toLowerCase().includes(s))return false;
+    if(proj&&d.project!==proj)return false;
+    if(st==='no-email'&&d.email)return false;
+    if(st&&st!=='no-email'&&d.smtp!==st)return false;
+    return true;
+  });
+
+  fl.sort((a,b)=>{
+    let av,bv;
+    if(domSortField==='dr'){av=parseFloat(a.dr)||0;bv=parseFloat(b.dr)||0;}
+    else if(domSortField==='traffic'){av=parseFloat(String(a.traffic||'').replace(/,/g,''))||0;bv=parseFloat(String(b.traffic||'').replace(/,/g,''))||0;}
+    else{av=(a.domain||'').toLowerCase();bv=(b.domain||'').toLowerCase();}
+    if(av<bv)return domSortDir==='asc'?-1:1;
+    if(av>bv)return domSortDir==='asc'?1:-1;
+    return 0;
+  });
+
+  const withEmail=allDomains.filter(d=>d.email).length;
+  const verified=allDomains.filter(d=>d.smtp==='valid').length;
+  const domStats=document.getElementById('dom-stats');
+  if(domStats)domStats.innerHTML=`
+    <div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--teal)">${allDomains.length}</div></div>
+    <div class="stat"><div class="stat-l">With email</div><div class="stat-v" style="color:var(--teal)">${withEmail}</div></div>
+    <div class="stat"><div class="stat-l">Verified ✅</div><div class="stat-v" style="color:#00e676">${verified}</div></div>
+    <div class="stat"><div class="stat-l">Showing</div><div class="stat-v" style="color:var(--text2)">${fl.length}</div></div>`;
+
+  const tb=document.getElementById('dom-tbody');
+  if(!tb)return;
+  if(!fl.length){tb.innerHTML='<tr><td colspan="10" class="loading">No domains yet. Click "+ Add domain" or save from Outreach.</td></tr>';return;}
+
+  const isAdm=cu?.role==='admin';
+  tb.innerHTML=fl.map(d=>{
+    const smtpHtml=d.smtp?smtpBadge(d.smtp):'<span style="color:var(--text3);">—</span>';
+    const trafficV=d.traffic?Number(String(d.traffic).replace(/,/g,'')).toLocaleString():'—';
+    return`<tr class="link-row">
+      <td style="font-weight:600;"><a href="https://${d.domain}" target="_blank" style="color:var(--teal);text-decoration:none;">${d.domain}</a></td>
+      <td style="text-align:center;">${d.dr||'—'}</td>
+      <td style="text-align:right;">${trafficV}</td>
+      <td style="font-size:12px;">${d.email||'<span style="color:var(--text3);">—</span>'}
+        ${d.email?`<button onclick="navigator.clipboard.writeText('${d.email}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1500);" style="background:none;border:none;cursor:pointer;font-size:11px;margin-left:4px;">📋</button>`:''}
+      </td>
+      <td>${smtpHtml}</td>
+      <td style="font-size:12px;">${[d.firstName,d.lastName].filter(Boolean).join(' ')||'—'}</td>
+      <td style="font-size:11px;color:var(--text2);">${d.position||'—'}</td>
+      <td style="font-size:11px;">${d.project||'—'}</td>
+      <td style="font-size:11px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;">${d.addedBy||'—'}</td>
+      <td style="white-space:nowrap;">
+        ${isAdm?`<button class="btn-ghost" style="font-size:11px;padding:2px 8px;margin-right:4px;" onclick="openDomainModal('${d.id}')">Edit</button>
+        <button class="btn-danger" style="font-size:11px;padding:2px 8px;" onclick="deleteDomain('${d.id}','${d.domain}')">✕</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openDomainModal(id){
+  const d=id?allDomains.find(x=>x.id===id):null;
+  document.getElementById('dom-modal-title').textContent=d?'Edit domain':'Add domain';
+  document.getElementById('dom-edit-id').value=id||'';
+  document.getElementById('dom-f-domain').value=d?.domain||'';
+  document.getElementById('dom-f-dr').value=d?.dr||'';
+  document.getElementById('dom-f-traffic').value=d?.traffic||'';
+  document.getElementById('dom-f-email').value=d?.email||'';
+  document.getElementById('dom-f-smtp').value=d?.smtp||'unknown';
+  document.getElementById('dom-f-fname').value=d?.firstName||'';
+  document.getElementById('dom-f-lname').value=d?.lastName||'';
+  document.getElementById('dom-f-position').value=d?.position||'';
+  document.getElementById('dom-f-notes').value=d?.notes||'';
+  document.getElementById('dom-modal-err').style.display='none';
+  const ps=document.getElementById('dom-f-proj');
+  ps.innerHTML='<option value="">— none —</option>';
+  allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;ps.appendChild(o);});
+  if(d?.project)ps.value=d.project;
+  document.getElementById('dom-modal-overlay').style.display='flex';
+}
+
+function closeDomainModal(){
+  document.getElementById('dom-modal-overlay').style.display='none';
+}
+
+async function saveDomain(){
+  const domain=(document.getElementById('dom-f-domain').value||'').trim()
+    .replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').trim();
+  if(!domain){document.getElementById('dom-modal-err').style.display='block';document.getElementById('dom-modal-err').textContent='Domain is required';return;}
+  const id=document.getElementById('dom-edit-id').value;
+  const data={
+    domain, dr:document.getElementById('dom-f-dr').value||'',
+    traffic:document.getElementById('dom-f-traffic').value||'',
+    email:document.getElementById('dom-f-email').value.trim()||'',
+    smtp:document.getElementById('dom-f-smtp').value||'unknown',
+    firstName:document.getElementById('dom-f-fname').value.trim()||'',
+    lastName:document.getElementById('dom-f-lname').value.trim()||'',
+    position:document.getElementById('dom-f-position').value.trim()||'',
+    project:document.getElementById('dom-f-proj').value||'',
+    notes:document.getElementById('dom-f-notes').value.trim()||'',
+    addedBy:cu?.name||cu?.email||'',
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
+  if(id)await db.collection('domains').doc(id).update(data);
+  else{data.createdAt=firebase.firestore.FieldValue.serverTimestamp();await db.collection('domains').add(data);}
+  closeDomainModal();
+}
+
+async function deleteDomain(id,domain){
+  if(!confirm('Delete "'+domain+'"?'))return;
+  await db.collection('domains').doc(id).delete();
+}
+
+function exportDomainsCSV(){
+  const h=['Domain','DR','Traffic','Email','Email Status','First Name','Last Name','Position','Project','Added By','Notes'];
+  const rows=allDomains.map(d=>[d.domain,d.dr,d.traffic,d.email,d.smtp,d.firstName,d.lastName,d.position,d.project,d.addedBy,d.notes]
+    .map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
+  a.download='domains_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
 // ─── DRAG & DROP ──────────────────────────────────────────
 const reqDropEl=document.getElementById('req-imp-drop');
 if(reqDropEl){
