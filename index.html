@@ -1252,24 +1252,7 @@ tr:hover td{background:var(--bg3);}
   </div>
   <div class="filters" style="gap:6px;margin-bottom:8px;">
     <input id="bl-s" placeholder="Search domain, anchor..." oninput="renderBuilderLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
-    <select id="bl-month" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;">
-      <option value="">All time</option>
-      <option value="January 2026">Jan 2026</option><option value="February 2026">Feb 2026</option>
-      <option value="March 2026">Mar 2026</option><option value="April 2026">Apr 2026</option>
-      <option value="May 2026">May 2026</option><option value="June 2026">Jun 2026</option>
-      <option value="July 2026">Jul 2026</option><option value="August 2026">Aug 2026</option>
-      <option value="September 2026">Sep 2026</option><option value="October 2026">Oct 2026</option>
-      <option value="November 2026">Nov 2026</option><option value="December 2026">Dec 2026</option>
-      <option value="January 2025">Jan 2025</option><option value="February 2025">Feb 2025</option>
-      <option value="March 2025">Mar 2025</option><option value="April 2025">Apr 2025</option>
-      <option value="May 2025">May 2025</option><option value="June 2025">Jun 2025</option>
-      <option value="July 2025">Jul 2025</option><option value="August 2025">Aug 2025</option>
-      <option value="September 2025">Sep 2025</option><option value="October 2025">Oct 2025</option>
-      <option value="November 2025">Nov 2025</option><option value="December 2025">Dec 2025</option>
-      <option value="January 2024">Jan 2024</option><option value="February 2024">Feb 2024</option>
-      <option value="March 2024">Mar 2024</option><option value="April 2024">Apr 2024</option>
-      <option value="May 2024">May 2024</option><option value="June 2024">Jun 2024</option>
-    </select>
+    <select id="bl-month" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All time</option></select>
     <select id="bl-p" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All projects</option></select>
   </div>
   <div class="card">
@@ -1895,6 +1878,16 @@ function gotoPage(name,el){
   if(name==='projects')renderProjectsPage();
   if(name==='b-dashboard')renderBuilderDashboard();
   if(name==='b-links'){
+    // Populate month options dynamically from allLinks
+    const blMonthSel = document.getElementById('bl-month');
+    if(blMonthSel && blMonthSel.options.length <= 1){
+      const months = [...new Set(allLinks.filter(l=>l.builder===(cu.name||cu.email)||l.builder===cu.name).map(l=>getMonthKey(l.date)).filter(m=>m&&m!=='Unknown'))];
+      months.sort((a,b)=>{
+        const [am,ay]=a.split(' '); const [bm,by_]=b.split(' ');
+        return (parseInt(by_)-parseInt(ay))||MONTHS_EN.indexOf(bm)-MONTHS_EN.indexOf(am);
+      });
+      months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;blMonthSel.appendChild(o);});
+    }
     renderBuilderLinks();
   }
   if(name==='load')initLoadPage();
