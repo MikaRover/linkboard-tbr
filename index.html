@@ -482,6 +482,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('kpi',this)">🏆 KPI</div>
   <div class="nav adm" onclick="gotoPage('analytics',this)">📈 Analytics</div>
   <div class="nav adm" onclick="gotoPage('online',this)">🟢 Online</div>
+  <div class="nav adm" onclick="gotoPage('outreach',this)">🎯 Outreach</div>
   <div class="nav adm" onclick="gotoPage('load',this)">📊 Load</div>
   <div class="nav adm" onclick="gotoPage('capacity',this)">⚡ Capacity</div>
   <!-- BUILDER NAV -->
@@ -1341,6 +1342,66 @@ tr:hover td{background:var(--bg3);}
     <div id="prospect-error" style="display:none;padding:12px;background:rgba(255,107,107,0.1);border-radius:8px;color:#ff6b6b;font-size:13px;margin-bottom:12px;"></div>
     <div id="prospect-results" style="display:none;">
       <div id="prospect-suggestions" style="display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ OUTREACH / CONTACT FINDER ══ -->
+<div id="p-outreach" class="page">
+  <div class="page-top">
+    <div>
+      <div class="page-title">🎯 Outreach Finder</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Find SEO & link building contacts via Snov.io + LinkedIn</div>
+    </div>
+  </div>
+
+  <!-- Search bar -->
+  <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
+    <div class="card-body">
+      <div style="display:flex;gap:10px;align-items:flex-end;">
+        <div style="flex:1;">
+          <div class="section-label">Website domain</div>
+          <input id="ot-domain" placeholder="e.g. ahrefs.com" style="margin:0;" onkeydown="if(event.key==='Enter')runOutreach()"/>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button class="btn-sm" onclick="runOutreach('prospects')" style="width:auto;padding:10px 18px;">🔍 Find contacts</button>
+          <button class="btn-ghost" onclick="runOutreach('scrape')" style="white-space:nowrap;padding:10px 14px;">🌐 Scrape emails</button>
+        </div>
+      </div>
+      <div id="ot-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
+    </div>
+  </div>
+
+  <!-- Loading state -->
+  <div id="ot-loading" style="display:none;text-align:center;padding:3rem;color:var(--text2);">
+    <div style="font-size:32px;margin-bottom:12px;">🔍</div>
+    <div style="font-size:14px;font-weight:600;" id="ot-loading-text">Searching LinkedIn via Snov.io...</div>
+    <div style="font-size:12px;color:var(--text3);margin-top:6px;">This may take 15-25 seconds</div>
+    <div style="margin-top:16px;display:flex;justify-content:center;gap:6px;" id="ot-progress-dots">
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out infinite;"></div>
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out 0.2s infinite;"></div>
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out 0.4s infinite;"></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="ot-results" style="display:none;">
+    <!-- Summary bar -->
+    <div id="ot-summary" style="display:flex;gap:12px;margin-bottom:1rem;flex-wrap:wrap;"></div>
+
+    <!-- Contacts grid -->
+    <div id="ot-contacts" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;"></div>
+
+    <!-- Scraped emails table -->
+    <div id="ot-emails-section" style="display:none;margin-top:1.5rem;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">📧 Scraped emails</div>
+      <div class="card">
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Email</th><th>Status</th><th></th></tr></thead>
+          <tbody id="ot-emails-tbody"></tbody>
+        </table></div>
+      </div>
     </div>
   </div>
 </div>
@@ -3409,6 +3470,179 @@ async function doResetPassword(){
     document.getElementById('lerr').style.display='block';
     document.getElementById('lerr').textContent='Error: '+e.message;
   }
+}
+
+
+// ─── OUTREACH FINDER ──────────────────────────────────────
+async function runOutreach(action = 'prospects'){
+  const domain = (document.getElementById('ot-domain').value||'').trim()
+    .replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').trim();
+
+  if(!domain){ document.getElementById('ot-error').style.display='block'; document.getElementById('ot-error').textContent='Enter a domain first'; return; }
+
+  document.getElementById('ot-error').style.display='none';
+  document.getElementById('ot-loading').style.display='block';
+  document.getElementById('ot-results').style.display='none';
+
+  const loadingText = document.getElementById('ot-loading-text');
+  const steps = action==='prospects'
+    ? ['Connecting to Snov.io...','Searching LinkedIn profiles...','Resolving email addresses...','Verifying emails...']
+    : ['Connecting to Snov.io...','Scraping contact pages...','Verifying found emails...'];
+
+  let stepIdx = 0;
+  const stepTimer = setInterval(()=>{
+    if(stepIdx < steps.length){ loadingText.textContent = steps[stepIdx++]; }
+  }, 5000);
+
+  try {
+    const resp = await fetch('/api/snov', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ domain, action })
+    });
+    const data = await resp.json();
+    clearInterval(stepTimer);
+    document.getElementById('ot-loading').style.display='none';
+
+    if(data.error){ document.getElementById('ot-error').style.display='block'; document.getElementById('ot-error').textContent='⚠️ '+data.error; return; }
+
+    document.getElementById('ot-results').style.display='block';
+
+    if(action==='prospects') renderProspects(data, domain);
+    else renderScrapedEmails(data, domain);
+
+  } catch(e){
+    clearInterval(stepTimer);
+    document.getElementById('ot-loading').style.display='none';
+    document.getElementById('ot-error').style.display='block';
+    document.getElementById('ot-error').textContent='⚠️ Error: '+e.message;
+  }
+}
+
+function smtpBadge(smtp){
+  const map = {
+    valid: {bg:'rgba(0,196,174,0.12)',color:'#00c9b0',icon:'✅',label:'Valid'},
+    risky: {bg:'rgba(240,165,0,0.1)',color:'#f0a500',icon:'⚠️',label:'Risky'},
+    invalid: {bg:'rgba(255,95,95,0.1)',color:'var(--red)',icon:'❌',label:'Invalid'},
+    unknown: {bg:'var(--bg4)',color:'var(--text3)',icon:'❓',label:'Unknown'},
+    unverifiable: {bg:'var(--bg4)',color:'var(--text3)',icon:'—',label:'Unverifiable'}
+  };
+  const s = map[smtp]||map.unknown;
+  return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;background:${s.bg};color:${s.color};">${s.icon} ${s.label}</span>`;
+}
+
+function roleScore(pos){
+  const p=(pos||'').toLowerCase();
+  if(p.includes('link build')||p.includes('backlink'))return{color:'#00e5ff',rank:'⭐⭐⭐'};
+  if(p.includes('outreach'))return{color:'#00c9b0',rank:'⭐⭐⭐'};
+  if(p.includes('off-page')||p.includes('offpage'))return{color:'#7c4dff',rank:'⭐⭐⭐'};
+  if(p.includes('seo'))return{color:'#76ff03',rank:'⭐⭐'};
+  if(p.includes('pr'))return{color:'#00bcd4',rank:'⭐⭐'};
+  if(p.includes('content')||p.includes('marketing'))return{color:'#ffeb3b',rank:'⭐'};
+  return{color:'var(--text2)',rank:'⭐'};
+}
+
+function renderProspects(data, domain){
+  const prospects = data.prospects||[];
+  const withEmail = prospects.filter(p=>p.email&&p.smtp!=='invalid');
+  const verified = prospects.filter(p=>p.smtp==='valid');
+
+  // Summary
+  document.getElementById('ot-summary').innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;font-weight:800;color:var(--teal);">${prospects.length}</div>
+      <div style="font-size:11px;color:var(--text2);">Contacts found</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;font-weight:800;color:#00c9b0;">${withEmail.length}</div>
+      <div style="font-size:11px;color:var(--text2);">With email</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;font-weight:800;color:#00e676;">${verified.length}</div>
+      <div style="font-size:11px;color:var(--text2);">Verified ✅</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:14px;font-weight:700;color:var(--teal);">${domain}</div>
+      <div style="font-size:11px;color:var(--text2);">searched</div>
+    </div>`;
+
+  if(!prospects.length){
+    document.getElementById('ot-contacts').innerHTML = '<div style="color:var(--text2);font-size:13px;padding:1rem 0;grid-column:1/-1;">No contacts found. Try "Scrape emails" instead.</div>';
+    return;
+  }
+
+  document.getElementById('ot-contacts').innerHTML = prospects.map(p=>{
+    const rs = roleScore(p.position);
+    const hasEmail = p.email && p.smtp !== 'invalid';
+    const linkedinUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(p.first_name+' '+p.last_name+' '+domain)}`;
+    return `<div style="background:var(--bg2);border:1px solid ${hasEmail?'rgba(0,196,174,0.2)':'var(--border)'};border-radius:12px;padding:14px;transition:all 0.15s;position:relative;overflow:hidden;">
+      ${hasEmail?`<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--teal),transparent);"></div>`:''}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+        <div>
+          <div style="font-size:14px;font-weight:800;color:var(--text);">${p.first_name||''} ${p.last_name||''}</div>
+          <div style="font-size:11px;color:${rs.color};margin-top:2px;font-weight:600;">${p.position||'—'}</div>
+        </div>
+        <div style="font-size:14px;">${rs.rank}</div>
+      </div>
+
+      ${hasEmail?`
+      <div style="background:var(--bg3);border:1px solid rgba(0,196,174,0.15);border-radius:8px;padding:8px 10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--teal);">${p.email}</div>
+          <div style="margin-top:3px;">${smtpBadge(p.smtp)}</div>
+        </div>
+        <button onclick="navigator.clipboard.writeText('${p.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);"
+          class="btn-ghost" style="font-size:11px;padding:4px 10px;white-space:nowrap;">Copy</button>
+      </div>`:`
+      <div style="background:var(--bg4);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:var(--text3);">No email found</div>`}
+
+      <div style="display:flex;gap:6px;">
+        <a href="${linkedinUrl}" target="_blank" class="btn-ghost" style="flex:1;text-align:center;font-size:11px;padding:6px;text-decoration:none;display:block;">
+          <span style="font-size:14px;">💼</span> LinkedIn
+        </a>
+        ${hasEmail?`<button onclick="composeOutreach('${p.first_name}','${p.email}','${domain}')" class="btn-sm" style="flex:1;font-size:11px;padding:6px;">
+          ✉️ Template
+        </button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('ot-emails-section').style.display='none';
+}
+
+function renderScrapedEmails(data, domain){
+  const emails = data.emails||[];
+  document.getElementById('ot-summary').innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;font-weight:800;color:var(--teal);">${emails.length}</div>
+      <div style="font-size:11px;color:var(--text2);">Emails scraped from ${domain}</div>
+    </div>`;
+
+  document.getElementById('ot-contacts').innerHTML = '';
+  document.getElementById('ot-emails-section').style.display = emails.length ? 'block' : 'none';
+
+  if(!emails.length){
+    document.getElementById('ot-contacts').innerHTML = '<div style="color:var(--text2);font-size:13px;padding:1rem 0;grid-column:1/-1;">No emails found on website. Try "Find contacts" instead.</div>';
+    return;
+  }
+
+  document.getElementById('ot-emails-tbody').innerHTML = emails.map(e=>`
+    <tr>
+      <td style="font-weight:600;color:var(--teal);">${e.email}</td>
+      <td>${smtpBadge(e.smtp)}</td>
+      <td>
+        <button onclick="navigator.clipboard.writeText('${e.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);"
+          class="btn-ghost" style="font-size:11px;padding:3px 10px;">Copy</button>
+      </td>
+    </tr>`).join('');
+}
+
+// Quick outreach email template modal
+function composeOutreach(firstName, email, domain){
+  const subject = `Link building collaboration — ${domain}`;
+  const body = `Hi ${firstName},\n\nI came across ${domain} and think there's a great opportunity for us to collaborate on some link building.\n\nWould you be open to a quick chat?\n\nBest regards`;
+  const gmail = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(gmail, '_blank');
 }
 
 // ─── ONLINE TRACKING ──────────────────────────────────────
