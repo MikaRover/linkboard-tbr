@@ -739,11 +739,16 @@ tr:hover td{background:var(--bg3);}
 
         <div class="form-grid">
           <div><label>Project</label><select id="r-proj"><option value="">Select</option></select></div>
-          <div><label>Month</label><select id="r-month">
-            <option>January</option><option>February</option><option>March</option><option>April</option>
-            <option>May</option><option>June</option><option>July</option><option>August</option>
-            <option>September</option><option>October</option><option>November</option><option>December</option>
-          </select></div>
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
+            <div><label>Month</label><select id="r-month" style="margin-bottom:0;">
+              <option>January</option><option>February</option><option>March</option><option>April</option>
+              <option>May</option><option>June</option><option>July</option><option>August</option>
+              <option>September</option><option>October</option><option>November</option><option>December</option>
+            </select></div>
+            <div><label>Year</label><select id="r-year" style="margin-bottom:0;">
+              <option>2024</option><option>2025</option><option selected>2026</option><option>2027</option>
+            </select></div>
+          </div>
         </div>
         <label>Anchor text</label><input id="r-anchor" placeholder="e.g. electronic lab notebook"/>
         <label>Target page (Link to URL)</label><input id="r-linkto" placeholder="https://example.com/page"/>
@@ -2193,11 +2198,19 @@ function onAnchorInput(){
   const proj=document.getElementById('f-proj').value;
   const el=document.getElementById('al-req');
   if(!anchor||!proj){el.style.display='none';return;}
-  const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor);
-  if(!req){el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No anchor requirement for "'+anchor+'" in '+proj;return;}
-  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor).length;
-  if(used>=req.max){el.style.display='block';el.className='alert a-dup';el.textContent='🚫 Limit reached! '+used+'/'+req.max+' for "'+anchor+'" in '+proj;}
-  else{el.style.display='block';el.className='alert a-ok';el.textContent='✅ Anchor OK — '+used+' of '+req.max+' used';}
+  const curMonth=MONTHS_EN[new Date().getMonth()];
+  const curYear=new Date().getFullYear();
+  const curMonthYear=curMonth+' '+curYear;
+  // Match "Month Year" format (new) OR just "Month" (old)
+  const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor&&(r.month===curMonthYear||r.month===curMonth));
+  if(!req){
+    const anyReq=allReqs.find(r=>r.project===proj&&r.anchor===anchor);
+    if(!anyReq){el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No anchor requirement for "'+anchor+'" in '+proj;return;}
+    el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No requirement for "'+anchor+'" in '+curMonthYear+' (set for '+anyReq.month+')';return;
+  }
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor&&l.date&&getMonthKey(l.date)===curMonthYear).length;
+  if(used>=req.max){el.style.display='block';el.className='alert a-dup';el.textContent='🚫 Limit reached! '+used+'/'+req.max+' for "'+anchor+'" ('+curMonthYear+')';}
+  else{el.style.display='block';el.className='alert a-ok';el.textContent='✅ Anchor OK — '+used+' of '+req.max+' used in '+curMonthYear;}
 }
 
 function getCheck(domain,anchor,proj){
@@ -2241,12 +2254,15 @@ async function addLink(){
     }
   }
 
-  // Anchor limit check
+  // Anchor limit check — per month+year
   const anchor_lc=anchor.toLowerCase();
-  const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor_lc);
+  const curMonthCheck=MONTHS_EN[new Date().getMonth()];
+  const curYearCheck=new Date().getFullYear();
+  const curMYCheck=curMonthCheck+' '+curYearCheck;
+  const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor_lc&&(r.month===curMYCheck||r.month===curMonthCheck));
   if(req){
-    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc).length;
-    if(used>=req.max){alert('🚫 Anchor limit reached ('+used+'/'+req.max+')');return;}
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&l.date&&getMonthKey(l.date)===curMYCheck).length;
+    if(used>=req.max){alert('🚫 Anchor limit reached ('+used+'/'+req.max+') for '+curMYCheck);return;}
   }
 
   const btn=document.querySelector('#p-add .btn');
@@ -2377,13 +2393,16 @@ async function importReqFromImage(input){
 async function addReq(){
   const proj=document.getElementById('r-proj').value;
   const month=document.getElementById('r-month').value;
+  const year=document.getElementById('r-year')?.value||String(new Date().getFullYear());
+  const monthYear=month+' '+year;
   const anchor=document.getElementById('r-anchor').value.trim().toLowerCase();
   const linkto=document.getElementById('r-linkto').value.trim();
   const max=parseInt(document.getElementById('r-max').value);
   if(!proj||!anchor||!max){alert('Fill all fields');return;}
-  const existing=allReqs.find(r=>r.project===proj&&r.month===month&&r.anchor===anchor);
+  // Store month as "Month Year" format
+  const existing=allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor);
   if(existing) await db.collection('requirements').doc(existing.id).update({max,linkto});
-  else await db.collection('requirements').add({project:proj,month,anchor,linkto,max});
+  else await db.collection('requirements').add({project:proj,month:monthYear,anchor,linkto,max});
   document.getElementById('r-anchor').value='';
   document.getElementById('r-linkto').value='';
   document.getElementById('r-max').value='';
