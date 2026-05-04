@@ -3755,13 +3755,11 @@ function renderProspects(data, domain){
       </div>`:`
       <div style="background:var(--bg4);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:var(--text3);">No email found</div>`}
 
-      <div style="display:flex;gap:6px;">
-        <a href="${linkedinUrl}" target="_blank" class="btn-ghost" style="flex:1;text-align:center;font-size:11px;padding:6px;text-decoration:none;display:block;">
-          <span style="font-size:14px;">💼</span> LinkedIn
-        </a>
-        ${hasEmail?`<button onclick="composeOutreach('${p.first_name}','${p.email}','${domain}')" class="btn-sm" style="flex:1;font-size:11px;padding:6px;">
-          ✉️ Template
-        </button>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <a href="${linkedinUrl}" target="_blank" class="btn-ghost" style="flex:1;text-align:center;font-size:11px;padding:6px;text-decoration:none;display:block;min-width:70px;">💼 LinkedIn</a>
+        ${hasEmail?`<button onclick="composeOutreach('${p.first_name}','${p.email}','${domain}')" class="btn-sm" style="flex:1;font-size:11px;padding:6px;min-width:70px;">✉️ Template</button>`:''}
+        <button onclick="saveContactToDB({domain:'${domain}',email:'${(p.email||'')}',smtp:'${p.smtp||'unknown'}',firstName:'${(p.first_name||'').replace(/'/g,'')}',lastName:'${(p.last_name||'').replace(/'/g,'')}',position:'${(p.position||'').replace(/'/g,'')}'});" 
+          class="btn-ghost" style="flex:1;font-size:11px;padding:6px;min-width:70px;color:var(--teal);border-color:rgba(0,196,174,0.3);">💾 Save</button>
       </div>
     </div>`;
   }).join('');
