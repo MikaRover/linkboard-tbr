@@ -5,35 +5,55 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { url } = req.body || {};
-  if (!url) return res.status(400).json({ error: 'url required' });
+  const { linkIn, linkTo, anchor, url } = req.body || {};
+  const targetUrl = linkIn || url;
+
+  if (!targetUrl) return res.status(400).json({ error: 'linkIn or url required' });
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 12000);
 
-    const response = await fetch(url, {
+    const response = await fetch(targetUrl, {
       method: 'GET',
       signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; LinkChecker/1.0)'
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LinkChecker/1.0)' },
       redirect: 'follow'
     });
 
     clearTimeout(timeout);
 
-    return res.json({
-      status: response.status,
-      ok: response.ok,
-      statusText: response.statusText,
-      finalUrl: response.url
-    });
+    const html = await response.text().catch(() => '');
+    const status = response.status;
+
+    let found = false;
+    if (linkTo && html) {
+      const cleanLinkTo = linkTo.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').toLowerCase();
+      found = html.toLowerCase().includes(cleanLinkTo);
+    }
+
+    let anchorFound = false;
+    if (anchor && html) {
+      anchorFound = html.toLowerCase().includes(anchor.toLowerCase());
+    }
+
+    let result;
+    if (!response.ok) {
+      result = `❌ HTTP ${status}`;
+    } else if (linkTo && !found) {
+      result = `⚠️ Link not found`;
+    } else if (anchor && !anchorFound) {
+      result = `⚠️ Anchor not found`;
+    } else {
+      result = `✅ Link found`;
+    }
+
+    return res.json({ result, status, ok: response.ok, found, anchorFound });
 
   } catch (e) {
     if (e.name === 'AbortError') {
-      return res.json({ status: 0, ok: false, statusText: 'Timeout', error: 'Request timed out' });
+      return res.json({ result: '⚠️ Timeout' });
     }
-    return res.json({ status: 0, ok: false, statusText: 'Error', error: e.message });
+    return res.json({ result: '⚠️ Error: ' + e.message.slice(0, 50) });
   }
 };
