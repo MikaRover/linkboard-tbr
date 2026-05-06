@@ -955,6 +955,7 @@ tr:hover td{background:var(--bg3);}
   <div class="page-top">
     <div class="page-title">📊 Load Distribution</div>
     <div style="display:flex;gap:8px;">
+      <button class="btn-ghost" onclick="exportLoadCSV()" style="white-space:nowrap;">⬇ Export CSV</button>
       <button class="btn-ghost" onclick="resetLoad()" style="color:var(--red);border-color:rgba(255,107,107,0.4);">↺ Reset</button>
       <button class="btn-sm" onclick="saveLoad()" style="width:auto;">Save →</button>
     </div>
@@ -1393,8 +1394,8 @@ tr:hover td{background:var(--bg3);}
           style="width:100%;height:140px;padding:10px 12px;font-size:13px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:12px;outline:none;"
           onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
         <div style="display:flex;gap:8px;align-items:center;">
-          <button class="btn-sm" onclick="runBulkOutreach('prospects')" style="width:auto;padding:10px 20px;">🔍 Find contacts (all)</button>
-          <button class="btn-ghost" onclick="runBulkOutreach('scrape')" style="white-space:nowrap;padding:10px 14px;">🌐 Scrape emails (all)</button>
+          <button class="btn-sm" onclick="runBulkOutreach('prospects')" style="width:auto;padding:10px 16px;" title="Snov.io + LinkedIn">🔍 Snov.io (all)</button>
+          <button class="btn-ghost" onclick="runBulkFreeSearch()" style="white-space:nowrap;padding:10px 14px;" title="Free scraper — no credits">🆓 Free (all)</button>
           <span id="ot-bulk-progress" style="font-size:12px;color:var(--text3);"></span>
         </div>
         <div id="ot-bulk-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
@@ -3848,6 +3849,136 @@ function showToast(msg, type='ok'){
   setTimeout(()=>t.remove(), 3000);
 }
 
+
+// ─── FREE SCRAPER ─────────────────────────────────────────
+async function runFreeSearch(){
+  const domain = (document.getElementById('ot-domain').value||'').trim()
+    .replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').trim();
+  if(!domain){ document.getElementById('ot-error').style.display='block'; document.getElementById('ot-error').textContent='Enter a domain first'; return; }
+
+  document.getElementById('ot-error').style.display='none';
+  document.getElementById('ot-loading').style.display='block';
+  document.getElementById('ot-results').style.display='none';
+  document.getElementById('ot-loading-text').textContent='Scraping website pages...';
+
+  try {
+    const resp = await fetch('/api/scrape-contacts',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({domain})
+    });
+    const data = await resp.json();
+    document.getElementById('ot-loading').style.display='none';
+    document.getElementById('ot-results').style.display='block';
+    renderFreeResults(data, domain);
+  } catch(e){
+    document.getElementById('ot-loading').style.display='none';
+    document.getElementById('ot-error').style.display='block';
+    document.getElementById('ot-error').textContent='⚠️ Error: '+e.message;
+  }
+}
+
+function renderFreeResults(data, domain){
+  const all = [...(data.emails||[]), ...(data.guessedEmails||[])];
+
+  document.getElementById('ot-summary').innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;font-weight:800;color:var(--teal);">${data.emails?.length||0}</div>
+      <div style="font-size:11px;color:var(--text2);">Emails found on website</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;font-weight:800;color:var(--yellow);">${data.guessedEmails?.length||0}</div>
+      <div style="font-size:11px;color:var(--text2);">Pattern guesses</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:14px;font-weight:700;color:var(--teal);">${domain}</div>
+      <div style="font-size:11px;color:var(--text2);">🆓 Free scan</div>
+    </div>`;
+
+  // LinkedIn search card
+  const liSection = `
+    <div style="background:var(--bg2);border:1px solid rgba(0,119,181,0.3);border-radius:12px;padding:14px;margin-bottom:1rem;">
+      <div style="font-size:13px;font-weight:700;color:#0077b5;margin-bottom:8px;">💼 LinkedIn Search</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Search for SEO/outreach contacts at ${domain} on LinkedIn</div>
+      ${data.linkedinProfiles?.length ? data.linkedinProfiles.map(url=>`<a href="${url}" target="_blank" style="display:block;font-size:11px;color:#0077b5;margin-bottom:4px;text-decoration:none;">↗ ${url.replace('https://www.linkedin.com/in/','')}</a>`).join('') : ''}
+      <a href="${data.linkedinSearchUrl}" target="_blank" class="btn-sm" style="display:inline-block;margin-top:8px;text-decoration:none;background:rgba(0,119,181,0.15);color:#0077b5;border:1px solid rgba(0,119,181,0.3);font-size:12px;padding:6px 14px;">🔍 Search on LinkedIn →</a>
+    </div>`;
+
+  // Emails table
+  const emailsSection = all.length ? `
+    <div class="card">
+      <div class="card-head">📧 Found emails <span style="font-size:11px;color:var(--text3);font-weight:400;">(🆓 no credits used)</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Email</th><th>Source</th><th>Status</th><th>Type</th><th></th></tr></thead>
+        <tbody>${all.map(e=>`<tr>
+          <td style="font-weight:600;color:${e.guessed?'var(--yellow)':'var(--teal)'};">${e.email}</td>
+          <td style="font-size:11px;color:var(--text3);">${e.source||'scraped'}</td>
+          <td>${smtpBadge(e.smtp||'unknown')}</td>
+          <td><span style="font-size:10px;padding:2px 7px;border-radius:20px;background:${e.guessed?'rgba(240,165,0,0.1)':'rgba(0,196,174,0.1)'};color:${e.guessed?'var(--yellow)':'var(--teal)'};">${e.guessed?'🎲 Guess':'✅ Found'}</span></td>
+          <td style="white-space:nowrap;">
+            <button onclick="navigator.clipboard.writeText('${e.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>
+            <button onclick="saveContactToDB({domain:'${domain}',email:'${e.email}',smtp:'${e.smtp||'unknown'}',firstName:'',lastName:'',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾 Save</button>
+          </td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>` : `<div style="color:var(--text2);font-size:13px;padding:1rem 0;">No emails found on website. Try LinkedIn search above or use Snov.io.</div>`;
+
+  document.getElementById('ot-contacts').innerHTML = liSection + emailsSection;
+  document.getElementById('ot-emails-section').style.display='none';
+}
+
+async function runBulkFreeSearch(){
+  const raw = document.getElementById('ot-bulk-input').value.trim();
+  if(!raw){ document.getElementById('ot-bulk-error').style.display='block'; document.getElementById('ot-bulk-error').textContent='Enter at least one domain'; return; }
+  document.getElementById('ot-bulk-error').style.display='none';
+
+  const domains = raw.split(/[\n,;]+/).map(d=>d.trim().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').trim()).filter(Boolean);
+  if(!domains.length) return;
+
+  allOutreachData = [];
+  document.getElementById('ot-bulk-results').style.display='none';
+  document.getElementById('ot-bulk-tbody').innerHTML='';
+  document.getElementById('ot-loading').style.display='block';
+
+  for(let i=0; i<domains.length; i++){
+    const domain = domains[i];
+    document.getElementById('ot-loading-text').textContent = `🆓 Scraping ${domain} (${i+1}/${domains.length})...`;
+    document.getElementById('ot-bulk-progress').textContent = `${i+1}/${domains.length}`;
+    try {
+      const resp = await fetch('/api/scrape-contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain})});
+      const data = await resp.json();
+      const all = [...(data.emails||[]),...(data.guessedEmails||[])];
+      all.forEach(e=>{
+        allOutreachData.push({domain, firstName:'',lastName:'',position:e.guessed?'Pattern guess':'Scraped',email:e.email,smtp:e.smtp||'unknown',score:0,type:'free'});
+      });
+      // Render row
+      const tb = document.getElementById('ot-bulk-tbody');
+      if(!all.length){
+        tb.innerHTML += `<tr><td style="color:var(--teal);font-weight:600;">${domain}</td><td colspan="5" style="color:var(--text3);font-size:12px;">No emails found</td><td></td></tr>`;
+      } else {
+        all.forEach(e=>{
+          tb.innerHTML += `<tr>
+            <td style="color:var(--teal);font-weight:600;font-size:12px;">${domain}</td>
+            <td colspan="2" style="font-size:11px;color:${e.guessed?'var(--yellow)':'var(--text)'};">${e.guessed?'🎲 Guess':'✅ Found'}</td>
+            <td style="font-weight:600;color:var(--teal);font-size:12px;">${e.email}</td>
+            <td>${smtpBadge(e.smtp||'unknown')}</td>
+            <td>—</td>
+            <td style="white-space:nowrap;">
+              <button onclick="navigator.clipboard.writeText('${e.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>
+              <button onclick="saveContactToDB({domain:'${domain}',email:'${e.email}',smtp:'${e.smtp||'unknown'}',firstName:'',lastName:'',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾</button>
+            </td></tr>`;
+        });
+      }
+    } catch(err){
+      document.getElementById('ot-bulk-tbody').innerHTML += `<tr><td style="color:var(--teal);">${domain}</td><td colspan="6" style="color:var(--red);font-size:11px;">⚠️ ${err.message.slice(0,50)}</td></tr>`;
+    }
+  }
+
+  document.getElementById('ot-loading').style.display='none';
+  document.getElementById('ot-bulk-results').style.display='block';
+  document.getElementById('ot-export-btn').style.display='block';
+  document.getElementById('ot-bulk-count').textContent = `${allOutreachData.length} contacts found (🆓 free) across ${domains.length} domains`;
+}
+
 // ─── OUTREACH BULK + EXPORT ───────────────────────────────
 let allOutreachData = []; // accumulated results for export
 
@@ -5172,6 +5303,45 @@ function updateGrandTotals(){
 
   const grandEl = document.getElementById('load-grand-total');
   if(grandEl) grandEl.textContent = grand;
+}
+
+
+function exportLoadCSV(){
+  const month = document.getElementById('load-month').value;
+  const builders = getSelectedBuilders();
+  const projects = allProjects.map(p=>p.name);
+
+  if(!builders.length){ alert('No builders selected'); return; }
+
+  const headers = ['Project', ...builders, 'Total'];
+  const rows = [];
+  let grandTotal = 0;
+  const builderTotals = {};
+  builders.forEach(b => builderTotals[b] = 0);
+
+  projects.forEach(proj => {
+    const row = [proj];
+    let rowTotal = 0;
+    builders.forEach(b => {
+      const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+      const val = parseInt(cell?.value)||0;
+      row.push(val);
+      rowTotal += val;
+      builderTotals[b] += val;
+    });
+    row.push(rowTotal);
+    grandTotal += rowTotal;
+    if(rowTotal > 0) rows.push(row); // only include projects with assignments
+  });
+
+  // Totals row
+  rows.push(['TOTAL', ...builders.map(b=>builderTotals[b]), grandTotal]);
+
+  const csv = [headers, ...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = `load_${month}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
 }
 
 async function saveLoad(){
