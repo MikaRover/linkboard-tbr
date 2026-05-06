@@ -5257,17 +5257,19 @@ function splitLoad(projId, builderCount){
   const totalCap = builders.reduce((s,b)=>s+(allCapacities[b]||0),0);
 
   if(totalCap > 0){
-    // Split proportionally by capacity
-    let assigned = 0;
-    builders.forEach((b, i) => {
-      const cell = document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`);
-      if(!cell) return;
-      const ratio = (allCapacities[b]||0) / totalCap;
-      const val = i === builders.length-1
-        ? total - assigned
-        : Math.round(total * ratio);
-      cell.value = val;
-      assigned += val;
+    // Split proportionally by capacity — floor + remainder to largest fractional parts
+    const shares = builders.map(b=>({
+      b, cap: allCapacities[b]||0,
+      exact: ((allCapacities[b]||0) / totalCap) * total
+    }));
+    shares.forEach(x => x.floor = Math.floor(x.exact));
+    let remainder = total - shares.reduce((s,x)=>s+x.floor, 0);
+    // Give +1 to builders with largest fractional remainders
+    [...shares].sort((a,b)=>(b.exact-b.floor)-(a.exact-a.floor))
+      .forEach((x,i)=>{ if(i<remainder) x.floor++; });
+    shares.forEach(x=>{
+      const cell = document.getElementById(`load-cell-${projId}-${x.b.replace(/\s/g,'_')}`);
+      if(cell) cell.value = x.floor;
     });
   } else {
     // Equal split fallback
