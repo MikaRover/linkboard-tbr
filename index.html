@@ -2004,8 +2004,9 @@ function renderDetailLinks(){
     const am=getMonthKey(a.date), bm=getMonthKey(b.date);
     const av=parseDate(a.date), bv=parseDate(b.date);
     if(am!==bm) return pdSortDir==='desc'?bv-av:av-bv;
-    if(a.status==='live'&&b.status!=='live')return -1;
-    if(a.status!=='live'&&b.status==='live')return 1;
+    const as=(a.status||'').toLowerCase(), bs=(b.status||'').toLowerCase();
+    if(as==='live'&&bs!=='live')return -1;
+    if(as!=='live'&&bs==='live')return 1;
     return bv-av;
   });
 
@@ -2890,13 +2891,11 @@ function renderLinks(){
   // Sort
   fl.sort((a,b)=>{
     const am=getMonthKey(a.date), bm=getMonthKey(b.date);
-    // Sort months descending
     const av=parseDate(a.date), bv=parseDate(b.date);
     if(am!==bm) return sortDir==='desc'?bv-av:av-bv;
-    // Within same month: live first
-    if(a.status==='live'&&b.status!=='live')return -1;
-    if(a.status!=='live'&&b.status==='live')return 1;
-    // Within same status: date descending
+    const as=(a.status||'').toLowerCase(), bs=(b.status||'').toLowerCase();
+    if(as==='live'&&bs!=='live')return -1;
+    if(as!=='live'&&bs==='live')return 1;
     return bv-av;
   });
 
