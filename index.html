@@ -4358,15 +4358,18 @@ function renderAnchors(){
   projList.innerHTML = projsWithReqs.map(p=>{
     const reqs = allReqs.filter(r=>r.project===p.name);
     const curYr = new Date().getFullYear();
-    const curMonthName = MONTHS_EN[new Date().getMonth()];
-    const curMonthYearKey = curMonthName + ' ' + curYr;
-    const curReqs = reqs.filter(r=>r.month===curMonthYearKey||r.month===curMonthName);
+    // Find the most recent month that has reqs
+    const allReqMonths=[...new Set(reqs.map(r=>r.month.split(' ')[0]).filter(Boolean))];
+    allReqMonths.sort((a,b)=>MONTHS_EN.indexOf(b)-MONTHS_EN.indexOf(a));
+    const activeMonth = allReqMonths[0]||'';
+    const activeMonthYearKey = activeMonth + ' ' + curYr;
+    const curReqs = reqs.filter(r=>r.month===activeMonthYearKey||r.month===activeMonth);
     const totalUsed = curReqs.reduce((s,r)=>{
       const cnt = allLinks.filter(l=>{
         if(l.project!==p.name||(l.anchor||'').toLowerCase()!==r.anchor||!l.date) return false;
         if((l.status||'').toLowerCase()!=='live') return false;
         const mk=getMonthKey(l.date);
-        return mk===curMonthYearKey;
+        return mk===activeMonthYearKey;
       }).length;
       return s+cnt;
     },0);
@@ -4387,7 +4390,11 @@ function renderAnchors(){
       <div style="height:3px;background:var(--bg4);border-radius:2px;margin-top:4px;overflow:hidden;">
         <div style="height:3px;background:${color};width:${pct}%;border-radius:2px;"></div>
       </div>
-      <div style="font-size:9px;color:var(--text3);margin-top:3px;">${months.join(', ')}</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:3px;">${(()=>{
+        const allMonths=[...new Set(reqs.map(r=>r.month.split(' ')[0]).filter(Boolean))];
+        allMonths.sort((a,b)=>MONTHS_EN.indexOf(b)-MONTHS_EN.indexOf(a));
+        return allMonths[0]||'';
+      })()}</div>
     </div>`;
   }).join('');
 
