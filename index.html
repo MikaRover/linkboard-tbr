@@ -4359,7 +4359,11 @@ function renderAnchors(){
       const cnt = allLinks.filter(l=>{
         if(l.project!==p.name||(l.anchor||'').toLowerCase()!==r.anchor||!l.date) return false;
         const mk=getMonthKey(l.date);
-        return mk===r.month+' '+curYr||mk===r.month+' '+(curYr-1);
+        const mkMonth=mk.split(' ')[0];
+        const reqMonth=r.month.split(' ')[0];
+        const reqYear=r.month.includes(' ')?r.month.split(' ')[1]:null;
+        if(reqYear) return mk===r.month;
+        return mkMonth===reqMonth && mk.split(' ')[1]===String(curYr);
       }).length;
       return s+cnt;
     },0);
@@ -4447,14 +4451,18 @@ function renderAnchorDetail(){
     const mReqs = reqs.filter(r=>r.month===month);
     const mMax = mReqs.reduce((s,r)=>s+r.max,0);
 
-    // Count links strictly within this month (try both years)
+    // Count links strictly within this month (any year)
     const countForMonth = (anchor)=>{
       return allLinks.filter(l=>{
         if(l.project!==proj) return false;
         if((l.anchor||'').toLowerCase()!==anchor) return false;
         if(!l.date) return false;
-        const mk = getMonthKey(l.date);
-        return mk === month+' '+curYear || mk === month+' '+(curYear-1);
+        const mk = getMonthKey(l.date); // e.g. "April 2026"
+        const mkMonth = mk.split(' ')[0]; // e.g. "April"
+        const reqMonth = month.split(' ')[0]; // handle both "April" and "April 2026"
+        const reqYear = month.includes(' ') ? month.split(' ')[1] : null;
+        if(reqYear) return mk === month; // exact match if year specified
+        return mkMonth === reqMonth && mk.split(' ')[1] === String(curYear); // same month, current year only
       }).length;
     };
 
