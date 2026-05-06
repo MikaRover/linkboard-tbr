@@ -2400,7 +2400,7 @@ function renderAnchorReqs(){
 
   wrap.style.display='block';
   list.innerHTML=reqs.map(r=>{
-    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYear).length;
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYear&&(l.status||'').toLowerCase()==='live').length;
     const pct=Math.min(100,Math.round(used/r.max*100));
     const full=used>=r.max;
     const color=full?'var(--red)':used>0?'var(--yellow)':'var(--teal)';
@@ -2431,7 +2431,7 @@ function onAnchorInput(){
     if(!anyReq){el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No anchor requirement for "'+anchor+'" in '+proj;return;}
     el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No requirement for "'+anchor+'" in '+curMonthYear+' (set for '+anyReq.month+')';return;
   }
-  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor&&l.date&&getMonthKey(l.date)===curMonthYear).length;
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor&&l.date&&getMonthKey(l.date)===curMonthYear&&(l.status||'').toLowerCase()==='live').length;
   if(used>=req.max){el.style.display='block';el.className='alert a-dup';el.textContent='🚫 Limit reached! '+used+'/'+req.max+' for "'+anchor+'" ('+curMonthYear+')';}
   else{el.style.display='block';el.className='alert a-ok';el.textContent='✅ Anchor OK — '+used+' of '+req.max+' used in '+curMonthYear;}
 }
@@ -2441,7 +2441,7 @@ function getCheck(domain,anchor,proj){
   const curM=MONTHS_EN[new Date().getMonth()]+' '+new Date().getFullYear();
   const req=allReqs.find(r=>r.project===proj&&r.anchor.toLowerCase()===(anchor||'').toLowerCase()&&(r.month===curM||r.month===MONTHS_EN[new Date().getMonth()]));
   if(!req)return'noreq';
-  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===(anchor||'').toLowerCase()&&l.date&&getMonthKey(l.date)===curM).length;
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===(anchor||'').toLowerCase()&&l.date&&getMonthKey(l.date)===curM&&(l.status||'').toLowerCase()==='live').length;
   return used>=req.max?'limit':'ok';
 }
 
@@ -2485,7 +2485,7 @@ async function addLink(){
   const curMYCheck=curMonthCheck+' '+curYearCheck;
   const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor_lc&&(r.month===curMYCheck||r.month===curMonthCheck));
   if(req){
-    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&l.date&&getMonthKey(l.date)===curMYCheck).length;
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&l.date&&getMonthKey(l.date)===curMYCheck&&(l.status||'').toLowerCase()==='live').length;
     if(used>=req.max){alert('🚫 Anchor limit reached ('+used+'/'+req.max+') for '+curMYCheck);return;}
   }
 
@@ -2988,7 +2988,7 @@ function renderReqs(){
   const tb=document.getElementById('req-tbody');
   if(!allReqs.length){tb.innerHTML='<tr><td colspan="7" class="loading">No requirements</td></tr>';return;}
   tb.innerHTML=allReqs.map(r=>{
-    const used=allLinks.filter(l=>l.project===r.project&&(l.anchor||'').toLowerCase()===r.anchor).length;
+    const used=allLinks.filter(l=>l.project===r.project&&(l.anchor||'').toLowerCase()===r.anchor&&(l.status||'').toLowerCase()==='live').length;
     const pct=Math.min(100,Math.round(used/r.max*100));const over=used>r.max;
     const linktoHtml=r.linkto?`<a href="${r.linkto}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none;" title="${r.linkto}">↗ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,30)}</a>`:'<span style="color:var(--text3);font-size:11px;">—</span>';
     return`<tr>
@@ -4358,6 +4358,7 @@ function renderAnchors(){
     const totalUsed = reqs.reduce((s,r)=>{
       const cnt = allLinks.filter(l=>{
         if(l.project!==p.name||(l.anchor||'').toLowerCase()!==r.anchor||!l.date) return false;
+        if((l.status||'').toLowerCase()!=='live') return false;
         const mk=getMonthKey(l.date);
         const mkMonth=mk.split(' ')[0];
         const reqMonth=r.month.split(' ')[0];
@@ -4443,7 +4444,7 @@ function renderAnchorDetail(){
   });
   const curMax = curReqs.reduce((s,r)=>s+r.max,0);
   const curUsed = curReqs.reduce((s,r)=>{
-    return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYearKey).length;
+    return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYearKey&&(l.status||'').toLowerCase()==='live').length;
   },0);
   const overallPct = curMax>0?Math.min(100,Math.round(curUsed/curMax*100)):0;
 
@@ -4457,6 +4458,7 @@ function renderAnchorDetail(){
         if(l.project!==proj) return false;
         if((l.anchor||'').toLowerCase()!==anchor) return false;
         if(!l.date) return false;
+        if((l.status||'').toLowerCase()!=='live') return false;
         const mk = getMonthKey(l.date); // e.g. "April 2026"
         const mkMonth = mk.split(' ')[0]; // e.g. "April"
         const reqMonth = month.split(' ')[0]; // handle both "April" and "April 2026"
@@ -4472,9 +4474,11 @@ function renderAnchorDetail(){
 
     const rowsHtml = mReqs.map(r=>{
       const used = countForMonth(r.anchor);
+      const pending = allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&(()=>{const mk=getMonthKey(l.date);const mkM=mk.split(' ')[0];const rM=month.split(' ')[0];const rY=month.includes(' ')?month.split(' ')[1]:null;return rY?mk===month:mkM===rM&&mk.split(' ')[1]===String(curYear);})()&&(l.status||'').toLowerCase()==='pending').length;
       const p = Math.min(100,Math.round(used/r.max*100));
-      const full = used>=r.max;
-      const color = full?'var(--teal)':used>0?'var(--yellow)':'var(--text3)';
+      const over = used > r.max;
+      const full = used === r.max;
+      const color = over?'var(--red)':full?'var(--teal)':used>0?'var(--yellow)':'var(--text3)';
 
       return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
@@ -4485,7 +4489,7 @@ function renderAnchorDetail(){
           <div style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
             <div style="text-align:right;">
               <div style="font-size:16px;font-weight:800;color:${color};">${used}/${r.max}</div>
-              <div style="font-size:9px;color:var(--text3);">${full?'✅':p+'%'}</div>
+              <div style="font-size:9px;color:var(--text3);">${over?'⚠️':full?'✅':p+'%'}${pending>0?` · <span style="color:var(--yellow);">${pending} pending</span>`:''}</div>
             </div>
             <button onclick="deleteAnchor('${r.id}','${r.anchor.replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>
           </div>
