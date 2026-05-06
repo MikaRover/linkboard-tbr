@@ -5252,13 +5252,20 @@ function resetLoad(){
 function splitLoad(projId, builderCount){
   const total = parseInt(document.getElementById('load-total-'+projId)?.value)||0;
   const builders = getSelectedBuilders();
-  if(!total || !builders.length) return;
+  if(!builders.length) return;
 
-  // Check if capacities exist
+  // Always clear all cells first
+  builders.forEach(b=>{
+    const cell = document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`);
+    if(cell) cell.value = '';
+  });
+
+  if(!total){ updateGrandTotals(); return; }
+
+  // Split proportionally by capacity
   const totalCap = builders.reduce((s,b)=>s+(allCapacities[b]||0),0);
 
   if(totalCap > 0){
-    // Split proportionally by capacity — floor + remainder to largest fractional parts
     const shares = builders.map(b=>({
       b, cap: allCapacities[b]||0,
       exact: ((allCapacities[b]||0) / totalCap) * total
@@ -5270,10 +5277,10 @@ function splitLoad(projId, builderCount){
       .forEach((x,i)=>{ if(i<remainder) x.floor++; });
     shares.forEach(x=>{
       const cell = document.getElementById(`load-cell-${projId}-${x.b.replace(/\s/g,'_')}`);
-      if(cell) cell.value = x.floor;
+      if(cell) cell.value = x.floor||0;
     });
   } else {
-    // Equal split fallback
+    // Equal split fallback (no capacities set)
     const base = Math.floor(total / builders.length);
     const remainder = total % builders.length;
     builders.forEach((b, i) => {
