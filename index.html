@@ -2390,16 +2390,17 @@ function renderAnchorReqs(){
   if(!wrap||!list)return;
   if(!proj){wrap.style.display='none';return;}
 
-  // Current month name
+  // Current month name + year
   const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const curMonth=months[new Date().getMonth()];
+  const curMonthYear=curMonth+' '+new Date().getFullYear();
 
-  const reqs=allReqs.filter(r=>r.project===proj&&r.month===curMonth);
+  const reqs=allReqs.filter(r=>r.project===proj&&(r.month===curMonthYear||r.month===curMonth));
   if(!reqs.length){wrap.style.display='none';return;}
 
   wrap.style.display='block';
   list.innerHTML=reqs.map(r=>{
-    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor).length;
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYear).length;
     const pct=Math.min(100,Math.round(used/r.max*100));
     const full=used>=r.max;
     const color=full?'var(--red)':used>0?'var(--yellow)':'var(--teal)';
@@ -2437,9 +2438,10 @@ function onAnchorInput(){
 
 function getCheck(domain,anchor,proj){
   if(allLinks.some(l=>nd(l.domain)===nd(domain)))return'dup';
-  const req=allReqs.find(r=>r.project===proj&&r.anchor.toLowerCase()===(anchor||'').toLowerCase());
+  const curM=MONTHS_EN[new Date().getMonth()]+' '+new Date().getFullYear();
+  const req=allReqs.find(r=>r.project===proj&&r.anchor.toLowerCase()===(anchor||'').toLowerCase()&&(r.month===curM||r.month===MONTHS_EN[new Date().getMonth()]));
   if(!req)return'noreq';
-  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===(anchor||'').toLowerCase()).length;
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===(anchor||'').toLowerCase()&&l.date&&getMonthKey(l.date)===curM).length;
   return used>=req.max?'limit':'ok';
 }
 
@@ -4417,13 +4419,15 @@ function renderAnchorDetail(){
   // Helper: get year from month context (use current year as fallback)
   const curYear = new Date().getFullYear();
 
-  // Per-month stats for header
+  // Current month stats for header %
+  const curMonthName = MONTHS_EN[new Date().getMonth()];
+  const curMonthYearKey = curMonthName + ' ' + curYear;
+  const curReqs = reqs.filter(r=>r.month===curMonthYearKey||r.month===curMonthName);
   const totalAllMax = reqs.reduce((s,r)=>s+r.max,0);
   let totalAllUsed = 0;
   months.forEach(month=>{
     const mReqs = reqs.filter(r=>r.month===month);
     mReqs.forEach(r=>{
-      // Count links for this anchor in this month
       totalAllUsed += allLinks.filter(l=>{
         if(l.project!==proj) return false;
         if((l.anchor||'').toLowerCase()!==r.anchor) return false;
@@ -4433,7 +4437,11 @@ function renderAnchorDetail(){
       }).length;
     });
   });
-  const overallPct = totalAllMax>0?Math.min(100,Math.round(totalAllUsed/totalAllMax*100)):0;
+  const curMax = curReqs.reduce((s,r)=>s+r.max,0);
+  const curUsed = curReqs.reduce((s,r)=>{
+    return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYearKey).length;
+  },0);
+  const overallPct = curMax>0?Math.min(100,Math.round(curUsed/curMax*100)):0;
 
   const monthsHtml = months.map(month=>{
     const mReqs = reqs.filter(r=>r.month===month);
@@ -4500,7 +4508,7 @@ function renderAnchorDetail(){
       </div>
       <div style="text-align:right;">
         <div style="font-size:28px;font-weight:800;color:${overallPct>=100?'var(--teal)':overallPct>50?'var(--yellow)':'var(--text2)'};">${overallPct}%</div>
-        <div style="font-size:10px;color:var(--text3);">overall</div>
+        <div style="font-size:10px;color:var(--text3);">${curMonthName}</div>
       </div>
     </div>
     ${monthsHtml}`;
