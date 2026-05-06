@@ -5323,33 +5323,55 @@ function exportLoadCSV(){
 
   if(!builders.length){ alert('No builders selected'); return; }
 
-  const headers = ['Project', ...builders, 'Total'];
-  const rows = [];
-  let grandTotal = 0;
+  // Collect data
+  const activeProjects = [];
   const builderTotals = {};
   builders.forEach(b => builderTotals[b] = 0);
 
   projects.forEach(proj => {
-    const row = [proj];
     let rowTotal = 0;
+    const vals = {};
     builders.forEach(b => {
       const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
       const val = parseInt(cell?.value)||0;
-      row.push(val);
+      vals[b] = val;
       rowTotal += val;
       builderTotals[b] += val;
     });
-    row.push(rowTotal);
-    grandTotal += rowTotal;
-    if(rowTotal > 0) rows.push(row); // only include projects with assignments
+    if(rowTotal > 0) activeProjects.push({proj, vals, rowTotal});
   });
 
-  // Totals row
-  rows.push(['TOTAL', ...builders.map(b=>builderTotals[b]), grandTotal]);
+  const grandTotal = builders.reduce((s,b)=>s+builderTotals[b], 0);
+  const q = v => '"'+String(v).replace(/"/g,'""')+'"';
 
-  const csv = [headers, ...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  // Row 1: Month header
+  const row1 = [q(month), ...activeProjects.map(p=>q('')), q('')];
+  // Fix: month only in B1
+  const row1out = ['', q(month), ...Array(activeProjects.length - 1).fill(''), ''].join(',');
+
+  // Row 2: "", project names..., "Total"
+  const row2 = ['', ...activeProjects.map(p=>q(p.proj)), q('Total')].join(',');
+
+  // Row 3: Quantity — sum per project + grand total
+  const row3 = [q('Quantity'), ...activeProjects.map(p=>q(p.rowTotal)), q(grandTotal)].join(',');
+
+  // Row 4: Reality — empty
+  const row4 = [q('Reality'), ...activeProjects.map(()=>''), ''].join(',');
+
+  // Builder rows
+  const builderRows = builders.map(b => {
+    const vals = activeProjects.map(p => q(p.vals[b]||''));
+    const bTotal = builderTotals[b];
+    return [q(b), ...vals, q(bTotal)].join(',');
+  });
+
+  // TOTAL row
+  const totalRow = [q('TOTAL'), ...activeProjects.map(p=>q(p.rowTotal)), q(grandTotal)].join(',');
+
+  const csv = [row1out, row2, row3, row4, ...builderRows, totalRow].join('\n');
+
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
   a.download = `load_${month}_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 }
