@@ -2994,7 +2994,7 @@ function renderReqs(){
       <td>${linktoHtml}</td>
       <td style="min-width:130px;"><div class="req-bar-bg"><div class="req-bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':'var(--teal)'}"></div></div><span style="font-size:11px;color:${over?'#ff6b6b':'var(--text2)'};">${used}/${r.max}</span></td>
       <td>${r.max}</td>
-      <td><button class="btn-ghost" onclick="db.collection('requirements').doc('${r.id}').delete()">Remove</button></td>
+      <td><button onclick="if(confirm('Delete anchor &quot;'+${JSON.stringify(r.anchor)}+'&quot;?'))db.collection('requirements').doc('${r.id}').delete()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -4390,6 +4390,11 @@ function selectAnchorProject(projName){
   renderAnchors();
 }
 
+async function deleteAnchor(id, anchor){
+  if(!confirm(`Delete anchor "${anchor}"?`)) return;
+  await db.collection('requirements').doc(id).delete();
+}
+
 function renderAnchorDetail(){
   const proj = ancSelectedProj;
   if(!proj) return;
@@ -4461,9 +4466,12 @@ function renderAnchorDetail(){
             <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.anchor}</div>
             ${r.linkto?`<a href="${r.linkto}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;">↗ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,45)}</a>`:''}
           </div>
-          <div style="text-align:right;white-space:nowrap;">
-            <div style="font-size:16px;font-weight:800;color:${color};">${used}/${r.max}</div>
-            <div style="font-size:9px;color:var(--text3);">${full?'✅':p+'%'}</div>
+          <div style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
+            <div style="text-align:right;">
+              <div style="font-size:16px;font-weight:800;color:${color};">${used}/${r.max}</div>
+              <div style="font-size:9px;color:var(--text3);">${full?'✅':p+'%'}</div>
+            </div>
+            <button onclick="deleteAnchor('${r.id}','${r.anchor.replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>
           </div>
         </div>
         <div style="height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;">
