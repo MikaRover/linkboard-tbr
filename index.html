@@ -3283,8 +3283,11 @@ function handleCsvFile(file){
       const c1=(row[1]||'').trim();
       const c0l=c0.toLowerCase();
 
-      // Detect section header
-      const isPending=c0l==='pending'||c0l.startsWith('pending ');
+      // Detect section header (check both A and B columns)
+      const c1l=c1.toLowerCase();
+      // Check all columns for Pending header (it can appear in any column)
+      const rowStr=row.map(v=>(v||'').trim().toLowerCase()).join('|');
+      const isPending=c0l==='pending'||c0l.startsWith('pending ')||c1l==='pending'||c1l.startsWith('pending ')||rowStr.split('|').some(v=>v==='pending');
       const isLiveHeader=MONTHS.some(m=>c0l.includes(m))&&(c0l.includes('live')||c0l.includes('link'));
       const isMonthHeader=MONTHS.some(m=>c0l.startsWith(m));
 
