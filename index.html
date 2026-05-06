@@ -4355,20 +4355,19 @@ function renderAnchors(){
   projList.innerHTML = projsWithReqs.map(p=>{
     const reqs = allReqs.filter(r=>r.project===p.name);
     const curYr = new Date().getFullYear();
-    const totalUsed = reqs.reduce((s,r)=>{
+    const curMonthName = MONTHS_EN[new Date().getMonth()];
+    const curMonthYearKey = curMonthName + ' ' + curYr;
+    const curReqs = reqs.filter(r=>r.month===curMonthYearKey||r.month===curMonthName);
+    const totalUsed = curReqs.reduce((s,r)=>{
       const cnt = allLinks.filter(l=>{
         if(l.project!==p.name||(l.anchor||'').toLowerCase()!==r.anchor||!l.date) return false;
         if((l.status||'').toLowerCase()!=='live') return false;
         const mk=getMonthKey(l.date);
-        const mkMonth=mk.split(' ')[0];
-        const reqMonth=r.month.split(' ')[0];
-        const reqYear=r.month.includes(' ')?r.month.split(' ')[1]:null;
-        if(reqYear) return mk===r.month;
-        return mkMonth===reqMonth && mk.split(' ')[1]===String(curYr);
+        return mk===curMonthYearKey;
       }).length;
       return s+cnt;
     },0);
-    const totalMax = reqs.reduce((s,r)=>s+r.max,0);
+    const totalMax = curReqs.reduce((s,r)=>s+r.max,0);
     const pct = totalMax>0 ? Math.min(100,Math.round(totalUsed/totalMax*100)) : 0;
     const isActive = ancSelectedProj===p.name;
     const color = pct>=100?'var(--teal)':pct>50?'var(--yellow)':'var(--text3)';
