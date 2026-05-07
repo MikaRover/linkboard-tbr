@@ -1735,6 +1735,9 @@ function startApp(){
   if(isAdmin){
     // Admin sees all admin nav, builder nav hidden
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='none');
+  } else if(isManager){
+    // Manager — already handled above, just hide builder nav
+    document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='none');
   } else {
     // Builder sees only builder nav, admin nav hidden
     document.querySelectorAll('.nav').forEach(el=>{
@@ -5665,10 +5668,8 @@ function listenReqs(){
 let domSortField = 'domain', domSortDir = 'asc';
 
 function listenDomains(){
-  const domainQuery = (cu?.role==='admin') 
-    ? db.collection('domains').orderBy('createdAt','desc')
-    : db.collection('domains').where('addedBy','==',cu?.name||cu?.email||'').orderBy('createdAt','desc');
-  domainQuery.onSnapshot(snap=>{
+  // Load all domains - filter client-side by addedBy or notes
+  db.collection('domains').orderBy('createdAt','desc').onSnapshot(snap=>{
     allDomains = snap.docs.map(d=>({id:d.id,...d.data()}));
     if(document.getElementById('p-domains')?.classList.contains('active')) renderDomainsPage();
   });
@@ -5701,7 +5702,8 @@ function renderDomainsPage(){
   const proj=document.getElementById('dom-filter-proj')?.value||'';
 
   const isAdminD = cu?.role==='admin';
-  let fl=(isAdminD?allDomains:allDomains.filter(d=>d.addedBy===(cu?.name||cu?.email))).filter(d=>{
+  const myName = cu?.name||cu?.email||'';
+  let fl=(isAdminD?allDomains:allDomains.filter(d=>(d.addedBy===myName)||((!d.addedBy)&&d.notes===myName))).filter(d=>{
     if(s&&!(d.domain||'').toLowerCase().includes(s)&&!(d.email||'').toLowerCase().includes(s)&&
       !(d.firstName||'').toLowerCase().includes(s)&&!(d.lastName||'').toLowerCase().includes(s))return false;
     if(proj&&d.project!==proj)return false;
