@@ -490,7 +490,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav nav-bld" id="bld-nav-dashboard" onclick="gotoPage('b-dashboard',this)">Dashboard</div>
   <div class="nav nav-bld" id="bld-nav-links" onclick="gotoPage('b-links',this)">My Links</div>
   <div class="nav nav-bld" id="bld-nav-add" onclick="gotoPage('add',this)">Add link</div>
-  <div class="nav nav-bld" onclick="gotoPage('outreach',this)">🎯 Outreach</div>
+  <div class="nav nav-bld nav-outreach" onclick="gotoPage('outreach',this)">🎯 Outreach</div>
   <div class="nav nav-bld" onclick="gotoPage('domains',this)">🗄 Domains DB</div>
   <div class="sb-bottom">
     <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" style="margin-bottom:10px;">
@@ -598,7 +598,7 @@ tr:hover td{background:var(--bg3);}
       </div>
       <div style="display:flex;gap:8px;margin-top:12px;">
         <button class="btn" onclick="addLink()" style="flex:1;">Add link →</button>
-        <button class="btn-ghost" onclick="openProspector()" style="white-space:nowrap;padding:11px 16px;" title="AI finds anchor opportunities">🔍 Find anchors</button>
+        <button id="find-anchors-btn" class="btn-ghost" onclick="openProspector()" style="white-space:nowrap;padding:11px 16px;" title="AI finds anchor opportunities">🔍 Find anchors</button>
       </div>
     </div>
   </div>
@@ -1736,8 +1736,14 @@ function startApp(){
     // Admin sees all admin nav, builder nav hidden
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='none');
   } else if(isManager){
-    // Manager — already handled above, just hide builder nav
+    // Manager — hide ALL builder nav items except outreach
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='none');
+    // Also hide all links nav if exists
+    document.querySelectorAll('.nav').forEach(el=>{
+      if(!el.classList.contains('nav-bld')&&!el.classList.contains('adm')) el.style.display='none';
+    });
+    // Show outreach for manager
+    document.querySelectorAll('.nav-outreach').forEach(el=>el.style.display='block');
   } else {
     // Builder sees only builder nav, admin nav hidden
     document.querySelectorAll('.nav').forEach(el=>{
@@ -1759,6 +1765,9 @@ function startApp(){
     fb.innerHTML=`<option value="">Select builder</option>`;
     BUILDERS.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b;fb.appendChild(o);});
   }
+  // Hide builder-select and Find anchors for non-admin
+  const findAnchBtn = document.getElementById('find-anchors-btn');
+  if(findAnchBtn) findAnchBtn.style.display = isAdmin?'':'none';
 
   listenBuilders();listenCapacities();listenLoads();listenKPITargets();listenProjects();listenLinks();listenReqs();listenQualityReqs();listenDomains();
   renderCatButtons('');
@@ -5733,11 +5742,13 @@ function renderDomainsPage(){
     return 0;
   });
 
-  const withEmail=allDomains.filter(d=>d.email).length;
-  const verified=allDomains.filter(d=>d.smtp==='valid').length;
+  // Base list for stats = my domains (before search/filter)
+  const myDomains = isAdminD ? allDomains : allDomains.filter(d=>(d.addedBy===myName)||((!d.addedBy)&&d.notes===myName));
+  const withEmail=myDomains.filter(d=>d.email).length;
+  const verified=myDomains.filter(d=>d.smtp==='valid').length;
   const domStats=document.getElementById('dom-stats');
   if(domStats)domStats.innerHTML=`
-    <div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--teal)">${allDomains.length}</div></div>
+    <div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--teal)">${myDomains.length}</div></div>
     <div class="stat"><div class="stat-l">With email</div><div class="stat-v" style="color:var(--teal)">${withEmail}</div></div>
     <div class="stat"><div class="stat-l">Verified ✅</div><div class="stat-v" style="color:#00e676">${verified}</div></div>
     <div class="stat"><div class="stat-l">Showing</div><div class="stat-v" style="color:var(--text2)">${fl.length}</div></div>`;
