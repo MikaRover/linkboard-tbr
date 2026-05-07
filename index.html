@@ -3345,19 +3345,32 @@ async function startImport(){
   const prog=document.getElementById('imp-prog');
   const log=document.getElementById('imp-log');
   progWrap.style.display='block';log.innerHTML='';
-  let done=0,errors=0;const BATCH=400,total=csvRows.length;
+  let created=0,updated=0,errors=0;const BATCH=400,total=csvRows.length;
+
   for(let i=0;i<total;i+=BATCH){
+    const chunk=csvRows.slice(i,i+BATCH);
     const batch=db.batch();
-    csvRows.slice(i,i+BATCH).forEach(row=>{batch.set(db.collection('links').doc(),{...row,project:proj,createdAt:firebase.firestore.FieldValue.serverTimestamp()});});
+    chunk.forEach(row=>{
+      // Try to find existing link by domain+project
+      const existingLink=allLinks.find(l=>nd(l.domain)===nd(row.domain)&&l.project===proj);
+      if(existingLink){
+        // Update existing — preserve createdAt, update all fields including status
+        batch.update(db.collection('links').doc(existingLink.id),{...row,project:proj,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+        updated++;
+      } else {
+        batch.set(db.collection('links').doc(),{...row,project:proj,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+        created++;
+      }
+    });
     try{
-      await batch.commit();done+=Math.min(BATCH,total-i);
-      const pct=Math.round(done/total*100);
+      await batch.commit();
+      const pct=Math.round((i+chunk.length)/total*100);
       prog.style.width=pct+'%';
-      log.innerHTML+=`<div style="color:var(--teal);">✓ ${done}/${total} (${pct}%)</div>`;
+      log.innerHTML+=`<div style="color:var(--teal);">✓ ${i+chunk.length}/${total} (${pct}%)</div>`;
       log.scrollTop=log.scrollHeight;
     }catch(e){errors++;log.innerHTML+=`<div style="color:#ff6b6b;">✗ ${e.message}</div>`;}
   }
-  log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${done} imported${errors?' ('+errors+' errors)':''}.</div>`;
+  log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${created} created, ${updated} updated${errors?' ('+errors+' errors)':''}.</div>`;
 }
 
 // ─── ANCHOR REQUIREMENTS CSV IMPORT ──────────────────────────
