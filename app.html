@@ -1742,8 +1742,12 @@ function startApp(){
     document.querySelectorAll('.nav').forEach(el=>{
       if(!el.classList.contains('nav-bld')&&!el.classList.contains('adm')) el.style.display='none';
     });
-    // Show outreach for manager
+    // Show outreach and add link for manager
     document.querySelectorAll('.nav-outreach').forEach(el=>el.style.display='block');
+    document.querySelectorAll('.nav-bld').forEach(el=>{
+      if(el.getAttribute('onclick')&&el.getAttribute('onclick').includes("'add'"))
+        el.style.display='block';
+    });
   } else {
     // Builder sees only builder nav, admin nav hidden
     document.querySelectorAll('.nav').forEach(el=>{
