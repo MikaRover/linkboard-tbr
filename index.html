@@ -491,6 +491,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav nav-bld" id="bld-nav-links" onclick="gotoPage('b-links',this)">My Links</div>
   <div class="nav nav-bld" id="bld-nav-add" onclick="gotoPage('add',this)">Add link</div>
   <div class="nav nav-bld" onclick="gotoPage('outreach',this)">🎯 Outreach</div>
+  <div class="nav nav-bld" onclick="gotoPage('domains',this)">🗄 Domains DB</div>
   <div class="sb-bottom">
     <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" style="margin-bottom:10px;">
       <div class="theme-switch" id="theme-switch">
@@ -1713,12 +1714,23 @@ function startApp(){
   const sbName=document.getElementById('sb-name');
   sbName.textContent=displayName;
   sbName.style.cssText=`color:${neonColor};font-weight:700;text-shadow:0 0 8px ${neonColor}88,0 0 20px ${neonColor}44;`;
-  document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':'Link Builder';
+  document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':cu.role==='manager'?'Manager':'Link Builder';
 
   const isAdmin=cu.role==='admin';
+  const isManager=cu.role==='manager';
 
   // Show/hide admin-only elements
   document.querySelectorAll('.adm').forEach(el=>el.style.display=isAdmin?'block':'none');
+  // Manager sees only the reqs (Add anchors) nav item
+  if(isManager){
+    document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='none');
+    document.querySelectorAll('.nav.adm').forEach(el=>el.style.display='none');
+    // Show only anchors & reqs nav
+    document.querySelectorAll('.nav.adm').forEach(el=>{
+      if(el.getAttribute('onclick')&&(el.getAttribute('onclick').includes("'reqs'")|| el.getAttribute('onclick').includes("'anchors'")))
+        el.style.display='block';
+    });
+  }
 
   if(isAdmin){
     // Admin sees all admin nav, builder nav hidden
@@ -1750,6 +1762,8 @@ function startApp(){
 
   if(isAdmin){
     gotoPage('dashboard',document.querySelector('.nav:not(.nav-bld).active')||document.querySelector('.nav:not(.nav-bld)'));
+  } else if(isManager){
+    gotoPage('anchors',document.querySelector('.nav.adm[onclick*="anchors"]'));
   } else {
     gotoPage('b-dashboard',document.getElementById('bld-nav-dashboard'));
   }
@@ -4955,12 +4969,13 @@ async function openProspector(){
             <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:4px;">Anchor: "${s.anchor}"</div>
             <a href="${s.articleUrl}" target="_blank" style="font-size:11px;color:var(--text3);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:400px;" title="${s.articleUrl}">${s.articleUrl}</a>
           </div>
-          <button onclick="applyProspectorSuggestion(${JSON.stringify(s).replace(/"/g,'&quot;')})" class="btn-sm" style="width:auto;margin-left:10px;white-space:nowrap;flex-shrink:0;">Use this →</button>
+          <button onclick="applyProspectorSuggestion(window._prospectorSuggestions[${i}])" class="btn-sm" style="width:auto;margin-left:10px;white-space:nowrap;flex-shrink:0;">Use this →</button>
         </div>
         <div style="font-size:12px;color:var(--text);margin-bottom:6px;line-height:1.6;font-style:italic;">"${s.insertion}"</div>
         <div style="font-size:11px;color:var(--text3);">💡 ${s.reason}</div>
       </div>`).join('');
 
+    window._prospectorSuggestions = data.suggestions;
     document.getElementById('prospect-suggestions').innerHTML = suggestionsHtml;
     document.getElementById('prospect-results').style.display = 'block';
 
@@ -5650,7 +5665,10 @@ function listenReqs(){
 let domSortField = 'domain', domSortDir = 'asc';
 
 function listenDomains(){
-  db.collection('domains').orderBy('createdAt','desc').onSnapshot(snap=>{
+  const domainQuery = (cu?.role==='admin') 
+    ? db.collection('domains').orderBy('createdAt','desc')
+    : db.collection('domains').where('addedBy','==',cu?.name||cu?.email||'').orderBy('createdAt','desc');
+  domainQuery.onSnapshot(snap=>{
     allDomains = snap.docs.map(d=>({id:d.id,...d.data()}));
     if(document.getElementById('p-domains')?.classList.contains('active')) renderDomainsPage();
   });
@@ -5682,7 +5700,8 @@ function renderDomainsPage(){
   const st=document.getElementById('dom-filter-status')?.value||'';
   const proj=document.getElementById('dom-filter-proj')?.value||'';
 
-  let fl=allDomains.filter(d=>{
+  const isAdminD = cu?.role==='admin';
+  let fl=(isAdminD?allDomains:allDomains.filter(d=>d.addedBy===(cu?.name||cu?.email))).filter(d=>{
     if(s&&!(d.domain||'').toLowerCase().includes(s)&&!(d.email||'').toLowerCase().includes(s)&&
       !(d.firstName||'').toLowerCase().includes(s)&&!(d.lastName||'').toLowerCase().includes(s))return false;
     if(proj&&d.project!==proj)return false;
@@ -5781,6 +5800,7 @@ async function saveDomain(){
     addedBy:cu?.name||cu?.email||'',
     updatedAt:firebase.firestore.FieldValue.serverTimestamp()
   };
+  if(!id) data.addedBy = cu?.name||cu?.email||'';
   if(id)await db.collection('domains').doc(id).update(data);
   else{data.createdAt=firebase.firestore.FieldValue.serverTimestamp();await db.collection('domains').add(data);}
   closeDomainModal();
