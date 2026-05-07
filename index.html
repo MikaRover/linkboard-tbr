@@ -1727,7 +1727,7 @@ function startApp(){
     document.querySelectorAll('.nav.adm').forEach(el=>el.style.display='none');
     // Show only anchors & reqs nav
     document.querySelectorAll('.nav.adm').forEach(el=>{
-      if(el.getAttribute('onclick')&&(el.getAttribute('onclick').includes("'reqs'")|| el.getAttribute('onclick').includes("'anchors'")))
+      if(el.getAttribute('onclick')&&(el.getAttribute('onclick').includes("'reqs'")|| el.getAttribute('onclick').includes("'anchors'")||el.getAttribute('onclick').includes("'domains'")))
         el.style.display='block';
     });
   }
