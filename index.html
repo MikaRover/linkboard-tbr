@@ -860,7 +860,7 @@ tr:hover td{background:var(--bg3);}
   <div class="card">
     <div class="card-head">Team members</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Name</th><th>Role</th><th>Total links</th><th>Live</th><th>Pending</th><th>Dups</th></tr></thead>
+      <thead><tr><th>Name</th><th>Role</th><th>Total links</th><th>Live</th><th>Pending</th><th>Dups</th><th></th></tr></thead>
       <tbody id="team-tbody"></tbody>
     </table></div>
   </div>
@@ -3094,9 +3094,20 @@ function renderTeam(){
         <td style="color:var(--teal);">${bl.filter(l=>l.status==='live').length}</td>
         <td style="color:#f0a500;">${bl.filter(l=>l.status==='pending').length}</td>
         <td style="${dups?'color:#ff6b6b;font-weight:600;':'color:var(--text3);'}">${dups}</td>
+        <td><button onclick="deleteUser('${u.uid}','${name.replace(/'/g,"\'")}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button></td>
       </tr>`;
     }).join('');
   });
+}
+
+async function deleteUser(uid, name){
+  if(!confirm('Delete user "'+name+'"? This cannot be undone.')) return;
+  try{
+    await db.collection('users').doc(uid).delete();
+    renderTeam();
+  }catch(e){
+    alert('Error: '+e.message);
+  }
 }
 
 function linkCheckBadge(v, linkin, linkto, id){
