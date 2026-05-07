@@ -2401,7 +2401,7 @@ function renderAnchorReqs(){
 
   wrap.style.display='block';
   list.innerHTML=reqs.map(r=>{
-    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYear&&(l.status||'').toLowerCase()==='live').length;
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     const pct=Math.min(100,Math.round(used/r.max*100));
     const full=used>=r.max;
     const color=full?'var(--red)':used>0?'var(--yellow)':'var(--teal)';
@@ -2432,7 +2432,7 @@ function onAnchorInput(){
     if(!anyReq){el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No anchor requirement for "'+anchor+'" in '+proj;return;}
     el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No requirement for "'+anchor+'" in '+curMonthYear+' (set for '+anyReq.month+')';return;
   }
-  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor&&l.date&&getMonthKey(l.date)===curMonthYear&&(l.status||'').toLowerCase()==='live').length;
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor&&l.date&&getMonthKey(l.date)===curMonthYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
   if(used>=req.max){el.style.display='block';el.className='alert a-dup';el.textContent='🚫 Limit reached! '+used+'/'+req.max+' for "'+anchor+'" ('+curMonthYear+')';}
   else{el.style.display='block';el.className='alert a-ok';el.textContent='✅ Anchor OK — '+used+' of '+req.max+' used in '+curMonthYear;}
 }
@@ -2442,7 +2442,7 @@ function getCheck(domain,anchor,proj){
   const curM=MONTHS_EN[new Date().getMonth()]+' '+new Date().getFullYear();
   const req=allReqs.find(r=>r.project===proj&&r.anchor.toLowerCase()===(anchor||'').toLowerCase()&&(r.month===curM||r.month===MONTHS_EN[new Date().getMonth()]));
   if(!req)return'noreq';
-  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===(anchor||'').toLowerCase()&&l.date&&getMonthKey(l.date)===curM&&(l.status||'').toLowerCase()==='live').length;
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===(anchor||'').toLowerCase()&&l.date&&getMonthKey(l.date)===curM&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
   return used>=req.max?'limit':'ok';
 }
 
@@ -2486,7 +2486,7 @@ async function addLink(){
   const curMYCheck=curMonthCheck+' '+curYearCheck;
   const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor_lc&&(r.month===curMYCheck||r.month===curMonthCheck));
   if(req){
-    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&l.date&&getMonthKey(l.date)===curMYCheck&&(l.status||'').toLowerCase()==='live').length;
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&l.date&&getMonthKey(l.date)===curMYCheck&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     if(used>=req.max){alert('🚫 Anchor limit reached ('+used+'/'+req.max+') for '+curMYCheck);return;}
   }
 
@@ -2987,7 +2987,7 @@ function renderReqs(){
   const tb=document.getElementById('req-tbody');
   if(!allReqs.length){tb.innerHTML='<tr><td colspan="7" class="loading">No requirements</td></tr>';return;}
   tb.innerHTML=allReqs.map(r=>{
-    const used=allLinks.filter(l=>l.project===r.project&&(l.anchor||'').toLowerCase()===r.anchor&&(l.status||'').toLowerCase()==='live').length;
+    const used=allLinks.filter(l=>l.project===r.project&&(l.anchor||'').toLowerCase()===r.anchor&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     const pct=Math.min(100,Math.round(used/r.max*100));const over=used>r.max;
     const linktoHtml=r.linkto?`<a href="${r.linkto}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none;" title="${r.linkto}">↗ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,30)}</a>`:'<span style="color:var(--text3);font-size:11px;">—</span>';
     return`<tr>
@@ -4452,7 +4452,7 @@ function renderAnchorDetail(){
   });
   const curMax = curReqs.reduce((s,r)=>s+r.max,0);
   const curUsed = curReqs.reduce((s,r)=>{
-    return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYearKey&&(l.status||'').toLowerCase()==='live').length;
+    return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYearKey&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
   },0);
   const overallPct = curMax>0?Math.min(100,Math.round(curUsed/curMax*100)):0;
 
