@@ -1829,44 +1829,47 @@ function toggleTheme(){
 
   const objects = [];
 
-  function makeLink(op){
-    // Elongated link: flat torus stretched on Y axis
-    const geo = new THREE.TorusGeometry(0.32, 0.07, 12, 32);
-    const mat = new THREE.MeshPhongMaterial({color:0x00c4ae,emissive:0x003d38,shininess:150,transparent:true,opacity:op});
-    const m = new THREE.Mesh(geo, mat);
-    m.scale.set(1, 1.6, 1); // elongate vertically — less round, more chain-like
-    return m;
+  // Build a realistic chain link using a path-extruded shape
+  function buildLinkMesh(op){
+    // Oval path: straight sides + semicircular ends
+    const curve = new THREE.CurvePath();
+    const h = 0.38; // half-height of straight part
+    const r = 0.22; // end radius
+    // Left straight, bottom arc, right straight, top arc
+    curve.add(new THREE.LineCurve3(new THREE.Vector3(-r, -h, 0), new THREE.Vector3(-r, h, 0)));
+    curve.add(new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(-r, h, 0), new THREE.Vector3(0, h+r, 0), new THREE.Vector3(r, h, 0)
+    ));
+    curve.add(new THREE.LineCurve3(new THREE.Vector3(r, h, 0), new THREE.Vector3(r, -h, 0)));
+    curve.add(new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(r, -h, 0), new THREE.Vector3(0, -h-r, 0), new THREE.Vector3(-r, -h, 0)
+    ));
+    const tubeGeo = new THREE.TubeGeometry(curve, 48, 0.07, 10, false);
+    const mat = new THREE.MeshPhongMaterial({
+      color: 0x00c4ae, emissive: 0x002e28, shininess: 180,
+      transparent: true, opacity: op
+    });
+    return new THREE.Mesh(tubeGeo, mat);
   }
 
   function makeChain(x,y,z,scale,ry){
     const g = new THREE.Group();
-    const op = 0.5 + Math.random()*0.35;
-    const count = 3 + Math.floor(Math.random()*2); // 3 or 4 links
-
-    for(let i=0; i<count; i++){
-      const link = makeLink(op);
-      // Alternate rotation 90deg for interlocking
-      if(i%2===0){
-        link.rotation.set(0, 0, 0);
-      } else {
-        link.rotation.set(Math.PI/2, 0, 0);
-      }
-      // Position links in a chain — each offset by ~0.55 units
-      link.position.set(i * 0.55, 0, 0);
-      g.add(link);
-    }
-
-    g.position.set(x,y,z);
-    g.scale.setScalar(scale);
-    g.rotation.y = ry;
+    const op = 0.55 + Math.random()*0.3;
+    const m1 = buildLinkMesh(op);
+    const m2 = buildLinkMesh(op);
+    // Second link rotated 90deg around Y to interlock
+    m2.rotation.y = Math.PI/2;
+    m2.position.x = 0.22;
+    g.add(m1, m2);
+    g.position.set(x,y,z); g.scale.setScalar(scale); g.rotation.y=ry;
     return g;
   }
 
   function makeWire(x,y,z,s){
-    const geo = new THREE.TorusGeometry(0.32,0.07,8,24);
+    const geo = new THREE.TorusGeometry(0.4,0.07,8,24);
     const mat = new THREE.MeshBasicMaterial({color:0x00c4ae,wireframe:true,transparent:true,opacity:0.1});
     const m = new THREE.Mesh(geo,mat);
-    m.scale.set(s, s*1.6, s); // elongated too
+    m.scale.set(s, s*1.7, s*0.4);
     m.position.set(x,y,z);
     return m;
   }
