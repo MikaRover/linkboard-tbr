@@ -12,7 +12,8 @@ module.exports = async function handler(req, res) {
   const base = 'https://' + normalizedDomain;
 
   const paths = ['', '/pricing', '/about', '/services', '/blog', '/features',
-    '/product', '/platform', '/solutions', '/integrations', '/login', '/signup', '/demo'];
+    '/product', '/platform', '/solutions', '/integrations', '/login', '/signup', '/demo',
+    '/news', '/articles', '/category', '/plans', '/enterprise', '/contact'];
 
   let combinedText = '';
   let fetchedUrls = [];
@@ -36,7 +37,7 @@ module.exports = async function handler(req, res) {
       const text = stripHtml(html).slice(0, 2500);
       fetchedUrls.push(base + path);
       combinedText += `\nURL: ${base+path}\nTITLE: ${title}\nMETA: ${meta}\nTEXT: ${text}\n---\n`;
-      if (combinedText.length > 20000) break;
+      if (combinedText.length > 30000) break;
     } catch(e) {}
   }
 
@@ -51,53 +52,62 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const prompt = `Classify this website into exactly one category: SaaS, Service, Blog/Magazine, News, Agency, or Other.
+    const prompt = `You are an expert website classifier with 10+ years of experience in digital marketing and SEO.
 
-SaaS = software product that users log into, with pricing plans, dashboard, API, integrations. Must have a core software product.
-Service = agency, consultancy, outsourcing, professional services, done-for-you.
-Blog/Magazine = primarily a content/publishing site, blog, online magazine with articles.
-News = news outlet, media company, journalism.
-Agency = marketing/design/development agency.
-Other = anything else (food, lifestyle, finance info sites, etc.)
+Classify this website into exactly ONE category:
 
-Important rules:
-- Food/recipe/lifestyle sites → Blog/Magazine or Other, NOT SaaS
-- News sites, media → News, NOT SaaS
-- Finance/investment info sites → Blog/Magazine or Other
-- "sign up" or "login" alone doesn't mean SaaS — many blogs have these
-- Only SaaS if the CORE product is software people pay to use
+CATEGORIES:
+- SaaS: Core business IS the software product. Users pay to use it. Must have: pricing/plans, user accounts/dashboard, the software IS the product. Examples: Ahrefs, HubSpot, Slack, Shopify, CyberPanel, cPanel, Notion, Figma.
+- Service: Sells human-delivered services. Core business = people doing work for clients. Examples: marketing agency, SEO agency, consulting firm, outsourcing company, freelancer site.
+- Blog/Magazine: Primary purpose is publishing content. Revenue = ads/sponsored content/affiliate. Examples: Moz Blog, Search Engine Journal, Backlinko, food blogs, travel blogs, TechCrunch (editorial).
+- News: News outlet, breaking news, journalism. Examples: BBC, Reuters, TechCrunch (news), Forbes, Bloomberg.
+- Agency: Specifically a creative/digital/marketing/development agency selling project-based work.
+- Other: Ecommerce stores, forums, communities, non-profits, personal sites, government sites, anything that doesn't fit above.
 
-Pre-analysis:
-Suggested: ${heuristic.suggestedCategory}
-SaaS score: ${heuristic.saasScore} | Blog score: ${heuristic.blogScore} | News score: ${heuristic.newsScore}
+DECISION RULES (in priority order):
+1. Does the site have PRICING PLANS for SOFTWARE? → SaaS
+2. Does the site have a LOGIN/DASHBOARD for a SOFTWARE PRODUCT? → SaaS  
+3. Does the site primarily SELL SERVICES (not software)? → Service or Agency
+4. Does the site primarily PUBLISH ARTICLES/CONTENT? → Blog/Magazine or News
+5. Is it a NEWS outlet with reporters/journalists? → News
+6. Everything else → Other
 
-Return ONLY valid JSON: {"category":"Blog/Magazine","confidence":90}
+IMPORTANT:
+- A blog section on a SaaS site does NOT make it Blog/Magazine
+- "Sign up for newsletter" does NOT mean SaaS
+- Hosting control panels, web servers, CMS platforms = SaaS
+- If site primarily has articles/posts with authors/dates = Blog/Magazine
 
 Domain: ${normalizedDomain}
-Website data:
-${combinedText.slice(0, 4000)}`;
+Fetched pages: ${fetchedUrls.join(', ')}
 
-    const gptResp = await fetch('https://api.openai.com/v1/chat/completions', {
+Website content:
+${combinedText.slice(0, 8000)}
+
+Think step by step, then return ONLY valid JSON: {"category":"SaaS","confidence":95}
+No explanation, no markdown, just JSON.`;
+
+    const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + openaiKey },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': openaiKey,
+        'anthropic-version': '2023-06-01'
+      },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are a website classifier. Return only valid JSON.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 30,
-        temperature: 0
+        model: 'claude-sonnet-4-6',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: prompt }]
       }),
       signal: AbortSignal.timeout(10000)
     });
 
-    const gptData = await gptResp.json();
-    const raw = (gptData.choices[0].message.content || '').trim();
+    const claudeData = await claudeResp.json();
+    const raw = (claudeData.content?.[0]?.text || '').trim();
     const obj = JSON.parse(raw.replace(/```json|```/g,'').trim());
     const CATS = ['SaaS','Service','Blog/Magazine','News','Agency','Other'];
     const cat = CATS.find(c => c.toLowerCase() === (obj.category||'').toLowerCase()) || heuristic.suggestedCategory;
-    return res.json({ category: cat, method: 'gpt', confidence: obj.confidence || null });
+    return res.json({ category: cat, method: 'claude', confidence: obj.confidence || null });
   } catch(e) {
     return res.json({ category: heuristic.suggestedCategory, method: 'heuristic', confidence: null });
   }
