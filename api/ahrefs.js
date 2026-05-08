@@ -36,26 +36,40 @@ module.exports = async function handler(req, res) {
   const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date=${today}&mode=domain&select=org_traffic,org_keywords,paid_traffic`;
 
   try {
+    // Helper to fetch metrics with retry
+    const fetchWithRetry = async (url, opts, retries=2, delay=2000) => {
+      for(let i=0; i<=retries; i++){
+        try{
+          const resp = await fetch(url, opts);
+          if(resp.ok) return resp;
+          if(i < retries) await new Promise(r=>setTimeout(r, delay));
+        } catch(e){
+          if(i < retries) await new Promise(r=>setTimeout(r, delay));
+          else throw e;
+        }
+      }
+      return null;
+    };
+
     const [drResp, metricsResp] = await Promise.all([
-      fetch(drUrl, { headers, signal: AbortSignal.timeout(10000) }),
-      fetch(metricsUrl, { headers, signal: AbortSignal.timeout(10000) })
+      fetchWithRetry(drUrl, { headers, signal: AbortSignal.timeout(10000) }),
+      fetchWithRetry(metricsUrl, { headers, signal: AbortSignal.timeout(10000) })
     ]);
 
     let dr = null, traffic = null;
 
-    if (drResp.ok) {
+    if (drResp && drResp.ok) {
       const d = await drResp.json();
       dr = d?.domain_rating?.domain_rating ?? null;
       if (dr !== null) dr = Math.round(dr);
     }
 
-    if (metricsResp.ok) {
+    if (metricsResp && metricsResp.ok) {
       const m = await metricsResp.json();
       const metrics = m?.metrics || m || {};
-      // Try all possible traffic fields, skip 0 values
       const raw = metrics.org_traffic ?? metrics.paid_traffic ?? metrics.org_keywords ?? null;
       traffic = (raw !== null && raw > 0) ? Math.round(raw) : null;
-    } else {
+    } else if (metricsResp) {
       const errText = await metricsResp.text().catch(() => '');
       console.log('Metrics error:', metricsResp.status, errText.slice(0, 200));
     }
