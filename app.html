@@ -1886,6 +1886,16 @@ function toggleTheme(){
   window._stopSplash3D = ()=>{ cancelAnimationFrame(rafId); renderer.dispose(); };
 })();
 
+// Auto-hide splash after 2s and show login
+setTimeout(()=>{
+  const splash = document.getElementById('app-splash');
+  if(splash && splash.style.display !== 'none'){
+    splash.classList.add('hide');
+    if(window._stopSplash3D) setTimeout(window._stopSplash3D, 600);
+    setTimeout(()=>{ splash.style.display='none'; }, 600);
+  }
+}, 2000);
+
 // ── SPLASH → APP TRANSITION ──
 function showAppWithAnimation(){
   const splash = document.getElementById('app-splash');
