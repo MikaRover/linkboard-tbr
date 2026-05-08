@@ -5980,16 +5980,17 @@ async function runBatchAnalyze(btn){
       batchResults.push(result);
 
       // Save to Domains DB if checked
+      const existingDom = allDomains.find(d=>d.domain===domain);
+
       if(saveDB){
-        const existing = allDomains.find(d=>d.domain===domain);
         const data = {
           domain, dr: dr?String(dr):'', traffic: traffic?String(traffic):'',
           addedBy: cu?.name||cu?.email||'',
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         if(category && category !== '—') data.category = category;
-        if(existing){
-          await db.collection('domains').doc(existing.id).update(data);
+        if(existingDom){
+          await db.collection('domains').doc(existingDom.id).update(data);
         } else {
           data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
           data.email=''; data.smtp='unknown'; data.firstName=''; data.lastName='';
@@ -6008,7 +6009,7 @@ async function runBatchAnalyze(btn){
           <td style="text-align:right;color:var(--text2);">${traffic?Number(traffic).toLocaleString():'—'}</td>
           <td>${catBadgeHtml}</td>
           <td><span style="font-size:11px;color:var(--teal);">${status}${saveDB?' · Saved':''}</span></td>
-          <td><button onclick="openDomainModal('${existing?.id||''}')" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Edit</button></td>`;
+          <td><button onclick="openDomainModal('${existingDom?.id||''}')" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Edit</button></td>`;
       }
     }));
 
