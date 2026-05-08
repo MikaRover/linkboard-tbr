@@ -1,3 +1,7 @@
+// Simple in-memory cache (persists for serverless function lifetime)
+const cache = {};
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -8,23 +12,27 @@ module.exports = async function handler(req, res) {
   const { domain } = req.body || {};
   if (!domain) return res.status(400).json({ error: 'domain required' });
 
-  const AHREFS_KEY = '7dNernlzY4mixkKwyIEOVsZK8e0Rx0Hgq3YszXti';
   const cleanDomain = domain
     .replace(/^https?:\/\//i, '')
     .replace(/^www\./i, '')
     .split('/')[0]
-    .trim();
+    .trim()
+    .toLowerCase();
 
+  // Check cache first
+  const cached = cache[cleanDomain];
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return res.json({ ...cached.data, cached: true });
+  }
+
+  const AHREFS_KEY = '7dNernlzY4mixkKwyIEOVsZK8e0Rx0Hgq3YszXti';
   const today = new Date().toISOString().slice(0, 10);
-
   const headers = {
     'Authorization': `Bearer ${AHREFS_KEY}`,
     'Accept': 'application/json'
   };
 
   const drUrl = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=${today}`;
-  
-  // Try multiple traffic fields
   const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date=${today}&mode=domain&select=org_traffic,org_keywords,paid_traffic`;
 
   try {
@@ -44,17 +52,27 @@ module.exports = async function handler(req, res) {
     if (metricsResp.ok) {
       const m = await metricsResp.json();
       const metrics = m?.metrics || m || {};
-      // Try all possible traffic fields
-      traffic = metrics.org_traffic ?? metrics.paid_traffic ?? metrics.org_keywords ?? null;
-      if (traffic !== null) traffic = Math.round(traffic);
+      // Try all possible traffic fields, skip 0 values
+      const raw = metrics.org_traffic ?? metrics.paid_traffic ?? metrics.org_keywords ?? null;
+      traffic = (raw !== null && raw > 0) ? Math.round(raw) : null;
     } else {
-      // Log the error for debugging
-      console.log('Metrics error:', metricsResp.status, await metricsResp.text().catch(()=>''));
+      const errText = await metricsResp.text().catch(() => '');
+      console.log('Metrics error:', metricsResp.status, errText.slice(0, 200));
     }
 
-    return res.json({ domain: cleanDomain, dr, traffic, usTrafficPct: null, topCountries: [] });
+    const result = { domain: cleanDomain, dr, traffic, usTrafficPct: null, topCountries: [] };
 
+    // Only cache if we got valid data
+    if (dr !== null || traffic !== null) {
+      cache[cleanDomain] = { ts: Date.now(), data: result };
+    }
+
+    return res.json(result);
   } catch (e) {
-    return res.json({ error: e.message.slice(0, 100) });
+    // Return cached data if available (even if expired) on error
+    if (cached) {
+      return res.json({ ...cached.data, stale: true });
+    }
+    return res.json({ domain: cleanDomain, dr: null, traffic: null, error: e.message.slice(0, 100) });
   }
 };
