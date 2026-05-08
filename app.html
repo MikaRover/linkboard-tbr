@@ -484,6 +484,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav adm" onclick="gotoPage('online',this)">🟢 Online</div>
   <div class="nav adm" onclick="gotoPage('domains',this)">🗄 Domains DB</div>
   <div class="nav" onclick="gotoPage('outreach',this)">🎯 Outreach</div>
+  <div class="nav" onclick="gotoPage('batch',this)">🔍 Batch Analyze</div>
   <div class="nav adm" onclick="gotoPage('load',this)">📊 Load</div>
   <div class="nav adm" onclick="gotoPage('capacity',this)">⚡ Capacity</div>
   <!-- BUILDER NAV -->
@@ -492,6 +493,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav nav-bld" id="bld-nav-add" onclick="gotoPage('add',this)">Add link</div>
   <div class="nav nav-bld nav-outreach" onclick="gotoPage('outreach',this)">🎯 Outreach</div>
   <div class="nav nav-bld" onclick="gotoPage('domains',this)">🗄 Domains DB</div>
+  <div class="nav nav-bld" onclick="gotoPage('batch',this)">🔍 Batch Analyze</div>
   <div class="sb-bottom">
     <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" style="margin-bottom:10px;">
       <div class="theme-switch" id="theme-switch">
@@ -1564,6 +1566,54 @@ tr:hover td{background:var(--bg3);}
   </div>
 </div>
 
+<!-- ══ BATCH ANALYZE ══ -->
+<div id="p-batch" class="page">
+  <div class="page-top">
+    <div>
+      <div class="page-title">🔍 Batch Analyze</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Paste domains to get DR, Traffic & Category in bulk</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-ghost" onclick="exportBatchCSV()" id="batch-export-btn" style="display:none;">⬇ Export CSV</button>
+      <button class="btn-sm" onclick="runBatchAnalyze(this)" style="width:auto;" id="batch-run-btn">▶ Analyze →</button>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:800px;margin-bottom:1.5rem;">
+    <div class="card-body">
+      <div class="section-label">Domains (one per line)</div>
+      <textarea id="batch-input" placeholder="ahrefs.com&#10;semrush.com&#10;moz.com&#10;hubspot.com"
+        style="width:100%;height:160px;padding:10px 12px;font-size:13px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:12px;outline:none;"
+        onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;">
+          <input type="checkbox" id="batch-save-db" style="width:auto;margin:0;" checked/>
+          Auto-save to Domains DB
+        </label>
+        <span id="batch-progress" style="font-size:12px;color:var(--text3);"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results table -->
+  <div id="batch-results" style="display:none;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;" id="batch-count"></div>
+    <div class="card">
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>Domain</th>
+          <th style="text-align:center;">DR</th>
+          <th style="text-align:right;">Traffic</th>
+          <th>Category</th>
+          <th>Status</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="batch-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /content -->
 </div><!-- /app -->
 </div><!-- /s-app -->
@@ -1742,10 +1792,11 @@ function startApp(){
     document.querySelectorAll('.nav').forEach(el=>{
       if(!el.classList.contains('nav-bld')&&!el.classList.contains('adm')) el.style.display='none';
     });
-    // Show outreach and add link for manager
+    // Show outreach, add link and batch for manager
     document.querySelectorAll('.nav-outreach').forEach(el=>el.style.display='block');
     document.querySelectorAll('.nav-bld').forEach(el=>{
-      if(el.getAttribute('onclick')&&el.getAttribute('onclick').includes("'add'"))
+      const oc = el.getAttribute('onclick')||'';
+      if(oc.includes("'add'")||oc.includes("'batch'"))
         el.style.display='block';
     });
   } else {
@@ -2295,7 +2346,7 @@ function onDomainInput(){
       if(mData.dr!==null&&mData.dr!==undefined){
         document.getElementById('f-dr').value=mData.dr;
       }
-      if(mData.traffic!==null&&mData.traffic!==undefined){
+      if(mData.traffic!==null&&mData.traffic!==undefined&&mData.traffic!==0){
         document.getElementById('f-traffic').value=mData.traffic;
       }
       // Show US traffic % if available
@@ -2797,7 +2848,7 @@ async function bulkRefreshMetrics(months, btn){
         const d=await r.json();
         const upd={};
         if(d.dr!==null&&d.dr!==undefined)upd.dr=String(d.dr);
-        if(d.traffic!==null&&d.traffic!==undefined)upd.traffic=String(d.traffic);
+        if(d.traffic!==null&&d.traffic!==undefined&&d.traffic!==0)upd.traffic=String(d.traffic);
         if(Object.keys(upd).length) await db.collection('links').doc(l.id).update(upd);
       }catch(e){}
       done++;
@@ -5850,7 +5901,140 @@ function exportDomainsCSV(){
   a.click();
 }
 
-// ─── DRAG & DROP ──────────────────────────────────────────
+// ─── BATCH ANALYZE ────────────────────────────────────────
+let batchResults = [];
+
+async function runBatchAnalyze(btn){
+  const raw = document.getElementById('batch-input').value.trim();
+  if(!raw){ alert('Enter at least one domain'); return; }
+
+  const domains = raw.split(/[\n,;]+/)
+    .map(d=>d.trim().replace(/^https?:\/\//i,'').replace(/^www\./i,'').split('/')[0].trim().toLowerCase())
+    .filter(Boolean);
+
+  if(!domains.length){ alert('No valid domains found'); return; }
+
+  batchResults = [];
+  const tbody = document.getElementById('batch-tbody');
+  const progress = document.getElementById('batch-progress');
+  const results = document.getElementById('batch-results');
+  const saveDB = document.getElementById('batch-save-db').checked;
+
+  results.style.display = 'none';
+  tbody.innerHTML = '';
+  document.getElementById('batch-export-btn').style.display = 'none';
+
+  const orig = btn.textContent;
+  btn.disabled = true;
+
+  // Add placeholder rows
+  tbody.innerHTML = domains.map(d=>`
+    <tr id="brow-${d.replace(/[^a-z0-9]/g,'_')}">
+      <td style="color:var(--teal);font-weight:600;">${d}</td>
+      <td style="text-align:center;color:var(--text3);">—</td>
+      <td style="text-align:right;color:var(--text3);">—</td>
+      <td style="color:var(--text3);">—</td>
+      <td><span style="font-size:11px;color:var(--text3);">⏳ Waiting...</span></td>
+      <td></td>
+    </tr>`).join('');
+
+  results.style.display = 'block';
+
+  // Process 2 at a time to avoid rate limiting
+  const CONCUR = 2;
+  for(let i=0; i<domains.length; i+=CONCUR){
+    const batch = domains.slice(i, i+CONCUR);
+    progress.textContent = `${Math.min(i+CONCUR, domains.length)}/${domains.length} processed`;
+    btn.textContent = `⏳ ${Math.min(i+CONCUR, domains.length)}/${domains.length}`;
+
+    await Promise.all(batch.map(async domain=>{
+      const rowId = 'brow-'+domain.replace(/[^a-z0-9]/g,'_');
+      const row = document.getElementById(rowId);
+      if(row) row.querySelector('td:last-child').previousElementSibling.innerHTML = '<span style="font-size:11px;color:#7896ff;">🔄 Fetching...</span>';
+
+      let dr=null, traffic=null, category='';
+      let status = '✅';
+
+      try{
+        // Fetch metrics
+        const mResp = await fetch('/api/ahrefs',{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({domain})
+        });
+        const mData = await mResp.json();
+        dr = mData.dr ?? null;
+        traffic = (mData.traffic && mData.traffic > 0) ? mData.traffic : null;
+      }catch(e){ status = '⚠️ Metrics error'; }
+
+      try{
+        // Detect category
+        const cResp = await fetch('/api/detect-category',{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({domain})
+        });
+        const cData = await cResp.json();
+        category = normalizeCategory(cData.category||'');
+      }catch(e){ category = '—'; }
+
+      const result = {domain, dr, traffic, category, status};
+      batchResults.push(result);
+
+      // Save to Domains DB if checked
+      if(saveDB){
+        const existing = allDomains.find(d=>d.domain===domain);
+        const data = {
+          domain, dr: dr?String(dr):'', traffic: traffic?String(traffic):'',
+          addedBy: cu?.name||cu?.email||'',
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        if(category && category !== '—') data.category = category;
+        if(existing){
+          await db.collection('domains').doc(existing.id).update(data);
+        } else {
+          data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+          data.email=''; data.smtp='unknown'; data.firstName=''; data.lastName='';
+          data.position=''; data.project=''; data.notes='';
+          await db.collection('domains').add(data);
+        }
+      }
+
+      // Update row
+      if(row){
+        const drColor = dr>=70?'var(--teal)':dr>=40?'var(--yellow)':'var(--text2)';
+        const catBadgeHtml = category&&category!=='—' ? catBadge(category) : '<span style="color:var(--text3);">—</span>';
+        row.innerHTML = `
+          <td style="color:var(--teal);font-weight:600;"><a href="https://${domain}" target="_blank" style="color:inherit;text-decoration:none;">${domain}</a></td>
+          <td style="text-align:center;font-weight:700;color:${drColor};">${dr??'—'}</td>
+          <td style="text-align:right;color:var(--text2);">${traffic?Number(traffic).toLocaleString():'—'}</td>
+          <td>${catBadgeHtml}</td>
+          <td><span style="font-size:11px;color:var(--teal);">${status}${saveDB?' · Saved':''}</span></td>
+          <td><button onclick="openDomainModal('${existing?.id||''}')" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Edit</button></td>`;
+      }
+    }));
+
+    // Small delay between batches to be nice to API
+    if(i+CONCUR < domains.length) await new Promise(r=>setTimeout(r, 1000));
+  }
+
+  btn.textContent = orig;
+  btn.disabled = false;
+  progress.textContent = `Done! ${batchResults.length} domains analyzed`;
+  document.getElementById('batch-count').textContent = `${batchResults.length} domains`;
+  document.getElementById('batch-export-btn').style.display = 'block';
+}
+
+function exportBatchCSV(){
+  if(!batchResults.length){ alert('No data'); return; }
+  const h = ['Domain','DR','Traffic','Category'];
+  const rows = batchResults.map(r=>[r.domain,r.dr||'',r.traffic||'',r.category||'']
+    .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
+  a.download = 'batch_analyze_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+
 const reqDropEl=document.getElementById('req-imp-drop');
 if(reqDropEl){
   reqDropEl.addEventListener('dragover',e=>{e.preventDefault();reqDropEl.style.borderColor='var(--teal)';});
