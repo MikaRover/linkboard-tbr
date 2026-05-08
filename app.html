@@ -2286,7 +2286,7 @@ function onDomainInput(){
     // Fetch Ahrefs metrics
     const metricsEl=document.getElementById('cat-status');
     try{
-      const mResp=await fetch('/api/get-metrics',{
+      const mResp=await fetch('/api/ahrefs',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({domain:d})
@@ -2793,7 +2793,7 @@ async function bulkRefreshMetrics(months, btn){
     const batch=targets.slice(i,i+CONCUR);
     await Promise.all(batch.map(async l=>{
       try{
-        const r=await fetch('/api/get-metrics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:l.domain})});
+        const r=await fetch('/api/ahrefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:l.domain})});
         const d=await r.json();
         const upd={};
         if(d.dr!==null&&d.dr!==undefined)upd.dr=String(d.dr);
@@ -3327,7 +3327,8 @@ function handleCsvFile(file){
       const c1l=c1.toLowerCase();
       // Check all columns for Pending header (it can appear in any column)
       const rowStr=row.map(v=>(v||'').trim().toLowerCase()).join('|');
-      const isPending=c0l==='pending'||c0l.startsWith('pending ')||c1l==='pending'||c1l.startsWith('pending ')||rowStr.split('|').some(v=>v==='pending');
+      // Only check A column (c0) and B column (c1) for Pending header
+      const isPending=(c0l==='pending'||c0l.startsWith('pending '))&&!c0.match(/^\d{2}\.\d{2}\.\d{4}/);
       const isLiveHeader=MONTHS.some(m=>c0l.includes(m))&&(c0l.includes('live')||c0l.includes('link'));
       const isMonthHeader=MONTHS.some(m=>c0l.startsWith(m));
 
