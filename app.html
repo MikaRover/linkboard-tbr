@@ -1829,25 +1829,45 @@ function toggleTheme(){
 
   const objects = [];
 
+  function makeLink(op){
+    // Elongated link: flat torus stretched on Y axis
+    const geo = new THREE.TorusGeometry(0.32, 0.07, 12, 32);
+    const mat = new THREE.MeshPhongMaterial({color:0x00c4ae,emissive:0x003d38,shininess:150,transparent:true,opacity:op});
+    const m = new THREE.Mesh(geo, mat);
+    m.scale.set(1, 1.6, 1); // elongate vertically — less round, more chain-like
+    return m;
+  }
+
   function makeChain(x,y,z,scale,ry){
     const g = new THREE.Group();
-    const op = 0.5 + Math.random()*0.3;
-    const mat = new THREE.MeshPhongMaterial({color:0x00c4ae,emissive:0x003d38,shininess:120,transparent:true,opacity:op});
-    const geo1 = new THREE.TorusGeometry(0.35,0.08,16,40);
-    const geo2 = new THREE.TorusGeometry(0.35,0.08,16,40);
-    const m1 = new THREE.Mesh(geo1,mat.clone());
-    const m2 = new THREE.Mesh(geo2,mat.clone());
-    m2.rotation.x = Math.PI/2; m2.position.x = 0.35;
-    g.add(m1,m2);
-    g.position.set(x,y,z); g.scale.setScalar(scale); g.rotation.y=ry;
+    const op = 0.5 + Math.random()*0.35;
+    const count = 3 + Math.floor(Math.random()*2); // 3 or 4 links
+
+    for(let i=0; i<count; i++){
+      const link = makeLink(op);
+      // Alternate rotation 90deg for interlocking
+      if(i%2===0){
+        link.rotation.set(0, 0, 0);
+      } else {
+        link.rotation.set(Math.PI/2, 0, 0);
+      }
+      // Position links in a chain — each offset by ~0.55 units
+      link.position.set(i * 0.55, 0, 0);
+      g.add(link);
+    }
+
+    g.position.set(x,y,z);
+    g.scale.setScalar(scale);
+    g.rotation.y = ry;
     return g;
   }
 
   function makeWire(x,y,z,s){
-    const geo = new THREE.TorusGeometry(0.4,0.09,8,24);
+    const geo = new THREE.TorusGeometry(0.32,0.07,8,24);
     const mat = new THREE.MeshBasicMaterial({color:0x00c4ae,wireframe:true,transparent:true,opacity:0.1});
     const m = new THREE.Mesh(geo,mat);
-    m.position.set(x,y,z); m.scale.setScalar(s);
+    m.scale.set(s, s*1.6, s); // elongated too
+    m.position.set(x,y,z);
     return m;
   }
 
