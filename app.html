@@ -6218,28 +6218,48 @@ function renderProspectorCards(suggestions, domain, proj, linkTo){
     const used = req ? allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===req.anchor&&l.date&&getMonthKey(l.date)===curMonth+' '+curYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length : 0;
     const full = req && used>=req.max;
     const hasReq = !!req;
+    const isEdit = !!(s.originalSentence);
+    const displaySentence = s.editedSentence || s.insertion || '';
+    const highlighted = displaySentence.replace(
+      new RegExp(s.anchor.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),
+      `<span style="color:var(--teal);font-weight:700;text-decoration:underline dotted;">${s.anchor}</span>`
+    );
+    const copyText = displaySentence.replace(/'/g,"\'");
 
-    return `<div style="background:var(--bg2);border:1px solid ${full?'rgba(255,95,95,0.3)':hasReq?'rgba(0,196,174,0.25)':'var(--border)'};border-radius:14px;padding:20px;position:relative;overflow:hidden;transition:all 0.2s;">
-      ${hasReq?`<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,${full?'var(--red)':'var(--teal)'},transparent);"></div>`:''}
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+    return `<div style="background:var(--bg2);border:1px solid ${full?'rgba(255,95,95,0.3)':hasReq?'rgba(0,196,174,0.25)':'var(--border)'};border-radius:14px;padding:20px;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,${full?'var(--red)':'var(--teal)'},transparent);"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
         <div style="flex:1;min-width:0;">
-          <div style="font-size:15px;font-weight:700;color:var(--teal);margin-bottom:4px;">"${s.anchor}"</div>
-          <a href="${s.articleUrl}" target="_blank" style="font-size:11px;color:var(--text3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${s.articleUrl}">↗ ${s.articleUrl}</a>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;margin-left:12px;">
-          ${hasReq?`<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:${full?'rgba(255,95,95,0.1)':'rgba(0,196,174,0.1)'};color:${full?'var(--red)':'var(--teal)'};">${used}/${req.max} ${full?'❌ Full':'✅'}</span>`:''}
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap;">
+            <span style="font-size:14px;font-weight:700;color:var(--teal);">"${s.anchor}"</span>
+            <span style="font-size:10px;padding:2px 8px;border-radius:20px;background:${isEdit?'rgba(240,165,0,0.1)':'rgba(120,150,255,0.12)'};color:${isEdit?'var(--yellow)':'#7896ff'};font-weight:600;">${isEdit?'✏️ Edit':'➕ Add'}</span>
+            ${hasReq?`<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:${full?'rgba(255,95,95,0.1)':'rgba(0,196,174,0.1)'};color:${full?'var(--red)':'var(--teal)'};font-weight:700;">${used}/${req.max} ${full?'❌':'✅'}</span>`:''}
+          </div>
+          <a href="${s.articleUrl}" target="_blank" style="font-size:11px;color:var(--text3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.articleTitle||s.articleUrl}</a>
         </div>
       </div>
 
-      <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;color:var(--text);line-height:1.7;font-style:italic;">"${s.insertion}"</div>
+      ${isEdit&&s.originalSentence?`
+      <div style="margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Before</div>
+        <div style="background:rgba(255,95,95,0.05);border:1px solid rgba(255,95,95,0.15);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.65;text-decoration:line-through;opacity:0.65;">${s.originalSentence}</div>
+      </div>`:''}
 
+      <div style="margin-bottom:10px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">${isEdit?'After':'New sentence'}</div>
+        <div style="background:rgba(0,196,174,0.05);border:1px solid rgba(0,196,174,0.2);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);line-height:1.7;">${highlighted}</div>
+      </div>
+
+      ${s.placement?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px;">📍 <em>${s.placement}</em></div>`:''}
       <div style="font-size:11px;color:var(--text3);margin-bottom:14px;">💡 ${s.reason}</div>
 
-      <div style="display:flex;gap:8px;">
-        <button onclick="useProspectorSuggestion(${i})" class="btn-sm" style="flex:1;${full?'opacity:0.5;cursor:not-allowed;':''}" ${full?'disabled':''}>
-          ${full?'❌ Anchor full':'✅ Use this anchor →'}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="useProspectorSuggestion(${i})" class="btn-sm" style="flex:1;min-width:120px;${full?'opacity:0.5;cursor:not-allowed;':''}" ${full?'disabled':''}>
+          ${full?'❌ Full':'✅ Use this →'}
         </button>
-        <a href="${s.articleUrl}" target="_blank" class="btn-ghost" style="padding:6px 12px;font-size:12px;text-decoration:none;">↗ View article</a>
+        <a href="${s.articleUrl}" target="_blank" class="btn-ghost" style="padding:6px 12px;font-size:12px;text-decoration:none;white-space:nowrap;">↗ Article</a>
+        <button onclick="navigator.clipboard.writeText('${copyText}');this.textContent='✅ Copied';setTimeout(()=>this.textContent='📋 Copy',2000);" class="btn-ghost" style="padding:6px 12px;font-size:12px;white-space:nowrap;">📋 Copy</button>
       </div>
     </div>`;
   }).join('');
