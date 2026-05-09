@@ -2138,15 +2138,71 @@ function renderProjectsPage(){
     const count=allLinks.filter(l=>l.project===p.name).length;
     const live=allLinks.filter(l=>l.project===p.name&&l.status==='live').length;
     const pend=allLinks.filter(l=>l.project===p.name&&l.status==='pending').length;
-    return`<div class="proj-card">
-      <div style="cursor:pointer;flex:1;" onclick="openProjectDetail('${p.name}')">
-        <div class="proj-name">${p.name}</div>
-        <div class="proj-count" style="color:var(--teal);">${count} links →</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:3px;">✅ ${live} · ⏳ ${pend}</div>
+    const sd = p.siteData;
+    const scanned = sd && sd.lastScanned;
+    return`<div class="proj-card" style="flex-direction:column;align-items:stretch;gap:10px;">
+      <div style="display:flex;align-items:flex-start;gap:8px;">
+        <div style="cursor:pointer;flex:1;" onclick="openProjectDetail('${p.name}')">
+          <div class="proj-name">${p.name}</div>
+          <div class="proj-count" style="color:var(--teal);">${count} links →</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px;">✅ ${live} · ⏳ ${pend}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
+          <button class="btn-ghost" style="font-size:11px;padding:4px 10px;white-space:nowrap;" onclick="scanProject('${p.id}','${p.name}',this)">
+            ${scanned?'🔄 Re-scan':'🔍 Scan'}
+          </button>
+          <button class="btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteProject('${p.id}','${p.name}')">✕</button>
+        </div>
       </div>
-      <button class="btn-danger" onclick="deleteProject('${p.id}','${p.name}')">✕</button>
+      ${scanned?`<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:11px;">
+        <div style="font-weight:700;color:var(--teal);margin-bottom:5px;">${sd.niche||''}</div>
+        ${sd.coreTopics&&sd.coreTopics.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px;">${sd.coreTopics.slice(0,5).map(t=>`<span style="padding:1px 7px;border-radius:20px;background:rgba(0,196,174,0.1);color:var(--teal);font-size:10px;">${t}</span>`).join('')}</div>`:''}
+        <div style="color:var(--text3);font-size:10px;">📅 Scanned ${sd.lastScanned}</div>
+      </div>`:''}
     </div>`;
   }).join('');
+}
+
+async function scanProject(projId, projName, btn){
+  // Find domain from project's links
+  const projLinks = allLinks.filter(l=>l.project===projName);
+  // Try to find a client domain — check if project has a website field
+  const proj = allProjects.find(p=>p.id===projId);
+  let domain = proj?.website || proj?.domain || proj?.url || '';
+
+  // If no domain saved, ask user
+  if(!domain){
+    domain = prompt(`Enter the client website domain for "${projName}":`, 'example.com');
+    if(!domain) return;
+    domain = domain.replace(/^https?:\/\//,'').replace(/^www\./,'').split('/')[0].trim();
+  }
+
+  btn.textContent = '⏳ Scanning...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/scan-project', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ domain, anthropicKey: ANTHROPIC_KEY })
+    });
+    const data = await resp.json();
+
+    if(data.success && data.siteData){
+      // Save to Firestore
+      await db.collection('projects').doc(projId).update({
+        siteData: data.siteData,
+        website: domain
+      });
+      showToast(`✅ ${projName} scanned — ${data.siteData.niche}`);
+    } else {
+      showToast('❌ Scan failed: ' + (data.error||'Unknown error'));
+    }
+  } catch(e){
+    showToast('❌ Error: ' + e.message);
+  }
+
+  btn.disabled = false;
 }
 let sortField='date', sortDir='desc';
 
@@ -6184,9 +6240,13 @@ async function runProspectorPage(btn){
   const st = setInterval(()=>{ if(si<steps.length) document.getElementById('prosp-loading-text').textContent=steps[si++]; },4000);
 
   try{
+    // Load project siteData for context
+    const projObj = allProjects.find(p=>p.name===proj);
+    const siteData = projObj?.siteData || null;
+
     const resp = await fetch('/api/prospect',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({domain, project:proj, linkTo, anchors, openaiKey: ANTHROPIC_KEY})
+      body: JSON.stringify({domain, project:proj, linkTo, anchors, siteData, openaiKey: ANTHROPIC_KEY})
     });
     const data = await resp.json();
     clearInterval(st);
