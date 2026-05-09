@@ -6276,16 +6276,17 @@ function useProspectorSuggestion(i){
   const proj = window._prospectorPageProj;
   const domain = window._prospectorPageDomain;
 
-  // Go to Add link page
-  gotoPage('add', document.querySelectorAll('.nav')[1]);
+  // Go to Add link page — find by onclick attribute
+  const addNavEl = Array.from(document.querySelectorAll('.nav')).find(el=>el.getAttribute('onclick')&&el.getAttribute('onclick').includes("'add'"));
+  gotoPage('add', addNavEl);
 
   setTimeout(()=>{
+    if(domain) document.getElementById('f-domain').value = domain;
+    if(proj) document.getElementById('f-proj').value = proj;
     if(s.anchor) document.getElementById('f-anchor').value = s.anchor;
     if(s.articleUrl) document.getElementById('f-linkin').value = s.articleUrl;
-    if(proj) document.getElementById('f-proj').value = proj;
-    if(domain) document.getElementById('f-domain').value = domain;
     onDomainInput();
-    onAnchorInput();
+    setTimeout(()=>{ onAnchorInput(); }, 800);
     document.getElementById('f-anchor').scrollIntoView({behavior:'smooth',block:'center'});
   }, 100);
 }
