@@ -25,7 +25,32 @@ module.exports = async (req, res) => {
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{
           role: 'user',
-          content: 'You are a link building specialist. Find ' + count + ' websites that would be good backlink prospects for the keyword: "' + keyword + '"' + (project ? ' for the product: ' + project : '') + '. Search Google for this keyword and related terms. Find blogs, resource pages, comparison articles, informational content. Avoid direct competitors and product pages. Return ONLY a JSON array, no markdown, no extra text: [{"domain":"example.com","title":"Article title","url":"https://example.com/article","reason":"why good prospect"}]. Return ' + count + ' unique domains.'
+          content: `You are a link building specialist finding backlink opportunities for the product: "${project || keyword}".
+
+Search for articles about: "${keyword}"
+
+For each result, classify it as:
+- "prospect" = blog, resource page, comparison article, educational content, news site, directory — sites that MENTION tools/providers but are NOT themselves a tool/provider
+- "competitor" = a direct competing product/service that offers the same thing as ${project || 'the client'}
+
+IMPORTANT RULES:
+- A site that writes ABOUT SMS APIs is a prospect
+- A site that SELLS SMS API is a competitor
+- Educational blogs, tech media, comparison sites = prospects
+- SaaS products in the same category = competitors
+
+Return ONLY a JSON array, no markdown:
+[
+  {
+    "domain": "example.com",
+    "title": "Article title",
+    "url": "https://example.com/article",
+    "reason": "why good for backlink",
+    "is_competitor": false
+  }
+]
+
+STRICT RULE: Do NOT include any website that sells or provides the same type of service/product as '${project || keyword}'. If a site is a direct competitor, skip it entirely. Return ONLY ${count} non-competitor prospects: blogs, media sites, resource pages, listicles, comparison articles, directories. Mark is_competitor: false for all returned results.`
         }]
       })
     });
