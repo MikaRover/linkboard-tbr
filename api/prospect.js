@@ -5,7 +5,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { domain, project, linkTo, anchors, openaiKey } = req.body || {};
+  const { domain, project, linkTo, anchors, siteData, openaiKey } = req.body || {};
   if (!domain) return res.status(400).json({ error: 'domain required' });
 
   const ANTHROPIC_KEY = openaiKey || process.env.ANTHROPIC_KEY || '';
@@ -125,6 +125,19 @@ module.exports = async function handler(req, res) {
 
   // STEP 4: Claude analysis
   const targetInfo = linkTo ? `Target URL to link to: ${linkTo}` : '';
+  const projectContext = siteData ? `
+PROJECT INTELLIGENCE (use this to find relevant placements):
+- Niche: ${siteData.niche || ''}
+- Product type: ${siteData.productType || ''}
+- Target audience: ${siteData.targetAudience || ''}
+- Core topics: ${(siteData.coreTopics||[]).join(', ')}
+- Keywords: ${(siteData.keywords||[]).join(', ')}
+- Content themes: ${(siteData.contentThemes||[]).join(', ')}
+- Linking context: ${siteData.linkingContext || ''}
+
+Use this context to identify donor articles where the client's topics appear naturally.
+Prioritize placements where the donor article discusses topics related to: ${(siteData.coreTopics||[]).slice(0,3).join(', ')}.
+` : '';
   const articlesText = articleContents.map((a, i) =>
     `ARTICLE ${i+1}:\nURL: ${a.url}\nTitle: ${a.title}\nContent:\n${a.content}`
   ).join('\n\n---\n\n');
@@ -134,6 +147,8 @@ module.exports = async function handler(req, res) {
 Client: ${project || 'unknown'}
 ${targetInfo}
 Anchor texts to place: ${anchorList}
+
+${projectContext}
 
 IMPORTANT RULES:
 - Only suggest placements in EDITORIAL/BLOG content, never in nav menus or footers
