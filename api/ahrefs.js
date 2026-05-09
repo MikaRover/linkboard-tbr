@@ -33,7 +33,8 @@ module.exports = async function handler(req, res) {
   };
 
   const drUrl = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=${today}`;
-  const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date=${today}&mode=domain&select=org_traffic,org_keywords,paid_traffic`;
+  // Use subdomains mode — matches Ahrefs dashboard default and returns traffic for more domains
+  const metricsUrl = `https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(cleanDomain)}&date=${today}&mode=subdomains&select=org_traffic,org_keywords,paid_traffic`;
 
   try {
     // Helper to fetch metrics with retry
