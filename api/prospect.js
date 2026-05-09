@@ -8,82 +8,145 @@ module.exports = async function handler(req, res) {
   const { domain, project, linkTo, anchors, openaiKey } = req.body || {};
   if (!domain) return res.status(400).json({ error: 'domain required' });
 
-  const OPENAI_KEY = openaiKey || process.env.OPENAI_KEY || '';
+  const ANTHROPIC_KEY = openaiKey || process.env.ANTHROPIC_KEY || '';
   const baseUrl = `https://${domain.replace(/^https?:\/\//, '').replace(/^www\./, '')}`;
 
-  let pageContent = '';
+  // STEP 1: Find article links
   let blogLinks = [];
+  const indexUrls = [
+    `${baseUrl}/blog`, `${baseUrl}/articles`, `${baseUrl}/resources`,
+    `${baseUrl}/learn`, `${baseUrl}/news`, `${baseUrl}/insights`, `${baseUrl}`
+  ];
 
-  // Step 1: Fast fetch — 5s timeout max
-  const urlsToTry = [`${baseUrl}/blog`, `${baseUrl}/articles`, `${baseUrl}`];
-
-  for (const url of urlsToTry) {
+  for (const url of indexUrls) {
     try {
       const resp = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Bot/1.0)' },
-        signal: AbortSignal.timeout(5000),
-        redirect: 'follow'
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEOBot/1.0)' },
+        signal: AbortSignal.timeout(6000), redirect: 'follow'
       });
       if (!resp.ok) continue;
       const html = await resp.text();
-
-      // Extract blog links
-      const linkRe = /href="([^"]*(?:blog|article|post|guide|resource|learn|news)[^"]*)"/gi;
+      const linkRe = /href="([^"#?][^"]*)"/gi;
       let m;
       const found = new Set();
       while ((m = linkRe.exec(html)) !== null) {
         let href = m[1];
         if (href.startsWith('/')) href = baseUrl + href;
-        if (href.startsWith('http') && !href.includes('#')) found.add(href);
-        if (found.size >= 8) break;
+        if (!href.startsWith('http')) continue;
+        if (!href.includes(domain.replace(/^www\./, ''))) continue;
+        const path = href.replace(baseUrl, '');
+        const segments = path.split('/').filter(Boolean);
+        if (segments.length < 1) continue;
+        if (/\.(css|js|png|jpg|svg|pdf|zip)$/i.test(href)) continue;
+        if (/\/(tag|category|author|page\/\d|wp-|feed|cart|checkout|login|signup|account)/i.test(href)) continue;
+        found.add(href);
+        if (found.size >= 20) break;
       }
       blogLinks = [...found];
-
-      // Clean text
-      pageContent = html
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 1500);
-      break;
+      if (blogLinks.length >= 5) break;
     } catch (e) { continue; }
   }
 
-  // Step 2: AI suggestions — 8s timeout
-  const anchorList = (anchors && anchors.length) ? anchors.slice(0, 5).join(', ') : 'any relevant anchor';
+  if (!blogLinks.length) {
+    return res.json({ domain, blogLinks: [], suggestions: [], error: 'Could not find any articles on this website.' });
+  }
 
-  const prompt = `SEO link building expert. Suggest 3 link insertion opportunities.
+  // STEP 2: Score and fetch top articles
+  const anchorList = (anchors && anchors.length) ? anchors.slice(0, 8).join(', ') : 'relevant SEO terms';
+  const anchorWords = anchorList.toLowerCase().split(/[\s,]+/).filter(w => w.length > 3);
 
-Website: ${domain}
-Client: ${project || 'unknown'}
-Target URL: ${linkTo || 'not specified'}
-Anchors needed: ${anchorList}
-Blog pages found: ${blogLinks.slice(0, 6).join('\n') || 'none'}
-Site content: ${pageContent.slice(0, 800)}
+  const scoredLinks = blogLinks.map(url => {
+    const score = anchorWords.filter(w => url.toLowerCase().includes(w)).length;
+    return { url, score };
+  }).sort((a, b) => b.score - a.score);
 
-Return ONLY a JSON array, no markdown:
-[{"articleUrl":"url","anchor":"text","insertion":"sentence with anchor","reason":"why"}]`;
+  const topLinks = scoredLinks.slice(0, 5).map(l => l.url);
+  const articleContents = [];
+
+  await Promise.all(topLinks.map(async (url) => {
+    try {
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEOBot/1.0)' },
+        signal: AbortSignal.timeout(6000), redirect: 'follow'
+      });
+      if (!resp.ok) return;
+      const html = await resp.text();
+      const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const title = titleMatch ? titleMatch[1].replace(/\s+/g,' ').trim().slice(0,100) : '';
+      const bodyText = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+        .replace(/<header[\s\S]*?<\/header>/gi, '')
+        .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ').trim();
+      const sentences = bodyText.match(/[A-Z][^.!?]{20,200}[.!?]/g) || [];
+      const content = sentences.slice(0, 20).join(' ').slice(0, 2500);
+      if (content.length > 100) articleContents.push({ url, title, content });
+    } catch (e) {}
+  }));
+
+  if (!articleContents.length) {
+    return res.json({ domain, blogLinks, suggestions: [], error: 'Could not read article content.' });
+  }
+
+  // STEP 3: Claude deep analysis with exact placement
+  const targetInfo = linkTo ? `Target URL to link to: ${linkTo}` : '';
+  const articlesText = articleContents.map((a, i) =>
+    `ARTICLE ${i+1}:\nURL: ${a.url}\nTitle: ${a.title}\nContent excerpt: ${a.content}`
+  ).join('\n\n---\n\n');
+
+  const prompt = `You are an expert SEO link builder. Analyze these real articles and suggest specific, natural link placements.
+
+Client project: ${project || 'unknown'}
+${targetInfo}
+Anchor texts needed: ${anchorList}
+
+ARTICLES TO ANALYZE:
+${articlesText}
+
+For each suggestion:
+- Use ONLY real URLs from the articles above
+- Find a SPECIFIC existing sentence that can be naturally edited to include the anchor
+- OR suggest adding a new sentence in a specific location
+- The link must be 100% topically relevant and natural
+- Do not force irrelevant anchors into articles
+
+Return ONLY a JSON array:
+[
+  {
+    "articleUrl": "exact URL",
+    "articleTitle": "title",
+    "anchor": "anchor text",
+    "type": "edit",
+    "originalSentence": "the exact existing sentence to modify",
+    "editedSentence": "modified sentence with anchor naturally embedded",
+    "placement": "specific location description",
+    "reason": "why this is topically relevant"
+  }
+]
+
+Generate 4-5 high-quality suggestions. Prioritize natural fit over keyword forcing.`;
 
   try {
-    const aiResp = await fetch('https://api.openai.com/v1/chat/completions', {
+    const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_KEY}`
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 800,
-        temperature: 0.7,
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }]
       }),
-      signal: AbortSignal.timeout(8000)
+      signal: AbortSignal.timeout(30000)
     });
 
     const aiData = await aiResp.json();
-    const text = aiData.choices?.[0]?.message?.content || '[]';
+    const text = (aiData.content?.[0]?.text || '').trim();
 
     let suggestions = [];
     try {
@@ -94,9 +157,8 @@ Return ONLY a JSON array, no markdown:
       if (match) { try { suggestions = JSON.parse(match[0]); } catch (e2) {} }
     }
 
-    return res.json({ domain, blogLinks, suggestions: suggestions.slice(0, 4) });
-
+    return res.json({ domain, blogLinks: topLinks, suggestions: suggestions.slice(0, 5) });
   } catch (e) {
-    return res.json({ error: e.message, suggestions: [] });
+    return res.json({ error: e.message, suggestions: [], blogLinks: topLinks });
   }
 };
