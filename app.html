@@ -5375,37 +5375,15 @@ async function runAgent(){
   // Step 1: Claude web search → prospects
   agLog('Step 1/2 — Asking Claude to find prospects via web search...');
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+    const resp = await fetch('/api/agent',{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01'},
-      body: JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:4000,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:`You are a link building specialist. Find ${count} websites that would be good backlink prospects for someone targeting the keyword: "${keyword}"${project?` for the product/company: ${project}`:''}.
-
-Search Google for this keyword and related terms. Find blogs, resource pages, and informational articles (NOT direct competitors, NOT product pages). For each result extract the domain.
-
-Return ONLY a JSON array like this (no markdown, no extra text):
-[
-  {"domain":"example.com","title":"Article title","url":"https://...","reason":"why good prospect"}
-]
-
-Return ${count} unique domains. Focus on blogs, resource sites, comparison articles.`}]
-      })
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({keyword, count, project})
     });
     const data = await resp.json();
-    // Extract text from response (may have tool_use blocks)
-    let text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-    let prospects = [];
-    try {
-      let clean=text;
-      while(clean.includes('```')){clean=clean.replace('```json','').replace('```','');}
-      clean=clean.trim();
-      const s=clean.indexOf('['), e=clean.lastIndexOf(']');
-      if(s>=0&&e>s) prospects=JSON.parse(clean.slice(s,e+1));
-    } catch(e){}
-    if(!prospects.length){agLog('⚠️ Could not parse prospects from Claude response');console.log('raw:',text);return;}
+    if(data.error){agLog('❌ Error: '+data.error);return;}
+    const prospects = data.prospects||[];
+    if(!prospects.length){agLog('⚠️ No prospects returned');return;}
     agLog(`✅ Found ${prospects.length} prospects`);
     _agProspects = prospects.map(p=>({...p,emails:[],status:'pending'}));
 
