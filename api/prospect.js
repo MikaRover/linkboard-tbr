@@ -14,9 +14,10 @@ module.exports = async function handler(req, res) {
   // STEP 1: Find BLOG/ARTICLE links only
   let blogLinks = [];
   const indexUrls = [
-    `${baseUrl}/blog`, `${baseUrl}/articles`, `${baseUrl}/resources`,
-    `${baseUrl}/learn`, `${baseUrl}/news`, `${baseUrl}/insights`,
-    `${baseUrl}/guides`, `${baseUrl}/posts`, `${baseUrl}`
+    `${baseUrl}/blog`, `${baseUrl}/guides`, `${baseUrl}/articles`,
+    `${baseUrl}/resources`, `${baseUrl}/learn`, `${baseUrl}/news`,
+    `${baseUrl}/insights`, `${baseUrl}/tutorials`, `${baseUrl}/library`,
+    `${baseUrl}/posts`, `${baseUrl}`
   ];
 
   for (const url of indexUrls) {
@@ -44,7 +45,7 @@ module.exports = async function handler(req, res) {
         if (segments.length < 2) continue;
 
         // Must contain a blog/article indicator in the path
-        const hasBlogPath = /\/(blog|article|articles|post|posts|news|resources|learn|guides|insights|knowledge)\//i.test(path);
+        const hasBlogPath = /\/(blog|article|articles|post|posts|news|resources|learn|guides|guide|insights|knowledge|tutorials|tutorial|library|content)\//i.test(path);
         if (!hasBlogPath) continue;
 
         // Skip obvious non-articles
