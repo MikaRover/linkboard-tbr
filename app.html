@@ -6236,7 +6236,14 @@ function renderProspectorCards(suggestions, domain, proj, linkTo){
             <span style="font-size:10px;padding:2px 8px;border-radius:20px;background:${isEdit?'rgba(240,165,0,0.1)':'rgba(120,150,255,0.12)'};color:${isEdit?'var(--yellow)':'#7896ff'};font-weight:600;">${isEdit?'✏️ Edit':'➕ Add'}</span>
             ${hasReq?`<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:${full?'rgba(255,95,95,0.1)':'rgba(0,196,174,0.1)'};color:${full?'var(--red)':'var(--teal)'};font-weight:700;">${used}/${req.max} ${full?'❌':'✅'}</span>`:''}
           </div>
-          <a href="${s.articleUrl}" target="_blank" style="font-size:11px;color:var(--text3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.articleTitle||s.articleUrl}</a>
+          <a href="${s.articleUrl}" target="_blank" style="font-size:12px;font-weight:600;color:var(--text2);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;" title="${s.articleUrl}">${s.articleTitle||s.articleUrl}</a>
+          <a href="${s.articleUrl}" target="_blank" style="font-size:10px;color:var(--text3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">↗ ${s.articleUrl}</a>
+          ${s.relevancy!=null?`<div style="display:flex;align-items:center;gap:6px;margin-top:5px;">
+            <div style="flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;max-width:80px;">
+              <div style="height:4px;background:${s.relevancy>=80?'var(--teal)':s.relevancy>=50?'var(--yellow)':'var(--red)'};width:${s.relevancy}%;border-radius:2px;"></div>
+            </div>
+            <span style="font-size:10px;font-weight:700;color:${s.relevancy>=80?'var(--teal)':s.relevancy>=50?'var(--yellow)':'var(--red)'};">${s.relevancy}% relevant</span>
+          </div>`:''}
         </div>
       </div>
 
