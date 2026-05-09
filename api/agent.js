@@ -9,7 +9,11 @@ module.exports = async (req, res) => {
   if (!keyword) return res.status(400).json({ error: 'keyword required' });
 
   const apiKey = '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';
+  const AHREFS_KEY = '7dNernlzY4mixkKwyIEOVsZK8e0Rx0Hgq3YszXti';
+  const today = new Date().toISOString().slice(0, 10);
 
+  // Step 1: Get prospects from Claude
+  let prospects = [];
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -25,19 +29,13 @@ module.exports = async (req, res) => {
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{
           role: 'user',
-          content: `You are a link building specialist finding backlink opportunities for the product: "${project || keyword}".
+          content: `You are a link building specialist finding backlink opportunities for: "${project || keyword}".
 
 Search for articles about: "${keyword}"
 
-For each result, classify it as:
-- "prospect" = blog, resource page, comparison article, educational content, news site, directory — sites that MENTION tools/providers but are NOT themselves a tool/provider
-- "competitor" = a direct competing product/service that offers the same thing as ${project || 'the client'}
+STRICT RULE: Do NOT include any website that sells or provides the same type of service/product as "${project || keyword}". Skip all direct competitors entirely.
 
-IMPORTANT RULES:
-- A site that writes ABOUT SMS APIs is a prospect
-- A site that SELLS SMS API is a competitor
-- Educational blogs, tech media, comparison sites = prospects
-- SaaS products in the same category = competitors
+Return ONLY non-competitor sites: blogs, media, resource pages, listicles, comparison articles, directories.
 
 Return ONLY a JSON array, no markdown:
 [
@@ -45,29 +43,23 @@ Return ONLY a JSON array, no markdown:
     "domain": "example.com",
     "title": "Article title",
     "url": "https://example.com/article",
-    "reason": "why good for backlink",
-    "is_competitor": false
+    "reason": "why good for backlink"
   }
 ]
 
-STRICT RULE: Do NOT include any website that sells or provides the same type of service/product as '${project || keyword}'. If a site is a direct competitor, skip it entirely. Return ONLY ${count} non-competitor prospects: blogs, media sites, resource pages, listicles, comparison articles, directories. Mark is_competitor: false for all returned results.`
+Return ${count} unique prospect domains.`
         }]
       })
     });
 
     if (!response.ok) {
       const err = await response.text();
-      return res.status(500).json({ error: 'Anthropic API error ' + response.status, detail: err.slice(0, 300) });
+      return res.status(500).json({ error: 'Claude API error ' + response.status, detail: err.slice(0, 300) });
     }
 
     const data = await response.json();
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
 
-    const text = (data.content || [])
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
-      .join('');
-
-    let prospects = [];
     try {
       const s = text.indexOf('[');
       const e = text.lastIndexOf(']');
@@ -75,9 +67,57 @@ STRICT RULE: Do NOT include any website that sells or provides the same type of 
     } catch (err) {
       return res.status(500).json({ error: 'Parse error', raw: text.slice(0, 500) });
     }
-
-    return res.json({ prospects });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
+
+  if (!prospects.length) return res.json({ prospects: [] });
+
+  // Step 2: Enrich with Ahrefs DR + Traffic in parallel (batches of 5)
+  const ahrefsHeaders = {
+    'Authorization': `Bearer ${AHREFS_KEY}`,
+    'Accept': 'application/json'
+  };
+
+  const enrichDomain = async (domain) => {
+    const clean = domain.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0].trim().toLowerCase();
+    try {
+      const [drResp, metricsResp] = await Promise.all([
+        fetch(`https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(clean)}&date=${today}`, { headers: ahrefsHeaders, signal: AbortSignal.timeout(8000) }),
+        fetch(`https://api.ahrefs.com/v3/site-explorer/metrics?target=${encodeURIComponent(clean)}&date=${today}&mode=subdomains&select=org_traffic,org_keywords`, { headers: ahrefsHeaders, signal: AbortSignal.timeout(8000) })
+      ]);
+
+      let dr = null, traffic = null;
+
+      if (drResp.ok) {
+        const d = await drResp.json();
+        dr = d?.domain_rating?.domain_rating ?? null;
+        if (dr !== null) dr = Math.round(dr);
+      }
+
+      if (metricsResp.ok) {
+        const m = await metricsResp.json();
+        const metrics = m?.metrics || m || {};
+        const raw = metrics.org_traffic ?? null;
+        traffic = raw !== null && raw > 0 ? Math.round(raw) : null;
+      }
+
+      return { dr, traffic };
+    } catch (e) {
+      return { dr: null, traffic: null };
+    }
+  };
+
+  // Process in batches of 5 to avoid rate limits
+  const enriched = [...prospects];
+  for (let i = 0; i < enriched.length; i += 5) {
+    const batch = enriched.slice(i, i + 5);
+    const results = await Promise.all(batch.map(p => enrichDomain(p.domain)));
+    results.forEach((r, j) => {
+      enriched[i + j].dr = r.dr;
+      enriched[i + j].traffic = r.traffic;
+    });
+  }
+
+  return res.json({ prospects: enriched });
 };
