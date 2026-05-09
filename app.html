@@ -548,6 +548,7 @@ tr:hover td{background:var(--bg3);}
   <div class="nav" onclick="gotoPage('outreach',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='12' cy='12' r='10'/><circle cx='12' cy='12' r='6'/><circle cx='12' cy='12' r='2'/></svg>Outreach</div>
   <div class="nav" onclick="gotoPage('batch',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>Batch Analyze</div>
   <div class="nav adm" onclick="gotoPage('prospector',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/></svg>AI Prospector</div>
+  <div class="nav adm" onclick="gotoPage('agent',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='12' cy='12' r='10'/><path d='M12 8v4l3 3'/><path d='M5 3l1.5 1.5'/><path d='M19 3l-1.5 1.5'/><path d='M5 21l1.5-1.5'/><path d='M19 21l-1.5-1.5'/></svg>🤖 Agent</div>
   <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding:14px 16px 4px;opacity:0.6;">Builders</div>
   <div class="nav adm" onclick="gotoPage('load',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='3' y='3' width='18' height='18' rx='2'/><path d='M3 9h18'/><path d='M9 21V9'/></svg>Load</div>
   <div class="nav adm" onclick="gotoPage('capacity',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><polygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'/></svg>Capacity</div>
@@ -1678,6 +1679,59 @@ tr:hover td{background:var(--bg3);}
   </div>
 </div>
 
+<!-- ══ AGENT PAGE ══ -->
+<div id="p-agent" class="page">
+  <div class="page-top">
+    <div>
+      <div class="page-title">🤖 Link Building Agent</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Keyword-ով prospects գտիր, emails extract-ն արա — ավտոմատ</div>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:860px;margin-bottom:1.5rem;">
+    <div class="card-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div>
+          <div class="section-label">Keyword / search query</div>
+          <input id="ag-keyword" placeholder="e.g. best email validation tool" style="margin:0;" onkeydown="if(event.key==='Enter')runAgent()"/>
+        </div>
+        <div>
+          <div class="section-label">Client / Project (optional)</div>
+          <select id="ag-project" style="margin:0;"><option value="">— All projects —</option></select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div>
+          <div class="section-label">Results count</div>
+          <select id="ag-count" style="margin:0;">
+            <option value="10">10 prospects</option>
+            <option value="20" selected>20 prospects</option>
+            <option value="30">30 prospects</option>
+          </select>
+        </div>
+        <div>
+          <div class="section-label">Extract emails via Snov.io</div>
+          <select id="ag-emails" style="margin:0;">
+            <option value="yes">Yes — find emails</option>
+            <option value="no">No — prospects only</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-sm" onclick="runAgent()" style="padding:10px 28px;font-size:13px;">🚀 Run Agent</button>
+    </div>
+  </div>
+
+  <div id="ag-log" style="display:none;max-width:860px;margin-bottom:1.5rem;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:12px;font-family:monospace;color:var(--text2);line-height:1.8;max-height:200px;overflow-y:auto;"></div>
+
+  <div id="ag-results" style="display:none;max-width:860px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);" id="ag-result-label"></div>
+      <button class="btn-ghost" onclick="agExportCSV()" style="font-size:11px;">⬇ Export CSV</button>
+    </div>
+    <div id="ag-table-wrap"></div>
+  </div>
+</div>
+
 <!-- ══ AI ANCHOR PROSPECTOR PAGE ══ -->
 <div id="p-prospector" class="page">
   <div class="page-top">
@@ -2511,6 +2565,10 @@ function gotoPage(name,el){
   if(name==='online')initOnlinePage();
   if(name==='capacity'){listenCapacities();renderCapacityList();}
   if(name==='domains')initDomainsPage();
+  if(name==='agent'){
+    const ap=document.getElementById('ag-project');
+    if(ap){ap.innerHTML='<option value="">— All projects —</option>';allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;ap.appendChild(o);});}
+  }
   if(name==='prospector'){
     const ps=document.getElementById('prosp-proj');
     if(ps){ps.innerHTML='<option value="">Select project</option>';allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;ps.appendChild(o);});}
@@ -5286,6 +5344,147 @@ function exportAnalyticsCSV(){
 
 
 
+
+// ─── LINK BUILDING AGENT ──────────────────────────────────
+let _agProspects = [];
+
+function agLog(msg){
+  const el=document.getElementById('ag-log');
+  if(!el)return;
+  el.style.display='block';
+  el.innerHTML += `<div>▸ ${msg}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+async function runAgent(){
+  const keyword=(document.getElementById('ag-keyword').value||'').trim();
+  if(!keyword){alert('Enter a keyword first');return;}
+  const count=parseInt(document.getElementById('ag-count').value)||20;
+  const doEmails=document.getElementById('ag-emails').value==='yes';
+  const project=document.getElementById('ag-project').value||'';
+
+  // Reset UI
+  _agProspects=[];
+  const logEl=document.getElementById('ag-log');
+  logEl.innerHTML='';logEl.style.display='block';
+  document.getElementById('ag-results').style.display='none';
+
+  agLog(`Starting agent for: <b style="color:var(--teal)">${keyword}</b>`);
+  agLog(`Target: ${count} prospects${doEmails?' + email extraction':''}`);
+
+  // Step 1: Claude web search → prospects
+  agLog('Step 1/2 — Asking Claude to find prospects via web search...');
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:4000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:`You are a link building specialist. Find ${count} websites that would be good backlink prospects for someone targeting the keyword: "${keyword}"${project?` for the product/company: ${project}`:''}.
+
+Search Google for this keyword and related terms. Find blogs, resource pages, and informational articles (NOT direct competitors, NOT product pages). For each result extract the domain.
+
+Return ONLY a JSON array like this (no markdown, no extra text):
+[
+  {"domain":"example.com","title":"Article title","url":"https://...","reason":"why good prospect"}
+]
+
+Return ${count} unique domains. Focus on blogs, resource sites, comparison articles.`}]
+      })
+    });
+    const data = await resp.json();
+    // Extract text from response (may have tool_use blocks)
+    let text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    let prospects = [];
+    try {
+      const clean=text.replace(/```json
+?/g,'').replace(/```
+?/g,'').trim();
+      const match=clean.match(/\[[\s\S]*\]/);
+      if(match) prospects=JSON.parse(match[0]);
+    } catch(e){}
+    if(!prospects.length){agLog('⚠️ Could not parse prospects from Claude response');console.log('raw:',text);return;}
+    agLog(`✅ Found ${prospects.length} prospects`);
+    _agProspects = prospects.map(p=>({...p,emails:[],status:'pending'}));
+
+    if(doEmails){
+      agLog('Step 2/2 — Extracting emails via Snov.io...');
+      let done=0;
+      for(const p of _agProspects){
+        agLog(`Searching emails for <b>${p.domain}</b>...`);
+        try {
+          const sr = await fetch('/api/snov',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({action:'domain_search',domain:p.domain})
+          });
+          const sd = await sr.json();
+          p.emails = (sd.emails||[]).slice(0,3).map(e=>e.email||e).filter(Boolean);
+          p.status = p.emails.length ? 'emails_found' : 'no_emails';
+        } catch(e){ p.status='error'; }
+        done++;
+        agLog(`${done}/${_agProspects.length} done${p.emails.length?` — ${p.emails.length} email(s)`:''}`)
+      }
+    }
+
+    renderAgentResults(keyword);
+
+  } catch(e){
+    agLog(`❌ Error: ${e.message}`);
+  }
+}
+
+function renderAgentResults(keyword){
+  const el=document.getElementById('ag-results');
+  const label=document.getElementById('ag-result-label');
+  const wrap=document.getElementById('ag-table-wrap');
+  const withEmails=_agProspects.filter(p=>p.emails&&p.emails.length).length;
+  label.textContent=`${_agProspects.length} prospects found${withEmails?` · ${withEmails} with emails`:''}`;
+  wrap.innerHTML=`
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:var(--bg2);color:var(--text2);">
+          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">#</th>
+          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Domain</th>
+          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Title</th>
+          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Emails</th>
+          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${_agProspects.map((p,i)=>`
+          <tr style="border-bottom:1px solid var(--border);transition:background 0.1s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+            <td style="padding:8px 10px;color:var(--text3);">${i+1}</td>
+            <td style="padding:8px 10px;font-weight:600;color:var(--teal);">
+              <a href="https://${p.domain}" target="_blank" style="color:var(--teal);text-decoration:none;">${p.domain}</a>
+            </td>
+            <td style="padding:8px 10px;color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.title||''}">${p.title||'—'}</td>
+            <td style="padding:8px 10px;">
+              ${p.emails&&p.emails.length
+                ? p.emails.map(e=>`<span style="background:rgba(0,180,160,0.12);color:var(--teal);padding:2px 7px;border-radius:4px;margin-right:4px;font-size:11px;">${e}</span>`).join('')
+                : `<span style="color:var(--text3);font-size:11px;">${p.status==='error'?'error':'—'}</span>`
+              }
+            </td>
+            <td style="padding:8px 10px;color:var(--text2);font-size:11px;max-width:220px;">${p.reason||''}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+  el.style.display='block';
+  agLog(`✅ Done! ${_agProspects.length} prospects ready.`);
+}
+
+function agExportCSV(){
+  if(!_agProspects.length)return;
+  const rows=[['#','Domain','Title','URL','Emails','Reason']];
+  _agProspects.forEach((p,i)=>rows.push([i+1,p.domain,p.title||'',p.url||'',(p.emails||[]).join('; '),p.reason||'']));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='prospects.csv';a.click();
+}
+// ─── END AGENT ────────────────────────────────────────────
 // ─── AI ANCHOR PROSPECTOR ─────────────────────────────────
 async function openProspector(){
   const domain = nd(document.getElementById('f-domain').value.trim());
