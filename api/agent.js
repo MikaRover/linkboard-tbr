@@ -1,5 +1,3 @@
-const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY || require('../index.html') && '';
-
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -10,8 +8,7 @@ module.exports = async (req, res) => {
   const { keyword, count = 20, project = '' } = req.body;
   if (!keyword) return res.status(400).json({ error: 'keyword required' });
 
-  // Get API key from env or fallback to hardcoded (same as other api files)
-  const apiKey = process.env.ANTHROPIC_KEY || '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';
+  const apiKey = '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';
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -28,38 +25,30 @@ module.exports = async (req, res) => {
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{
           role: 'user',
-          content: `You are a link building specialist. Find ${count} websites that would be good backlink prospects for the keyword: "${keyword}"${project ? ` for the product: ${project}` : ''}.
-
-Search Google for this keyword and related terms. Find blogs, resource pages, comparison articles, and informational content (NOT direct competitors, NOT product pages).
-
-Return ONLY a JSON array, no markdown, no extra text:
-[
-  {"domain":"example.com","title":"Article title","url":"https://example.com/article","reason":"why good prospect"}
-]
-
-Return ${count} unique domains. Focus on blogs, resource sites, listicles, comparison articles.`
+          content: 'You are a link building specialist. Find ' + count + ' websites that would be good backlink prospects for the keyword: "' + keyword + '"' + (project ? ' for the product: ' + project : '') + '. Search Google for this keyword and related terms. Find blogs, resource pages, comparison articles, informational content. Avoid direct competitors and product pages. Return ONLY a JSON array, no markdown, no extra text: [{"domain":"example.com","title":"Article title","url":"https://example.com/article","reason":"why good prospect"}]. Return ' + count + ' unique domains.'
         }]
       })
     });
 
+    if (!response.ok) {
+      const err = await response.text();
+      return res.status(500).json({ error: 'Anthropic API error ' + response.status, detail: err.slice(0, 300) });
+    }
+
     const data = await response.json();
 
-    if (data.error) return res.status(500).json({ error: data.error.message });
-
-    // Extract text blocks (skip tool_use blocks)
     const text = (data.content || [])
       .filter(b => b.type === 'text')
       .map(b => b.text)
       .join('');
 
-    // Parse JSON from response
     let prospects = [];
     try {
       const s = text.indexOf('[');
       const e = text.lastIndexOf(']');
       if (s >= 0 && e > s) prospects = JSON.parse(text.slice(s, e + 1));
     } catch (err) {
-      return res.status(500).json({ error: 'Failed to parse prospects', raw: text.slice(0, 500) });
+      return res.status(500).json({ error: 'Parse error', raw: text.slice(0, 500) });
     }
 
     return res.json({ prospects });
