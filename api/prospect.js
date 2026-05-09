@@ -155,9 +155,12 @@ Return ONLY a JSON array (no markdown):
     "originalSentence": "exact sentence from the article to modify",
     "editedSentence": "naturally modified sentence with anchor embedded",
     "placement": "where in the article (e.g. 'In the introduction, 2nd paragraph')",
-    "reason": "why this anchor fits naturally here"
+    "reason": "why this anchor fits naturally here",
+    "relevancy": 85
   }
 ]
+
+relevancy is 0-100 score: how naturally the anchor fits in context (100 = perfect topical match, 0 = forced).
 
 Generate 4-5 high-quality, natural suggestions only.`;
 
