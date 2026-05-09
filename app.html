@@ -5399,11 +5399,11 @@ Return ${count} unique domains. Focus on blogs, resource sites, comparison artic
     let text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
     let prospects = [];
     try {
-      const clean=text.replace(/```json
-?/g,'').replace(/```
-?/g,'').trim();
-      const match=clean.match(/\[[\s\S]*\]/);
-      if(match) prospects=JSON.parse(match[0]);
+      let clean=text;
+      while(clean.includes('```')){clean=clean.replace('```json','').replace('```','');}
+      clean=clean.trim();
+      const s=clean.indexOf('['), e=clean.lastIndexOf(']');
+      if(s>=0&&e>s) prospects=JSON.parse(clean.slice(s,e+1));
     } catch(e){}
     if(!prospects.length){agLog('⚠️ Could not parse prospects from Claude response');console.log('raw:',text);return;}
     agLog(`✅ Found ${prospects.length} prospects`);
