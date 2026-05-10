@@ -2386,7 +2386,12 @@ function renderDetailLinks(){
     const m = l.month&&l.month.trim() ? l.month.trim() : getMonthKey(l.date);
     const parts = m.split(' ');
     const mon = MONTH_ORDER[parts[0]]||0;
-    const yr = parseInt(parts[1])||0;
+    // If no year in month field, derive from date field
+    let yr = parseInt(parts[1])||0;
+    if(!yr && l.date) {
+      const dp = l.date.split(/[.\-\/]/);
+      if(dp.length===3) yr = parseInt(dp[2].length===2?'20'+dp[2]:dp[2])||0;
+    }
     return yr*100+mon;
   };
   fl.sort((a,b)=>{
