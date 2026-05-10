@@ -2383,13 +2383,12 @@ function renderDetailLinks(){
   // Month order map for proper sorting
   const MONTH_ORDER = {'January':1,'February':2,'March':3,'April':4,'May':5,'June':6,'July':7,'August':8,'September':9,'October':10,'November':11,'December':12};
   const getMonthSort = l => {
-    const m = l.month&&l.month.trim() ? l.month.trim() : getMonthKey(l.date);
+    let m = l.month&&l.month.trim() ? l.month.trim() : getMonthKey(l.date);
     const parts = m.split(' ');
     const mon = MONTH_ORDER[parts[0]]||0;
-    // If no year in month field, derive from date field
     let yr = parseInt(parts[1])||0;
     if(!yr && l.date) {
-      const dp = l.date.split(/[.\-\/]/);
+      const dp = l.date.split(/[.\/\-]/);
       if(dp.length===3) yr = parseInt(dp[2].length===2?'20'+dp[2]:dp[2])||0;
     }
     return yr*100+mon;
@@ -3060,7 +3059,21 @@ function renderRowsGrouped(links, rowFn, colspan){
   let monthStart=0;
 
   // Pre-group
-  const rows=links.map(l=>({l,month:l.month&&l.month.trim()?l.month.trim():getMonthKey(l.date)}));
+  const MONTH_ORDER2 = {'January':1,'February':2,'March':3,'April':4,'May':5,'June':6,'July':7,'August':8,'September':9,'October':10,'November':11,'December':12};
+  const getFullMonth = l => {
+    let m = l.month&&l.month.trim() ? l.month.trim() : getMonthKey(l.date);
+    // If month has no year, derive from date
+    const parts = m.split(' ');
+    if(!parts[1] && l.date) {
+      const dp = l.date.split(/[\.\-\/]/);
+      if(dp.length===3){
+        const yr = dp[2].length===2?'20'+dp[2]:dp[2];
+        m = parts[0]+' '+yr;
+      }
+    }
+    return m;
+  };
+  const rows=links.map(l=>({l,month:getFullMonth(l)}));
   let i=0;
   while(i<rows.length){
     const month=rows[i].month;
