@@ -548,7 +548,6 @@ tr:hover td{background:var(--bg3);}
   <div class="nav" onclick="gotoPage('outreach',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='12' cy='12' r='10'/><circle cx='12' cy='12' r='6'/><circle cx='12' cy='12' r='2'/></svg>Outreach</div>
   <div class="nav" onclick="gotoPage('batch',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>Batch Analyze</div>
   <div class="nav adm" onclick="gotoPage('prospector',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/></svg>AI Prospector</div>
-  <div class="nav adm" onclick="gotoPage('agent',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='12' cy='12' r='10'/><path d='M12 8v4l3 3'/><path d='M5 3l1.5 1.5'/><path d='M19 3l-1.5 1.5'/><path d='M5 21l1.5-1.5'/><path d='M19 21l-1.5-1.5'/></svg>🤖 Agent</div>
   <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding:14px 16px 4px;opacity:0.6;">Builders</div>
   <div class="nav adm" onclick="gotoPage('load',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='3' y='3' width='18' height='18' rx='2'/><path d='M3 9h18'/><path d='M9 21V9'/></svg>Load</div>
   <div class="nav adm" onclick="gotoPage('capacity',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><polygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'/></svg>Capacity</div>
@@ -582,13 +581,20 @@ tr:hover td{background:var(--bg3);}
     </div>
   </div>
   <div class="stats">
-    <div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
-    <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)" id="ds-live">—</div></div>
-    <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
+    <div class="stat"><div class="stat-l">This month live</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
+    <div class="stat"><div class="stat-l">This month pending</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
+    <div class="stat"><div class="stat-l">All time live</div><div class="stat-v" style="color:var(--text2)" id="ds-live">—</div></div>
     <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:#ff6b6b" id="ds-dup">—</div></div>
   </div>
+
+  <!-- Builder leaderboard this month -->
+  <div class="card adm" id="ds-leaderboard-card">
+    <div class="card-head">🏆 This month's builders <span style="font-size:12px;color:var(--text2)" id="ds-month-label"></span></div>
+    <div id="ds-leaderboard" style="display:flex;flex-wrap:wrap;gap:10px;padding:12px 0 4px;"></div>
+  </div>
+
   <div class="card">
-    <div class="card-head">Live links <span style="font-size:12px;color:var(--text2)" id="lc"></span></div>
+    <div class="card-head">This month — live <span style="font-size:12px;color:var(--text2)" id="lc"></span></div>
     <div class="tbl-wrap"><table>
       <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Category</th><th>Anchor</th><th>Project</th><th>Builder</th></tr></thead>
       <tbody id="dash-live"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
@@ -1679,81 +1685,6 @@ tr:hover td{background:var(--bg3);}
   </div>
 </div>
 
-<!-- ══ AGENT PAGE ══ -->
-<div id="p-agent" class="page">
-  <div class="page-top">
-    <div>
-      <div class="page-title">🤖 Link Building Agent</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Keyword-ով prospects գտիր, emails extract-ն արա — ավտոմատ</div>
-    </div>
-  </div>
-
-  <div class="card" style="max-width:860px;margin-bottom:1.5rem;">
-    <div class="card-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-        <div>
-          <div class="section-label">Keyword / search query</div>
-          <input id="ag-keyword" placeholder="e.g. best email validation tool" style="margin:0;" onkeydown="if(event.key==='Enter')runAgent()"/>
-        </div>
-        <div>
-          <div class="section-label">Client / Project (optional)</div>
-          <select id="ag-project" style="margin:0;"><option value="">— All projects —</option></select>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-        <div>
-          <div class="section-label">Results count</div>
-          <select id="ag-count" style="margin:0;">
-            <option value="10">10 prospects</option>
-            <option value="20" selected>20 prospects</option>
-            <option value="30">30 prospects</option>
-          </select>
-        </div>
-        <div>
-          <div class="section-label">Extract emails via Snov.io</div>
-          <select id="ag-emails" style="margin:0;">
-            <option value="yes">Yes — find emails</option>
-            <option value="no">No — prospects only</option>
-          </select>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-        <div>
-          <div class="section-label">DR Min (Ahrefs)</div>
-          <select id="ag-dr-min" style="margin:0;">
-            <option value="0">Any DR</option>
-            <option value="10">DR 10+</option>
-            <option value="20" selected>DR 20+</option>
-            <option value="30">DR 30+</option>
-            <option value="40">DR 40+</option>
-          </select>
-        </div>
-        <div>
-          <div class="section-label">DR Max (Ahrefs)</div>
-          <select id="ag-dr-max" style="margin:0;">
-            <option value="100">Any DR</option>
-            <option value="90">DR ≤ 90</option>
-            <option value="70" selected>DR ≤ 70</option>
-            <option value="60">DR ≤ 60</option>
-            <option value="50">DR ≤ 50</option>
-          </select>
-        </div>
-      </div>
-      <button class="btn-sm" onclick="runAgent()" style="padding:10px 28px;font-size:13px;">🚀 Run Agent</button>
-    </div>
-  </div>
-
-  <div id="ag-log" style="display:none;max-width:860px;margin-bottom:1.5rem;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:12px;font-family:monospace;color:var(--text2);line-height:1.8;max-height:200px;overflow-y:auto;"></div>
-
-  <div id="ag-results" style="display:none;max-width:860px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <div style="font-size:13px;font-weight:700;color:var(--text);" id="ag-result-label"></div>
-      <button class="btn-ghost" onclick="agExportCSV()" style="font-size:11px;">⬇ Export CSV</button>
-    </div>
-    <div id="ag-table-wrap"></div>
-  </div>
-</div>
-
 <!-- ══ AI ANCHOR PROSPECTOR PAGE ══ -->
 <div id="p-prospector" class="page">
   <div class="page-top">
@@ -2587,10 +2518,6 @@ function gotoPage(name,el){
   if(name==='online')initOnlinePage();
   if(name==='capacity'){listenCapacities();renderCapacityList();}
   if(name==='domains')initDomainsPage();
-  if(name==='agent'){
-    const ap=document.getElementById('ag-project');
-    if(ap){ap.innerHTML='<option value="">— All projects —</option>';allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;ap.appendChild(o);});}
-  }
   if(name==='prospector'){
     const ps=document.getElementById('prosp-proj');
     if(ps){ps.innerHTML='<option value="">Select project</option>';allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;ps.appendChild(o);});}
@@ -2858,7 +2785,7 @@ function renderAnchorReqs(){
 
   wrap.style.display='block';
   list.innerHTML=reqs.map(r=>{
-    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&(l.month?(l.month===curMonthYear||l.month.startsWith(curMonthYear.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonthYear)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     const pct=Math.min(100,Math.round(used/r.max*100));
     const full=used>=r.max;
     const color=full?'var(--red)':used>0?'var(--yellow)':'var(--teal)';
@@ -2889,7 +2816,7 @@ function onAnchorInput(){
     if(!anyReq){el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No anchor requirement for "'+anchor+'" in '+proj;return;}
     el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No requirement for "'+anchor+'" in '+curMonthYear+' (set for '+anyReq.month+')';return;
   }
-  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor&&l.date&&getMonthKey(l.date)===curMonthYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor&&(l.month?(l.month===curMonthYear||l.month.startsWith(curMonthYear.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonthYear)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
   if(used>=req.max){el.style.display='block';el.className='alert a-dup';el.textContent='🚫 Limit reached! '+used+'/'+req.max+' for "'+anchor+'" ('+curMonthYear+')';}
   else{el.style.display='block';el.className='alert a-ok';el.textContent='✅ Anchor OK — '+used+' of '+req.max+' used in '+curMonthYear;}
 }
@@ -2899,7 +2826,7 @@ function getCheck(domain,anchor,proj){
   const curM=MONTHS_EN[new Date().getMonth()]+' '+new Date().getFullYear();
   const req=allReqs.find(r=>r.project===proj&&r.anchor.toLowerCase()===(anchor||'').toLowerCase()&&(r.month===curM||r.month===MONTHS_EN[new Date().getMonth()]));
   if(!req)return'noreq';
-  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===(anchor||'').toLowerCase()&&l.date&&getMonthKey(l.date)===curM&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===(anchor||'').toLowerCase()&&(l.month?(l.month===curM||l.month.startsWith(curM.split(' ')[0])):l.date&&getMonthKey(l.date)===curM)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
   return used>=req.max?'limit':'ok';
 }
 
@@ -2943,7 +2870,7 @@ async function addLink(){
   const curMYCheck=curMonthCheck+' '+curYearCheck;
   const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor_lc&&(r.month===curMYCheck||r.month===curMonthCheck));
   if(req){
-    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&l.date&&getMonthKey(l.date)===curMYCheck&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&(l.month?(l.month===curMYCheck||l.month.startsWith(curMYCheck.split(' ')[0])):l.date&&getMonthKey(l.date)===curMYCheck)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     if(used>=req.max){alert('🚫 Anchor limit reached ('+used+'/'+req.max+') for '+curMYCheck);return;}
   }
 
@@ -3262,14 +3189,17 @@ function renderDashboard(){
   // Filter by builder if not admin
   const myLinks = cu.role==='admin' ? allLinks : allLinks.filter(l=>l.builder===cu.name);
 
-  // This month
+  // This month — use reportMonth field (from CSV section header), not live date
   const now=new Date();
-  const thisMonth=`${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()}`;
-  const thisMonthLinks=myLinks.filter(l=>{
-    if(!l.date)return false;
-    const p=l.date.split(/[.\-\/]/);
-    if(p.length<3)return false;
-    return `${p[1]}.${p[2]}`===thisMonth||`${p[1]}.20${p[2]}`===thisMonth;
+  const MONTHS_FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const curMonthName = MONTHS_FULL[now.getMonth()];
+  const curYear = now.getFullYear();
+
+  const thisMonthLinks = myLinks.filter(l=>{
+    if(!l.month) return false;
+    const m = (l.month||'').trim();
+    // Match "February" or "February 2026"
+    return m===curMonthName || m===`${curMonthName} ${curYear}` || m.startsWith(curMonthName);
   });
 
   const live=myLinks.filter(l=>l.status==='live');
@@ -3280,18 +3210,41 @@ function renderDashboard(){
   myLinks.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domainCnt[key]=(domainCnt[key]||0)+1;});
   const dupCount=myLinks.filter(l=>domainCnt[nd(l.domain)+'|'+(l.project||'')]>1).length;
 
-  document.getElementById('ds-total').textContent=myLinks.length;
-  document.getElementById('ds-live').textContent=live.length;
-  document.getElementById('ds-pend').textContent=pend.length;
-  document.getElementById('ds-dup').textContent=dupCount;
+  // Stat cards — current month focus
+  document.getElementById('ds-total').textContent = thisLive.length;
+  document.getElementById('ds-pend').textContent  = thisPend.length;
+  document.getElementById('ds-live').textContent  = live.length;
+  document.getElementById('ds-dup').textContent   = dupCount;
+  document.getElementById('lc').textContent = thisLive.length + ' links';
+  document.getElementById('pc').textContent = pend.length + ' links';
 
-  // Show this month stats for builder
-  if(cu.role!=='admin'){
-    document.getElementById('lc').textContent=`This month: ${thisLive.length} live · ${thisPend.length} pending`;
-    document.getElementById('pc').textContent=`All pending: ${pend.length} links`;
-  } else {
-    document.getElementById('lc').textContent=live.length+' links';
-    document.getElementById('pc').textContent=pend.length+' links';
+  // Month label
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthLabel = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+  const mlEl = document.getElementById('ds-month-label');
+  if(mlEl) mlEl.textContent = monthLabel;
+
+  // Builder leaderboard — this month
+  if(cu.role==='admin'){
+    const lb = document.getElementById('ds-leaderboard');
+    if(lb){
+      const builderMap = {};
+      thisMonthLinks.filter(l=>l.status==='live').forEach(l=>{
+        const b = l.builder || '—';
+        if(!builderMap[b]) builderMap[b] = 0;
+        builderMap[b]++;
+      });
+      const sorted = Object.entries(builderMap).sort((a,b)=>b[1]-a[1]);
+      const medals = ['🥇','🥈','🥉'];
+      lb.innerHTML = sorted.length ? sorted.map(([name, count], i)=>`
+        <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:10px;padding:8px 14px;min-width:140px;">
+          <span style="font-size:16px;">${medals[i]||'·'}</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">${name}</div>
+            <div style="font-size:11px;color:var(--teal);font-weight:600;">${count} live link${count!==1?'s':''}</div>
+          </div>
+        </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:4px 0;">No live links this month yet</div>';
+    }
   }
 
   const rr=(arr,id)=>{
@@ -3310,14 +3263,9 @@ function renderDashboard(){
     </tr>`).join('');
   };
 
-  // For builder: show this month live first, then all pending
-  if(cu.role!=='admin'){
-    rr(thisLive.length?thisLive:live,'dash-live');
-    rr(thisPend.length?thisPend:pend,'dash-pend');
-  } else {
-    rr(live,'dash-live');
-    rr(pend,'dash-pend');
-  }
+  // Always show this month's live links in dashboard table
+  rr(thisLive,'dash-live');
+  rr(pend,'dash-pend');
 }
 
 function renderLinks(){
@@ -4934,7 +4882,7 @@ function renderAnchorDetail(){
   });
   const curMax = curReqs.reduce((s,r)=>s+r.max,0);
   const curUsed = curReqs.reduce((s,r)=>{
-    return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonthYearKey&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+    return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&(l.month?(l.month===curMonthYearKey||l.month.startsWith(curMonthYearKey.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonthYearKey)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
   },0);
   const overallPct = curMax>0?Math.min(100,Math.round(curUsed/curMax*100)):0;
 
@@ -5366,151 +5314,6 @@ function exportAnalyticsCSV(){
 
 
 
-
-// ─── LINK BUILDING AGENT ──────────────────────────────────
-let _agProspects = [];
-
-function agLog(msg){
-  const el=document.getElementById('ag-log');
-  if(!el)return;
-  el.style.display='block';
-  el.innerHTML += `<div>▸ ${msg}</div>`;
-  el.scrollTop=el.scrollHeight;
-}
-
-async function runAgent(){
-  const keyword=(document.getElementById('ag-keyword').value||'').trim();
-  if(!keyword){alert('Enter a keyword first');return;}
-  const count=parseInt(document.getElementById('ag-count').value)||20;
-  const doEmails=document.getElementById('ag-emails').value==='yes';
-  const project=document.getElementById('ag-project').value||'';
-
-  // Reset UI
-  _agProspects=[];
-  const logEl=document.getElementById('ag-log');
-  logEl.innerHTML='';logEl.style.display='block';
-  document.getElementById('ag-results').style.display='none';
-
-  agLog(`Starting agent for: <b style="color:var(--teal)">${keyword}</b>`);
-  agLog(`Target: ${count} prospects${doEmails?' + email extraction':''}`);
-
-  // Step 1: Claude web search → prospects
-  agLog('Step 1/2 — Asking Claude to find prospects via web search...');
-  try {
-    const resp = await fetch('/api/agent',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({keyword, count, project})
-    });
-    const data = await resp.json();
-    if(data.error){agLog('❌ Error: '+data.error);return;}
-    const prospects = data.prospects||[];
-    if(!prospects.length){agLog('⚠️ No prospects returned');return;}
-    agLog(`✅ Found ${prospects.length} prospects`);
-    _agProspects = prospects.map(p=>({...p,emails:[],status:'pending'}));
-
-    if(doEmails){
-      agLog('Step 2/2 — Extracting emails via Snov.io...');
-      let done=0;
-      for(const p of _agProspects){
-        agLog(`Searching emails for <b>${p.domain}</b>...`);
-        try {
-          const sr = await fetch('/api/snov',{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({action:'domain_search',domain:p.domain})
-          });
-          const sd = await sr.json();
-          p.emails = (sd.emails||[]).slice(0,3).map(e=>e.email||e).filter(Boolean);
-          p.status = p.emails.length ? 'emails_found' : 'no_emails';
-        } catch(e){ p.status='error'; }
-        done++;
-        agLog(`${done}/${_agProspects.length} done${p.emails.length?` — ${p.emails.length} email(s)`:''}`)
-      }
-    }
-
-    renderAgentResults(keyword);
-
-  } catch(e){
-    agLog(`❌ Error: ${e.message}`);
-  }
-}
-
-function renderAgentResults(keyword){
-  const el=document.getElementById('ag-results');
-  const label=document.getElementById('ag-result-label');
-  const wrap=document.getElementById('ag-table-wrap');
-  const drMin=parseInt(document.getElementById('ag-dr-min').value)||0;
-  const drMax=parseInt(document.getElementById('ag-dr-max').value)||100;
-  const filtered=_agProspects.filter(p=>{
-    if(p.dr===null||p.dr===undefined) return true; // keep if no data
-    return p.dr>=drMin && p.dr<=drMax;
-  });
-  const withEmails=filtered.filter(p=>p.emails&&p.emails.length).length;
-  label.textContent=`${filtered.length} prospects (DR ${drMin}–${drMax})${withEmails?' · '+withEmails+' with emails':''}`;
-
-  function drColor(dr){
-    if(dr===null||dr===undefined)return'var(--text3)';
-    if(dr>=70)return'#00b4a0';
-    if(dr>=40)return'#f0a500';
-    return'#ff6b6b';
-  }
-  function fmtTraffic(t){
-    if(t===null||t===undefined)return'—';
-    if(t>=1000000)return(t/1000000).toFixed(1)+'M';
-    if(t>=1000)return(t/1000).toFixed(1)+'K';
-    return t.toString();
-  }
-
-  wrap.innerHTML=`
-    <table style="width:100%;border-collapse:collapse;font-size:12px;">
-      <thead>
-        <tr style="background:var(--bg2);color:var(--text2);">
-          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">#</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Domain</th>
-          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);">DR</th>
-          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);">Traffic</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Title</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Emails</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Reason</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${filtered.map((p,i)=>`
-          <tr style="border-bottom:1px solid var(--border);transition:background 0.1s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
-            <td style="padding:8px 10px;color:var(--text3);">${i+1}</td>
-            <td style="padding:8px 10px;font-weight:600;">
-              <a href="https://${p.domain}" target="_blank" style="color:var(--teal);text-decoration:none;">${p.domain}</a>
-            </td>
-            <td style="padding:8px 10px;text-align:center;">
-              <span style="font-weight:700;font-size:13px;color:${drColor(p.dr)};">${p.dr!==null&&p.dr!==undefined?p.dr:'—'}</span>
-            </td>
-            <td style="padding:8px 10px;text-align:center;color:var(--text2);font-size:12px;">${fmtTraffic(p.traffic)}</td>
-            <td style="padding:8px 10px;color:var(--text);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.title||''}">${p.title||'—'}</td>
-            <td style="padding:8px 10px;">
-              ${p.emails&&p.emails.length
-                ? p.emails.map(e=>`<span style="background:rgba(0,180,160,0.12);color:var(--teal);padding:2px 7px;border-radius:4px;margin-right:4px;font-size:11px;">${e}</span>`).join('')
-                : `<span style="color:var(--text3);font-size:11px;">${p.status==='error'?'error':'—'}</span>`
-              }
-            </td>
-            <td style="padding:8px 10px;color:var(--text2);font-size:11px;max-width:200px;">${p.reason||''}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>`;
-  el.style.display='block';
-  agLog(`✅ Done! ${_agProspects.length} prospects with DR & Traffic data.`);
-}
-
-function agExportCSV(){
-  if(!_agProspects.length)return;
-  const rows=[['#','Domain','Title','URL','Emails','Reason']];
-  _agProspects.forEach((p,i)=>rows.push([i+1,p.domain,p.title||'',p.url||'',(p.emails||[]).join('; '),p.reason||'']));
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='prospects.csv';a.click();
-}
-// ─── END AGENT ────────────────────────────────────────────
 // ─── AI ANCHOR PROSPECTOR ─────────────────────────────────
 async function openProspector(){
   const domain = nd(document.getElementById('f-domain').value.trim());
@@ -6442,7 +6245,7 @@ function loadProspectorAnchors(){
   if(!reqs.length){ wrap.style.display='none'; return; }
   wrap.style.display='block';
   list.innerHTML = reqs.map(r=>{
-    const used = allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&getMonthKey(l.date)===curMonth+' '+curYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+    const used = allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&(l.month?(l.month===curMonth||l.month.startsWith(curMonth.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonth)+' '+curYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     const full = used>=r.max;
     return `<span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid ${full?'rgba(255,95,95,0.3)':'rgba(0,196,174,0.3)'};color:${full?'var(--red)':'var(--teal)'};background:${full?'rgba(255,95,95,0.08)':'rgba(0,196,174,0.08)'};">${r.anchor} (${used}/${r.max})${full?' ❌':''}</span>`;
   }).join('');
@@ -6511,7 +6314,7 @@ function renderProspectorCards(suggestions, domain, proj, linkTo){
     const curMonth = MONTHS_EN[new Date().getMonth()];
     const curYear = new Date().getFullYear();
     const req = proj ? allReqs.find(r=>r.project===proj&&r.anchor===(s.anchor||'').toLowerCase()&&(r.month===curMonth+' '+curYear||r.month===curMonth)) : null;
-    const used = req ? allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===req.anchor&&l.date&&getMonthKey(l.date)===curMonth+' '+curYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length : 0;
+    const used = req ? allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===req.anchor&&(l.month?(l.month===curMonth||l.month.startsWith(curMonth.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonth)+' '+curYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length : 0;
     const full = req && used>=req.max;
     const hasReq = !!req;
     const isEdit = !!(s.originalSentence);
