@@ -13,17 +13,29 @@ module.exports = async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
 
   // Step 1: Get prospects from Claude
+  const callClaude = async (body) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'web-search-2025-03-05'
+        },
+        body: JSON.stringify(body)
+      });
+      if (r.status === 429) {
+        if (attempt < 2) { await new Promise(x => setTimeout(x, 5000)); continue; }
+      }
+      return r;
+    }
+  };
+
   let prospects = [];
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'web-search-2025-03-05'
-      },
-      body: JSON.stringify({
+    const response = await callClaude({
+
         model: 'claude-sonnet-4-6',
         max_tokens: 4000,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
@@ -33,9 +45,12 @@ module.exports = async (req, res) => {
 
 Search for articles about: "${keyword}"
 
-STRICT RULE: Do NOT include any website that sells or provides the same type of service/product as "${project || keyword}". Skip all direct competitors entirely.
+STRICT RULES:
+1. Do NOT include websites that sell or provide the same service as "${project || keyword}". Skip all direct competitors.
+2. Prefer mid-tier sites (DR 20-70) — avoid huge media sites like Forbes, TechCrunch, HubSpot, G2, Capterra that almost never give backlinks to unknown products.
+3. Focus on niche blogs, independent writers, small-medium SaaS blogs, industry newsletters, and resource sites that are actually reachable for outreach.
 
-Return ONLY non-competitor sites: blogs, media, resource pages, listicles, comparison articles, directories.
+Return ONLY non-competitor sites: niche blogs, independent review sites, industry publications, resource pages.
 
 Return ONLY a JSON array, no markdown:
 [
@@ -49,7 +64,6 @@ Return ONLY a JSON array, no markdown:
 
 Return ${count} unique prospect domains.`
         }]
-      })
     });
 
     if (!response.ok) {
