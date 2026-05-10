@@ -2380,13 +2380,22 @@ function renderDetailLinks(){
     return true;
   });
 
+  // Month order map for proper sorting
+  const MONTH_ORDER = {'January':1,'February':2,'March':3,'April':4,'May':5,'June':6,'July':7,'August':8,'September':9,'October':10,'November':11,'December':12};
+  const getMonthSort = l => {
+    const m = l.month&&l.month.trim() ? l.month.trim() : getMonthKey(l.date);
+    const parts = m.split(' ');
+    const mon = MONTH_ORDER[parts[0]]||0;
+    const yr = parseInt(parts[1])||0;
+    return yr*100+mon;
+  };
   fl.sort((a,b)=>{
-    const am=getMonthKey(a.date), bm=getMonthKey(b.date);
+    const as_=getMonthSort(a), bs_=getMonthSort(b);
+    if(as_!==bs_) return pdSortDir==='desc'?bs_-as_:as_-bs_;
     const av=parseDate(a.date), bv=parseDate(b.date);
-    if(am!==bm) return pdSortDir==='desc'?bv-av:av-bv;
-    const as=(a.status||'').toLowerCase(), bs=(b.status||'').toLowerCase();
-    if(as==='live'&&bs!=='live')return -1;
-    if(as!=='live'&&bs==='live')return 1;
+    const as2=(a.status||'').toLowerCase(), bs2=(b.status||'').toLowerCase();
+    if(as2==='live'&&bs2!=='live')return -1;
+    if(as2!=='live'&&bs2==='live')return 1;
     return bv-av;
   });
 
@@ -3046,7 +3055,7 @@ function renderRowsGrouped(links, rowFn, colspan){
   let monthStart=0;
 
   // Pre-group
-  const rows=links.map(l=>({l,month:getMonthKey(l.date)}));
+  const rows=links.map(l=>({l,month:l.month&&l.month.trim()?l.month.trim():getMonthKey(l.date)}));
   let i=0;
   while(i<rows.length){
     const month=rows[i].month;
