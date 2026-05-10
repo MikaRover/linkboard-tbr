@@ -2487,7 +2487,7 @@ function renderDetailLinks(){
       </td>
     </tr>`;
   };
-  tb.innerHTML=renderRowsGrouped(fl,pdRowFn,13);
+  tb.innerHTML = fl.length ? renderRowsGrouped(fl, pdRowFn, 13) : `<tr><td colspan="13" class="loading">No links</td></tr>`;
 }
 
 function togglePdSort(field){
@@ -3102,7 +3102,11 @@ function renderRowsGrouped(links, rowFn, colspan){
     // Otherwise derive fully from date field
     return getMonthKey(l.date);
   };
-  const rows=links.map(l=>({l,month:getFullMonth(l)}));
+  // Within each month group: live first, then pending
+  const liveLinks = links.filter(l=>(l.status||'').toLowerCase()==='live');
+  const pendLinks = links.filter(l=>(l.status||'').toLowerCase()!=='live');
+  const sortedLinks = [...liveLinks, ...pendLinks];
+  const rows=sortedLinks.map(l=>({l,month:getFullMonth(l)}));
   let i=0;
   while(i<rows.length){
     const month=rows[i].month;
@@ -3420,20 +3424,7 @@ function renderLinks(){
       </td>
     </tr>`;
   };
-  // Split live and pending — render separately
-  const flLive = fl.filter(l=>(l.status||'').toLowerCase()==='live');
-  const flPend = fl.filter(l=>(l.status||'').toLowerCase()!=='live');
-
-  let html = '';
-  if(flLive.length) html += renderRowsGrouped(flLive, rowFn, 11);
-  if(flPend.length){
-    html += `<tr><td colspan="11" style="padding:10px 12px;background:rgba(240,165,0,0.06);border-top:2px solid rgba(240,165,0,0.25);">
-      <span style="font-size:12px;font-weight:700;color:#f0a500;">⏳ Pending — ${flPend.length} links</span>
-    </td></tr>`;
-    html += renderRowsGrouped(flPend, rowFn, 11);
-  }
-  if(!flLive.length && !flPend.length) html = `<tr><td colspan="11" class="loading">No links</td></tr>`;
-  tb.innerHTML = html;
+  tb.innerHTML = fl.length ? renderRowsGrouped(fl, rowFn, 11) : `<tr><td colspan="11" class="loading">No links</td></tr>`;
 
 }
 
@@ -3804,15 +3795,8 @@ function handleCsvFile(file){
       // Skip header row or empty domain
       if(!c1||c1.toLowerCase()==='domain')continue;
 
-      // For pending links derive month from date, not section header
+      // Pending links belong to the current section (same month as last live section header)
       let linkMonth = currentMonth;
-      if(status==='pending' && c0.match(/^\d{2}\.\d{2}\.\d{4}/)){
-        const dp=c0.split('.');
-        const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
-        const mn=MNAMES[parseInt(dp[1])-1]||'';
-        const yr=dp[2]||'';
-        if(mn&&yr) linkMonth=mn+' '+yr;
-      }
 
       csvRows.push({
         date:c0,
