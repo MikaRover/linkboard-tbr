@@ -874,6 +874,20 @@ tr:hover td{background:var(--bg3);}
     <select id="pd-b" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All builders</option></select>
     <select id="pd-dup" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All</option><option value="dup">Duplicates</option></select>
   </div>
+  <!-- Pending panel -->
+  <div id="pd-pending-panel" style="display:none;margin-bottom:1rem;">
+    <div class="card" style="border:1px solid rgba(240,165,0,0.3);">
+      <div class="card-head" style="color:#f0a500;display:flex;justify-content:space-between;align-items:center;">
+        <span>⏳ Pending — <span id="pd-pending-count">0</span> links</span>
+        <button class="btn-ghost" onclick="togglePendingPanel()" style="font-size:11px;padding:3px 8px;">✕ Close</button>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th></th><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Link check</th><th>Dup</th><th></th></tr></thead>
+        <tbody id="pd-pending-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+
   <div class="card">
     <div class="tbl-wrap"><table>
       <thead><tr><th><input type="checkbox" id="pd-select-all" onclick="togglePdSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="togglePdSort('date')">Date <span id="pd-sort-date">↓</span></th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Link check</th><th>Dup</th><th></th></tr></thead>
@@ -2433,8 +2447,8 @@ function renderDetailLinks(){
       <div class="stat-l">✅ Live</div>
       <div class="stat-v" style="color:var(--teal);font-size:36px;">${live}</div>
     </div>
-    <div class="stat" style="border:1px solid rgba(240,165,0,0.2);">
-      <div class="stat-l">⏳ Pending</div>
+    <div class="stat" style="border:1px solid rgba(240,165,0,0.2);cursor:pointer;" onclick="togglePendingPanel()">
+      <div class="stat-l">⏳ Pending <span style="font-size:9px;opacity:0.6;">▼ click</span></div>
       <div class="stat-v" style="color:#f0a500;font-size:36px;">${pend}</div>
     </div>
     <div class="stat">
@@ -2487,7 +2501,25 @@ function renderDetailLinks(){
       </td>
     </tr>`;
   };
-  tb.innerHTML = fl.length ? renderRowsGrouped(fl, pdRowFn, 13) : `<tr><td colspan="13" class="loading">No links</td></tr>`;
+  // Only show live in main table
+  const flLiveOnly = fl.filter(l=>(l.status||'').toLowerCase()==='live');
+  const flPendOnly = fl.filter(l=>(l.status||'').toLowerCase()!=='live');
+  tb.innerHTML = flLiveOnly.length ? renderRowsGrouped(flLiveOnly, pdRowFn, 13) : `<tr><td colspan="13" class="loading">No live links</td></tr>`;
+
+  // Render pending panel (hidden by default)
+  const pp = document.getElementById('pd-pending-panel');
+  if(pp){
+    const ppTb = document.getElementById('pd-pending-tbody');
+    if(ppTb) ppTb.innerHTML = flPendOnly.length ? renderRowsGrouped(flPendOnly, pdRowFn, 13) : `<tr><td colspan="13" class="loading">No pending links</td></tr>`;
+    document.getElementById('pd-pending-count').textContent = flPendOnly.length;
+  }
+}
+
+function togglePendingPanel(){
+  const p = document.getElementById('pd-pending-panel');
+  if(!p) return;
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+  if(p.style.display==='block') p.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 function togglePdSort(field){
@@ -3102,11 +3134,7 @@ function renderRowsGrouped(links, rowFn, colspan){
     // Otherwise derive fully from date field
     return getMonthKey(l.date);
   };
-  // Within each month group: live first, then pending
-  const liveLinks = links.filter(l=>(l.status||'').toLowerCase()==='live');
-  const pendLinks = links.filter(l=>(l.status||'').toLowerCase()!=='live');
-  const sortedLinks = [...liveLinks, ...pendLinks];
-  const rows=sortedLinks.map(l=>({l,month:getFullMonth(l)}));
+  const rows=links.map(l=>({l,month:getFullMonth(l)}));
   let i=0;
   while(i<rows.length){
     const month=rows[i].month;
