@@ -1700,7 +1700,7 @@ tr:hover td{background:var(--bg3);}
           <select id="ag-project" style="margin:0;"><option value="">— All projects —</option></select>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div>
           <div class="section-label">Results count</div>
           <select id="ag-count" style="margin:0;">
@@ -1714,6 +1714,28 @@ tr:hover td{background:var(--bg3);}
           <select id="ag-emails" style="margin:0;">
             <option value="yes">Yes — find emails</option>
             <option value="no">No — prospects only</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div>
+          <div class="section-label">DR Min (Ahrefs)</div>
+          <select id="ag-dr-min" style="margin:0;">
+            <option value="0">Any DR</option>
+            <option value="10">DR 10+</option>
+            <option value="20" selected>DR 20+</option>
+            <option value="30">DR 30+</option>
+            <option value="40">DR 40+</option>
+          </select>
+        </div>
+        <div>
+          <div class="section-label">DR Max (Ahrefs)</div>
+          <select id="ag-dr-max" style="margin:0;">
+            <option value="100">Any DR</option>
+            <option value="90">DR ≤ 90</option>
+            <option value="70" selected>DR ≤ 70</option>
+            <option value="60">DR ≤ 60</option>
+            <option value="50">DR ≤ 50</option>
           </select>
         </div>
       </div>
@@ -5418,40 +5440,66 @@ function renderAgentResults(keyword){
   const el=document.getElementById('ag-results');
   const label=document.getElementById('ag-result-label');
   const wrap=document.getElementById('ag-table-wrap');
-  const withEmails=_agProspects.filter(p=>p.emails&&p.emails.length).length;
-  label.textContent=`${_agProspects.length} prospects found${withEmails?` · ${withEmails} with emails`:''}`;
+  const drMin=parseInt(document.getElementById('ag-dr-min').value)||0;
+  const drMax=parseInt(document.getElementById('ag-dr-max').value)||100;
+  const filtered=_agProspects.filter(p=>{
+    if(p.dr===null||p.dr===undefined) return true; // keep if no data
+    return p.dr>=drMin && p.dr<=drMax;
+  });
+  const withEmails=filtered.filter(p=>p.emails&&p.emails.length).length;
+  label.textContent=`${filtered.length} prospects (DR ${drMin}–${drMax})${withEmails?' · '+withEmails+' with emails':''}`;
+
+  function drColor(dr){
+    if(dr===null||dr===undefined)return'var(--text3)';
+    if(dr>=70)return'#00b4a0';
+    if(dr>=40)return'#f0a500';
+    return'#ff6b6b';
+  }
+  function fmtTraffic(t){
+    if(t===null||t===undefined)return'—';
+    if(t>=1000000)return(t/1000000).toFixed(1)+'M';
+    if(t>=1000)return(t/1000).toFixed(1)+'K';
+    return t.toString();
+  }
+
   wrap.innerHTML=`
     <table style="width:100%;border-collapse:collapse;font-size:12px;">
       <thead>
         <tr style="background:var(--bg2);color:var(--text2);">
           <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">#</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Domain</th>
+          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);">DR</th>
+          <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);">Traffic</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Title</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Emails</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);">Reason</th>
         </tr>
       </thead>
       <tbody>
-        ${_agProspects.map((p,i)=>`
+        ${filtered.map((p,i)=>`
           <tr style="border-bottom:1px solid var(--border);transition:background 0.1s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
             <td style="padding:8px 10px;color:var(--text3);">${i+1}</td>
-            <td style="padding:8px 10px;font-weight:600;color:var(--teal);">
+            <td style="padding:8px 10px;font-weight:600;">
               <a href="https://${p.domain}" target="_blank" style="color:var(--teal);text-decoration:none;">${p.domain}</a>
             </td>
-            <td style="padding:8px 10px;color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.title||''}">${p.title||'—'}</td>
+            <td style="padding:8px 10px;text-align:center;">
+              <span style="font-weight:700;font-size:13px;color:${drColor(p.dr)};">${p.dr!==null&&p.dr!==undefined?p.dr:'—'}</span>
+            </td>
+            <td style="padding:8px 10px;text-align:center;color:var(--text2);font-size:12px;">${fmtTraffic(p.traffic)}</td>
+            <td style="padding:8px 10px;color:var(--text);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.title||''}">${p.title||'—'}</td>
             <td style="padding:8px 10px;">
               ${p.emails&&p.emails.length
                 ? p.emails.map(e=>`<span style="background:rgba(0,180,160,0.12);color:var(--teal);padding:2px 7px;border-radius:4px;margin-right:4px;font-size:11px;">${e}</span>`).join('')
                 : `<span style="color:var(--text3);font-size:11px;">${p.status==='error'?'error':'—'}</span>`
               }
             </td>
-            <td style="padding:8px 10px;color:var(--text2);font-size:11px;max-width:220px;">${p.reason||''}</td>
+            <td style="padding:8px 10px;color:var(--text2);font-size:11px;max-width:200px;">${p.reason||''}</td>
           </tr>
         `).join('')}
       </tbody>
     </table>`;
   el.style.display='block';
-  agLog(`✅ Done! ${_agProspects.length} prospects ready.`);
+  agLog(`✅ Done! ${_agProspects.length} prospects with DR & Traffic data.`);
 }
 
 function agExportCSV(){
