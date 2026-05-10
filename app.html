@@ -3732,9 +3732,13 @@ function handleCsvFile(file){
       if(isPending){status='pending';continue;}
       if(isLiveHeader||isMonthHeader){
         status='live';
-        // Extract month name
+        // Extract month name AND year from header e.g. "April 2026 live links"
         const m=MONTHS.find(m=>c0l.includes(m));
-        if(m)currentMonth=m.charAt(0).toUpperCase()+m.slice(1);
+        if(m){
+          const yearMatch=c0.match(/(20\d{2})/);
+          const year=yearMatch?yearMatch[1]:'';
+          currentMonth=m.charAt(0).toUpperCase()+m.slice(1)+(year?' '+year:'');
+        }
         continue;
       }
 
