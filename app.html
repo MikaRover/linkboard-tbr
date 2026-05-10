@@ -3361,7 +3361,20 @@ function renderLinks(){
       </td>
     </tr>`;
   };
-  tb.innerHTML=renderRowsGrouped(fl,rowFn,11);
+  // Split live and pending — render separately
+  const flLive = fl.filter(l=>(l.status||'').toLowerCase()==='live');
+  const flPend = fl.filter(l=>(l.status||'').toLowerCase()!=='live');
+
+  let html = '';
+  if(flLive.length) html += renderRowsGrouped(flLive, rowFn, 11);
+  if(flPend.length){
+    html += `<tr><td colspan="11" style="padding:10px 12px;background:rgba(240,165,0,0.06);border-top:2px solid rgba(240,165,0,0.25);">
+      <span style="font-size:12px;font-weight:700;color:#f0a500;">⏳ Pending — ${flPend.length} links</span>
+    </td></tr>`;
+    html += renderRowsGrouped(flPend, rowFn, 11);
+  }
+  if(!flLive.length && !flPend.length) html = `<tr><td colspan="11" class="loading">No links</td></tr>`;
+  tb.innerHTML = html;
 
 }
 
