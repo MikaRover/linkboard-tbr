@@ -2869,7 +2869,7 @@ function renderAnchorReqs(){
     const pct=Math.min(100,Math.round(used/r.max*100));
     const full=used>=r.max;
     const color=full?'var(--red)':used>0?'var(--yellow)':'var(--teal)';
-    return`<div onclick="${full?'':''}" style="background:var(--bg3);border:1px solid ${full?'rgba(255,95,95,0.3)':'var(--border)'};border-radius:8px;padding:8px 12px;cursor:${full?'not-allowed':'pointer'};opacity:${full?0.6:1};"
+    return`<div style="background:var(--bg3);border:1px solid ${full?'rgba(255,95,95,0.3)':'var(--border)'};border-radius:8px;padding:8px 12px;cursor:${full?'not-allowed':'pointer'};opacity:${full?0.6:1};"
       onclick="if(!${full}){document.getElementById('f-anchor').value='${r.anchor.replace(/'/g,"\\'")}';${r.linkto?`document.getElementById('f-linkto').value='${r.linkto.replace(/'/g,"\\'")}';`:''}onAnchorInput();}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
         <span style="font-size:12px;font-weight:600;color:${full?'var(--red)':'var(--text)'};">${r.anchor}</span>
@@ -3010,12 +3010,6 @@ function listenLinks(){
     if(currentDetailProject) renderDetailLinks();
     populateBLMonths();
     if(cu&&cu.role!=='admin'){renderBuilderDashboard();renderBuilderLinks();}
-  });
-}
-function listenReqs(){
-  db.collection('requirements').onSnapshot(snap=>{
-    allReqs=snap.docs.map(d=>({id:d.id,...d.data()}));
-    renderReqs();
   });
 }
 function listenQualityReqs(){
@@ -3502,7 +3496,7 @@ function renderReqs(){
       <td>${linktoHtml}</td>
       <td style="min-width:130px;"><div class="req-bar-bg"><div class="req-bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':'var(--teal)'}"></div></div><span style="font-size:11px;color:${over?'#ff6b6b':'var(--text2)'};">${used}/${r.max}</span></td>
       <td>${r.max}</td>
-      <td><button onclick="if(confirm('Delete anchor &quot;'+${JSON.stringify(r.anchor)}+'&quot;?'))db.collection('requirements').doc('${r.id}').delete()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button></td>
+      <td><button onclick="deleteAnchorReq('${r.id}', this)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -6173,6 +6167,13 @@ function toggleEditRowById(id,forceClose){
 
 // Also update listenReqs to re-render builder dashboard
 const _origListenReqs=listenReqs;
+
+function deleteAnchorReq(id, btn) {
+  const anchor = btn.closest('tr')?.querySelector('td:first-child')?.textContent || 'this anchor';
+  if(confirm('Delete anchor "' + anchor + '"?')) {
+    db.collection('requirements').doc(id).delete();
+  }
+}
 function listenReqs(){
   db.collection('requirements').onSnapshot(snap=>{
     allReqs=snap.docs.map(d=>({id:d.id,...d.data()}));
