@@ -864,6 +864,7 @@ tr:hover td{background:var(--bg3);}
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="btn-ghost" onclick="checkDetailProjectLinks(this)" style="white-space:nowrap;">▶ Check links</button>
       <button class="btn-sm" onclick="gotoPage('add',document.querySelectorAll('.nav')[1]);setTimeout(()=>{const s=document.getElementById('f-proj');if(s)s.value=currentDetailProject;},100)" style="white-space:nowrap;">+ Add link</button>
+      <button class="btn-danger adm" onclick="clearProjectLinks()" style="white-space:nowrap;padding:6px 12px;font-size:12px;">🗑 Clear all links</button>
     </div>
   </div>
   <div class="stats" id="pd-stats" style="grid-template-columns:repeat(4,1fr);"></div>
@@ -2340,6 +2341,23 @@ async function chkBatchDelete(){
   checkerResults=checkerResults.filter(l=>!ids.includes(l.id));
   clearChkSelection();
   runDataCheck();
+}
+
+async function clearProjectLinks(){
+  const proj = currentDetailProject;
+  if(!proj) return;
+  const links = allLinks.filter(l=>l.project===proj);
+  if(!links.length){ showToast('No links to delete'); return; }
+  if(!confirm(`Delete ALL ${links.length} links for "${proj}"? This cannot be undone.`)) return;
+
+  showToast('Deleting...');
+  const BATCH = 400;
+  for(let i=0;i<links.length;i+=BATCH){
+    const batch = db.batch();
+    links.slice(i,i+BATCH).forEach(l=>batch.delete(db.collection('links').doc(l.id)));
+    await batch.commit();
+  }
+  showToast(`✅ Deleted ${links.length} links from "${proj}"`);
 }
 
 function openProjectDetail(projName){
