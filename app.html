@@ -3795,15 +3795,8 @@ function handleCsvFile(file){
       // Skip header row or empty domain
       if(!c1||c1.toLowerCase()==='domain')continue;
 
-      // Pending: derive month from date field (most accurate)
+      // Pending always belongs to the latest month (currentMonth from last live section header)
       let linkMonth = currentMonth;
-      if(status === 'pending' && c0.match(/^\d{2}\.\d{2}\.\d{4}/)) {
-        const dp = c0.split('.');
-        const MNAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-        const mn = MNAMES[parseInt(dp[1])-1] || '';
-        const yr = dp[2] || '';
-        if(mn && yr) linkMonth = mn + ' ' + yr;
-      }
 
       csvRows.push({
         date:c0,
