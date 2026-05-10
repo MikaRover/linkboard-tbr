@@ -574,7 +574,8 @@ tr:hover td{background:var(--bg3);}
 <div id="p-dashboard" class="page active">
   <div class="page-top">
     <div class="page-title">Dashboard</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <select id="dash-month-sel" onchange="renderDashboard()" style="padding:6px 10px;font-size:13px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);cursor:pointer;"></select>
       <button class="btn-sm" onclick="gotoPage('add',document.querySelectorAll('.nav')[1])" style="width:auto;">+ Add link</button>
       <button class="btn-sm adm" onclick="bulkRefreshMetrics(6,this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">↺ Refresh DR/Traffic (6mo)</button>
       <button class="btn-sm" onclick="bulkCheckMyLinks(this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">🔗 Check my links</button>
@@ -582,7 +583,6 @@ tr:hover td{background:var(--bg3);}
   </div>
   <div class="stats">
     <div class="stat"><div class="stat-l">This month live</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
-    <div class="stat"><div class="stat-l">This month pending</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
     <div class="stat"><div class="stat-l">All time live</div><div class="stat-v" style="color:var(--text2)" id="ds-live">—</div></div>
     <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:#ff6b6b" id="ds-dup">—</div></div>
   </div>
@@ -600,13 +600,7 @@ tr:hover td{background:var(--bg3);}
       <tbody id="dash-live"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
-  <div class="card">
-    <div class="card-head pend">Pending <span style="font-size:12px;color:#f0a500" id="pc"></span></div>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Category</th><th>Anchor</th><th>Project</th><th>Builder</th></tr></thead>
-      <tbody id="dash-pend"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
-    </table></div>
-  </div>
+
 </div>
 
 <!-- ADD LINK -->
@@ -2449,10 +2443,7 @@ function renderDetailLinks(){
       <div class="stat-l">✅ Live</div>
       <div class="stat-v" style="color:var(--teal);font-size:36px;">${live}</div>
     </div>
-    <div class="stat" style="border:1px solid rgba(240,165,0,0.2);cursor:pointer;user-select:none;" onclick="(function(){var p=document.getElementById('pd-pending-panel');if(p){p.style.display=p.style.display==='none'?'block':'none';if(p.style.display==='block')p.scrollIntoView({behavior:'smooth',block:'start'});}})()">
-      <div class="stat-l" style="pointer-events:none;">⏳ Pending <span style="font-size:9px;opacity:0.6;">▼ view</span></div>
-      <div class="stat-v" style="color:#f0a500;font-size:36px;pointer-events:none;">${pend}</div>
-    </div>
+
     <div class="stat">
       <div class="stat-l">Total</div>
       <div class="stat-v" style="color:var(--text2);">${fl.length}</div>
@@ -3273,11 +3264,33 @@ function renderDashboard(){
   // Filter by builder if not admin
   const myLinks = cu.role==='admin' ? allLinks : allLinks.filter(l=>l.builder===cu.name);
 
-  // This month — use reportMonth field (from CSV section header), not live date
+  // This month — use selector if available, else current month
   const now=new Date();
   const MONTHS_FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const curMonthName = MONTHS_FULL[now.getMonth()];
-  const curYear = now.getFullYear();
+
+  // Populate month selector with available months from data
+  const sel = document.getElementById('dash-month-sel');
+  if(sel && !sel.dataset.init) {
+    sel.dataset.init = '1';
+    const monthSet = new Set();
+    allLinks.forEach(l=>{
+      const m=(l.month||'').trim();
+      const parts=m.split(' ');
+      if(parts.length>=2 && parseInt(parts[1])>2000) monthSet.add(m);
+    });
+    const sortedMonths = [...monthSet].sort((a,b)=>{
+      const [am,ay]=a.split(' '); const [bm,by]=b.split(' ');
+      return (parseInt(by)*12+MONTHS_FULL.indexOf(bm))-(parseInt(ay)*12+MONTHS_FULL.indexOf(am));
+    });
+    const curM = MONTHS_FULL[now.getMonth()]+' '+now.getFullYear();
+    if(!monthSet.has(curM)) sortedMonths.unshift(curM);
+    sel.innerHTML = sortedMonths.map(m=>`<option value="${m}">${m}</option>`).join('');
+  }
+
+  const selVal = sel ? sel.value : '';
+  const selParts = selVal.split(' ');
+  const curMonthName = (selParts.length>=2 && parseInt(selParts[1])>2000) ? selParts[0] : MONTHS_FULL[now.getMonth()];
+  const curYear = (selParts.length>=2 && parseInt(selParts[1])>2000) ? parseInt(selParts[1]) : now.getFullYear();
 
   const thisMonthLinks = myLinks.filter(l=>{
     // Use month field only if it has year; otherwise use date
@@ -3308,11 +3321,9 @@ function renderDashboard(){
 
   // Stat cards — current month focus
   document.getElementById('ds-total').textContent = thisLive.length;
-  document.getElementById('ds-pend').textContent  = thisPend.length;
   document.getElementById('ds-live').textContent  = live.length;
   document.getElementById('ds-dup').textContent   = dupCount;
   document.getElementById('lc').textContent = thisLive.length + ' links';
-  document.getElementById('pc').textContent = pend.length + ' links';
 
   // Month label
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
