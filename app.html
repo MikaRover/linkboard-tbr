@@ -2411,10 +2411,22 @@ function renderDetailLinks(){
   const pend=fl.filter(l=>l.status==='pending').length;
   const dups=fl.filter(l=>domainCount[nd(l.domain)]>1).length;
   document.getElementById('pd-stats').innerHTML=`
-    <div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--teal)">${fl.length}</div></div>
-    <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)">${live}</div></div>
-    <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500">${pend}</div></div>
-    <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:#ff6b6b">${dups}</div></div>`;
+    <div class="stat" style="border:1px solid rgba(0,196,174,0.2);">
+      <div class="stat-l">✅ Live</div>
+      <div class="stat-v" style="color:var(--teal);font-size:36px;">${live}</div>
+    </div>
+    <div class="stat" style="border:1px solid rgba(240,165,0,0.2);">
+      <div class="stat-l">⏳ Pending</div>
+      <div class="stat-v" style="color:#f0a500;font-size:36px;">${pend}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-l">Total</div>
+      <div class="stat-v" style="color:var(--text2);">${fl.length}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-l">Duplicates</div>
+      <div class="stat-v" style="color:#ff6b6b;">${dups}</div>
+    </div>`;
 
   const tb=document.getElementById('pd-tbody');
   if(!fl.length){tb.innerHTML='<tr><td colspan="13" class="loading">No links</td></tr>';return;}
@@ -3774,13 +3786,23 @@ function handleCsvFile(file){
       // Skip header row or empty domain
       if(!c1||c1.toLowerCase()==='domain')continue;
 
+      // For pending links derive month from date, not section header
+      let linkMonth = currentMonth;
+      if(status==='pending' && c0.match(/^\d{2}\.\d{2}\.\d{4}/)){
+        const dp=c0.split('.');
+        const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const mn=MNAMES[parseInt(dp[1])-1]||'';
+        const yr=dp[2]||'';
+        if(mn&&yr) linkMonth=mn+' '+yr;
+      }
+
       csvRows.push({
         date:c0,
         domain:c1,
         dr:(row[2]||'').trim(),
         traffic:(row[3]||'').trim(),
         ss:(row[4]||'').trim(),
-        price:String(row[5]||'').replace(/\$+/g,'').trim(),
+        price:String(row[5]||'').replace(/[$]+/g,'').trim(),
         linkin:(row[6]||'').trim(),
         linkto:(row[7]||'').trim(),
         anchor:(row[8]||'').trim(),
@@ -3789,7 +3811,7 @@ function handleCsvFile(file){
         comments:(row[11]||'').trim(),
         relevancy:(row[12]||'').trim(),
         status,
-        month:currentMonth,
+        month:linkMonth,
         project:proj||'Unknown',
         check:'ok',
         category:''
