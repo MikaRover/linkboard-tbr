@@ -2405,6 +2405,8 @@ function renderDetailLinks(){
 
   let fl=allLinks.filter(l=>{
     if(l.project!==proj)return false;
+    // Always exclude pending from main table unless specifically filtered
+    if(!st && (l.status||'').toLowerCase()==='pending') return false;
     if(st&&l.status!==st)return false;
     if(b&&l.builder!==b)return false;
     if(dup==='dup'&&domainCount[nd(l.domain)]<=1)return false;
@@ -2447,8 +2449,8 @@ function renderDetailLinks(){
       <div class="stat-l">✅ Live</div>
       <div class="stat-v" style="color:var(--teal);font-size:36px;">${live}</div>
     </div>
-    <div class="stat" style="border:1px solid rgba(240,165,0,0.2);cursor:pointer;" onclick="togglePendingPanel()">
-      <div class="stat-l">⏳ Pending <span style="font-size:9px;opacity:0.6;">▼ click</span></div>
+    <div class="stat" style="border:1px solid rgba(240,165,0,0.2);cursor:pointer;" id="pd-pend-stat" onclick="togglePendingPanel()">
+      <div class="stat-l">⏳ Pending <span style="font-size:9px;opacity:0.6;">▼ view</span></div>
       <div class="stat-v" style="color:#f0a500;font-size:36px;">${pend}</div>
     </div>
     <div class="stat">
