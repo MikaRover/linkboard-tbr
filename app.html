@@ -3223,10 +3223,17 @@ function renderDashboard(){
   const curYear = now.getFullYear();
 
   const thisMonthLinks = myLinks.filter(l=>{
-    if(!l.month) return false;
     const m = (l.month||'').trim();
-    // Match "February" or "February 2026"
-    return m===curMonthName || m===`${curMonthName} ${curYear}` || m.startsWith(curMonthName);
+    // Derive year from date if month has no year
+    let linkYear = null;
+    const parts = m.split(' ');
+    if(parts[1]) linkYear = parseInt(parts[1]);
+    else if(l.date){
+      const dp = l.date.split(/[.\-\/]/);
+      if(dp.length===3) linkYear = parseInt(dp[2].length===2?'20'+dp[2]:dp[2])||null;
+    }
+    const linkMonth = parts[0];
+    return linkMonth === curMonthName && linkYear === curYear;
   });
 
   const live=myLinks.filter(l=>l.status==='live');
