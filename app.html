@@ -2449,9 +2449,9 @@ function renderDetailLinks(){
       <div class="stat-l">✅ Live</div>
       <div class="stat-v" style="color:var(--teal);font-size:36px;">${live}</div>
     </div>
-    <div class="stat" style="border:1px solid rgba(240,165,0,0.2);cursor:pointer;" id="pd-pend-stat" onclick="togglePendingPanel()">
-      <div class="stat-l">⏳ Pending <span style="font-size:9px;opacity:0.6;">▼ view</span></div>
-      <div class="stat-v" style="color:#f0a500;font-size:36px;">${pend}</div>
+    <div class="stat" style="border:1px solid rgba(240,165,0,0.2);cursor:pointer;user-select:none;" onclick="(function(){var p=document.getElementById('pd-pending-panel');if(p){p.style.display=p.style.display==='none'?'block':'none';if(p.style.display==='block')p.scrollIntoView({behavior:'smooth',block:'start'});}})()">
+      <div class="stat-l" style="pointer-events:none;">⏳ Pending <span style="font-size:9px;opacity:0.6;">▼ view</span></div>
+      <div class="stat-v" style="color:#f0a500;font-size:36px;pointer-events:none;">${pend}</div>
     </div>
     <div class="stat">
       <div class="stat-l">Total</div>
