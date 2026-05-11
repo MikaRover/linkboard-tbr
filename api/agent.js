@@ -12,7 +12,6 @@ module.exports = async (req, res) => {
   const AHREFS_KEY = '7dNernlzY4mixkKwyIEOVsZK8e0Rx0Hgq3YszXti';
   const today = new Date().toISOString().slice(0, 10);
 
-  // Step 1: Get prospects from Claude
   const callClaude = async (body) => {
     for (let attempt = 0; attempt < 3; attempt++) {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -26,44 +25,51 @@ module.exports = async (req, res) => {
         body: JSON.stringify(body)
       });
       if (r.status === 429) {
-        if (attempt < 2) { await new Promise(x => setTimeout(x, 5000)); continue; }
+        if (attempt < 2) { await new Promise(x => setTimeout(x, 6000)); continue; }
       }
       return r;
     }
   };
 
   let prospects = [];
+
   try {
     const response = await callClaude({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 5000,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      messages: [{
+        role: 'user',
+        content: `You are an expert link building specialist. Your job is to find high-quality backlink opportunities for the topic: "${keyword}"${project ? ` (for the product/service: "${project}")` : ''}.
 
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{
-          role: 'user',
-          content: `You are a link building specialist. Find articles and blog posts that already discuss or mention "${keyword}" — these are ideal outreach targets for adding a contextual backlink.
-
-Search for: articles, blog posts, guides and resource pages that discuss "${keyword}" as a topic.
+STRATEGY — search using multiple smart queries to find different types of relevant articles:
+1. Articles that explain or discuss "${keyword}" as a concept (guides, tutorials, explainers)
+2. Comparison/best-of lists that include "${keyword}" or related tools
+3. Industry blog posts that mention "${keyword}" naturally
+4. Resource roundups and "tools for X" posts
+5. Case studies or "how we use X" posts
 
 STRICT RULES:
-1. ONLY find articles that already talk about "${keyword}" as a topic — NOT companies that sell it.
-2. Do NOT include direct competitors or companies that provide "${project || keyword}" as a service.
-3. Skip huge media sites (Forbes, TechCrunch, HubSpot, G2, Capterra) — focus on niche blogs, independent writers, small-medium SaaS blogs, industry newsletters.
-4. Prefer pages where a contextual link would fit naturally inside existing content.
-5. Target mid-tier sites (DR 20-70) that are realistically reachable for outreach.
+- ONLY include pages that already discuss "${keyword}" as a topic in their content
+- Do NOT include direct competitors (companies that sell the same service as "${project || keyword}")
+- Skip huge media sites (Forbes, Entrepreneur, TechCrunch, HubSpot, G2, Capterra, Gartner) — almost impossible to get links from
+- Skip company homepages — only blog posts and articles
+- Target mid-tier independent sites (blogs, niche publications, small SaaS blogs, newsletters)
+- For each result, assign a relevancyScore 0-100 based on: how naturally a contextual link would fit, how topically relevant the article is, and how reachable the site is for outreach
 
-Return ONLY a JSON array, no markdown:
+Return ONLY a raw JSON array (no markdown, no explanation):
 [
   {
     "domain": "example.com",
-    "title": "Article title that discusses ${keyword}",
-    "url": "https://example.com/article",
-    "reason": "Why this is a good opportunity and how a link fits contextually"
+    "title": "Exact article title",
+    "url": "https://example.com/full-article-url",
+    "reason": "1-2 sentences: why this article is a good backlink opportunity and exactly where/how a link to ${project || keyword} would fit naturally",
+    "relevancyScore": 85
   }
 ]
 
-Return ${count} unique prospect domains.`
-        }]
+Search broadly and return ${count} unique high-quality prospect domains. Prioritize relevancy and reachability over domain authority.`
+      }]
     });
 
     if (!response.ok) {
@@ -87,7 +93,16 @@ Return ${count} unique prospect domains.`
 
   if (!prospects.length) return res.json({ prospects: [] });
 
-  // Step 2: Enrich with Ahrefs DR + Traffic in parallel (batches of 5)
+  // Deduplicate by domain
+  const seen = new Set();
+  prospects = prospects.filter(p => {
+    const d = (p.domain || '').toLowerCase().replace(/^www\./, '');
+    if (seen.has(d)) return false;
+    seen.add(d);
+    return true;
+  });
+
+  // Enrich with Ahrefs DR + Traffic in batches of 5
   const ahrefsHeaders = {
     'Authorization': `Bearer ${AHREFS_KEY}`,
     'Accept': 'application/json'
@@ -102,27 +117,23 @@ Return ${count} unique prospect domains.`
       ]);
 
       let dr = null, traffic = null;
-
       if (drResp.ok) {
         const d = await drResp.json();
         dr = d?.domain_rating?.domain_rating ?? null;
         if (dr !== null) dr = Math.round(dr);
       }
-
       if (metricsResp.ok) {
         const m = await metricsResp.json();
         const metrics = m?.metrics || m || {};
         const raw = metrics.org_traffic ?? null;
         traffic = raw !== null && raw > 0 ? Math.round(raw) : null;
       }
-
       return { dr, traffic };
     } catch (e) {
       return { dr: null, traffic: null };
     }
   };
 
-  // Process in batches of 5 to avoid rate limits
   const enriched = [...prospects];
   for (let i = 0; i < enriched.length; i += 5) {
     const batch = enriched.slice(i, i + 5);
@@ -132,6 +143,9 @@ Return ${count} unique prospect domains.`
       enriched[i + j].traffic = r.traffic;
     });
   }
+
+  // Sort by relevancyScore desc by default
+  enriched.sort((a, b) => (b.relevancyScore || 0) - (a.relevancyScore || 0));
 
   return res.json({ prospects: enriched });
 };
