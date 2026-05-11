@@ -1799,16 +1799,27 @@ tr:hover td{background:var(--bg3);}
       <div id="ag-filters" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
           <div>
-            <div class="section-label">Min DR</div>
-            <input type="number" id="ag-min-dr" placeholder="0" min="0" max="100" style="margin:0;width:80px;" oninput="filterAgentResults()"/>
-          </div>
-          <div>
-            <div class="section-label">Max DR</div>
-            <input type="number" id="ag-max-dr" placeholder="100" min="0" max="100" style="margin:0;width:80px;" oninput="filterAgentResults()"/>
+            <div class="section-label">DR Range</div>
+            <select id="ag-dr-range" style="margin:0;" onchange="filterAgentResults()">
+              <option value="0,100">Any DR</option>
+              <option value="0,30">DR 0–30</option>
+              <option value="20,50">DR 20–50</option>
+              <option value="30,60">DR 30–60</option>
+              <option value="40,70">DR 40–70</option>
+              <option value="50,100">DR 50+</option>
+              <option value="60,100">DR 60+</option>
+            </select>
           </div>
           <div>
             <div class="section-label">Min Traffic</div>
-            <input type="number" id="ag-min-tr" placeholder="0" style="margin:0;width:110px;" oninput="filterAgentResults()"/>
+            <select id="ag-tr-range" style="margin:0;" onchange="filterAgentResults()">
+              <option value="0">Any traffic</option>
+              <option value="1000">1,000+</option>
+              <option value="5000">5,000+</option>
+              <option value="10000">10,000+</option>
+              <option value="25000">25,000+</option>
+              <option value="50000">50,000+</option>
+            </select>
           </div>
           <div>
             <div class="section-label">Sort by</div>
@@ -6834,10 +6845,11 @@ async function runAgent(btn){
 }
 
 function filterAgentResults(){
-  const minDR  = parseInt(document.getElementById('ag-min-dr').value)||0;
-  const maxDR  = parseInt(document.getElementById('ag-max-dr').value)||100;
-  const minTR  = parseInt(document.getElementById('ag-min-tr').value)||0;
-  const sort   = document.getElementById('ag-sort').value;
+  const drRange = (document.getElementById('ag-dr-range').value||'0,100').split(',');
+  const minDR   = parseInt(drRange[0])||0;
+  const maxDR   = parseInt(drRange[1])||100;
+  const minTR   = parseInt(document.getElementById('ag-tr-range').value)||0;
+  const sort    = document.getElementById('ag-sort').value;
 
   let filtered = agentRawResults.filter(p=>{
     const dr = p.dr!=null ? p.dr : 50;
@@ -6848,6 +6860,9 @@ function filterAgentResults(){
   if(sort==='dr') filtered.sort((a,b)=>(b.dr||0)-(a.dr||0));
   else if(sort==='traffic') filtered.sort((a,b)=>(b.traffic||0)-(a.traffic||0));
   else filtered.sort((a,b)=>(b.relevancyScore||0)-(a.relevancyScore||0));
+
+  const label = document.getElementById('ag-result-label');
+  if(label) label.textContent = filtered.length + ' of ' + agentRawResults.length + ' prospects';
 
   renderAgentCards(filtered);
 }
