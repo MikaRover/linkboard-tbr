@@ -1771,7 +1771,8 @@ tr:hover td{background:var(--bg3);}
 
   <div class="card" style="max-width:900px;margin-bottom:1rem;">
     <div class="card-body">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <!-- Row 1: main inputs -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
         <div style="flex:3;min-width:220px;">
           <div class="section-label">Keyword / Topic</div>
           <input id="ag-keyword" placeholder="e.g. SMS API, WhatsApp Business" style="margin:0;" onkeydown="if(event.key==='Enter')runAgent(this)"/>
@@ -1788,51 +1789,52 @@ tr:hover td{background:var(--bg3);}
             <option value="30">30</option>
           </select>
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px;justify-content:flex-end;">
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;">
+      </div>
+      <!-- Row 2: filters + search -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;padding-top:12px;border-top:1px solid var(--border);">
+        <div>
+          <div class="section-label">DR Range</div>
+          <select id="ag-dr-range" style="margin:0;" onchange="filterAgentResults()">
+            <option value="0,100">Any DR</option>
+            <option value="0,30">DR 0–30</option>
+            <option value="20,50">DR 20–50</option>
+            <option value="30,60">DR 30–60</option>
+            <option value="40,70">DR 40–70</option>
+            <option value="50,100">DR 50+</option>
+            <option value="60,100">DR 60+</option>
+          </select>
+        </div>
+        <div>
+          <div class="section-label">Min Traffic</div>
+          <select id="ag-tr-range" style="margin:0;" onchange="filterAgentResults()">
+            <option value="0">Any traffic</option>
+            <option value="1000">1,000+</option>
+            <option value="5000">5,000+</option>
+            <option value="10000">10,000+</option>
+            <option value="25000">25,000+</option>
+            <option value="50000">50,000+</option>
+          </select>
+        </div>
+        <div>
+          <div class="section-label">Sort by</div>
+          <select id="ag-sort" style="margin:0;" onchange="filterAgentResults()">
+            <option value="relevancy">Relevancy score</option>
+            <option value="dr">DR (high first)</option>
+            <option value="traffic">Traffic (high first)</option>
+          </select>
+        </div>
+        <div style="flex:1;display:flex;align-items:flex-end;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;padding-bottom:10px;">
             <input type="checkbox" id="ag-find-emails" style="width:14px;height:14px;accent-color:var(--teal);cursor:pointer;"> Find emails
           </label>
           <button class="btn-sm" onclick="runAgent(this)" style="white-space:nowrap;padding:10px 20px;height:40px;">🔍 Find prospects</button>
         </div>
       </div>
-
-      <div id="ag-filters" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
-          <div>
-            <div class="section-label">DR Range</div>
-            <select id="ag-dr-range" style="margin:0;" onchange="filterAgentResults()">
-              <option value="0,100">Any DR</option>
-              <option value="0,30">DR 0–30</option>
-              <option value="20,50">DR 20–50</option>
-              <option value="30,60">DR 30–60</option>
-              <option value="40,70">DR 40–70</option>
-              <option value="50,100">DR 50+</option>
-              <option value="60,100">DR 60+</option>
-            </select>
-          </div>
-          <div>
-            <div class="section-label">Min Traffic</div>
-            <select id="ag-tr-range" style="margin:0;" onchange="filterAgentResults()">
-              <option value="0">Any traffic</option>
-              <option value="1000">1,000+</option>
-              <option value="5000">5,000+</option>
-              <option value="10000">10,000+</option>
-              <option value="25000">25,000+</option>
-              <option value="50000">50,000+</option>
-            </select>
-          </div>
-          <div>
-            <div class="section-label">Sort by</div>
-            <select id="ag-sort" style="margin:0;" onchange="filterAgentResults()">
-              <option value="relevancy">Relevancy score</option>
-              <option value="dr">DR (high first)</option>
-              <option value="traffic">Traffic (high first)</option>
-            </select>
-          </div>
-          <div style="display:flex;align-items:flex-end;gap:8px;">
-            <button class="btn-sm" onclick="saveAgentResults()" style="background:transparent;border:1px solid var(--border2);color:var(--text2);padding:7px 14px;">💾 Save to Firestore</button>
-            <div id="ag-save-status" style="font-size:12px;color:var(--teal);line-height:40px;"></div>
-          </div>
+      <!-- Save row (shown after results) -->
+      <div id="ag-filters" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="btn-sm" onclick="saveAgentResults()" style="background:transparent;border:1px solid var(--border2);color:var(--text2);padding:7px 14px;">💾 Save to Firestore</button>
+          <div id="ag-save-status" style="font-size:12px;color:var(--teal);"></div>
         </div>
       </div>
     </div>
