@@ -5,374 +5,583 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LinkBoard — Link Building OS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0a0f1a;
+  --ink2:#2d3a4a;
+  --ink3:#6b7c8d;
+  --ink4:#9ba8b5;
+  --cream:#f5f0e8;
+  --white:#ffffff;
+  --teal:#007a6e;
+  --teal-l:#00b89e;
+  --teal-pale:#e8f5f3;
+  --teal-mid:#c2e8e2;
+  --amber:#e8a020;
+  --amber-l:#ffd166;
+  --red:#e84040;
+  --green:#1a9e6a;
+  --border:#e2e8ed;
+  --border2:#cdd5dc;
+}
+html{scroll-behavior:smooth;font-size:16px}
+body{background:var(--white);color:var(--ink);font-family:'DM Sans',sans-serif;overflow-x:hidden}
 
-  :root {
-    --bg:     #060d1a;
-    --bg2:    #0a1526;
-    --bg3:    #0f1e35;
-    --teal:   #00c4ae;
-    --teal2:  #00e5cc;
-    --border: #1a3048;
-    --border2:#243d58;
-    --text:   #dff0ee;
-    --text2:  #6a90aa;
-    --text3:  #3d6078;
-    --red:    #ff5f5f;
-  }
+/* ══ NAV ══ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  height:60px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 48px;
+  background:rgba(255,255,255,.88);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+}
+.logo{font-family:'Instrument Serif',serif;font-size:22px;color:var(--ink);letter-spacing:-.01em}
+.logo em{color:var(--teal);font-style:italic}
+.nav-r{display:flex;align-items:center;gap:10px}
+.pill-status{
+  display:flex;align-items:center;gap:6px;
+  background:var(--teal-pale);border-radius:20px;padding:5px 12px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal);
+  letter-spacing:.08em;text-transform:uppercase;
+}
+.s-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.btn-nav{
+  padding:8px 20px;border-radius:8px;
+  background:var(--ink);border:none;
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;
+  color:var(--white);cursor:pointer;
+  transition:background .2s,transform .15s;
+}
+.btn-nav:hover{background:var(--teal);transform:translateY(-1px)}
 
-  html, body {
-    height: 100%;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    overflow: hidden;
-  }
+/* ══ HERO ══ */
+.hero{
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:100px 48px 60px;
+  background:var(--white);
+  position:relative;overflow:hidden;
+  text-align:center;
+}
 
-  .bg-wrap { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+/* Decorative blobs — light */
+.blob{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;z-index:0}
+.b1{width:600px;height:600px;background:radial-gradient(circle,rgba(0,184,158,.12),transparent 70%);top:-100px;right:-100px}
+.b2{width:500px;height:500px;background:radial-gradient(circle,rgba(232,160,32,.1),transparent 70%);bottom:-80px;left:-80px}
+.b3{width:300px;height:300px;background:radial-gradient(circle,rgba(0,122,110,.06),transparent 70%);top:40%;left:30%;animation:drift 12s ease-in-out infinite}
+@keyframes drift{0%,100%{transform:translate(0,0)}50%{transform:translate(30px,-30px)}}
 
-  .grid-lines {
-    position: absolute; inset: 0;
-    background-image:
-      linear-gradient(rgba(0,196,174,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,196,174,0.04) 1px, transparent 1px);
-    background-size: 60px 60px;
-    animation: gridShift 20s linear infinite;
-  }
-  @keyframes gridShift {
-    0%   { transform: translateY(0); }
-    100% { transform: translateY(60px); }
-  }
+.hero-inner{position:relative;z-index:1;width:100%;max-width:960px}
 
-  .orb {
-    position: absolute; border-radius: 50%;
-    filter: blur(80px); opacity: 0.18;
-    animation: orbFloat 12s ease-in-out infinite;
-  }
-  .orb-1 { width:500px;height:500px;background:radial-gradient(circle,#00c4ae,transparent 70%);top:-100px;left:-100px;animation-delay:0s; }
-  .orb-2 { width:400px;height:400px;background:radial-gradient(circle,#0055ff,transparent 70%);bottom:-80px;right:-80px;animation-delay:-5s; }
-  .orb-3 { width:300px;height:300px;background:radial-gradient(circle,#00e5cc,transparent 70%);top:40%;left:50%;transform:translate(-50%,-50%);animation-delay:-9s;opacity:0.08; }
-  @keyframes orbFloat {
-    0%,100% { transform:scale(1) translate(0,0); }
-    33%     { transform:scale(1.08) translate(20px,-20px); }
-    66%     { transform:scale(0.95) translate(-15px,15px); }
-  }
+.hero-chip{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--teal-pale);border:1px solid var(--teal-mid);border-radius:20px;
+  padding:6px 16px;margin-bottom:28px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--teal);
+  letter-spacing:.1em;text-transform:uppercase;
+  animation:up .5s .1s both;
+}
+.chip-dot{width:6px;height:6px;border-radius:50%;background:var(--teal-l)}
 
-  .page {
-    position: relative; z-index: 1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    height: 100vh;
-  }
+h1{
+  font-family:'Instrument Serif',serif;
+  font-size:clamp(52px,8vw,96px);
+  line-height:.95;letter-spacing:-.03em;
+  color:var(--ink);margin-bottom:24px;
+  animation:up .5s .2s both;
+}
+h1 .italic{font-style:italic;color:var(--teal)}
+h1 .outline{
+  color:transparent;
+  -webkit-text-stroke:2px var(--ink);
+}
 
-  /* LEFT */
-  .left {
-    display: flex; flex-direction: column; justify-content: center;
-    padding: 80px 72px;
-    border-right: 1px solid var(--border);
-  }
+.hero-sub{
+  font-size:18px;color:var(--ink3);max-width:520px;
+  line-height:1.65;margin:0 auto 48px;
+  animation:up .5s .3s both;
+}
 
-  .badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: rgba(0,196,174,0.08); border: 1px solid rgba(0,196,174,0.2);
-    border-radius: 20px; padding: 6px 14px;
-    font-size: 11px; color: var(--teal);
-    letter-spacing: 0.12em; text-transform: uppercase;
-    margin-bottom: 36px; width: fit-content;
-    animation: fadeUp 0.6s ease both;
-  }
-  .badge-dot {
-    width:6px;height:6px;background:var(--teal);border-radius:50%;
-    animation: pulse 2s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    0%,100% { opacity:1;transform:scale(1); }
-    50%     { opacity:0.4;transform:scale(0.7); }
-  }
+/* KPI ROW */
+.kpi-row{
+  display:flex;justify-content:center;gap:0;
+  margin-bottom:64px;
+  animation:up .5s .4s both;
+}
+.kpi{
+  padding:20px 36px;border:1px solid var(--border);
+  text-align:center;
+}
+.kpi:first-child{border-radius:12px 0 0 12px}
+.kpi:last-child{border-radius:0 12px 12px 0;border-left:none}
+.kpi:nth-child(2){border-left:none}
+.kpi-n{
+  font-family:'Instrument Serif',serif;
+  font-size:40px;color:var(--teal);
+  font-variant-numeric:tabular-nums;line-height:1;
+}
+.kpi-l{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;color:var(--ink4);
+  text-transform:uppercase;letter-spacing:.12em;margin-top:5px;
+}
 
-  .logo {
-    font-family: 'Syne', sans-serif; font-weight: 800;
-    font-size: 64px; line-height: 1; letter-spacing: -0.03em;
-    margin-bottom: 8px;
-    animation: fadeUp 0.6s 0.1s ease both;
-  }
-  .logo span { color: var(--teal); }
+/* ══ MOCKUP ══ */
+.mockup-stage{
+  width:100%;max-width:900px;margin:0 auto;
+  animation:up .7s .5s both;
+  position:relative;z-index:1;
+}
 
-  .tagline {
-    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 400;
-    color: var(--text2); letter-spacing: 0.08em; text-transform: uppercase;
-    margin-bottom: 56px;
-    animation: fadeUp 0.6s 0.2s ease both;
-  }
+/* Shadow frame */
+.mockup-frame{
+  background:var(--white);
+  border-radius:14px;
+  border:1px solid var(--border2);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,.04),
+    0 4px 16px rgba(0,0,0,.06),
+    0 24px 64px rgba(0,0,0,.12),
+    0 0 0 1px rgba(0,0,0,.04);
+  overflow:hidden;
+  transform:perspective(1200px) rotateX(4deg);
+  transition:transform .6s ease;
+}
+.mockup-frame:hover{transform:perspective(1200px) rotateX(1deg)}
 
-  .stats-row { display:flex;gap:40px;margin-bottom:56px;animation:fadeUp 0.6s 0.3s ease both; }
-  .stat-num { font-family:'Syne',sans-serif;font-size:32px;font-weight:700;color:var(--teal);line-height:1; }
-  .stat-label { font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;margin-top:4px; }
+.m-bar{
+  height:40px;background:#f8f9fa;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:10px;
+}
+.m-dots{display:flex;gap:6px}
+.m-dot{width:11px;height:11px;border-radius:50%}
+.m-dot:nth-child(1){background:#ff5f57}
+.m-dot:nth-child(2){background:#febc2e}
+.m-dot:nth-child(3){background:#28c840}
+.m-url{
+  flex:1;height:22px;background:var(--white);border:1px solid var(--border);
+  border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink4);
+  max-width:280px;margin:0 auto;
+}
 
-  .features { display:flex;flex-direction:column;gap:16px;animation:fadeUp 0.6s 0.4s ease both; }
-  .feature { display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text2); }
-  .feature-icon {
-    width:28px;height:28px;background:rgba(0,196,174,0.08);
-    border:1px solid rgba(0,196,174,0.15);border-radius:6px;
-    display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;
-  }
+.m-body{
+  padding:20px;background:var(--white);
+}
 
-  /* RIGHT */
-  .right {
-    display:flex;flex-direction:column;justify-content:center;align-items:center;
-    padding: 80px 72px;
-  }
+/* Stats bar inside mockup */
+.m-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.m-stat{
+  background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:12px 14px;
+}
+.m-stat-n{font-size:22px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.m-stat-l{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink4);text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
+.c-teal{color:var(--teal)}
+.c-green{color:var(--green)}
+.c-amber{color:var(--amber)}
+.c-red{color:var(--red)}
 
-  .login-box { width:100%;max-width:380px;animation:fadeUp 0.6s 0.2s ease both; }
-  .login-title { font-family:'Syne',sans-serif;font-size:24px;font-weight:700;margin-bottom:6px; }
-  .login-sub { font-size:13px;color:var(--text2);margin-bottom:40px; }
+/* Table inside mockup */
+.m-table{background:#f8f9fa;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.m-thead{
+  display:grid;grid-template-columns:100px 1fr 44px 72px 100px 76px 72px;
+  gap:6px;padding:7px 12px;
+  border-bottom:1px solid var(--border);
+  font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink4);
+  text-transform:uppercase;letter-spacing:.08em;
+  background:var(--white);
+}
+.m-row{
+  display:grid;grid-template-columns:100px 1fr 44px 72px 100px 76px 72px;
+  gap:6px;padding:8px 12px;
+  border-bottom:1px solid var(--border);
+  font-size:12px;align-items:center;
+  transition:background .15s;
+  animation:rowIn .35s both;
+}
+.m-row:last-child{border-bottom:none}
+.m-row:hover{background:rgba(0,122,110,.03)}
+@keyframes rowIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+.m-domain{color:var(--teal);font-weight:500}
+.m-date{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink4)}
+.m-dr{font-weight:600;color:var(--ink)}
+.m-traffic{color:var(--ink3);font-size:11px}
+.m-anchor{color:var(--ink2);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-builder{color:var(--ink3);font-size:12px}
+.badge{display:inline-flex;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500}
+.blive{background:#e8f5ee;color:#1a7a4a;border:1px solid #b8dfc8}
+.bpend{background:#fff8e8;color:#9a6800;border:1px solid #fce098}
 
-  .field { margin-bottom:16px; }
-  .field label { display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text2);margin-bottom:8px; }
-  .field input {
-    width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;
-    padding:13px 16px;font-family:'DM Mono',monospace;font-size:14px;color:var(--text);
-    outline:none;transition:border-color 0.2s,box-shadow 0.2s;
-  }
-  .field input::placeholder { color:var(--text3); }
-  .field input:focus { border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,196,174,0.12); }
+/* ══ MARQUEE ══ */
+.mq-wrap{
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  background:var(--cream);overflow:hidden;padding:0;
+}
+.mq-track{display:flex;white-space:nowrap;animation:mq 22s linear infinite}
+.mq-item{
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink4);
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:14px 28px;border-right:1px solid var(--border2);
+  display:flex;align-items:center;gap:8px;
+}
+.mq-item b{color:var(--teal);font-weight:400}
+@keyframes mq{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 
-  .err { font-size:12px;color:var(--red);margin-bottom:16px;min-height:18px;display:none; }
-  .err.show { display:block; }
+/* ══ FEATURES ══ */
+.features{
+  padding:100px 48px;background:var(--white);
+}
+.features-inner{max-width:1100px;margin:0 auto}
+.sec-tag{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--teal);letter-spacing:.15em;text-transform:uppercase;
+  margin-bottom:14px;display:flex;align-items:center;gap:10px;
+}
+.sec-tag::before{content:'';width:20px;height:1.5px;background:var(--teal)}
+.sec-h{
+  font-family:'Instrument Serif',serif;
+  font-size:clamp(32px,4vw,52px);
+  letter-spacing:-.03em;line-height:1.1;
+  color:var(--ink);margin-bottom:14px;max-width:600px;
+}
+.sec-sub{font-size:15px;color:var(--ink3);line-height:1.65;max-width:480px;margin-bottom:56px}
 
-  .btn-login {
-    width:100%;padding:14px;background:var(--teal);border:none;border-radius:10px;
-    font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#040d18;
-    cursor:pointer;letter-spacing:0.04em;
-    transition:background 0.2s,transform 0.15s,box-shadow 0.2s;
-    margin-top:8px;
-  }
-  .btn-login:hover { background:var(--teal2);box-shadow:0 0 32px rgba(0,196,174,0.3);transform:translateY(-1px); }
-  .btn-login:active { transform:translateY(0); }
-  .btn-login.loading { pointer-events:none;opacity:0.7; }
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.feat-c{
+  background:var(--white);padding:32px 28px;
+  transition:background .2s;
+}
+.feat-c:hover{background:var(--teal-pale)}
+.feat-i{
+  width:40px;height:40px;border-radius:10px;
+  background:var(--teal-pale);border:1px solid var(--teal-mid);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;margin-bottom:16px;
+}
+.feat-t{font-size:15px;font-weight:600;color:var(--ink);margin-bottom:7px}
+.feat-d{font-size:13px;color:var(--ink3);line-height:1.6}
 
-  .divider {
-    display:flex;align-items:center;gap:12px;margin:28px 0;
-    color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;
-  }
-  .divider::before,.divider::after { content:'';flex:1;height:1px;background:var(--border); }
+/* ══ ANALYTICS SPLIT ══ */
+.analytics{padding:80px 48px;background:var(--cream)}
+.analytics-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+.an-text{}
 
-  .btn-google {
-    width:100%;padding:13px;background:transparent;border:1px solid var(--border2);
-    border-radius:10px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text2);
-    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;
-    transition:border-color 0.2s,color 0.2s,background 0.2s;
-  }
-  .btn-google:hover { border-color:var(--teal);color:var(--text);background:rgba(0,196,174,0.04); }
+/* Chart card */
+.chart-card{
+  background:var(--white);border:1px solid var(--border);border-radius:14px;
+  padding:24px;
+  box-shadow:0 8px 32px rgba(0,0,0,.07);
+}
+.chart-card-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px}
+.chart-card-title{font-size:13px;font-weight:600;color:var(--ink)}
+.chart-card-period{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink4);text-transform:uppercase;letter-spacing:.1em}
+.bars{display:flex;gap:6px;align-items:flex-end;height:100px;margin-bottom:8px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+.bar{
+  width:100%;border-radius:4px 4px 0 0;background:var(--teal);
+  opacity:.8;transition:opacity .2s;
+  animation:barsUp .5s ease both;
+}
+.bar:hover{opacity:1}
+@keyframes barsUp{from{height:0!important}to{}}
+.bar-l{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink4)}
 
-  .footer-note { margin-top:32px;font-size:11px;color:var(--text3);text-align:center;line-height:1.6; }
+.lead-card{
+  background:var(--white);border:1px solid var(--border);border-radius:14px;
+  padding:20px;margin-top:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,.07);
+}
+.lead-h{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink4);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px}
+.lead-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)}
+.lead-row:last-child{border-bottom:none}
+.lead-rank{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink4);width:16px}
+.lead-name{flex:1;font-size:13px;color:var(--ink)}
+.lead-bar-bg{width:80px;height:4px;background:var(--border);border-radius:2px}
+.lead-bar{height:4px;background:var(--teal);border-radius:2px;animation:barsUp .5s ease both}
+.lead-n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--teal);width:24px;text-align:right}
 
-  @keyframes fadeUp {
-    from { opacity:0;transform:translateY(16px); }
-    to   { opacity:1;transform:translateY(0); }
-  }
+/* ══ LOGIN ══ */
+.login-s{padding:100px 48px 120px;background:var(--white);display:flex;justify-content:center}
+.login-card{
+  width:100%;max-width:420px;
+  background:var(--white);
+  border:1px solid var(--border2);border-radius:16px;padding:40px;
+  box-shadow:0 8px 40px rgba(0,0,0,.08);
+}
+.login-h{font-family:'Instrument Serif',serif;font-size:26px;letter-spacing:-.02em;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--ink3);margin-bottom:32px}
+.field{margin-bottom:14px}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink4);text-transform:uppercase;letter-spacing:.15em;margin-bottom:7px}
+.field input{
+  width:100%;padding:12px 15px;background:var(--white);
+  border:1px solid var(--border2);border-radius:9px;
+  font-family:'DM Sans',sans-serif;font-size:14px;color:var(--ink);
+  outline:none;transition:border-color .2s,box-shadow .2s;
+}
+.field input::placeholder{color:var(--ink4)}
+.field input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,122,110,.1)}
+.err{font-size:12px;color:var(--red);min-height:16px;margin-bottom:12px;display:none}
+.err.show{display:block}
+.btn-login{
+  width:100%;padding:13px;background:var(--ink);border:none;border-radius:9px;
+  font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;
+  color:var(--white);cursor:pointer;
+  transition:background .2s,transform .15s,box-shadow .2s;
+  margin-top:4px;
+}
+.btn-login:hover{background:var(--teal);transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,122,110,.25)}
+.btn-login:active{transform:none;box-shadow:none}
+.btn-login.loading{opacity:.6;pointer-events:none}
+.or-d{display:flex;align-items:center;gap:10px;margin:18px 0;font-size:11px;color:var(--ink4);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase}
+.or-d::before,.or-d::after{content:'';flex:1;height:1px;background:var(--border)}
+.btn-g{
+  width:100%;padding:12px;background:var(--white);border:1px solid var(--border2);border-radius:9px;
+  font-family:'DM Sans',sans-serif;font-size:13px;color:var(--ink2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:border-color .2s,background .2s;
+}
+.btn-g:hover{border-color:var(--teal);background:var(--teal-pale)}
+.login-note{margin-top:24px;font-size:11px;color:var(--ink4);text-align:center;line-height:1.7;font-family:'JetBrains Mono',monospace}
 
-  /* TICKER */
-  .ticker-wrap {
-    position:fixed;bottom:0;left:0;right:0;height:36px;
-    border-top:1px solid var(--border);
-    background:rgba(6,13,26,0.8);backdrop-filter:blur(8px);
-    overflow:hidden;z-index:10;display:flex;align-items:center;
-  }
-  .ticker { display:flex;animation:ticker 30s linear infinite;white-space:nowrap; }
-  .ticker-item { font-size:11px;color:var(--text3);letter-spacing:0.06em;padding:0 32px;border-right:1px solid var(--border); }
-  .ticker-item span { color:var(--teal);margin-right:6px; }
-  @keyframes ticker {
-    0%   { transform:translateX(0); }
-    100% { transform:translateX(-50%); }
-  }
+/* FOOTER */
+footer{
+  border-top:1px solid var(--border);padding:24px 48px;
+  display:flex;justify-content:space-between;align-items:center;
+  background:var(--cream);
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink4);
+  text-transform:uppercase;letter-spacing:.1em;
+}
 
-  @media (max-width:768px) {
-    html,body { overflow:auto; }
-    .page { grid-template-columns:1fr;height:auto; }
-    .left { padding:60px 32px 40px;border-right:none;border-bottom:1px solid var(--border); }
-    .logo { font-size:44px; }
-    .right { padding:40px 32px 80px; }
-    .stats-row { gap:24px; }
-  }
+@keyframes up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .7s,transform .7s}
+.reveal.on{opacity:1;transform:none}
+
+@media(max-width:900px){
+  .feat-grid{grid-template-columns:1fr}
+  .analytics-inner{grid-template-columns:1fr}
+  .kpi-row{flex-wrap:wrap}
+  .kpi:nth-child(2){border-left:1px solid var(--border)}
+  .m-thead,.m-row{grid-template-columns:90px 1fr 40px 64px 70px}
+  .m-thead :nth-child(6),.m-row :nth-child(6),
+  .m-thead :nth-child(7),.m-row :nth-child(7){display:none}
+  nav,footer,.hero,.features,.analytics,.login-s{padding-left:20px;padding-right:20px}
+}
 </style>
 </head>
 <body>
 
-<div class="bg-wrap">
-  <div class="grid-lines"></div>
-  <div class="orb orb-1"></div>
-  <div class="orb orb-2"></div>
-  <div class="orb orb-3"></div>
-</div>
-
-<div class="page">
-
-  <div class="left">
-    <div class="badge"><div class="badge-dot"></div>Link Building OS</div>
-    <div class="logo">Link<span>Board</span></div>
-    <div class="tagline">Track · Build · Scale</div>
-
-    <div class="stats-row">
-      <div><div class="stat-num" id="stat-links">—</div><div class="stat-label">Live Links</div></div>
-      <div><div class="stat-num" id="stat-projects">—</div><div class="stat-label">Projects</div></div>
-      <div><div class="stat-num" id="stat-builders">—</div><div class="stat-label">Builders</div></div>
-    </div>
-
-    <div class="features">
-      <div class="feature"><div class="feature-icon">🔗</div>Real-time link tracking & status monitoring</div>
-      <div class="feature"><div class="feature-icon">📊</div>DR · Traffic · SS metrics per link</div>
-      <div class="feature"><div class="feature-icon">⚡</div>Builder load distribution & KPI targets</div>
-      <div class="feature"><div class="feature-icon">🎯</div>Anchor requirements & quality control</div>
-    </div>
+<!-- NAV -->
+<nav>
+  <div class="logo">Link<em>Board</em></div>
+  <div class="nav-r">
+    <div class="pill-status"><div class="s-dot"></div>Live</div>
+    <button class="btn-nav" onclick="document.getElementById('login-s').scrollIntoView({behavior:'smooth'})">Sign in</button>
   </div>
+</nav>
 
-  <div class="right">
-    <div class="login-box">
-      <div class="login-title">Welcome back</div>
-      <div class="login-sub">Sign in to your workspace</div>
+<!-- HERO -->
+<section class="hero">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+  <div class="hero-inner">
+    <div class="hero-chip"><div class="chip-dot"></div>Link Building OS</div>
+    <h1>Every link.<br><span class="italic">Tracked.</span><br><span class="outline">Measured.</span></h1>
+    <p class="hero-sub">One workspace for your entire link building operation — DR, traffic, anchors, builder performance and quality control in real time.</p>
 
-      <div class="field">
-        <label>Email</label>
-        <input type="email" id="email" placeholder="you@company.com" autocomplete="email">
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-n c-teal" id="k-links">—</div><div class="kpi-l">Live links</div></div>
+      <div class="kpi"><div class="kpi-n c-teal" id="k-proj">—</div><div class="kpi-l">Projects</div></div>
+      <div class="kpi"><div class="kpi-n c-teal" id="k-team">—</div><div class="kpi-l">Builders</div></div>
+    </div>
+
+    <!-- APP MOCKUP -->
+    <div class="mockup-stage">
+      <div class="mockup-frame">
+        <div class="m-bar">
+          <div class="m-dots"><div class="m-dot"></div><div class="m-dot"></div><div class="m-dot"></div></div>
+          <div class="m-url">linkboard.app / dexatel</div>
+        </div>
+        <div class="m-body">
+          <div class="m-stats">
+            <div class="m-stat"><div class="m-stat-n c-teal">247</div><div class="m-stat-l">Total</div></div>
+            <div class="m-stat"><div class="m-stat-n c-green">227</div><div class="m-stat-l">Live</div></div>
+            <div class="m-stat"><div class="m-stat-n c-amber">20</div><div class="m-stat-l">Pending</div></div>
+            <div class="m-stat"><div class="m-stat-n c-red">4</div><div class="m-stat-l">Duplicates</div></div>
+          </div>
+          <div class="m-table">
+            <div class="m-thead"><span>Date</span><span>Domain</span><span>DR</span><span>Traffic</span><span>Anchor</span><span>Builder</span><span>Status</span></div>
+            <div id="m-rows"></div>
+          </div>
+        </div>
       </div>
-      <div class="field">
-        <label>Password</label>
-        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
-      </div>
-
-      <div class="err" id="err-msg"></div>
-      <button class="btn-login" id="btn-login" onclick="doLogin()">Sign in</button>
-
-      <div class="divider">or</div>
-
-      <button class="btn-google" onclick="doGoogle()">
-        <svg width="16" height="16" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-        Continue with Google
-      </button>
-
-      <div class="footer-note">Access restricted to authorized team members.<br>Contact admin for access requests.</div>
     </div>
   </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="mq-wrap">
+  <div class="mq-track" id="mq"></div>
 </div>
 
-<div class="ticker-wrap">
-  <div class="ticker">
-    <div class="ticker-item"><span>●</span>Live link tracking</div>
-    <div class="ticker-item"><span>●</span>Builder performance analytics</div>
-    <div class="ticker-item"><span>●</span>DR & Traffic monitoring</div>
-    <div class="ticker-item"><span>●</span>Anchor requirements management</div>
-    <div class="ticker-item"><span>●</span>Monthly load distribution</div>
-    <div class="ticker-item"><span>●</span>Duplicate detection</div>
-    <div class="ticker-item"><span>●</span>Link health checks</div>
-    <div class="ticker-item"><span>●</span>KPI target tracking</div>
-    <div class="ticker-item"><span>●</span>Live link tracking</div>
-    <div class="ticker-item"><span>●</span>Builder performance analytics</div>
-    <div class="ticker-item"><span>●</span>DR & Traffic monitoring</div>
-    <div class="ticker-item"><span>●</span>Anchor requirements management</div>
-    <div class="ticker-item"><span>●</span>Monthly load distribution</div>
-    <div class="ticker-item"><span>●</span>Duplicate detection</div>
-    <div class="ticker-item"><span>●</span>Link health checks</div>
-    <div class="ticker-item"><span>●</span>KPI target tracking</div>
+<!-- FEATURES -->
+<section class="features reveal" id="feat-s">
+  <div class="features-inner">
+    <div class="sec-tag">What's inside</div>
+    <h2 class="sec-h">Built for agencies that take link building seriously</h2>
+    <p class="sec-sub">Every feature you need to run a professional, scalable link building operation across multiple clients and teams.</p>
+    <div class="feat-grid">
+      <div class="feat-c"><div class="feat-i">🔗</div><div class="feat-t">Real-time link tracking</div><div class="feat-d">Live status, DR, organic traffic, spam score — every link monitored automatically across all projects.</div></div>
+      <div class="feat-c"><div class="feat-i">⚡</div><div class="feat-t">Builder load & KPIs</div><div class="feat-d">Set monthly link targets per builder. Track progress live. Know exactly who is on pace and who isn't.</div></div>
+      <div class="feat-c"><div class="feat-i">🎯</div><div class="feat-t">Anchor management</div><div class="feat-d">Define anchor requirements per project. Track what's been used, what's left, and relevancy per link.</div></div>
+      <div class="feat-c"><div class="feat-i">🔍</div><div class="feat-t">Duplicate detection</div><div class="feat-d">Automatic cross-project duplicate detection. Never purchase the same domain twice across clients.</div></div>
+      <div class="feat-c"><div class="feat-i">🤖</div><div class="feat-t">AI Prospecting</div><div class="feat-d">Find and score new link opportunities with AI. Generate outreach copy and import directly to the board.</div></div>
+      <div class="feat-c"><div class="feat-i">📊</div><div class="feat-t">Analytics & reporting</div><div class="feat-d">Monthly performance dashboards, cost-per-link tracking, and team leaderboards for every project.</div></div>
+    </div>
   </div>
-</div>
+</section>
+
+<!-- ANALYTICS -->
+<section class="analytics reveal" id="an-s">
+  <div class="analytics-inner">
+    <div class="an-text">
+      <div class="sec-tag">Analytics</div>
+      <h2 class="sec-h">See who's performing at a glance</h2>
+      <p class="sec-sub">Monthly leaderboards, live bar charts, and per-builder breakdowns. Your whole team's output — visible, measurable, accountable.</p>
+    </div>
+    <div>
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <div class="chart-card-title">Links built — Apr 2026</div>
+          <div class="chart-card-period">Monthly view</div>
+        </div>
+        <div class="bars" id="bars"></div>
+        <div style="display:flex;gap:6px" id="bar-lbls"></div>
+      </div>
+      <div class="lead-card">
+        <div class="lead-h">Top builders this month</div>
+        <div id="leaders"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LOGIN -->
+<section class="login-s" id="login-s">
+  <div class="login-card">
+    <div class="login-h">Sign in to LinkBoard</div>
+    <div class="login-sub">Your workspace is waiting</div>
+    <div class="field"><label>Email</label><input type="email" id="inp-e" placeholder="name@company.com" autocomplete="email"></div>
+    <div class="field"><label>Password</label><input type="password" id="inp-p" placeholder="••••••••" autocomplete="current-password"></div>
+    <div class="err" id="err"></div>
+    <button class="btn-login" id="btn-in" onclick="doLogin()">Sign in →</button>
+    <div class="or-d">or</div>
+    <button class="btn-g" onclick="doGoogle()">
+      <svg width="15" height="15" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Continue with Google
+    </button>
+    <div class="login-note">Authorized team members only<br>Contact admin for access requests</div>
+  </div>
+</section>
+
+<footer>
+  <div>Link<span style="color:var(--teal)">Board</span> · Link Building OS</div>
+  <div>Built for agencies</div>
+</footer>
 
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-
 <script>
-// IMPORTANT: Replace with your actual Firebase config from app.html
-const firebaseConfig = {
-  apiKey: "AIzaSyCrcZvfeT04BASPS7qQ-j0F4x0ukvZaddA",
-  authDomain: "link-board-tbr.firebaseapp.com",
-  projectId: "link-board-tbr",
-  storageBucket: "link-board-tbr.firebasestorage.app",
-  messagingSenderId: "762084454897",
-  appId: "1:762084454897:web:7c3ec291cee4e327741450"
+// ── Mock table ──
+const rows=[
+  {date:'30.04.2026',domain:'writeupcafe.com',dr:60,tr:'5,200',anchor:'SMS Pricing',builder:'Nick',live:true},
+  {date:'29.04.2026',domain:'otechworld.com',dr:48,tr:'47,047',anchor:'Dexatel SMS API',builder:'Sofya',live:true},
+  {date:'28.04.2026',domain:'synder.com',dr:74,tr:'7,600',anchor:'SMS API',builder:'Sofya',live:true},
+  {date:'28.04.2026',domain:'betterproposals.io',dr:75,tr:'25,000',anchor:'SMS Marketing',builder:'Diana Y',live:true},
+  {date:'10.05.2026',domain:'agilityportal.io',dr:70,tr:'6,500',anchor:'SMS Pricing',builder:'Armen',live:false},
+  {date:'08.05.2026',domain:'perfectcorp.com',dr:'—',tr:'—',anchor:'sms api',builder:'Anna',live:false},
+];
+const rb=document.getElementById('m-rows');
+rows.forEach((r,i)=>{
+  const d=document.createElement('div');d.className='m-row';d.style.animationDelay=(i*.07)+'s';
+  d.innerHTML=`<span class="m-date">${r.date}</span><span class="m-domain">${r.domain}</span><span class="m-dr">${r.dr}</span><span class="m-traffic">${r.tr}</span><span class="m-anchor">${r.anchor}</span><span class="m-builder">${r.builder}</span><span><span class="badge ${r.live?'blive':'bpend'}">${r.live?'live':'pending'}</span></span>`;
+  rb.appendChild(d);
+});
+
+// ── Marquee ──
+const mqItems=['Real-time tracking','DR & Traffic','Anchor management','Duplicate detection','Builder KPIs','AI Prospecting','Monthly analytics','Link health checks','Quality control','Spam score monitoring'];
+const mq=document.getElementById('mq');
+mq.innerHTML=[...mqItems,...mqItems,...mqItems,...mqItems].map(t=>`<div class="mq-item"><b>✦</b>${t}</div>`).join('');
+
+// ── Charts ──
+const builders=[{n:'Sofya',v:8},{n:'Nick',v:6},{n:'Diana',v:5},{n:'Armen',v:4},{n:'Anna',v:4},{n:'Lusine',v:3}];
+const maxV=8;
+const bEl=document.getElementById('bars'),lEl=document.getElementById('bar-lbls');
+builders.forEach((b,i)=>{
+  const h=Math.round(b.v/maxV*90);
+  bEl.innerHTML+=`<div class="bar-col"><div class="bar" style="height:${h}px;animation-delay:${i*.1}s"></div></div>`;
+  lEl.innerHTML+=`<div class="bar-l" style="flex:1;text-align:center">${b.n}</div>`;
+});
+const ldEl=document.getElementById('leaders');
+builders.slice(0,5).forEach((b,i)=>{
+  ldEl.innerHTML+=`<div class="lead-row"><div class="lead-rank">${i+1}</div><div class="lead-name">${b.n}</div><div class="lead-bar-bg"><div class="lead-bar" style="width:${Math.round(b.v/maxV*100)}%;animation-delay:${i*.1}s"></div></div><div class="lead-n">${b.v}</div></div>`;
+});
+
+// ── Reveal ──
+new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('on')}),{threshold:.1}).observe(document.querySelector('.features'));
+new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('on')}),{threshold:.1}).observe(document.querySelector('.analytics'));
+
+// ── Firebase ──
+const cfg={
+  apiKey:"AIzaSyCrcZvfeT04BASPS7qQ-j0F4x0ukvZaddA",
+  authDomain:"link-board-tbr.firebaseapp.com",
+  projectId:"link-board-tbr",
+  storageBucket:"link-board-tbr.firebasestorage.app",
+  messagingSenderId:"762084454897",
+  appId:"1:762084454897:web:7c3ec291cee4e327741450"
 };
+let auth,db;
+try{firebase.initializeApp(cfg);auth=firebase.auth();db=firebase.firestore();}catch(e){}
+if(auth)auth.onAuthStateChanged(u=>{if(u)window.location.href='/app.html'});
 
-let auth, db;
-try {
-  firebase.initializeApp(firebaseConfig);
-  auth = firebase.auth();
-  db   = firebase.firestore();
-} catch(e) { console.warn('Firebase init:', e.message); }
-
-if(auth) {
-  auth.onAuthStateChanged(user => {
-    if(user) window.location.href = '/app.html';
-  });
+async function loadStats(){
+  if(!db)return;
+  try{
+    const[a,b,c]=await Promise.all([db.collection('links').where('status','==','live').get(),db.collection('projects').get(),db.collection('users').get()]);
+    countUp('k-links',a.size);countUp('k-proj',b.size);countUp('k-team',c.size);
+  }catch(e){}
 }
-
-async function loadStats() {
-  if(!db) return;
-  try {
-    const [linksSnap, projectsSnap, usersSnap] = await Promise.all([
-      db.collection('links').where('status','==','live').get(),
-      db.collection('projects').get(),
-      db.collection('users').get()
-    ]);
-    animateNum('stat-links',    linksSnap.size);
-    animateNum('stat-projects', projectsSnap.size);
-    animateNum('stat-builders', usersSnap.size);
-  } catch(e) {}
-}
-
-function animateNum(id, target) {
-  const el = document.getElementById(id);
-  if(!el) return;
-  let cur = 0;
-  const step = Math.ceil(target / 40);
-  const iv = setInterval(() => {
-    cur = Math.min(cur + step, target);
-    el.textContent = cur.toLocaleString();
-    if(cur >= target) clearInterval(iv);
-  }, 30);
+function countUp(id,n){
+  const el=document.getElementById(id);if(!el)return;
+  let i=0,s=Math.max(1,Math.ceil(n/50));
+  const t=setInterval(()=>{i=Math.min(i+s,n);el.textContent=i.toLocaleString();if(i>=n)clearInterval(t)},25);
 }
 loadStats();
 
-async function doLogin() {
-  const email = document.getElementById('email').value.trim();
-  const pass  = document.getElementById('password').value;
-  const errEl = document.getElementById('err-msg');
-  const btn   = document.getElementById('btn-login');
-  errEl.classList.remove('show');
-  if(!email || !pass) { errEl.textContent='Please enter email and password.'; errEl.classList.add('show'); return; }
-  btn.classList.add('loading'); btn.textContent='Signing in...';
-  try {
-    await auth.signInWithEmailAndPassword(email, pass);
-  } catch(e) {
-    btn.classList.remove('loading'); btn.textContent='Sign in';
-    const msgs = {
-      'auth/user-not-found':'No account found with this email.',
-      'auth/wrong-password':'Incorrect password.',
-      'auth/invalid-email':'Invalid email address.',
-      'auth/too-many-requests':'Too many attempts. Try again later.',
-    };
-    errEl.textContent = msgs[e.code] || 'Sign in failed. Please try again.';
-    errEl.classList.add('show');
+async function doLogin(){
+  const e=document.getElementById('inp-e').value.trim();
+  const p=document.getElementById('inp-p').value;
+  const er=document.getElementById('err');
+  const bt=document.getElementById('btn-in');
+  er.classList.remove('show');
+  if(!e||!p){er.textContent='Please fill in both fields.';er.classList.add('show');return}
+  bt.classList.add('loading');bt.textContent='Signing in...';
+  try{await auth.signInWithEmailAndPassword(e,p);}
+  catch(ex){
+    bt.classList.remove('loading');bt.textContent='Sign in →';
+    const m={'auth/user-not-found':'No account with this email.','auth/wrong-password':'Incorrect password.','auth/invalid-email':'Invalid email address.','auth/too-many-requests':'Too many attempts.','auth/invalid-credential':'Email or password is incorrect.'};
+    er.textContent=m[ex.code]||'Sign in failed.';er.classList.add('show');
   }
 }
-
-async function doGoogle() {
-  if(!auth) return;
-  try {
-    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-  } catch(e) {
-    const errEl = document.getElementById('err-msg');
-    errEl.textContent = 'Google sign-in failed.'; errEl.classList.add('show');
-  }
+async function doGoogle(){
+  if(!auth)return;
+  try{await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());}
+  catch(ex){const er=document.getElementById('err');er.textContent='Google sign-in failed.';er.classList.add('show')}
 }
-
-document.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
 </script>
 </body>
 </html>
