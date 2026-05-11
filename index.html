@@ -203,7 +203,11 @@ footer{position:relative;z-index:2;border-top:1px solid var(--bd);padding:24px 4
 .reveal.on{opacity:1;transform:none}
 .reveal-delay-1{transition-delay:.1s}.reveal-delay-2{transition-delay:.2s}.reveal-delay-3{transition-delay:.3s}
 
-@media(max-width:900px){
+
+
+
+
+@media(max-width:900px){@media(max-width:900px){
   .feat-grid{grid-template-columns:1fr}
   .an-inner{grid-template-columns:1fr}
   .m-thead,.m-row{grid-template-columns:90px 1fr 40px 64px 70px}
@@ -261,7 +265,12 @@ footer{position:relative;z-index:2;border-top:1px solid var(--bd);padding:24px 4
     <div class="kpi"><div class="kpi-n" id="k-team">—</div><div class="kpi-l">Builders</div></div>
   </div>
 
-  <div class="mockup-outer">
+  <div class="mockup-outer" style="position:relative;">
+  <div class="notif-pop" id="notif-pop">
+    <div class="notif-top"><div class="notif-dot"></div><div class="notif-label">New link live</div></div>
+    <div class="notif-domain" id="notif-domain">techblog-pro.com</div>
+    <div class="notif-meta" id="notif-meta">DR 68 &nbsp;·&nbsp; 41,200 traffic</div>
+  </div>
     <div class="mockup-glow"></div>
     <div class="mockup-frame">
       <div class="m-bar">
@@ -270,8 +279,8 @@ footer{position:relative;z-index:2;border-top:1px solid var(--bd);padding:24px 4
       </div>
       <div class="m-body">
         <div class="m-stats">
-          <div class="m-stat"><div class="m-stat-n c-teal" id="ms-total">247</div><div class="m-stat-l">Total</div></div>
-          <div class="m-stat"><div class="m-stat-n c-green" id="ms-live">227</div><div class="m-stat-l">Live</div></div>
+          <div class="m-stat"><div class="m-stat-n c-teal flicker" id="ms-total">247</div><div class="m-stat-l">Total</div></div>
+          <div class="m-stat"><div class="m-stat-n c-green flicker" id="ms-live" style="animation-delay:.7s">227</div><div class="m-stat-l">Live</div></div>
           <div class="m-stat"><div class="m-stat-n c-amber">20</div><div class="m-stat-l">Pending</div></div>
           <div class="m-stat"><div class="m-stat-n c-red">4</div><div class="m-stat-l">Duplicates</div></div>
         </div>
@@ -294,12 +303,12 @@ footer{position:relative;z-index:2;border-top:1px solid var(--bd);padding:24px 4
     <h2 class="sec-h reveal reveal-delay-1">Built for teams that build links at scale</h2>
     <p class="sec-sub reveal reveal-delay-2">Everything you need to run a professional link building operation across multiple clients.</p>
     <div class="feat-grid reveal reveal-delay-3">
-      <div class="feat-c"><div class="feat-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><div class="feat-t">Real-time link tracking</div><div class="feat-d">Live status, DR, organic traffic, spam score — every link monitored automatically.</div></div>
-      <div class="feat-c"><div class="feat-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><div class="feat-t">Builder load & KPIs</div><div class="feat-d">Set monthly targets per builder. Track progress live. See who is hitting their numbers.</div></div>
+      <div class="feat-c"><div class="feat-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><div class="feat-t">Real-time link tracking</div><div class="feat-d">Live status, DR, organic traffic, spam score — every link monitored automatically.</div><div class="feat-preview"><div class="mini-bars"><div class="mini-bar" style="height:60%;animation-delay:0s"></div><div class="mini-bar" style="height:80%;animation-delay:.05s"></div><div class="mini-bar" style="height:50%;animation-delay:.1s"></div><div class="mini-bar" style="height:100%;animation-delay:.15s"></div><div class="mini-bar" style="height:70%;animation-delay:.2s"></div><div class="mini-bar" style="height:90%;animation-delay:.25s"></div></div></div></div>
+      <div class="feat-c"><div class="feat-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><div class="feat-t">Builder load & KPIs</div><div class="feat-d">Set monthly targets per builder. Track progress live. See who is hitting their numbers.</div><div class="feat-preview"><div style="display:flex;flex-direction:column;gap:5px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:3px;background:var(--bd);border-radius:2px"><div style="width:85%;height:3px;background:var(--teal);border-radius:2px"></div></div><div class="mini-text">85%</div></div><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:3px;background:var(--bd);border-radius:2px"><div style="width:62%;height:3px;background:rgba(0,196,174,.5);border-radius:2px"></div></div><div class="mini-text">62%</div></div></div></div></div>
       <div class="feat-c"><div class="feat-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div class="feat-t">Anchor management</div><div class="feat-d">Define anchor targets per project. Track completion, relevancy and quality per domain.</div></div>
       <div class="feat-c"><div class="feat-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div><div class="feat-t">Duplicate detection</div><div class="feat-d">Automatic cross-project detection. Never pay for the same domain twice.</div></div>
       <div class="feat-c"><div class="feat-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg></div><div class="feat-t">AI Prospecting</div><div class="feat-d">Find and score new link opportunities with AI. Generate outreach and import to board.</div></div>
-      <div class="feat-c"><div class="feat-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div class="feat-t">Analytics & reporting</div><div class="feat-d">Monthly performance reports, cost-per-link tracking and team productivity dashboards.</div></div>
+      <div class="feat-c"><div class="feat-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal)"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div class="feat-t">Analytics & reporting</div><div class="feat-d">Monthly performance reports, cost-per-link tracking and team productivity dashboards.</div><div class="feat-preview"><div class="mini-line"><div class="mini-dot" style="background:var(--teal)"></div><div class="mini-text">Avg cost/link: $28 &nbsp;·&nbsp; +12 this week</div></div><div class="mini-line" style="margin-top:4px"><div class="mini-dot" style="background:var(--green)"></div><div class="mini-text">Team output: 94% of target</div></div></div></div>
     </div>
   </div>
 </section>
@@ -443,22 +452,72 @@ footer{position:relative;z-index:2;border-top:1px solid var(--bd);padding:24px 4
   setTimeout(type,900);
 })();
 
-// ═══ MOCK TABLE ═══
-const rows=[
+// ═══ MOCK TABLE — live ticker ═══
+const allRows=[
   {date:'30.04.2026',domain:'techblog-pro.com',dr:68,tr:'41,200',anchor:'API integration guide',builder:'Tom',live:true},
   {date:'29.04.2026',domain:'marketingweekly.io',dr:55,tr:'28,500',anchor:'Marketing automation',builder:'Sarah',live:true},
   {date:'28.04.2026',domain:'devresources.net',dr:74,tr:'19,800',anchor:'Developer tools',builder:'Tom',live:true},
   {date:'27.04.2026',domain:'businesshub.co',dr:71,tr:'62,000',anchor:'Business solutions',builder:'Max',live:true},
   {date:'26.04.2026',domain:'startupdigest.com',dr:63,tr:'34,100',anchor:'Growth strategies',builder:'Sarah',live:false},
   {date:'25.04.2026',domain:'saasreview.org',dr:58,tr:'17,400',anchor:'Software review',builder:'Lisa',live:false},
+  {date:'24.04.2026',domain:'growthlab.io',dr:66,tr:'22,300',anchor:'Growth hacking',builder:'Jake',live:true},
+  {date:'23.04.2026',domain:'productify.co',dr:72,tr:'45,800',anchor:'Product management',builder:'Nina',live:true},
+  {date:'22.04.2026',domain:'cloudinsights.net',dr:61,tr:'31,200',anchor:'Cloud solutions',builder:'Max',live:true},
+  {date:'21.04.2026',domain:'datadriven.io',dr:79,tr:'58,400',anchor:'Data analytics',builder:'Tom',live:true},
+  {date:'20.04.2026',domain:'scalehq.com',dr:57,tr:'14,600',anchor:'Scaling strategies',builder:'Lisa',live:false},
+  {date:'19.04.2026',domain:'devops-central.com',dr:64,tr:'27,900',anchor:'DevOps practices',builder:'Jake',live:true},
 ];
-const rb=document.getElementById('m-rows');
-rows.forEach((r,i)=>{
-  const d=document.createElement('div');d.className='m-row';
-  d.innerHTML=`<span class="m-date">${r.date}</span><span class="m-domain">${r.domain}</span><span class="m-dr">${r.dr}</span><span class="m-traffic">${r.tr}</span><span class="m-anchor">${r.anchor}</span><span class="m-builder">${r.builder}</span><span><span class="badge ${r.live?'b-live':'b-pend'}">${r.live?'live':'pending'}</span></span>`;
-  rb.appendChild(d);
-  setTimeout(()=>d.classList.add('row-in'),800+i*120);
-});
+
+const VISIBLE = 6;
+let tickerStart = 0;
+const rb = document.getElementById('m-rows');
+
+function makeRow(r, idx) {
+  const d = document.createElement('div');
+  d.className = 'm-row';
+  d.dataset.idx = idx;
+  d.innerHTML = `<span class="m-date">${r.date}</span><span class="m-domain">${r.domain}</span><span class="m-dr">${r.dr}</span><span class="m-traffic">${r.tr}</span><span class="m-anchor">${r.anchor}</span><span class="m-builder">${r.builder}</span><span><span class="badge ${r.live?'b-live':'b-pend'}">${r.live?'live':'pending'}</span></span>`;
+  return d;
+}
+
+// Initial render
+function renderRows() {
+  rb.innerHTML = '';
+  for(let i=0;i<VISIBLE;i++){
+    const r = allRows[(tickerStart+i) % allRows.length];
+    const d = makeRow(r, i);
+    rb.appendChild(d);
+    setTimeout(()=>d.classList.add('row-in'), 800 + i*100);
+  }
+}
+renderRows();
+
+// Cycle: every 2.2s add new row at bottom, remove from top
+setInterval(() => {
+  tickerStart = (tickerStart + 1) % allRows.length;
+  const rows = rb.querySelectorAll('.m-row');
+  
+  // Slide out top row
+  const top = rows[0];
+  top.style.transition = 'opacity .35s, transform .35s';
+  top.style.opacity = '0';
+  top.style.transform = 'translateX(-20px)';
+  
+  // Add new row at bottom (hidden)
+  const newR = allRows[(tickerStart + VISIBLE - 1) % allRows.length];
+  const nd = makeRow(newR, VISIBLE);
+  nd.style.opacity = '0';
+  nd.style.transform = 'translateX(20px)';
+  rb.appendChild(nd);
+  
+  setTimeout(() => {
+    top.remove();
+    nd.style.transition = 'opacity .4s, transform .4s';
+    nd.style.opacity = '1';
+    nd.style.transform = 'translateX(0)';
+    nd.classList.add('row-in');
+  }, 380);
+}, 2200);
 
 // ═══ MARQUEE ═══
 const mqItems=['Real-time tracking','DR & Traffic','Anchor management','Duplicate detection','Builder KPIs','AI Prospecting','Monthly analytics','Link health checks','Quality control','Spam score'];
@@ -477,7 +536,7 @@ blds.forEach((b,i)=>{
 });
 const ldEl=document.getElementById('leaders');
 blds.slice(0,5).forEach((b,i)=>{
-  ldEl.innerHTML+=`<div class="lead-row"><div class="lead-rank">${i+1}</div><div class="lead-name">${b.n}</div><div class="lead-bg"><div class="lead-bar" data-w="${Math.round(b.v/mx*100)}"></div></div><div class="lead-n">${b.v}</div></div>`;
+  ldEl.innerHTML+=`<div class="lead-row ${i===0?'top-builder':''}"><div class="lead-rank">${i+1}</div><div class="lead-name">${b.n}</div><div class="lead-bg"><div class="lead-bar" data-w="${Math.round(b.v/mx*100)}"></div></div><div class="lead-n">${b.v}</div></div>`;
 });
 
 // ═══ SCROLL REVEAL ═══
@@ -533,7 +592,69 @@ async function doGoogle(){
   try{await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());}
   catch(ex){const er=document.getElementById('err');er.textContent='Google sign-in failed.';er.classList.add('show')}
 }
-document.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+document.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+
+
+// ═══ NOTIFICATION POPUPS ═══
+(function(){
+  const pop=document.getElementById('notif-pop');
+  const domEl=document.getElementById('notif-domain');
+  const metaEl=document.getElementById('notif-meta');
+  if(!pop)return;
+  const notifs=[
+    {domain:'techblog-pro.com',meta:'DR 68 · 41,200 traffic'},
+    {domain:'marketingweekly.io',meta:'DR 55 · 28,500 traffic'},
+    {domain:'businesshub.co',meta:'DR 71 · 62,000 traffic'},
+    {domain:'devresources.net',meta:'DR 74 · 19,800 traffic'},
+    {domain:'datadriven.io',meta:'DR 79 · 58,400 traffic'},
+    {domain:'growthlab.io',meta:'DR 66 · 22,300 traffic'},
+  ];
+  let ni=0;
+  function showNotif(){
+    const n=notifs[ni%notifs.length];ni++;
+    domEl.textContent=n.domain;metaEl.textContent=n.meta;
+    pop.classList.add('show');
+    setTimeout(()=>pop.classList.remove('show'),2800);
+    setTimeout(showNotif,5000);
+  }
+  setTimeout(showNotif,2500);
+})();
+
+// ═══ PARALLAX ON SCROLL ═══
+(function(){
+  const heroGlow=document.querySelector('.hero-glow');
+  const heroChip=document.querySelector('.hero-chip');
+  const heroTitle=document.querySelector('.hero-title');
+  const heroSub=document.querySelector('.hero-sub');
+  const kpiRow=document.querySelector('.kpi-row');
+  window.addEventListener('scroll',()=>{
+    const y=window.scrollY;
+    if(heroGlow)heroGlow.style.transform=`translate(-50%,-60%) scale(1) translateY(${y*.15}px)`;
+    if(heroChip)heroChip.style.transform=`translateY(${y*.08}px)`;
+    if(heroTitle)heroTitle.style.transform=`translateY(${y*.12}px)`;
+    if(heroSub)heroSub.style.transform=`translateY(${y*.1}px)`;
+    if(kpiRow)kpiRow.style.transform=`translateY(${y*.06}px)`;
+  },{passive:true});
+})();
+
+// ═══ BAR PULSE after chart animates ═══
+(function(){
+  const obsB=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        setTimeout(()=>{
+          document.querySelectorAll('.bar').forEach((b,i)=>{
+            setTimeout(()=>b.classList.add('pulsing'),i*100+800);
+          });
+        },400);
+        obsB.disconnect();
+      }
+    });
+  },{threshold:.3});
+  const barsEl=document.querySelector('.bars');
+  if(barsEl)obsB.observe(barsEl);
+})();
 </script>
 </body>
 </html>
