@@ -2111,12 +2111,16 @@ function startApp(){
       if(oc.includes("'add'")||oc.includes("'batch'"))
         el.style.display='block';
     });
+    // Agent visible to all
+    document.querySelectorAll('.nav[onclick*="agent"]').forEach(el=>el.style.display='block');
   } else {
     // Builder sees only builder nav, admin nav hidden
     document.querySelectorAll('.nav').forEach(el=>{
       if(!el.classList.contains('nav-bld')) el.style.display='none';
     });
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='block');
+    // Agent visible to all
+    document.querySelectorAll('.nav[onclick*="agent"]').forEach(el=>el.style.display='block');
   }
 
   const lb=document.getElementById('ls-b');
