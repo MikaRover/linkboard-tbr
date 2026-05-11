@@ -1,6 +1,6 @@
 const SNOV_CLIENT_ID     = '6b423e67c549ace7c01ed4914935d0c2';
 const SNOV_CLIENT_SECRET = '8a864926f4ad1d63c1b8fee73b17f741';
-const CLAUDE_KEY         = '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';
+const OPENAI_KEY         = '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';
 const AHREFS_KEY         = '7dNernlzY4mixkKwyIEOVsZK8e0Rx0Hgq3YszXti';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -113,25 +113,25 @@ async function enrichDomain(domain) {
 }
 
 // ── Claude call ──
-async function callClaude(body) {
-  const delays = [8000, 20000, 40000]; // exponential backoff
+async function callOpenAI(prompt) {
+  const delays = [5000, 15000, 30000];
   for (let attempt = 0; attempt < 3; attempt++) {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const r = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'web-search-2025-03-05'
+        'Authorization': 'Bearer ' + OPENAI_KEY
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        tools: [{ type: 'web_search_preview' }],
+        input: prompt
+      })
     });
     if (r.status === 429) {
-      // Try to read Retry-After header
       const retryAfter = parseInt(r.headers.get('retry-after') || '0') * 1000;
-      const wait = retryAfter || delays[attempt] || 40000;
+      const wait = retryAfter || delays[attempt] || 30000;
       if (attempt < 2) { await sleep(wait); continue; }
-      // Last attempt failed — return the response anyway so caller can handle
       return r;
     }
     return r;
@@ -149,56 +149,48 @@ module.exports = async (req, res) => {
   const { keyword, count = 20, project = '', findEmails = false } = req.body || {};
   if (!keyword) return res.status(400).json({ error: 'keyword required' });
 
-  // ── STEP 1: Claude finds prospects ──
+  // ── STEP 1: OpenAI finds prospects ──
   let prospects = [];
   try {
-    const response = await callClaude({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 5000,
-      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-      messages: [{
-        role: 'user',
-        content: `You are an expert link building specialist. Find high-quality backlink opportunities for the topic: "${keyword}"${project ? ` (product/service: "${project}")` : ''}.
+    const prompt = 'You are an expert link building specialist. Find high-quality backlink opportunities for the topic: "' + keyword + '"' + (project ? ' (product/service: "' + project + '")' : '') + `.
 
-Search using multiple smart queries:
-1. Articles that explain or discuss "${keyword}" as a concept (guides, tutorials, explainers)
-2. Comparison/best-of lists that include "${keyword}" or related tools
-3. Industry blog posts that naturally mention "${keyword}"
+Search using multiple smart queries to find different article types:
+1. Articles explaining or discussing the topic as a concept (guides, tutorials)
+2. Comparison/best-of lists that include the topic or related tools
+3. Industry blog posts that naturally mention the topic
 4. Resource roundups and "tools for X" posts
 5. Case studies or "how we use X" posts
 
 STRICT RULES:
-- ONLY include pages that already discuss "${keyword}" as a topic in their content
-- Do NOT include direct competitors (companies selling the same service as "${project || keyword}")
-- Skip huge media sites: Forbes, TechCrunch, HubSpot, G2, Capterra, Gartner, Entrepreneur
+- ONLY include pages that already discuss this topic in their content
+- Do NOT include direct competitors (companies selling the same service)
+- Skip huge media sites: Forbes, TechCrunch, HubSpot, G2, Capterra, Gartner
 - Skip company homepages — blog posts and articles only
-- Target mid-tier independent sites (DR 20-70): niche blogs, SaaS blogs, newsletters, industry publications
-- Assign relevancyScore 0-100: how naturally a link would fit, topical relevance, site reachability
+- Target mid-tier independent sites DR 20-70: niche blogs, SaaS blogs, newsletters
+- Assign relevancyScore 0-100 based on topical fit, natural link placement, reachability
 
-Return ONLY a raw JSON array (no markdown):
-[
-  {
-    "domain": "example.com",
-    "title": "Exact article title",
-    "url": "https://example.com/full-article-url",
-    "reason": "Why this is a great opportunity and exactly how a link fits naturally in the content",
-    "relevancyScore": 85
-  }
-]
+Return ONLY a raw JSON array, no markdown, no extra text:
+[{"domain":"example.com","title":"Article title","url":"https://example.com/article","reason":"Why this is a great opportunity","relevancyScore":85}]
 
-Return ${count} unique high-quality prospect domains.`
-      }]
-    });
+Return ` + count + ` unique prospect domains.`;
+
+    const response = await callOpenAI(prompt);
 
     if (!response.ok) {
       const err = await response.text();
-      if (response.status === 429) {
-        return res.status(429).json({ error: 'Rate limit reached. Please wait 30 seconds and try again.' });
-      }
-      return res.status(500).json({ error: 'Claude API error ' + response.status, detail: err.slice(0, 300) });
+      if (response.status === 429) return res.status(429).json({ error: 'Rate limit. Please wait 30 seconds and try again.' });
+      return res.status(500).json({ error: 'OpenAI API error ' + response.status, detail: err.slice(0, 300) });
     }
     const data = await response.json();
-    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+    // OpenAI Responses API output extraction
+    let text = '';
+    for (const item of (data.output || [])) {
+      if (item.type === 'message') {
+        for (const c of (item.content || [])) {
+          if (c.type === 'output_text') text += c.text;
+        }
+      }
+    }
     try {
       const s = text.indexOf('['), e = text.lastIndexOf(']');
       if (s >= 0 && e > s) prospects = JSON.parse(text.slice(s, e + 1));
