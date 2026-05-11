@@ -1763,23 +1763,24 @@ tr:hover td{background:var(--bg3);}
 
 <div id="p-agent" class="page">
   <div class="page-top">
-    <div class="page-title">🤖 Agent — Link Prospect Finder</div>
+    <div>
+      <div class="page-title">🤖 Agent — Link Prospect Finder</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Finds real articles discussing your topic — ideal for contextual backlink outreach</div>
+    </div>
   </div>
 
-  <div class="card" style="max-width:860px;margin-bottom:1.5rem;">
+  <div class="card" style="max-width:900px;margin-bottom:1rem;">
     <div class="card-body">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="flex:3;min-width:200px;">
+        <div style="flex:3;min-width:220px;">
           <div class="section-label">Keyword / Topic</div>
-          <input id="ag-keyword" placeholder="e.g. SMS API, email marketing, CRM software" style="margin:0;" onkeydown="if(event.key==='Enter')runAgent(this)"/>
+          <input id="ag-keyword" placeholder="e.g. SMS API, WhatsApp Business" style="margin:0;" onkeydown="if(event.key==='Enter')runAgent(this)"/>
         </div>
         <div style="flex:2;min-width:160px;">
-          <div class="section-label">Project (optional)</div>
-          <select id="ag-project" style="margin:0;">
-            <option value="">All projects</option>
-          </select>
+          <div class="section-label">Project</div>
+          <select id="ag-project" style="margin:0;"><option value="">No project</option></select>
         </div>
-        <div style="flex:1;min-width:100px;">
+        <div style="flex:1;min-width:80px;">
           <div class="section-label">Count</div>
           <select id="ag-count" style="margin:0;">
             <option value="10">10</option>
@@ -1789,14 +1790,42 @@ tr:hover td{background:var(--bg3);}
         </div>
         <button class="btn-sm" onclick="runAgent(this)" style="white-space:nowrap;padding:10px 20px;height:40px;">🔍 Find prospects</button>
       </div>
+
+      <div id="ag-filters" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+          <div>
+            <div class="section-label">Min DR</div>
+            <input type="number" id="ag-min-dr" placeholder="0" min="0" max="100" style="margin:0;width:80px;" oninput="filterAgentResults()"/>
+          </div>
+          <div>
+            <div class="section-label">Max DR</div>
+            <input type="number" id="ag-max-dr" placeholder="100" min="0" max="100" style="margin:0;width:80px;" oninput="filterAgentResults()"/>
+          </div>
+          <div>
+            <div class="section-label">Min Traffic</div>
+            <input type="number" id="ag-min-tr" placeholder="0" style="margin:0;width:110px;" oninput="filterAgentResults()"/>
+          </div>
+          <div>
+            <div class="section-label">Sort by</div>
+            <select id="ag-sort" style="margin:0;" onchange="filterAgentResults()">
+              <option value="relevancy">Relevancy score</option>
+              <option value="dr">DR (high first)</option>
+              <option value="traffic">Traffic (high first)</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:8px;">
+            <button class="btn-sm" onclick="saveAgentResults()" style="background:transparent;border:1px solid var(--border2);color:var(--text2);padding:7px 14px;">💾 Save to Firestore</button>
+            <div id="ag-save-status" style="font-size:12px;color:var(--teal);line-height:40px;"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Loading -->
   <div id="ag-loading" style="display:none;text-align:center;padding:3rem;color:var(--text2);">
     <div style="font-size:32px;margin-bottom:12px;">🤖</div>
-    <div style="font-size:14px;font-weight:600;" id="ag-loading-text">Searching the web for prospects...</div>
-    <div style="font-size:12px;color:var(--text3);margin-top:6px;">This may take 20-40 seconds</div>
+    <div style="font-size:14px;font-weight:600;" id="ag-loading-text">Generating smart search queries...</div>
+    <div style="font-size:12px;color:var(--text3);margin-top:6px;">Searching web · Scoring relevancy · Fetching DR &amp; Traffic</div>
     <div style="margin-top:16px;display:flex;justify-content:center;gap:6px;">
       <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out infinite;"></div>
       <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out .2s infinite;"></div>
@@ -1804,13 +1833,14 @@ tr:hover td{background:var(--bg3);}
     </div>
   </div>
 
-  <!-- Error -->
-  <div id="ag-error" style="display:none;padding:12px 16px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;color:var(--red);font-size:13px;margin-bottom:16px;max-width:860px;"></div>
+  <div id="ag-error" style="display:none;padding:12px 16px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;color:var(--red);font-size:13px;margin-bottom:16px;max-width:900px;"></div>
 
-  <!-- Results -->
   <div id="ag-results" style="display:none;">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:16px;" id="ag-result-label"></div>
-    <div id="ag-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);" id="ag-result-label"></div>
+      <div style="font-size:12px;color:var(--text3);" id="ag-result-sub"></div>
+    </div>
+    <div id="ag-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:14px;"></div>
   </div>
 </div>
 
@@ -6731,10 +6761,12 @@ document.addEventListener('click', function(e){
 
 
 // ═══ AGENT PAGE ═══
+let agentRawResults = [];
+
 function initAgentPage(){
   const sel = document.getElementById('ag-project');
   if(!sel) return;
-  sel.innerHTML = '<option value="">All projects</option>';
+  sel.innerHTML = '<option value="">No project</option>';
   (allProjects||[]).forEach(p=>{
     const o=document.createElement('option');
     o.value=p.name;o.textContent=p.name;
@@ -6743,7 +6775,7 @@ function initAgentPage(){
 }
 
 async function runAgent(btn){
-  const keyword = document.getElementById('ag-keyword').value.trim();
+  const keyword = (document.getElementById('ag-keyword').value||'').trim();
   const project = document.getElementById('ag-project').value;
   const count   = parseInt(document.getElementById('ag-count').value)||20;
 
@@ -6755,39 +6787,38 @@ async function runAgent(btn){
 
   document.getElementById('ag-error').style.display='none';
   document.getElementById('ag-results').style.display='none';
+  document.getElementById('ag-filters').style.display='none';
   document.getElementById('ag-loading').style.display='block';
+  document.getElementById('ag-save-status').textContent='';
+  agentRawResults = [];
   if(btn){btn.disabled=true;btn.textContent='Searching...';}
 
-  const loadingMsgs=[
-    'Searching the web for prospects...',
-    'Filtering out competitors...',
-    'Fetching DR & Traffic data...',
-    'Almost done...'
-  ];
-  let lmi=0;
+  const msgs=['Generating smart search queries...','Searching the web for relevant articles...','Filtering out competitors & irrelevant sites...','Scoring relevancy of each article...','Fetching DR & Traffic data...','Almost done...'];
+  let mi=0;
   const lt=setInterval(()=>{
-    lmi=(lmi+1)%loadingMsgs.length;
     const el=document.getElementById('ag-loading-text');
-    if(el)el.textContent=loadingMsgs[lmi];
-  },6000);
+    if(el){mi=(mi+1)%msgs.length;el.textContent=msgs[mi];}
+  },5000);
 
-  try {
-    const resp = await fetch('/api/agent',{
+  try{
+    const resp=await fetch('/api/agent',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({keyword, project, count})
+      body:JSON.stringify({keyword,project,count})
     });
-    const data = await resp.json();
+    const data=await resp.json();
     clearInterval(lt);
     document.getElementById('ag-loading').style.display='none';
 
     if(!resp.ok||!data.prospects?.length){
-      document.getElementById('ag-error').textContent = data.error||'No prospects found. Try a different keyword.';
+      document.getElementById('ag-error').textContent=data.error||'No prospects found. Try a different keyword.';
       document.getElementById('ag-error').style.display='block';
     } else {
-      renderAgentCards(data.prospects, keyword);
+      agentRawResults = data.prospects;
+      document.getElementById('ag-filters').style.display='block';
+      filterAgentResults();
     }
-  } catch(e){
+  }catch(e){
     clearInterval(lt);
     document.getElementById('ag-loading').style.display='none';
     document.getElementById('ag-error').textContent='⚠️ Error: '+e.message;
@@ -6797,43 +6828,73 @@ async function runAgent(btn){
   if(btn){btn.disabled=false;btn.textContent='🔍 Find prospects';}
 }
 
-function renderAgentCards(prospects, keyword){
-  const cardsEl = document.getElementById('ag-cards');
-  const labelEl = document.getElementById('ag-result-label');
-  const resultsEl = document.getElementById('ag-results');
+function filterAgentResults(){
+  const minDR  = parseInt(document.getElementById('ag-min-dr').value)||0;
+  const maxDR  = parseInt(document.getElementById('ag-max-dr').value)||100;
+  const minTR  = parseInt(document.getElementById('ag-min-tr').value)||0;
+  const sort   = document.getElementById('ag-sort').value;
 
-  labelEl.textContent = `Found ${prospects.length} prospects for "${keyword}"`;
-  cardsEl.innerHTML = '';
+  let filtered = agentRawResults.filter(p=>{
+    const dr = p.dr!=null ? p.dr : 50;
+    const tr = p.traffic!=null ? p.traffic : 0;
+    return dr>=minDR && dr<=maxDR && tr>=minTR;
+  });
 
+  if(sort==='dr') filtered.sort((a,b)=>(b.dr||0)-(a.dr||0));
+  else if(sort==='traffic') filtered.sort((a,b)=>(b.traffic||0)-(a.traffic||0));
+  else filtered.sort((a,b)=>(b.relevancyScore||0)-(a.relevancyScore||0));
+
+  renderAgentCards(filtered);
+}
+
+function renderAgentCards(prospects){
+  const cardsEl=document.getElementById('ag-cards');
+  const labelEl=document.getElementById('ag-result-label');
+  const subEl=document.getElementById('ag-result-sub');
+  const resultsEl=document.getElementById('ag-results');
+
+  const keyword=(document.getElementById('ag-keyword').value||'').trim();
+  labelEl.textContent=`${prospects.length} prospects found for "${keyword}"`;
+
+  const withDR=prospects.filter(p=>p.dr!=null).length;
+  const avgDR=withDR?Math.round(prospects.filter(p=>p.dr!=null).reduce((s,p)=>s+p.dr,0)/withDR):null;
+  subEl.textContent=avgDR?`Avg DR: ${avgDR} · ${withDR} enriched`:'';
+
+  cardsEl.innerHTML='';
   prospects.forEach((p,i)=>{
-    const drBadge = p.dr!=null
-      ? `<span style="background:rgba(0,196,174,.12);border:1px solid rgba(0,196,174,.2);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;color:var(--teal)">DR ${p.dr}</span>`
-      : `<span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text3)">DR —</span>`;
+    const score=p.relevancyScore||0;
+    const scoreColor=score>=80?'var(--teal)':score>=60?'var(--yellow)':'var(--text3)';
+    const drBadge=p.dr!=null
+      ?`<span style="background:rgba(0,196,174,.1);border:1px solid rgba(0,196,174,.2);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;color:var(--teal)">DR ${p.dr}</span>`
+      :`<span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text3)">DR —</span>`;
+    const trBadge=p.traffic!=null
+      ?`<span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text2)">${p.traffic.toLocaleString()}</span>`
+      :``;
+    const scoreBadge=score
+      ?`<span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:${scoreColor}">⭐ ${score}</span>`
+      :``;
 
-    const trBadge = p.traffic!=null
-      ? `<span style="background:rgba(0,196,174,.07);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text2)">${p.traffic.toLocaleString()} traffic</span>`
-      : '';
-
-    const card = document.createElement('div');
+    const card=document.createElement('div');
     card.className='card';
     card.style.cssText='padding:16px 20px;animation:fadeIn .3s both;';
-    card.style.animationDelay=(i*.05)+'s';
+    card.style.animationDelay=(i*.04)+'s';
+    card.dataset.domain=p.domain;
     card.innerHTML=`
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px;">
-        <div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
+        <div style="min-width:0;">
           <a href="https://${p.domain}" target="_blank" rel="noopener"
-             style="font-size:14px;font-weight:700;color:var(--teal);text-decoration:none;"
+             style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;"
              onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
             ${p.domain}
           </a>
-          <div style="font-size:12px;color:var(--text2);margin-top:3px;line-height:1.4;">${p.title||''}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${(p.title||'').replace(/"/g,'&quot;')}">${p.title||''}</div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">${drBadge}${trBadge}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;justify-content:flex-end;">${drBadge}${trBadge}${scoreBadge}</div>
       </div>
-      <div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;">${p.reason||''}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="font-size:12px;color:var(--text3);line-height:1.55;margin-bottom:12px;border-left:2px solid var(--border);padding-left:10px;">${p.reason||''}</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;">
         <a href="${p.url||'https://'+p.domain}" target="_blank" rel="noopener"
-           style="font-size:11px;padding:5px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);text-decoration:none;cursor:pointer;"
+           style="font-size:11px;padding:5px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);text-decoration:none;"
            onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'"
            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
           View article →
@@ -6844,6 +6905,12 @@ function renderAgentCards(prospects, keyword){
            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
           Copy domain
         </button>
+        <button onclick="saveOneProsect(${JSON.stringify(p).replace(/'/g,'&#39;')},this)"
+           style="font-size:11px;padding:5px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;"
+           onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'"
+           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
+          💾 Save
+        </button>
       </div>`;
     cardsEl.appendChild(card);
   });
@@ -6851,14 +6918,53 @@ function renderAgentCards(prospects, keyword){
   resultsEl.style.display='block';
 }
 
-function copyAgentDomain(domain, btn){
+function copyAgentDomain(domain,btn){
   navigator.clipboard.writeText(domain).then(()=>{
-    const orig=btn.textContent;
-    btn.textContent='Copied!';
-    btn.style.color='var(--teal)';
-    btn.style.borderColor='var(--teal)';
+    const orig=btn.textContent;btn.textContent='Copied!';btn.style.color='var(--teal)';btn.style.borderColor='var(--teal)';
     setTimeout(()=>{btn.textContent=orig;btn.style.color='var(--text2)';btn.style.borderColor='var(--border)'},1500);
   });
+}
+
+async function saveOneProsect(p,btn){
+  if(!db)return;
+  const keyword=(document.getElementById('ag-keyword').value||'').trim();
+  const project=document.getElementById('ag-project').value;
+  try{
+    await db.collection('agent_prospects').add({
+      ...p, keyword, project,
+      status:'new',
+      savedAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    btn.textContent='Saved ✓';btn.style.color='var(--teal)';btn.style.borderColor='var(--teal)';
+    btn.disabled=true;
+  }catch(e){btn.textContent='Error';btn.style.color='var(--red)';}
+}
+
+async function saveAgentResults(){
+  if(!db||!agentRawResults.length)return;
+  const keyword=(document.getElementById('ag-keyword').value||'').trim();
+  const project=document.getElementById('ag-project').value;
+  const statusEl=document.getElementById('ag-save-status');
+  statusEl.textContent='Saving...';
+
+  const minDR=parseInt(document.getElementById('ag-min-dr').value)||0;
+  const maxDR=parseInt(document.getElementById('ag-max-dr').value)||100;
+  const minTR=parseInt(document.getElementById('ag-min-tr').value)||0;
+  const toSave=agentRawResults.filter(p=>{
+    const dr=p.dr!=null?p.dr:50;
+    return dr>=minDR&&dr<=maxDR&&(p.traffic||0)>=minTR;
+  });
+
+  try{
+    const batch=db.batch();
+    toSave.forEach(p=>{
+      const ref=db.collection('agent_prospects').doc();
+      batch.set(ref,{...p,keyword,project,status:'new',savedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    });
+    await batch.commit();
+    statusEl.textContent=`✓ Saved ${toSave.length} prospects`;
+    setTimeout(()=>statusEl.textContent='',3000);
+  }catch(e){statusEl.textContent='Error: '+e.message;}
 }
 
 </script>
