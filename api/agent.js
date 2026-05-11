@@ -114,6 +114,7 @@ async function enrichDomain(domain) {
 
 // ── Claude call ──
 async function callClaude(body) {
+  const delays = [8000, 20000, 40000]; // exponential backoff
   for (let attempt = 0; attempt < 3; attempt++) {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -125,7 +126,14 @@ async function callClaude(body) {
       },
       body: JSON.stringify(body)
     });
-    if (r.status === 429 && attempt < 2) { await sleep(6000); continue; }
+    if (r.status === 429) {
+      // Try to read Retry-After header
+      const retryAfter = parseInt(r.headers.get('retry-after') || '0') * 1000;
+      const wait = retryAfter || delays[attempt] || 40000;
+      if (attempt < 2) { await sleep(wait); continue; }
+      // Last attempt failed — return the response anyway so caller can handle
+      return r;
+    }
     return r;
   }
 }
@@ -184,6 +192,9 @@ Return ${count} unique high-quality prospect domains.`
 
     if (!response.ok) {
       const err = await response.text();
+      if (response.status === 429) {
+        return res.status(429).json({ error: 'Rate limit reached. Please wait 30 seconds and try again.' });
+      }
       return res.status(500).json({ error: 'Claude API error ' + response.status, detail: err.slice(0, 300) });
     }
     const data = await response.json();
