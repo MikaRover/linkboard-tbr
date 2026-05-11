@@ -41,24 +41,24 @@ module.exports = async (req, res) => {
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{
           role: 'user',
-          content: `You are a link building specialist finding backlink opportunities for: "${project || keyword}".
+          content: `You are a link building specialist. Find articles and blog posts that already discuss or mention "${keyword}" — these are ideal outreach targets for adding a contextual backlink.
 
-Search for articles about: "${keyword}"
+Search for: articles, blog posts, guides and resource pages that discuss "${keyword}" as a topic.
 
 STRICT RULES:
-1. Do NOT include websites that sell or provide the same service as "${project || keyword}". Skip all direct competitors.
-2. Prefer mid-tier sites (DR 20-70) — avoid huge media sites like Forbes, TechCrunch, HubSpot, G2, Capterra that almost never give backlinks to unknown products.
-3. Focus on niche blogs, independent writers, small-medium SaaS blogs, industry newsletters, and resource sites that are actually reachable for outreach.
-
-Return ONLY non-competitor sites: niche blogs, independent review sites, industry publications, resource pages.
+1. ONLY find articles that already talk about "${keyword}" as a topic — NOT companies that sell it.
+2. Do NOT include direct competitors or companies that provide "${project || keyword}" as a service.
+3. Skip huge media sites (Forbes, TechCrunch, HubSpot, G2, Capterra) — focus on niche blogs, independent writers, small-medium SaaS blogs, industry newsletters.
+4. Prefer pages where a contextual link would fit naturally inside existing content.
+5. Target mid-tier sites (DR 20-70) that are realistically reachable for outreach.
 
 Return ONLY a JSON array, no markdown:
 [
   {
     "domain": "example.com",
-    "title": "Article title",
+    "title": "Article title that discusses ${keyword}",
     "url": "https://example.com/article",
-    "reason": "why good for backlink"
+    "reason": "Why this is a good opportunity and how a link fits contextually"
   }
 ]
 
