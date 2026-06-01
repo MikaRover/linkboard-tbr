@@ -5706,7 +5706,7 @@ function renderCapacityList(){
   const list = document.getElementById('capacity-list');
   if(!list) return;
   // Show all builders — from BUILDERS array + any extra saved in capacities
-  const extraBuilders = Object.keys(allCapacities).filter(b=>!BUILDERS.includes(b));
+  const extraBuilders = Object.keys(allCapacities).filter(b=>!BUILDERS.some(bld=>bld.toLowerCase()===b.toLowerCase()));
   const allCap = [...BUILDERS, ...extraBuilders];
   list.innerHTML = allCap.map(b => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
@@ -5724,7 +5724,7 @@ async function saveCapacity(){
   const okEl = document.getElementById('cap-ok');
   okEl.style.display='none';
   const batch = db.batch();
-  const extraBuilders = Object.keys(allCapacities).filter(b=>!BUILDERS.includes(b));
+  const extraBuilders = Object.keys(allCapacities).filter(b=>!BUILDERS.some(bld=>bld.toLowerCase()===b.toLowerCase()));
   const allCap = [...BUILDERS, ...extraBuilders];
   allCap.forEach(b=>{
     const val = parseInt(document.getElementById('cap-'+b.replace(/\s/g,'_'))?.value)||0;
@@ -5766,9 +5766,11 @@ function initLoadPage(){
   const monthSel = document.getElementById('load-month');
   if(monthSel) monthSel.value = MONTHS_EN[new Date().getMonth()];
 
-  // Builder checkboxes
+  // Builder checkboxes — union of BUILDERS array + all capacity keys
   const wrap = document.getElementById('load-builder-checks');
-  if(wrap) wrap.innerHTML = BUILDERS.map(b => `
+  const capBuilders = Object.keys(allCapacities).filter(b=>b&&!BUILDERS.includes(b));
+  const allLoadBuilders = [...BUILDERS, ...capBuilders];
+  if(wrap) wrap.innerHTML = allLoadBuilders.map(b => `
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;transition:all 0.15s;"
       onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
       <input type="checkbox" value="${b}" onchange="renderLoadTable()" style="width:auto;margin:0;cursor:pointer;" checked/>
