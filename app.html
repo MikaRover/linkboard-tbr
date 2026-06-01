@@ -1,4 +1,4 @@
-\<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -715,7 +715,13 @@ tr:hover td{background:var(--bg3);}
 
 <!-- PROJECTS -->
 <div id="p-projects" class="page">
-  <div class="page-top"><div class="page-title">Projects</div></div>
+  <div class="page-top">
+    <div class="page-title">Projects</div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;">
+      <input type="checkbox" id="show-hidden-projects" style="width:auto;margin:0;accent-color:var(--teal);" onchange="renderProjectsPage()"/>
+      Show hidden
+    </label>
+  </div>
   <div class="card" style="max-width:500px;">
     <div class="card-body">
       <div class="section-label">Add new project</div>
@@ -2133,7 +2139,7 @@ function listenProjects(){
   });
 }
 function populateProjectSelects(){
-  const names=allProjects.map(p=>p.name);
+  const names=allProjects.filter(p=>!p.hidden).map(p=>p.name);
   ['f-proj','r-proj','rq-proj','imp-proj','req-imp-proj','ls-p','check-proj-select','bl-p'].forEach(id=>{
     const s=document.getElementById(id);if(!s)return;
     const isFilter=['ls-p','bl-p','check-proj-select'].includes(id);const cur=s.value;
@@ -2149,6 +2155,11 @@ async function addProject(){
   await db.collection('projects').add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
   document.getElementById('new-proj-name').value='';
 }
+async function toggleHideProject(id, currentlyHidden){
+  await db.collection('projects').doc(id).update({ hidden: !currentlyHidden });
+  showToast(currentlyHidden ? '👁 Project shown' : '🙈 Project hidden');
+}
+
 async function deleteProject(id,name){
   const count=allLinks.filter(l=>l.project===name).length;
   if(count>0){if(!confirm('This project has '+count+' links. Delete project AND all links?'))return;}
@@ -2163,22 +2174,33 @@ async function deleteProject(id,name){
 function renderProjectsPage(){
   const grid=document.getElementById('proj-grid');if(!grid)return;
   if(!allProjects.length){grid.innerHTML='<div style="color:var(--text2);font-size:13px;">No projects yet</div>';return;}
-  grid.innerHTML=allProjects.map(p=>{
+  const showHidden = document.getElementById('show-hidden-projects')?.checked;
+  const filtered = allProjects.filter(p => showHidden ? true : !p.hidden);
+
+  grid.innerHTML = (showHidden && allProjects.some(p=>p.hidden) ? `
+    <div style="grid-column:1/-1;font-size:11px;color:var(--text3);padding:4px 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
+      ${filtered.filter(p=>!p.hidden).length} active · ${filtered.filter(p=>p.hidden).length} hidden
+    </div>` : '') +
+  filtered.map(p=>{
     const count=allLinks.filter(l=>l.project===p.name).length;
     const live=allLinks.filter(l=>l.project===p.name&&l.status==='live').length;
     const pend=allLinks.filter(l=>l.project===p.name&&l.status==='pending').length;
     const sd = p.siteData;
     const scanned = sd && sd.lastScanned;
-    return`<div class="proj-card" style="flex-direction:column;align-items:stretch;gap:10px;">
+    const isHidden = !!p.hidden;
+    return`<div class="proj-card" style="flex-direction:column;align-items:stretch;gap:10px;${isHidden?'opacity:0.45;':''}">
       <div style="display:flex;align-items:flex-start;gap:8px;">
         <div style="cursor:pointer;flex:1;" onclick="openProjectDetail('${p.name}')">
-          <div class="proj-name">${p.name}</div>
+          <div class="proj-name" style="${isHidden?'color:var(--text3);text-decoration:line-through;':''}">${p.name}</div>
           <div class="proj-count" style="color:var(--teal);">${count} links →</div>
           <div style="font-size:10px;color:var(--text3);margin-top:3px;">✅ ${live} · ⏳ ${pend}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
           <button class="btn-ghost" style="font-size:11px;padding:4px 10px;white-space:nowrap;" onclick="scanProject('${p.id}','${p.name}',this)">
             ${scanned?'🔄 Re-scan':'🔍 Scan'}
+          </button>
+          <button class="btn-ghost" style="font-size:11px;padding:4px 8px;" onclick="toggleHideProject('${p.id}',${isHidden})" title="${isHidden?'Unhide project':'Hide project'}">
+            ${isHidden?'👁 Show':'🙈 Hide'}
           </button>
           <button class="btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteProject('${p.id}','${p.name}')">✕</button>
         </div>
