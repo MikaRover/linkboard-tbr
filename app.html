@@ -548,7 +548,6 @@ tr:hover td{background:var(--bg3);}
   <div class="nav" onclick="gotoPage('outreach',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='12' cy='12' r='10'/><circle cx='12' cy='12' r='6'/><circle cx='12' cy='12' r='2'/></svg>Outreach</div>
   <div class="nav" onclick="gotoPage('batch',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>Batch Analyze</div>
   <div class="nav adm" onclick="gotoPage('prospector',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/></svg>AI Prospector</div>
-  <div class="nav" onclick="gotoPage('agent',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0' class='nav-icon'><rect x='3' y='11' width='18' height='10' rx='2'/><circle cx='12' cy='5' r='2'/><path d='M12 7v4'/><line x1='8' y1='16' x2='8' y2='16'/><line x1='16' y1='16' x2='16' y2='16'/></svg>Agent</div>
   <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding:14px 16px 4px;opacity:0.6;">Builders</div>
   <div class="nav adm" onclick="gotoPage('load',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='3' y='3' width='18' height='18' rx='2'/><path d='M3 9h18'/><path d='M9 21V9'/></svg>Load</div>
   <div class="nav adm" onclick="gotoPage('capacity',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><polygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'/></svg>Capacity</div>
@@ -1106,7 +1105,10 @@ tr:hover td{background:var(--bg3);}
 <div id="p-capacity" class="page">
   <div class="page-top">
     <div class="page-title">⚡ Builder Capacity</div>
-    <button class="btn-sm" onclick="saveCapacity()" style="width:auto;">Save →</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-sm" onclick="addCapacityBuilder()" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">+ Add builder</button>
+      <button class="btn-sm" onclick="saveCapacity()" style="width:auto;">Save →</button>
+    </div>
   </div>
   <div id="cap-ok" class="alert a-ok"></div>
   <div class="card" style="max-width:500px;">
@@ -1761,107 +1763,6 @@ tr:hover td{background:var(--bg3);}
   </div>
 </div>
 
-<div id="p-agent" class="page">
-  <div class="page-top">
-    <div>
-      <div class="page-title">🤖 Agent — Link Prospect Finder</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Finds real articles discussing your topic — ideal for contextual backlink outreach</div>
-    </div>
-  </div>
-
-  <div class="card" style="max-width:900px;margin-bottom:1rem;">
-    <div class="card-body">
-      <!-- Row 1: main inputs -->
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
-        <div style="flex:3;min-width:220px;">
-          <div class="section-label">Keyword / Topic</div>
-          <input id="ag-keyword" placeholder="e.g. SMS API, WhatsApp Business" style="margin:0;" onkeydown="if(event.key==='Enter')runAgent(this)"/>
-        </div>
-        <div style="flex:2;min-width:160px;">
-          <div class="section-label">Project</div>
-          <select id="ag-project" style="margin:0;"><option value="">No project</option></select>
-        </div>
-        <div style="flex:1;min-width:80px;">
-          <div class="section-label">Count</div>
-          <select id="ag-count" style="margin:0;">
-            <option value="10">10</option>
-            <option value="20" selected>20</option>
-            <option value="30">30</option>
-          </select>
-        </div>
-      </div>
-      <!-- Row 2: filters + search -->
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;padding-top:12px;border-top:1px solid var(--border);">
-        <div>
-          <div class="section-label">DR Range</div>
-          <select id="ag-dr-range" style="margin:0;" onchange="filterAgentResults()">
-            <option value="0,100">Any DR</option>
-            <option value="0,30">DR 0–30</option>
-            <option value="20,50">DR 20–50</option>
-            <option value="30,60">DR 30–60</option>
-            <option value="40,70">DR 40–70</option>
-            <option value="50,100">DR 50+</option>
-            <option value="60,100">DR 60+</option>
-          </select>
-        </div>
-        <div>
-          <div class="section-label">Min Traffic</div>
-          <select id="ag-tr-range" style="margin:0;" onchange="filterAgentResults()">
-            <option value="0">Any traffic</option>
-            <option value="1000">1,000+</option>
-            <option value="5000">5,000+</option>
-            <option value="10000">10,000+</option>
-            <option value="25000">25,000+</option>
-            <option value="50000">50,000+</option>
-          </select>
-        </div>
-        <div>
-          <div class="section-label">Sort by</div>
-          <select id="ag-sort" style="margin:0;" onchange="filterAgentResults()">
-            <option value="relevancy">Relevancy score</option>
-            <option value="dr">DR (high first)</option>
-            <option value="traffic">Traffic (high first)</option>
-          </select>
-        </div>
-        <div style="flex:1;display:flex;align-items:flex-end;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;padding-bottom:10px;">
-            <input type="checkbox" id="ag-find-emails" style="width:14px;height:14px;accent-color:var(--teal);cursor:pointer;"> Find emails
-          </label>
-          <button class="btn-sm" onclick="runAgent(this)" style="white-space:nowrap;padding:10px 20px;height:40px;">🔍 Find prospects</button>
-        </div>
-      </div>
-      <!-- Save row (shown after results) -->
-      <div id="ag-filters" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button class="btn-sm" onclick="saveAgentResults()" style="background:transparent;border:1px solid var(--border2);color:var(--text2);padding:7px 14px;">💾 Save to Firestore</button>
-          <div id="ag-save-status" style="font-size:12px;color:var(--teal);"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="ag-loading" style="display:none;text-align:center;padding:3rem;color:var(--text2);">
-    <div style="font-size:32px;margin-bottom:12px;">🤖</div>
-    <div style="font-size:14px;font-weight:600;" id="ag-loading-text">Generating smart search queries...</div>
-    <div style="font-size:12px;color:var(--text3);margin-top:6px;">Searching web · Scoring relevancy · Fetching DR &amp; Traffic</div>
-    <div style="margin-top:16px;display:flex;justify-content:center;gap:6px;">
-      <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out infinite;"></div>
-      <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out .2s infinite;"></div>
-      <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out .4s infinite;"></div>
-    </div>
-  </div>
-
-  <div id="ag-error" style="display:none;padding:12px 16px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;color:var(--red);font-size:13px;margin-bottom:16px;max-width:900px;"></div>
-
-  <div id="ag-results" style="display:none;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-      <div style="font-size:13px;font-weight:700;color:var(--text);" id="ag-result-label"></div>
-      <div style="font-size:12px;color:var(--text3);" id="ag-result-sub"></div>
-    </div>
-    <div id="ag-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:14px;"></div>
-  </div>
-</div>
-
 </div><!-- /content -->
 </div><!-- /app -->
 </div><!-- /s-app -->
@@ -2159,16 +2060,12 @@ function startApp(){
       if(oc.includes("'add'")||oc.includes("'batch'"))
         el.style.display='block';
     });
-    // Agent visible to all
-    document.querySelectorAll('.nav[onclick*="agent"]').forEach(el=>el.style.display='block');
   } else {
     // Builder sees only builder nav, admin nav hidden
     document.querySelectorAll('.nav').forEach(el=>{
       if(!el.classList.contains('nav-bld')) el.style.display='none';
     });
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='block');
-    // Agent visible to all
-    document.querySelectorAll('.nav[onclick*="agent"]').forEach(el=>el.style.display='block');
   }
 
   const lb=document.getElementById('ls-b');
@@ -2708,7 +2605,6 @@ function gotoPage(name,el){
     const ps=document.getElementById('prosp-proj');
     if(ps){ps.innerHTML='<option value="">Select project</option>';allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;ps.appendChild(o);});}
   }
-  if(name==='agent') initAgentPage();
   if(name==='outreach'){
     // populate project selects if needed
   }
@@ -5809,12 +5705,18 @@ function listenCapacities(){
 function renderCapacityList(){
   const list = document.getElementById('capacity-list');
   if(!list) return;
-  list.innerHTML = BUILDERS.map(b => `
+  // Show all builders — from BUILDERS array + any extra saved in capacities
+  const extraBuilders = Object.keys(allCapacities).filter(b=>!BUILDERS.includes(b));
+  const allCap = [...BUILDERS, ...extraBuilders];
+  list.innerHTML = allCap.map(b => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
       <span onclick="openBuilderModal('${b}')" style="font-size:14px;font-weight:600;color:var(--text);cursor:pointer;transition:color 0.15s;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text)'">${b} <span style='font-size:10px;color:var(--text3);'>↗</span></span>
-      <input type="number" min="0" max="200" id="cap-${b.replace(/\s/g,'_')}"
-        value="${allCapacities[b]||0}"
-        style="width:80px;text-align:center;margin:0;padding:6px;font-size:14px;font-weight:700;"/>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="number" min="0" max="200" id="cap-${b.replace(/\s/g,'_')}"
+          value="${allCapacities[b]||0}"
+          style="width:80px;text-align:center;margin:0;padding:6px;font-size:14px;font-weight:700;"/>
+        ${!BUILDERS.includes(b)?`<button onclick="removeCapacityBuilder('${b}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`:''}
+      </div>
     </div>`).join('');
 }
 
@@ -5822,7 +5724,9 @@ async function saveCapacity(){
   const okEl = document.getElementById('cap-ok');
   okEl.style.display='none';
   const batch = db.batch();
-  BUILDERS.forEach(b=>{
+  const extraBuilders = Object.keys(allCapacities).filter(b=>!BUILDERS.includes(b));
+  const allCap = [...BUILDERS, ...extraBuilders];
+  allCap.forEach(b=>{
     const val = parseInt(document.getElementById('cap-'+b.replace(/\s/g,'_'))?.value)||0;
     batch.set(db.collection('capacities').doc(b), {capacity:val, updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
   });
@@ -5830,6 +5734,29 @@ async function saveCapacity(){
   okEl.style.display='block';
   okEl.textContent='✅ Capacities saved!';
   setTimeout(()=>okEl.style.display='none', 2000);
+}
+
+function addCapacityBuilder(){
+  const name = prompt('Enter builder name:');
+  if(!name||!name.trim()) return;
+  const clean = name.trim();
+  if(BUILDERS.includes(clean)||allCapacities[clean]!==undefined){
+    alert(clean+' already exists'); return;
+  }
+  allCapacities[clean] = 0;
+  renderCapacityList();
+  // Focus the new input
+  setTimeout(()=>{
+    const inp = document.getElementById('cap-'+clean.replace(/\s/g,'_'));
+    if(inp) inp.focus();
+  }, 100);
+}
+
+async function removeCapacityBuilder(name){
+  if(!confirm('Remove "'+name+'" from capacity list?')) return;
+  await db.collection('capacities').doc(name).delete();
+  delete allCapacities[name];
+  renderCapacityList();
 }
 
 // ─── LOAD DISTRIBUTION ────────────────────────────────────
@@ -6776,239 +6703,6 @@ document.addEventListener('click', function(e){
   document.querySelectorAll('[id^="edit-"]').forEach(r=>r.style.display='none');
   if(!isOpen) editRow.style.display='table-row';
 });
-
-
-// ═══ AGENT PAGE ═══
-let agentRawResults = [];
-
-function initAgentPage(){
-  const sel = document.getElementById('ag-project');
-  if(!sel) return;
-  sel.innerHTML = '<option value="">No project</option>';
-  (allProjects||[]).forEach(p=>{
-    const o=document.createElement('option');
-    o.value=p.name;o.textContent=p.name;
-    sel.appendChild(o);
-  });
-}
-
-async function runAgent(btn){
-  const keyword = (document.getElementById('ag-keyword').value||'').trim();
-  const project = document.getElementById('ag-project').value;
-  const count   = parseInt(document.getElementById('ag-count').value)||20;
-
-  if(!keyword){
-    document.getElementById('ag-error').textContent='Please enter a keyword.';
-    document.getElementById('ag-error').style.display='block';
-    return;
-  }
-
-  document.getElementById('ag-error').style.display='none';
-  document.getElementById('ag-results').style.display='none';
-  document.getElementById('ag-filters').style.display='none';
-  document.getElementById('ag-loading').style.display='block';
-  document.getElementById('ag-save-status').textContent='';
-  agentRawResults = [];
-  if(btn){btn.disabled=true;btn.textContent='Searching...';}
-
-  const msgs=['Generating smart search queries...','Searching the web for relevant articles...','Filtering out competitors & irrelevant sites...','Scoring relevancy of each article...','Fetching DR & Traffic data...','Almost done...'];
-  let mi=0;
-  const lt=setInterval(()=>{
-    const el=document.getElementById('ag-loading-text');
-    if(el){mi=(mi+1)%msgs.length;el.textContent=msgs[mi];}
-  },5000);
-
-  try{
-    const resp=await fetch('/api/agent',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({keyword,project,count,findEmails:document.getElementById('ag-find-emails')?.checked||false})
-    });
-    const data=await resp.json();
-    clearInterval(lt);
-    document.getElementById('ag-loading').style.display='none';
-
-    if(!resp.ok||!data.prospects?.length){
-      document.getElementById('ag-error').textContent=data.error||'No prospects found. Try a different keyword.';
-      document.getElementById('ag-error').style.display='block';
-    } else {
-      agentRawResults = data.prospects;
-      document.getElementById('ag-filters').style.display='block';
-      filterAgentResults();
-    }
-  }catch(e){
-    clearInterval(lt);
-    document.getElementById('ag-loading').style.display='none';
-    document.getElementById('ag-error').textContent='⚠️ Error: '+e.message;
-    document.getElementById('ag-error').style.display='block';
-  }
-
-  if(btn){btn.disabled=false;btn.textContent='🔍 Find prospects';}
-}
-
-function filterAgentResults(){
-  const drRange = (document.getElementById('ag-dr-range').value||'0,100').split(',');
-  const minDR   = parseInt(drRange[0])||0;
-  const maxDR   = parseInt(drRange[1])||100;
-  const minTR   = parseInt(document.getElementById('ag-tr-range').value)||0;
-  const sort    = document.getElementById('ag-sort').value;
-
-  let filtered = agentRawResults.filter(p=>{
-    const dr = p.dr!=null ? p.dr : 50;
-    const tr = p.traffic!=null ? p.traffic : 0;
-    return dr>=minDR && dr<=maxDR && tr>=minTR;
-  });
-
-  if(sort==='dr') filtered.sort((a,b)=>(b.dr||0)-(a.dr||0));
-  else if(sort==='traffic') filtered.sort((a,b)=>(b.traffic||0)-(a.traffic||0));
-  else filtered.sort((a,b)=>(b.relevancyScore||0)-(a.relevancyScore||0));
-
-  const label = document.getElementById('ag-result-label');
-  if(label) label.textContent = filtered.length + ' of ' + agentRawResults.length + ' prospects';
-
-  renderAgentCards(filtered);
-}
-
-function renderAgentCards(prospects){
-  const cardsEl=document.getElementById('ag-cards');
-  const labelEl=document.getElementById('ag-result-label');
-  const subEl=document.getElementById('ag-result-sub');
-  const resultsEl=document.getElementById('ag-results');
-
-  const keyword=(document.getElementById('ag-keyword').value||'').trim();
-  labelEl.textContent=`${prospects.length} prospects found for "${keyword}"`;
-
-  const withDR=prospects.filter(p=>p.dr!=null).length;
-  const avgDR=withDR?Math.round(prospects.filter(p=>p.dr!=null).reduce((s,p)=>s+p.dr,0)/withDR):null;
-  subEl.textContent=avgDR?`Avg DR: ${avgDR} · ${withDR} enriched`:'';
-
-  cardsEl.innerHTML='';
-  prospects.forEach((p,i)=>{
-    const score=p.relevancyScore||0;
-    const scoreColor=score>=80?'var(--teal)':score>=60?'var(--yellow)':'var(--text3)';
-    const drBadge=p.dr!=null
-      ?`<span style="background:rgba(0,196,174,.1);border:1px solid rgba(0,196,174,.2);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;color:var(--teal)">DR ${p.dr}</span>`
-      :`<span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text3)">DR —</span>`;
-    const trBadge=p.traffic!=null
-      ?`<span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text2)">${p.traffic.toLocaleString()}</span>`
-      :``;
-    const scoreBadge=score
-      ?`<span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:${scoreColor}">⭐ ${score}</span>`
-      :``;
-
-    const card=document.createElement('div');
-    card.className='card';
-    card.style.cssText='padding:16px 20px;animation:fadeIn .3s both;';
-    card.style.animationDelay=(i*.04)+'s';
-    card.dataset.domain=p.domain;
-    card.innerHTML=`
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
-        <div style="min-width:0;">
-          <a href="https://${p.domain}" target="_blank" rel="noopener"
-             style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;"
-             onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
-            ${p.domain}
-          </a>
-          <div style="font-size:12px;color:var(--text2);margin-top:2px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${(p.title||'').replace(/"/g,'&quot;')}">${p.title||''}</div>
-        </div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;justify-content:flex-end;">${drBadge}${trBadge}${scoreBadge}</div>
-      </div>
-      <div style="font-size:12px;color:var(--text3);line-height:1.55;margin-bottom:12px;border-left:2px solid var(--border);padding-left:10px;">${p.reason||''}</div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;">
-        <a href="${p.url||'https://'+p.domain}" target="_blank" rel="noopener"
-           style="font-size:11px;padding:5px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);text-decoration:none;"
-           onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'"
-           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
-          View article →
-        </a>
-        <button onclick="copyAgentDomain('${p.domain}',this)"
-           style="font-size:11px;padding:5px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;"
-           onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'"
-           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
-          Copy domain
-        </button>
-        ${(function(){
-          if(!p.emails||!p.emails.length) return '';
-          const items = p.emails.map(e=>{
-            const smtp = typeof e==='object'?e.smtp:'unknown';
-            const email = typeof e==='object'?e.email:e;
-            const col = smtp==='valid'?'var(--green)':smtp==='invalid'?'var(--red)':'var(--teal)';
-            const bg  = smtp==='valid'?'rgba(0,196,106,.07)':smtp==='invalid'?'rgba(255,79,79,.07)':'rgba(0,196,174,.07)';
-            const bd  = smtp==='valid'?'rgba(0,196,106,.2)':smtp==='invalid'?'rgba(255,79,79,.2)':'rgba(0,196,174,.15)';
-            const icon= smtp==='valid'?'✓ ':smtp==='invalid'?'✗ ':'';
-            return '<span onclick="copyEmail(this,\'' + email + '\')" style="font-size:11px;padding:3px 10px;background:'+bg+';border:1px solid '+bd+';border-radius:4px;color:'+col+';cursor:pointer;font-family:monospace;" title="SMTP: '+smtp+'">'+icon+email+'</span>';
-          });
-          return '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);width:100%;display:flex;flex-wrap:wrap;gap:5px;">'+items.join('')+'</div>';
-        })()}
-        <button onclick="saveOneProsect(${JSON.stringify(p).replace(/'/g,'&#39;')},this)"
-           style="font-size:11px;padding:5px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;"
-           onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'"
-           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
-          💾 Save
-        </button>
-      </div>`;
-    cardsEl.appendChild(card);
-  });
-
-  resultsEl.style.display='block';
-}
-
-function copyEmail(el, email){
-  navigator.clipboard.writeText(email).then(()=>{
-    const orig=el.innerHTML;el.textContent='Copied!';
-    setTimeout(()=>{el.innerHTML=orig},1500);
-  });
-}
-
-function copyAgentDomain(domain,btn){
-  navigator.clipboard.writeText(domain).then(()=>{
-    const orig=btn.textContent;btn.textContent='Copied!';btn.style.color='var(--teal)';btn.style.borderColor='var(--teal)';
-    setTimeout(()=>{btn.textContent=orig;btn.style.color='var(--text2)';btn.style.borderColor='var(--border)'},1500);
-  });
-}
-
-async function saveOneProsect(p,btn){
-  if(!db)return;
-  const keyword=(document.getElementById('ag-keyword').value||'').trim();
-  const project=document.getElementById('ag-project').value;
-  try{
-    await db.collection('agent_prospects').add({
-      ...p, keyword, project,
-      status:'new',
-      savedAt:firebase.firestore.FieldValue.serverTimestamp()
-    });
-    btn.textContent='Saved ✓';btn.style.color='var(--teal)';btn.style.borderColor='var(--teal)';
-    btn.disabled=true;
-  }catch(e){btn.textContent='Error';btn.style.color='var(--red)';}
-}
-
-async function saveAgentResults(){
-  if(!db||!agentRawResults.length)return;
-  const keyword=(document.getElementById('ag-keyword').value||'').trim();
-  const project=document.getElementById('ag-project').value;
-  const statusEl=document.getElementById('ag-save-status');
-  statusEl.textContent='Saving...';
-
-  const minDR=parseInt(document.getElementById('ag-min-dr').value)||0;
-  const maxDR=parseInt(document.getElementById('ag-max-dr').value)||100;
-  const minTR=parseInt(document.getElementById('ag-min-tr').value)||0;
-  const toSave=agentRawResults.filter(p=>{
-    const dr=p.dr!=null?p.dr:50;
-    return dr>=minDR&&dr<=maxDR&&(p.traffic||0)>=minTR;
-  });
-
-  try{
-    const batch=db.batch();
-    toSave.forEach(p=>{
-      const ref=db.collection('agent_prospects').doc();
-      batch.set(ref,{...p,keyword,project,status:'new',savedAt:firebase.firestore.FieldValue.serverTimestamp()});
-    });
-    await batch.commit();
-    statusEl.textContent=`✓ Saved ${toSave.length} prospects`;
-    setTimeout(()=>statusEl.textContent='',3000);
-  }catch(e){statusEl.textContent='Error: '+e.message;}
-}
-
 </script>
 </body>
 </html>
