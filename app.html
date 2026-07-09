@@ -1692,7 +1692,7 @@ tr:hover td{background:var(--bg3);}
 
   <!-- Results table -->
   <div id="batch-results" style="display:none;">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;" id="batch-count"></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;" id="batch-analyze-count"></div>
     <div class="card">
       <div class="tbl-wrap"><table>
         <thead><tr>
@@ -3037,12 +3037,7 @@ function listenLinks(){
     if(cu&&cu.role!=='admin'){renderBuilderDashboard();renderBuilderLinks();}
   });
 }
-function listenReqs(){
-  db.collection('requirements').onSnapshot(snap=>{
-    allReqs=snap.docs.map(d=>({id:d.id,...d.data()}));
-    renderReqs();
-  });
-}
+
 function listenQualityReqs(){
   db.collection('qualityRequirements').onSnapshot(snap=>{
     allQualityReqs=snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -6684,7 +6679,7 @@ async function runBatchAnalyze(btn){
   btn.textContent = orig;
   btn.disabled = false;
   progress.textContent = `Done! ${batchResults.length} domains analyzed`;
-  document.getElementById('batch-count').textContent = `${batchResults.length} domains`;
+  document.getElementById('batch-analyze-count').textContent = `${batchResults.length} domains`;
   document.getElementById('batch-export-btn').style.display = 'block';
 }
 
