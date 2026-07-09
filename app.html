@@ -1795,6 +1795,7 @@ let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Ar
 const CATEGORIES=['SaaS','Service','Blog/Magazine','News','Agency','Other'];
 
 let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[], allLoads=[], allDomains=[];
+window.currentPage = 'dashboard';
 let catDetectTimer=null, currentDetectedCategory='', catDetectAbort=false;
 
 // ─── AUTH ─────────────────────────────────────────────────
@@ -2610,6 +2611,7 @@ function gotoPage(name,el){
   const page=document.getElementById('p-'+name);
   if(page){page.classList.add('active');page.style.display='';}
   if(el)el.classList.add('active');
+  window.currentPage = name;
   if(name==='projects')renderProjectsPage();
   if(name==='b-dashboard')renderBuilderDashboard();
   if(name==='b-links'){
@@ -3029,12 +3031,34 @@ async function addLink(){
 
 // ─── LINKS LISTENER ───────────────────────────────────────
 function listenLinks(){
+
+// Render only the currently-visible page when links data changes (perf)
+function renderActivePageForLinks(){
+  const p = window.currentPage || 'dashboard';
+  // Builder role always sees their own dashboard/links
+  if(cu && cu.role!=='admin'){
+    if(p==='b-dashboard') renderBuilderDashboard();
+    else if(p==='b-links') renderBuilderLinks();
+    else { renderBuilderDashboard(); }
+    return;
+  }
+  // Admin/manager — render just the active page
+  switch(p){
+    case 'dashboard': renderDashboard(); break;
+    case 'all-links': case 'links': renderLinks(); break;
+    case 'team': renderTeam(); break;
+    case 'projects': renderProjectsPage(); break;
+    default:
+      // Dashboard stats are the most commonly glanced-at; keep them fresh cheaply
+      renderDashboard();
+  }
+  if(currentDetailProject) renderDetailLinks();
+}
+
   db.collection('links').orderBy('createdAt','desc').onSnapshot(snap=>{
     allLinks=snap.docs.map(d=>({id:d.id,...d.data()}));
-    renderDashboard();renderLinks();renderTeam();renderProjectsPage();
-    if(currentDetailProject) renderDetailLinks();
     populateBLMonths();
-    if(cu&&cu.role!=='admin'){renderBuilderDashboard();renderBuilderLinks();}
+    renderActivePageForLinks();
   });
 }
 
