@@ -2466,10 +2466,11 @@ function renderDetailLinks(){
     return bv-av;
   });
 
-  // Stats
-  const live=fl.filter(l=>l.status==='live').length;
-  const pend=fl.filter(l=>l.status==='pending').length;
-  const dups=fl.filter(l=>domainCount[nd(l.domain)]>1).length;
+  // Stats — computed from ALL project links (not fl, which excludes pending from the main table)
+  const projLinks=allLinks.filter(l=>l.project===proj);
+  const live=projLinks.filter(l=>(l.status||'').toLowerCase()==='live').length;
+  const pend=projLinks.filter(l=>(l.status||'').toLowerCase()==='pending').length;
+  const dups=projLinks.filter(l=>domainCount[nd(l.domain)]>1).length;
   document.getElementById('pd-stats').innerHTML=`
     <div class="stat" style="border:1px solid rgba(0,196,174,0.2);">
       <div class="stat-l">✅ Live</div>
@@ -2481,7 +2482,7 @@ function renderDetailLinks(){
     </div>
     <div class="stat">
       <div class="stat-l">Total</div>
-      <div class="stat-v" style="color:var(--text2);">${fl.length}</div>
+      <div class="stat-v" style="color:var(--text2);">${projLinks.length}</div>
     </div>
     <div class="stat">
       <div class="stat-l">Duplicates</div>
@@ -2531,7 +2532,14 @@ function renderDetailLinks(){
   };
   // Only show live in main table
   const flLiveOnly = fl.filter(l=>(l.status||'').toLowerCase()==='live');
-  const flPendOnly = fl.filter(l=>(l.status||'').toLowerCase()!=='live');
+  // Pending panel: pull pending from ALL project links (fl excludes pending from main table),
+  // still honoring the search + builder filters so the panel stays consistent with the view.
+  const flPendOnly = projLinks.filter(l=>{
+    if((l.status||'').toLowerCase()!=='pending') return false;
+    if(b && l.builder!==b) return false;
+    if(s && !(l.domain||'').toLowerCase().includes(s) && !(l.anchor||'').toLowerCase().includes(s)) return false;
+    return true;
+  });
   tb.innerHTML = flLiveOnly.length ? renderRowsGrouped(flLiveOnly, pdRowFn, 13) : `<tr><td colspan="13" class="loading">No live links</td></tr>`;
 
   // Render pending panel (hidden by default)
