@@ -1132,10 +1132,47 @@ tr:hover td{background:var(--bg3);}
 
 <!-- ══ ANCHORS ══ -->
 <div id="p-anchors" class="page">
+  <!-- Add Anchor Modal -->
+  <div id="add-anchor-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:24px;width:440px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-size:16px;font-weight:700;color:var(--text);">Add anchor — <span id="aam-proj" style="color:var(--teal);"></span></div>
+        <button onclick="closeAddAnchorModal()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;line-height:1;">×</button>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <div style="flex:1;">
+          <div class="section-label">Month</div>
+          <select id="aam-month" style="margin:0;"></select>
+        </div>
+        <div style="width:110px;">
+          <div class="section-label">Year</div>
+          <select id="aam-year" style="margin:0;"></select>
+        </div>
+        <div style="width:90px;">
+          <div class="section-label">Target</div>
+          <input type="number" id="aam-max" min="1" placeholder="5" style="margin:0;"/>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <div class="section-label">Anchor text</div>
+        <input id="aam-anchor" placeholder="e.g. website builder api" style="margin:0;"/>
+      </div>
+      <div style="margin-bottom:18px;">
+        <div class="section-label">Link to (optional)</div>
+        <input id="aam-linkto" placeholder="https://..." style="margin:0;"/>
+      </div>
+      <div id="aam-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn-ghost" onclick="closeAddAnchorModal()">Cancel</button>
+        <button class="btn-sm" onclick="saveAnchorFromModal(this)" style="width:auto;">Add anchor →</button>
+      </div>
+    </div>
+  </div>
+
   <div class="page-top">
     <div class="page-title">⚓ Anchors</div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <button class="btn-sm" onclick="gotoPage('reqs',document.querySelectorAll('.nav.adm')[4])" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">+ Add anchors</button>
+      <button class="btn-sm" onclick="openAddAnchorModal()" style="width:auto;">+ Add anchors</button>
     </div>
   </div>
 
@@ -5009,6 +5046,61 @@ function renderAnchors(){
 function selectAnchorProject(projName){
   ancSelectedProj = projName;
   renderAnchors();
+}
+
+function openAddAnchorModal(){
+  if(!ancSelectedProj){ alert('Select a project first'); return; }
+  document.getElementById('aam-proj').textContent = ancSelectedProj;
+  // Populate month dropdown
+  const monthSel = document.getElementById('aam-month');
+  monthSel.innerHTML = MONTHS_EN.map(m=>`<option value="${m}">${m}</option>`).join('');
+  monthSel.value = MONTHS_EN[new Date().getMonth()];
+  // Populate year dropdown (current year ±1)
+  const yearSel = document.getElementById('aam-year');
+  const cy = new Date().getFullYear();
+  yearSel.innerHTML = [cy-1,cy,cy+1].map(y=>`<option value="${y}">${y}</option>`).join('');
+  yearSel.value = String(cy);
+  // Reset fields
+  document.getElementById('aam-anchor').value='';
+  document.getElementById('aam-linkto').value='';
+  document.getElementById('aam-max').value='';
+  document.getElementById('aam-error').style.display='none';
+  document.getElementById('add-anchor-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('aam-anchor').focus(),50);
+}
+
+function closeAddAnchorModal(){
+  document.getElementById('add-anchor-modal').style.display='none';
+}
+
+async function saveAnchorFromModal(btn){
+  const proj = ancSelectedProj;
+  const month = document.getElementById('aam-month').value;
+  const year = document.getElementById('aam-year').value;
+  const monthYear = month+' '+year;
+  const anchor = document.getElementById('aam-anchor').value.trim().toLowerCase();
+  const linkto = document.getElementById('aam-linkto').value.trim();
+  const max = parseInt(document.getElementById('aam-max').value);
+  const errEl = document.getElementById('aam-error');
+
+  if(!anchor || !max || max<1){
+    errEl.textContent = 'Please enter an anchor and a target number.';
+    errEl.style.display='block';
+    return;
+  }
+  errEl.style.display='none';
+  if(btn){ btn.disabled=true; btn.textContent='Adding...'; }
+
+  try {
+    const existing = allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor);
+    if(existing) await db.collection('requirements').doc(existing.id).update({max,linkto});
+    else await db.collection('requirements').add({project:proj,month:monthYear,anchor,linkto,max});
+    closeAddAnchorModal();
+  } catch(e){
+    errEl.textContent = 'Error: '+e.message;
+    errEl.style.display='block';
+  }
+  if(btn){ btn.disabled=false; btn.textContent='Add anchor →'; }
 }
 
 async function deleteAnchor(id, anchor){
