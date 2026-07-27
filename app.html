@@ -1161,6 +1161,20 @@ tr:hover td{background:var(--bg3);}
         <div class="section-label">Link to (optional)</div>
         <input id="aam-linkto" placeholder="https://..." style="margin:0;"/>
       </div>
+      <!-- Screenshot import -->
+      <div style="border-top:1px solid var(--border);margin:4px 0 14px;padding-top:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);">📷 Add from screenshot</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;">Upload a screenshot with Target page · Keyword · Number of links</div>
+          </div>
+          <label class="btn-sm" style="width:auto;cursor:pointer;white-space:nowrap;margin:0;">
+            Upload image
+            <input type="file" accept="image/*" onchange="importAnchorsFromImage(this)" style="display:none;"/>
+          </label>
+        </div>
+        <div id="aam-img-status" style="display:none;font-size:12px;color:var(--teal);margin-top:8px;"></div>
+      </div>
       <div id="aam-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:10px;"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn-ghost" onclick="closeAddAnchorModal()">Cancel</button>
@@ -1173,6 +1187,7 @@ tr:hover td{background:var(--bg3);}
     <div class="page-title">⚓ Anchors</div>
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="btn-sm" onclick="openAddAnchorModal()" style="width:auto;">+ Add anchors</button>
+      <button class="btn-sm" onclick="resetAllAnchors()" style="width:auto;background:transparent;border:1px solid rgba(255,107,107,0.4);color:#ff6b6b;margin-left:8px;">🗑 Reset all</button>
     </div>
   </div>
 
@@ -5048,6 +5063,29 @@ function selectAnchorProject(projName){
   renderAnchors();
 }
 
+async function resetAllAnchors(){
+  const total = allReqs.length;
+  if(total===0){ alert('No anchors to reset.'); return; }
+  // Double confirmation for this destructive action
+  if(!confirm(`⚠️ This will DELETE ALL ${total} anchor requirements across ALL projects.\n\nThis cannot be undone. Continue?`)) return;
+  const typed = prompt(`To confirm, type: RESET`);
+  if(typed!=='RESET'){ alert('Reset cancelled.'); return; }
+
+  try {
+    // Delete in batches of 450 (Firestore batch limit is 500)
+    let deleted = 0;
+    for(let i=0;i<allReqs.length;i+=450){
+      const batch = db.batch();
+      allReqs.slice(i,i+450).forEach(r=>batch.delete(db.collection('requirements').doc(r.id)));
+      await batch.commit();
+      deleted += Math.min(450, allReqs.length-i);
+    }
+    alert(`✅ Deleted ${deleted} anchors. You can now add them fresh by month.`);
+  } catch(e){
+    alert('Error: '+e.message);
+  }
+}
+
 function openAddAnchorModal(){
   if(!ancSelectedProj){ alert('Select a project first'); return; }
   document.getElementById('aam-proj').textContent = ancSelectedProj;
@@ -5071,6 +5109,61 @@ function openAddAnchorModal(){
 
 function closeAddAnchorModal(){
   document.getElementById('add-anchor-modal').style.display='none';
+}
+
+async function importAnchorsFromImage(input){
+  const file = input.files[0];
+  if(!file) return;
+  const proj = ancSelectedProj;
+  const month = document.getElementById('aam-month').value;
+  const year = document.getElementById('aam-year').value;
+  const monthYear = month+' '+year;
+  const status = document.getElementById('aam-img-status');
+  status.style.display='block';
+  status.style.color='var(--teal)';
+  status.textContent='🔍 Reading screenshot with GPT-4o...';
+
+  try {
+    const base64 = await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(',')[1]);
+      r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+
+    const resp = await fetch('/api/image-req',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({imageBase64:base64, mediaType:file.type})
+    });
+    const data = await resp.json();
+    if(data.error){ status.style.color='var(--red)'; status.textContent='❌ '+data.error; input.value=''; return; }
+
+    const rows = data.rows;
+    if(!Array.isArray(rows)||!rows.length){ status.style.color='var(--red)'; status.textContent='❌ Could not read any anchors from the image'; input.value=''; return; }
+
+    status.textContent=`⏳ Saving ${rows.length} anchors to ${proj} (${monthYear})...`;
+    let saved=0;
+    for(const row of rows){
+      if(!row.anchor) continue;
+      const anchor=(row.anchor||'').toLowerCase().trim();
+      const linkto=(row.linkto||'').trim();
+      const max=parseInt(row.max)||1;
+      const existing=allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor);
+      if(existing) await db.collection('requirements').doc(existing.id).update({max,linkto});
+      else await db.collection('requirements').add({project:proj,month:monthYear,anchor,linkto,max});
+      saved++;
+      status.textContent=`⏳ Saved ${saved}/${rows.length}...`;
+    }
+    status.textContent=`✅ Added ${saved} anchors to ${proj} — ${monthYear}`;
+    input.value='';
+    // Auto-close after a moment so the user sees the fresh list
+    setTimeout(()=>{ closeAddAnchorModal(); }, 1500);
+  } catch(e){
+    status.style.color='var(--red)';
+    status.textContent='❌ Error: '+e.message;
+    input.value='';
+  }
 }
 
 async function saveAnchorFromModal(btn){
