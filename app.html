@@ -3850,10 +3850,14 @@ function handleCsvFile(file){
       const rowStr=row.map(v=>(v||'').trim().toLowerCase()).join('|');
       // Only check A column (c0) and B column (c1) for Pending header
       const isPending=(c0l==='pending'||c0l.startsWith('pending '))&&!c0.match(/^\d{2}\.\d{2}\.\d{4}/);
+      const isRejected=(c0l==='rejected'||c0l.startsWith('rejected '))&&!c0.match(/^\d{2}\.\d{2}\.\d{4}/);
+      const isNeedChange=c0l.startsWith('need to change');
       const isLiveHeader=MONTHS.some(m=>c0l.includes(m))&&(c0l.includes('live')||c0l.includes('link'));
       const isMonthHeader=MONTHS.some(m=>c0l.startsWith(m));
 
       if(isPending){status='pending';continue;}
+      if(isRejected){status='rejected';continue;}
+      if(isNeedChange){continue;}
       if(isLiveHeader||isMonthHeader){
         status='live';
         // Extract month name AND year from header e.g. "April 2026 live links"
