@@ -3161,6 +3161,17 @@ function getMonthKey(dateStr){
   return dateStr.slice(0,7)||'Unknown';
 }
 
+// Resolve a link's month using its stored month field (from CSV section header)
+// first, falling back to the date only when month has no year. This ensures links
+// imported under e.g. "June 2026" count toward June even if their date is in July.
+function linkMonthKey(l){
+  const m = (l.month||'').trim();
+  const parts = m.split(' ');
+  if(parts.length>=2 && parts[1] && parseInt(parts[1])>2000) return m; // "June 2026"
+  return getMonthKey(l.date);
+}
+
+
 function monthSeparatorRow(monthKey, count, colspan){
   return`<tr style="background:var(--bg3);border-top:2px solid var(--border);">
     <td colspan="${colspan}" style="padding:8px 12px;">
@@ -4960,10 +4971,10 @@ function renderAnchors(){
     const curReqs = reqs.filter(r=>r.month===activeMonthYearKey||r.month===activeMonth);
     const totalUsed = curReqs.reduce((s,r)=>{
       const cnt = allLinks.filter(l=>{
-        if(l.project!==p.name||(l.anchor||'').toLowerCase()!==r.anchor||!l.date) return false;
+        if(l.project!==p.name||(l.anchor||'').toLowerCase()!==r.anchor) return false;
         if((l.status||'').toLowerCase()!=='live') return false;
-        const mk=getMonthKey(l.date);
-        return mk===activeMonthYearKey;
+        const mk=linkMonthKey(l);
+        return mk===activeMonthYearKey||mk===activeMonth;
       }).length;
       return s+cnt;
     },0);
@@ -5055,19 +5066,34 @@ function renderAnchorDetail(){
     const mReqs = reqs.filter(r=>r.month===month);
     const mMax = mReqs.reduce((s,r)=>s+r.max,0);
 
-    // Count links strictly within this month (any year)
+    // Count LIVE links for this anchor within this month — uses the link's stored
+    // month field (from CSV section header), falling back to date. This matches the
+    // requirement month regardless of the actual link date.
     const countForMonth = (anchor)=>{
       return allLinks.filter(l=>{
         if(l.project!==proj) return false;
         if((l.anchor||'').toLowerCase()!==anchor) return false;
-        if(!l.date) return false;
         if((l.status||'').toLowerCase()!=='live') return false;
-        const mk = getMonthKey(l.date); // e.g. "April 2026"
-        const mkMonth = mk.split(' ')[0]; // e.g. "April"
-        const reqMonth = month.split(' ')[0]; // handle both "April" and "April 2026"
+        const mk = linkMonthKey(l);
+        const mkMonth = mk.split(' ')[0];
+        const reqMonth = month.split(' ')[0];
         const reqYear = month.includes(' ') ? month.split(' ')[1] : null;
-        if(reqYear) return mk === month; // exact match if year specified
-        return mkMonth === reqMonth && mk.split(' ')[1] === String(curYear); // same month, current year only
+        if(reqYear) return mk === month;
+        return mkMonth === reqMonth && mk.split(' ')[1] === String(curYear);
+      }).length;
+    };
+    // Count PENDING links for this anchor within this month
+    const countPendingForMonth = (anchor)=>{
+      return allLinks.filter(l=>{
+        if(l.project!==proj) return false;
+        if((l.anchor||'').toLowerCase()!==anchor) return false;
+        if((l.status||'').toLowerCase()!=='pending') return false;
+        const mk = linkMonthKey(l);
+        const mkMonth = mk.split(' ')[0];
+        const reqMonth = month.split(' ')[0];
+        const reqYear = month.includes(' ') ? month.split(' ')[1] : null;
+        if(reqYear) return mk === month;
+        return mkMonth === reqMonth && mk.split(' ')[1] === String(curYear);
       }).length;
     };
 
@@ -5077,7 +5103,7 @@ function renderAnchorDetail(){
 
     const rowsHtml = mReqs.map(r=>{
       const used = countForMonth(r.anchor);
-      const pending = allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&l.date&&(()=>{const mk=getMonthKey(l.date);const mkM=mk.split(' ')[0];const rM=month.split(' ')[0];const rY=month.includes(' ')?month.split(' ')[1]:null;return rY?mk===month:mkM===rM&&mk.split(' ')[1]===String(curYear);})()&&(l.status||'').toLowerCase()==='pending').length;
+      const pending = countPendingForMonth(r.anchor);
       const p = Math.min(100,Math.round(used/r.max*100));
       const over = used > r.max;
       const full = used === r.max;
@@ -5092,7 +5118,14 @@ function renderAnchorDetail(){
           <div style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
             <div style="text-align:right;">
               <div style="font-size:16px;font-weight:800;color:${color};">${used}/${r.max}</div>
-              <div style="font-size:9px;color:var(--text3);">${over?'⚠️':full?'✅':p+'%'}${pending>0?` · <span style="color:var(--yellow);">${pending} pending</span>`:''}</div>
+              <div style="font-size:9px;color:var(--text3);white-space:nowrap;">
+                ${pending>0?`<span style="color:var(--yellow);">${pending} pending</span> · `:''}${(function(){
+                  const remaining = r.max - used - pending;
+                  if(over) return '<span style="color:var(--red);">⚠️ over</span>';
+                  if(remaining<=0) return '<span style="color:var(--teal);">✅ full</span>';
+                  return '<span style="color:var(--teal);">'+remaining+' left</span>';
+                })()}
+              </div>
             </div>
             <button onclick="deleteAnchor('${r.id}','${r.anchor.replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>
           </div>
