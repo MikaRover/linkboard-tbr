@@ -3108,6 +3108,11 @@ function renderActivePageForLinks(){
     case 'all-links': case 'links': renderLinks(); break;
     case 'team': renderTeam(); break;
     case 'projects': renderProjectsPage(); break;
+    case 'anchors':
+      renderAnchors();
+      if(typeof ancSelectedProj!=='undefined' && ancSelectedProj) renderAnchorDetail(ancSelectedProj);
+      break;
+    case 'load': if(typeof renderLoadTable==='function') renderLoadTable(); break;
     default:
       // Dashboard stats are the most commonly glanced-at; keep them fresh cheaply
       renderDashboard();
