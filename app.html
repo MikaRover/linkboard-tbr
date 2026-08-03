@@ -520,7 +520,7 @@ tr:hover td{background:var(--bg3);}
 <div class="app">
 <div class="sidebar">
   <div class="sb-top">
-    <div class="sb-logo">Link<span>Board</span></div>
+    <div class="sb-logo" style="cursor:pointer;" onclick="goHome()" title="Go to dashboard">Link<span>Board</span></div>
     <div class="sb-name" id="sb-name">—</div>
     <div class="sb-role" id="sb-role">—</div>
   </div>
@@ -2696,6 +2696,16 @@ async function checkDetailProjectLinks(btn){
     done++;
   }
   btn.textContent='✅ Done';setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},2500);
+}
+
+function goHome(){
+  const target = (cu && cu.role!=='admin') ? 'b-dashboard' : 'dashboard';
+  // Find the exact nav item that opens the dashboard so it highlights correctly
+  const navItem = Array.from(document.querySelectorAll('.nav')).find(n=>{
+    const oc=n.getAttribute('onclick')||'';
+    return oc.includes(`'${target}'`);
+  });
+  gotoPage(target, navItem||null);
 }
 
 function gotoPage(name,el){
