@@ -954,7 +954,7 @@ tr:hover td{background:var(--bg3);}
   <div class="card">
     <div class="card-head">Team members</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Name</th><th>Role</th><th>Total links</th><th>Live</th><th>Pending</th><th>Dups</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Role</th><th>Total links</th><th>Live</th><th>Pending</th><th>Dups</th><th>Target/mo</th><th></th></tr></thead>
       <tbody id="team-tbody"></tbody>
     </table></div>
   </div>
@@ -1508,7 +1508,15 @@ tr:hover td{background:var(--bg3);}
       <div class="page-title">🎯 Outreach Finder</div>
       <div style="font-size:12px;color:var(--text2);margin-top:4px;">Find SEO & link building contacts via Snov.io + LinkedIn</div>
     </div>
-    <button class="btn-ghost" onclick="exportOutreachCSV()" id="ot-export-btn" style="display:none;">⬇ Export CSV</button>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;text-align:right;">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);">Snov.io credits</div>
+        <div style="font-size:18px;font-weight:800;color:var(--teal);" id="ot-balance">
+          <span style="font-size:12px;color:var(--text3);font-weight:400;">—</span>
+        </div>
+      </div>
+      <button class="btn-ghost" onclick="exportOutreachCSV()" id="ot-export-btn" style="display:none;">⬇ Export CSV</button>
+    </div>
   </div>
 
   <!-- Mode tabs -->
@@ -2714,7 +2722,7 @@ function gotoPage(name,el){
     if(ps){ps.innerHTML='<option value="">Select project</option>';allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;ps.appendChild(o);});}
   }
   if(name==='outreach'){
-    // populate project selects if needed
+    loadSnovBalance();
   }
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
@@ -3697,33 +3705,104 @@ function renderTeam(){
     <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)">${allLinks.filter(l=>l.status==='live').length}</div></div>
     <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500">${allLinks.filter(l=>l.status==='pending').length}</div></div>`;
 
-  // Load users from Firestore + merge with link stats
+  // Load registered users, then merge with ALL builders found in links
   db.collection('users').get().then(snap=>{
     const users=snap.docs.map(d=>({uid:d.id,...d.data()}));
     const tb=document.getElementById('team-tbody');
-    if(!users.length){tb.innerHTML='<tr><td colspan="6" class="loading">No team members yet</td></tr>';return;}
-    tb.innerHTML=users.map(u=>{
+
+    // Helper: links for a given builder name (case-insensitive, + email prefix)
+    const linksFor=(name, emailPrefix)=>allLinks.filter(l=>{
+      const b=(l.builder||'').trim().toLowerCase();
+      return b===(name||'').trim().toLowerCase() || (emailPrefix && b===emailPrefix);
+    });
+
+    // Build the roster: registered users first, then any builder name that
+    // appears in links but has no account.
+    const roster=[];
+    const seenNames=new Set();
+
+    users.forEach(u=>{
       const name=u.name||u.email||'—';
       const emailPrefix=(u.email||'').split('@')[0].toLowerCase();
-      const bl=allLinks.filter(l=>{
-        const b=(l.builder||'').toLowerCase();
-        return b===name.toLowerCase()||b===emailPrefix||(u.name&&b===u.name.toLowerCase());
-      });
+      roster.push({name, role:u.role||'builder', uid:u.uid, registered:true, bl:linksFor(name, emailPrefix)});
+      seenNames.add(name.trim().toLowerCase());
+    });
+
+    // Distinct builder names straight from the links
+    const linkBuilders={};
+    allLinks.forEach(l=>{
+      const raw=(l.builder||'').trim();
+      if(!raw) return;
+      const key=raw.toLowerCase();
+      if(!linkBuilders[key]) linkBuilders[key]=raw; // keep original casing
+    });
+    Object.keys(linkBuilders).sort().forEach(key=>{
+      if(seenNames.has(key)) return; // already have a user account for this name
+      const name=linkBuilders[key];
+      roster.push({name, role:'builder', uid:null, registered:false, bl:linksFor(name)});
+    });
+
+    if(!roster.length){tb.innerHTML='<tr><td colspan="8" class="loading">No team members yet</td></tr>';return;}
+
+    // Sort by total links desc
+    roster.sort((a,b)=>b.bl.length-a.bl.length);
+
+    tb.innerHTML=roster.map(r=>{
+      const bl=r.bl;
       const domCnt={};
       bl.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domCnt[key]=(domCnt[key]||0)+1;});
       const dups=bl.filter(l=>domCnt[nd(l.domain)+'|'+(l.project||'')]>1).length;
-      const roleColor=u.role==='admin'?'var(--teal)':'var(--text2)';
-      return`<tr>
-        <td style="font-weight:700;">${name}</td>
-        <td><span class="badge" style="background:rgba(0,196,174,0.1);color:${roleColor};">${u.role||'builder'}</span></td>
+      const roleColor=r.role==='admin'?'var(--teal)':'var(--text2)';
+      const roleBadge=r.registered
+        ? `<span class="badge" style="background:rgba(0,196,174,0.1);color:${roleColor};">${r.role}</span>`
+        : `<span class="badge" style="background:var(--bg4);color:var(--text3);">no account</span>`;
+      const actionBtn=r.registered
+        ? `<button onclick="deleteUser('${r.uid}','${r.name.replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`
+        : `<span style="font-size:11px;color:var(--text3);">—</span>`;
+      const cap = allCapacities[r.name] || 0;
+      const safeName = r.name.replace(/'/g,"\\'");
+      const isInactive = inactiveBuilders.has(r.name);
+      const targetCell = `<input type="number" min="0" value="${cap}" onchange="setBuilderTarget('${safeName}',this.value)" style="width:64px;text-align:center;margin:0;padding:5px;font-size:13px;font-weight:700;"/>`;
+      const loadBtn = isInactive
+        ? `<button onclick="toggleBuilderLoad('${safeName}')" title="Restore to Load" style="background:none;border:1px solid rgba(0,196,174,0.4);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--teal);white-space:nowrap;">↩ Restore</button>`
+        : `<button onclick="toggleBuilderLoad('${safeName}')" title="Remove from Load distribution" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;white-space:nowrap;" onmouseover="this.style.borderColor='#f0a500';this.style.color='#f0a500'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">🚫 Load</button>`;
+      return`<tr style="${isInactive?'opacity:0.5;':''}">
+        <td style="font-weight:700;">${r.name}</td>
+        <td>${roleBadge}</td>
         <td>${bl.length}</td>
         <td style="color:var(--teal);">${bl.filter(l=>l.status==='live').length}</td>
         <td style="color:#f0a500;">${bl.filter(l=>l.status==='pending').length}</td>
         <td style="${dups?'color:#ff6b6b;font-weight:600;':'color:var(--text3);'}">${dups}</td>
-        <td><button onclick="deleteUser('${u.uid}','${name.replace(/'/g,"\'")}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button></td>
+        <td>${targetCell}</td>
+        <td style="display:flex;gap:6px;align-items:center;">${loadBtn}${actionBtn}</td>
       </tr>`;
     }).join('');
   });
+}
+
+async function setBuilderTarget(name, value){
+  const cap = parseInt(value)||0;
+  try {
+    await db.collection('capacities').doc(name).set({capacity:cap, updatedAt:firebase.firestore.FieldValue.serverTimestamp()}, {merge:true});
+  } catch(e){ alert('Error saving target: '+e.message); }
+}
+
+async function toggleBuilderLoad(name){
+  const isInactive = inactiveBuilders.has(name);
+  if(isInactive){
+    // Restore to load
+    try {
+      await db.collection('capacities').doc(name).set({inactive:false}, {merge:true});
+      showToast('✅ '+name+' restored to Load');
+    } catch(e){ alert('Error: '+e.message); }
+  } else {
+    if(!confirm(`Remove "${name}" from Load distribution?\n\nThey'll stay in the team list but won't appear in Load/Capacity assignments. You can restore anytime.`)) return;
+    try {
+      await db.collection('capacities').doc(name).set({inactive:true}, {merge:true});
+      showToast('🚫 '+name+' removed from Load');
+    } catch(e){ alert('Error: '+e.message); }
+  }
+  renderTeam();
 }
 
 async function deleteUser(uid, name){
@@ -4318,6 +4397,25 @@ async function doResetPassword(){
 
 
 // ─── OUTREACH FINDER ──────────────────────────────────────
+async function loadSnovBalance(){
+  const el = document.getElementById('ot-balance');
+  if(!el) return;
+  try {
+    const resp = await fetch('/api/snov',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({domain:'x.com', action:'balance'})
+    });
+    const data = await resp.json();
+    if(data.balance!=null){
+      el.innerHTML = parseFloat(data.balance).toLocaleString();
+    } else {
+      el.innerHTML = '<span style="font-size:12px;color:var(--text3);font-weight:400;">N/A</span>';
+    }
+  } catch(e){
+    el.innerHTML = '<span style="font-size:12px;color:var(--text3);font-weight:400;">—</span>';
+  }
+}
+
 async function runOutreach(action = 'prospects'){
   const domain = (document.getElementById('ot-domain').value||'').trim()
     .replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').trim();
@@ -5984,12 +6082,13 @@ function openBuilderModal(builderName){
 }
 
 // ─── CAPACITY ─────────────────────────────────────────────
-let allCapacities = {};
+let allCapacities = {}; let inactiveBuilders=new Set();
 
 function listenCapacities(){
   db.collection('capacities').onSnapshot(snap=>{
     allCapacities = {};
-    snap.docs.forEach(d=>{ allCapacities[d.id] = d.data().capacity||0; });
+    inactiveBuilders = new Set();
+    snap.docs.forEach(d=>{ allCapacities[d.id] = d.data().capacity||0; if(d.data().inactive) inactiveBuilders.add(d.id); });
     if(document.getElementById('p-capacity')?.classList.contains('active')) renderCapacityList();
   });
 }
@@ -5999,7 +6098,7 @@ function renderCapacityList(){
   if(!list) return;
   // Show all builders — from BUILDERS array + any extra saved in capacities
   const extraBuilders = Object.keys(allCapacities).filter(b=>!BUILDERS.some(bld=>bld.toLowerCase()===b.toLowerCase()));
-  const allCap = [...BUILDERS, ...extraBuilders];
+  const allCap = [...BUILDERS, ...extraBuilders].filter(b=>!inactiveBuilders.has(b));
   list.innerHTML = allCap.map(b => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
       <span onclick="openBuilderModal('${b}')" style="font-size:14px;font-weight:600;color:var(--text);cursor:pointer;transition:color 0.15s;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text)'">${b} <span style='font-size:10px;color:var(--text3);'>↗</span></span>
@@ -6017,7 +6116,7 @@ async function saveCapacity(){
   okEl.style.display='none';
   const batch = db.batch();
   const extraBuilders = Object.keys(allCapacities).filter(b=>!BUILDERS.some(bld=>bld.toLowerCase()===b.toLowerCase()));
-  const allCap = [...BUILDERS, ...extraBuilders];
+  const allCap = [...BUILDERS, ...extraBuilders].filter(b=>!inactiveBuilders.has(b));
   allCap.forEach(b=>{
     const val = parseInt(document.getElementById('cap-'+b.replace(/\s/g,'_'))?.value)||0;
     batch.set(db.collection('capacities').doc(b), {capacity:val, updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
@@ -6061,7 +6160,7 @@ function initLoadPage(){
   // Builder checkboxes — union of BUILDERS array + all capacity keys
   const wrap = document.getElementById('load-builder-checks');
   const capBuilders = Object.keys(allCapacities).filter(b=>b&&!BUILDERS.includes(b));
-  const allLoadBuilders = [...BUILDERS, ...capBuilders];
+  const allLoadBuilders = [...BUILDERS, ...capBuilders].filter(b=>!inactiveBuilders.has(b));
   if(wrap) wrap.innerHTML = allLoadBuilders.map(b => `
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;transition:all 0.15s;"
       onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
