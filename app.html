@@ -6247,7 +6247,7 @@ function renderLoadTable(){
       <td style="text-align:center;">
         <input type="number" min="0" placeholder="0"
           id="load-total-${proj.replace(/\s/g,'_')}"
-          oninput="splitLoad('${proj.replace(/\s/g,'_')}', ${builders.length})"
+          oninput="redistributeAllLoad()"
           style="width:60px;text-align:center;margin:0;padding:4px;font-size:13px;font-weight:700;background:var(--bg4);border:1px solid var(--border);border-radius:6px;"/>
       </td>
       ${builders.map((b,i)=>`
@@ -6294,6 +6294,52 @@ function resetLoad(){
   document.querySelectorAll('#load-tbody input[type=number]').forEach(el=>el.value='');
   document.getElementById('load-grand-total').textContent='0';
   document.querySelectorAll('[id^="load-btotal-"]').forEach(el=>el.textContent='0');
+}
+
+// Distribute ALL projects together using capacity-proportional shares with a
+// running "carry" so each builder's COLUMN TOTAL matches their capacity share —
+// fixes per-project rounding that over-fed high-capacity builders and starved
+// low-capacity ones (e.g. Tatev getting 6 while Gohar got 9 at the same cap).
+function redistributeAllLoad(){
+  const builders = getSelectedBuilders();
+  if(!builders.length){ updateGrandTotals(); return; }
+  const totalCap = builders.reduce((s,b)=>s+(allCapacities[b]||0),0);
+  const carry = {}; builders.forEach(b=>carry[b]=0);
+
+  const totalInputs = document.querySelectorAll('[id^="load-total-"]');
+  totalInputs.forEach(inp=>{
+    const projId = inp.id.replace('load-total-','');
+    const total = parseInt(inp.value)||0;
+    // clear this project's cells
+    builders.forEach(b=>{ const c=document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`); if(c) c.value=''; });
+    if(!total) return;
+
+    const assigned = {};
+    if(totalCap > 0){
+      const ex = builders.map(b=>{
+        const e = ((allCapacities[b]||0)/totalCap)*total;
+        return { b, e, fl: Math.floor(e) };
+      });
+      ex.forEach(x => assigned[x.b] = x.fl);
+      let rem = total - ex.reduce((s,x)=>s+x.fl, 0);
+      // Priority for the +1s = fractional part PLUS accumulated carry (debt).
+      // Builders who've been under their exact share so far bubble to the top.
+      ex.map(x=>({ b:x.b, pr: carry[x.b] + (x.e - x.fl) }))
+        .sort((a,b)=>b.pr - a.pr)
+        .forEach((x,i)=>{ if(i<rem) assigned[x.b]++; });
+      // Update carry: how far each builder is from their exact share after this project
+      ex.forEach(x=>{ carry[x.b] += (x.e - assigned[x.b]); });
+    } else {
+      const base = Math.floor(total/builders.length);
+      let rem = total % builders.length;
+      builders.forEach((b,i)=>{ assigned[b] = base + (i<rem?1:0); });
+    }
+    builders.forEach(b=>{
+      const c=document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`);
+      if(c) c.value = assigned[b]||0;
+    });
+  });
+  updateGrandTotals();
 }
 
 function splitLoad(projId, builderCount){
