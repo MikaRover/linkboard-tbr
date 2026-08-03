@@ -1407,7 +1407,10 @@ tr:hover td{background:var(--bg3);}
 <div id="p-b-links" class="page">
   <div class="page-top">
     <div class="page-title">My Links</div>
-    <button class="btn-sm" onclick="gotoPage('add',document.getElementById('bld-nav-add'))" style="width:auto;">+ Add link</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn-ghost" id="bl-check-btn" onclick="checkSelectedBuilderLinks(this)" style="width:auto;white-space:nowrap;display:none;" title="Run link checker on selected links">🔍 Check selected</button>
+      <button class="btn-sm" onclick="gotoPage('add',document.getElementById('bld-nav-add'))" style="width:auto;">+ Add link</button>
+    </div>
   </div>
   <div class="link-status-tabs">
     <div class="status-tab active-all" id="tab-all" onclick="setBTab('all',this)">All</div>
@@ -1422,6 +1425,7 @@ tr:hover td{background:var(--bg3);}
   <div class="card">
     <div class="tbl-wrap"><table>
       <thead><tr>
+        <th style="width:28px;"><input type="checkbox" id="bl-check-all" onchange="toggleAllBuilderChecks(this)" style="width:auto;margin:0;cursor:pointer;"/></th>
         <th style="cursor:pointer;" onclick="toggleBSort()">Date <span id="b-sort-date">↓</span></th>
         <th>Domain</th><th>DR</th><th>Traffic</th><th>Anchor</th><th>Project</th>
         <th>Status</th><th>Link check</th>
@@ -3832,6 +3836,51 @@ function linkCheckBadge(v, linkin, linkto, id){
   if(v.includes('❌')) return`<span style="color:#ff6b6b;font-size:11px;">${v}</span>`;
   if(v.includes('⚠️')) return`<span style="color:#f0a500;font-size:11px;">${v}</span>`;
   return`<span style="font-size:11px;color:var(--text2);">${v}</span>`;
+}
+
+function toggleAllBuilderChecks(master){
+  document.querySelectorAll('.bl-row-check').forEach(cb=>cb.checked=master.checked);
+  updateBlCheckBtn();
+}
+function updateBlCheckBtn(){
+  const n = document.querySelectorAll('.bl-row-check:checked').length;
+  const btn = document.getElementById('bl-check-btn');
+  if(btn){
+    btn.style.display = n>0 ? 'inline-block' : 'none';
+    btn.textContent = n>0 ? `🔍 Check selected (${n})` : '🔍 Check selected';
+  }
+}
+async function checkSelectedBuilderLinks(btn){
+  const ids = Array.from(document.querySelectorAll('.bl-row-check:checked')).map(c=>c.value);
+  if(!ids.length){ return; }
+  const orig = btn.textContent;
+  btn.disabled = true;
+  let done = 0;
+  for(const id of ids){
+    done++;
+    btn.textContent = `⏳ ${done}/${ids.length}`;
+    const l = allLinks.find(x=>x.id===id);
+    if(!l || !l.linkin || !l.linkto){
+      await db.collection('links').doc(id).update({linkcheck:'⚠️ Missing link in/to'}).catch(()=>{});
+      continue;
+    }
+    try{
+      const resp = await fetch('/api/check-link',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({linkIn:l.linkin, linkTo:l.linkto, anchor:l.anchor||''})
+      });
+      const data = await resp.json();
+      await db.collection('links').doc(id).update({linkcheck: data.result||'⚠️ No response'});
+    }catch(e){
+      await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'}).catch(()=>{});
+    }
+  }
+  btn.disabled = false;
+  btn.textContent = orig;
+  // Uncheck all after run
+  document.querySelectorAll('.bl-row-check, #bl-check-all').forEach(cb=>cb.checked=false);
+  updateBlCheckBtn();
+  showToast(`✅ Checked ${ids.length} link${ids.length>1?'s':''}`);
 }
 
 async function checkSingleLink(id, _li, _lt, _anc, btn){
@@ -6700,12 +6749,13 @@ function renderBuilderLinks(){
   });
   fl.sort((a,b)=>{const av=parseDate(a.date),bv=parseDate(b.date);return bSortDir==='desc'?bv-av:av-bv;});
   const tb=document.getElementById('b-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="8" class="loading">No links found</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="9" class="loading">No links found</td></tr>';return;}
   const rowFn=(l)=>{
     const lid=l.id;
     const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
     const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="bl-row-check" value="${lid}" onchange="updateBlCheckBtn()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="color:var(--text3);font-size:11px;">${l.date||''}</td>
       <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;">${l.domain}</a></td>
       <td>${l.dr||'—'}</td><td>${trafficVal}</td>
