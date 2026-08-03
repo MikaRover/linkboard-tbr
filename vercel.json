@@ -4,6 +4,7 @@
     "api/snov.js": { "maxDuration": 60 },
     "api/prospect.js": { "maxDuration": 60 },
     "api/scan-project.js": { "maxDuration": 60 },
-    "api/image-req.js": { "maxDuration": 60 }
+    "api/image-req.js": { "maxDuration": 60 },
+    "api/dapa.js": { "maxDuration": 30 }
   }
 }
