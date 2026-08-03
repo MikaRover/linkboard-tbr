@@ -6169,6 +6169,11 @@ let loadBuilders = [];
 
 // Remember which Load builders/projects the user has unchecked, so navigating
 // away and back doesn't reset the filter to all-checked.
+function onLoadFilterChange(){
+  captureLoadFilterState();
+  renderLoadTable();
+}
+
 function captureLoadFilterState(){
   const bWrap=document.getElementById('load-builder-checks');
   const pWrap=document.getElementById('load-project-checks');
@@ -6194,7 +6199,7 @@ function initLoadPage(){
   if(wrap) wrap.innerHTML = allLoadBuilders.map(b => `
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;transition:all 0.15s;"
       onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
-      <input type="checkbox" value="${b}" onchange="renderLoadTable()" style="width:auto;margin:0;cursor:pointer;" ${loadUncheckedBuilders.has(b)?'':'checked'}/>
+      <input type="checkbox" value="${b}" onchange="onLoadFilterChange()" style="width:auto;margin:0;cursor:pointer;" ${loadUncheckedBuilders.has(b)?'':'checked'}/>
       ${b}
     </label>`).join('');
 
@@ -6203,7 +6208,7 @@ function initLoadPage(){
   if(pwrap) pwrap.innerHTML = allProjects.map(p => `
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;transition:all 0.15s;"
       onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
-      <input type="checkbox" value="${p.name}" onchange="renderLoadTable()" style="width:auto;margin:0;cursor:pointer;" ${loadUncheckedProjects.has(p.name)?'':'checked'}/>
+      <input type="checkbox" value="${p.name}" onchange="onLoadFilterChange()" style="width:auto;margin:0;cursor:pointer;" ${loadUncheckedProjects.has(p.name)?'':'checked'}/>
       ${p.name}
     </label>`).join('');
 
@@ -6212,6 +6217,7 @@ function initLoadPage(){
 
 function toggleAllLoadProjects(checked){
   document.querySelectorAll('#load-project-checks input').forEach(c=>c.checked=checked);
+  captureLoadFilterState();
   renderLoadTable();
 }
 
