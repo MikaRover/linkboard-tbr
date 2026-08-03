@@ -6106,7 +6106,7 @@ function renderCapacityList(){
         <input type="number" min="0" max="200" id="cap-${b.replace(/\s/g,'_')}"
           value="${allCapacities[b]||0}"
           style="width:80px;text-align:center;margin:0;padding:6px;font-size:14px;font-weight:700;"/>
-        ${!BUILDERS.includes(b)?`<button onclick="removeCapacityBuilder('${b}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`:''}
+        ${`<button onclick="removeCapacityBuilder('${b}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`}
       </div>
     </div>`).join('');
 }
@@ -6144,10 +6144,20 @@ function addCapacityBuilder(){
 }
 
 async function removeCapacityBuilder(name){
-  if(!confirm('Remove "'+name+'" from capacity list?')) return;
-  await db.collection('capacities').doc(name).delete();
-  delete allCapacities[name];
-  renderCapacityList();
+  const isCore = BUILDERS.some(b=>b.toLowerCase()===name.toLowerCase());
+  if(!confirm('Remove "'+name+'" from Capacity & Load?'+(isCore?'\n\n(You can restore them from the Team page.)':''))) return;
+  try {
+    if(isCore){
+      // Core builder — mark inactive so it's reversible (Team page → Restore)
+      await db.collection('capacities').doc(name).set({inactive:true}, {merge:true});
+      inactiveBuilders.add(name);
+    } else {
+      // Extra builder — remove entirely
+      await db.collection('capacities').doc(name).delete();
+      delete allCapacities[name];
+    }
+    renderCapacityList();
+  } catch(e){ alert('Error: '+e.message); }
 }
 
 // ─── LOAD DISTRIBUTION ────────────────────────────────────
