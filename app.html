@@ -6108,7 +6108,11 @@ function renderCapacityList(){
           style="width:80px;text-align:center;margin:0;padding:6px;font-size:14px;font-weight:700;"/>
         ${`<button onclick="removeCapacityBuilder('${b}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`}
       </div>
-    </div>`).join('');
+    </div>`).join('') + `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0 4px;margin-top:6px;border-top:2px solid var(--border2);">
+      <span style="font-size:14px;font-weight:800;color:var(--text);">Total capacity</span>
+      <span style="font-size:18px;font-weight:800;color:var(--teal);padding-right:44px;">${allCap.reduce((s,b)=>s+(parseInt(allCapacities[b])||0),0)}</span>
+    </div>`;
 }
 
 async function saveCapacity(){
