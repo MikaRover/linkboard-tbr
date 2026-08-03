@@ -618,8 +618,13 @@ tr:hover td{background:var(--bg3);}
       <div id="al-req" class="alert a-warn"></div>
       <div id="al-ok" class="alert a-ok"></div>
 
+      <div style="background:rgba(0,196,174,0.06);border:1px solid rgba(0,196,174,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--text2);line-height:1.5;">
+        💡 Fill in the <b>domain</b> first — metrics (DR, traffic) load automatically. Then pick the <b>project</b>, paste the <b>link in</b> (the page your backlink sits on) and <b>link to</b> (your client's page), and the <b>anchor</b> you used.
+      </div>
+
       <div class="section-label">Domain</div>
-      <input id="f-domain" placeholder="example.com" oninput="onDomainInput()" style="margin-bottom:8px;"/>
+      <input id="f-domain" placeholder="example.com" oninput="onDomainInput()" style="margin-bottom:4px;"/>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">The site where you placed the backlink (metrics auto-load).</div>
 
       <div class="dc-box" id="dc-box">
         <div class="dc-title">
@@ -650,9 +655,11 @@ tr:hover td{background:var(--bg3);}
         <div><div class="section-label">Status</div><select id="f-status"><option value="pending">Pending</option><option value="live">Live</option></select></div>
       </div>
       <div class="section-label">Link in (full URL)</div>
-      <input id="f-linkin" placeholder="https://example.com/blog/post"/>
+      <input id="f-linkin" placeholder="https://example.com/blog/post" style="margin-bottom:4px;"/>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">The exact page where your backlink appears.</div>
       <div class="section-label">Link to (target URL)</div>
-      <input id="f-linkto" placeholder="https://project.com/page"/>
+      <input id="f-linkto" placeholder="https://project.com/page" style="margin-bottom:4px;"/>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">The client page the backlink points to.</div>
       <div class="section-label">Anchor text</div>
       <div id="anchor-req-wrap" style="display:none;margin-bottom:8px;">
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">This month's anchors</div>
@@ -2851,6 +2858,28 @@ function onDomainInput(){
   // Debounce detection + metrics fetch
   clearTimeout(catDetectTimer);
   catDetectTimer=setTimeout(async()=>{
+    // Fetch Spam Score (+ DA/PA) from dapachecker in parallel — fills the SS field
+    (async()=>{
+      const ssEl=document.getElementById('f-ss');
+      if(ssEl) ssEl.placeholder='⏳';
+      try{
+        const dResp=await fetch('/api/dapa',{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({domain:d})
+        });
+        const dData=await dResp.json();
+        if(ssEl){
+          if(dData.spam_score!==null&&dData.spam_score!==undefined) ssEl.value=dData.spam_score;
+          ssEl.placeholder='—';
+        }
+        const cs=document.getElementById('cat-status');
+        if(cs && (dData.da!=null||dData.pa!=null)){
+          cs.setAttribute('data-dapa', `DA ${dData.da??'—'} · PA ${dData.pa??'—'}`);
+        }
+        if(typeof renderCompatCards==='function') renderCompatCards();
+      }catch(e){ if(ssEl) ssEl.placeholder='—'; }
+    })();
+
     // Fetch Ahrefs metrics
     const metricsEl=document.getElementById('cat-status');
     try{
