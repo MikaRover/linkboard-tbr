@@ -1050,6 +1050,7 @@ tr:hover td{background:var(--bg3);}
   <div class="page-top">
     <div class="page-title">📊 Load Distribution</div>
     <div style="display:flex;gap:8px;">
+      <button class="btn-sm" onclick="fillByCapacity()" style="white-space:nowrap;width:auto;" title="Fill each builder to exactly their monthly capacity">⚡ Fill by capacity</button>
       <button class="btn-ghost" onclick="exportLoadCSV()" style="white-space:nowrap;">⬇ Export CSV</button>
       <button class="btn-ghost" onclick="initLoadPage()" style="white-space:nowrap;" title="Reload saved data from Firebase">↻ Refresh</button>
       <button class="btn-ghost" onclick="resetLoad()" style="color:var(--red);border-color:rgba(255,107,107,0.4);">↺ Reset</button>
@@ -6294,6 +6295,43 @@ function resetLoad(){
   document.querySelectorAll('#load-tbody input[type=number]').forEach(el=>el.value='');
   document.getElementById('load-grand-total').textContent='0';
   document.querySelectorAll('[id^="load-btotal-"]').forEach(el=>el.textContent='0');
+}
+
+// Fill each builder to EXACTLY their monthly capacity, spread across the selected
+// projects. Project totals (if entered) act as weights so higher-demand projects
+// get more; if no totals are entered, capacity is spread equally across projects.
+function fillByCapacity(){
+  const builders = getSelectedBuilders();
+  const projects = Array.from(document.querySelectorAll('#load-project-checks input:checked')).map(c=>c.value);
+  if(!builders.length || !projects.length){ alert('Select at least one builder and one project.'); return; }
+
+  // Project weights from the entered totals; equal weight if none entered
+  let weights = projects.map(p=>parseInt(document.getElementById('load-total-'+p.replace(/\s/g,'_'))?.value)||0);
+  let W = weights.reduce((a,b)=>a+b,0);
+  if(W===0){ weights = projects.map(()=>1); W = projects.length; }
+
+  builders.forEach(b=>{
+    const cap = allCapacities[b]||0;
+    // Distribute this builder's capacity across projects by weight (largest remainder)
+    const ex = projects.map((p,i)=>({ p, e: cap * weights[i] / W }));
+    ex.forEach(x=>x.fl=Math.floor(x.e));
+    let rem = cap - ex.reduce((s,x)=>s+x.fl,0);
+    [...ex].sort((a,b)=>(b.e-b.fl)-(a.e-a.fl)).forEach((x,i)=>{ if(i<rem) x.fl++; });
+    ex.forEach(x=>{
+      const cell = document.getElementById(`load-cell-${x.p.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+      if(cell) cell.value = x.fl||0;
+    });
+  });
+
+  // Refresh each project's TOTAL box to reflect the new column sums
+  projects.forEach(p=>{
+    let col=0;
+    builders.forEach(b=>{ col += parseInt(document.getElementById(`load-cell-${p.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`)?.value)||0; });
+    const tot=document.getElementById('load-total-'+p.replace(/\s/g,'_'));
+    if(tot) tot.value = col;
+  });
+
+  updateGrandTotals();
 }
 
 // Distribute ALL projects together using capacity-proportional shares with a
