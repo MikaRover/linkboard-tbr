@@ -6307,14 +6307,22 @@ function splitLoad(projId, builderCount){
   const totalCap = builders.reduce((s,b)=>s+(allCapacities[b]||0),0);
 
   if(totalCap > 0){
+    // Tiny deterministic per-(project,builder) jitter so that builders with the
+    // SAME capacity (identical fractional remainder) don't always lose the +1 to
+    // whoever comes first in the array — across projects the extras spread evenly.
+    const jitter = (b)=>{
+      let h=0; const s=projId+'|'+b;
+      for(let i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))>>>0; }
+      return (h % 100000) / 100000000; // ~1e-3 max, never overtakes a real fraction gap
+    };
     const shares = builders.map(b=>({
       b, cap: allCapacities[b]||0,
       exact: ((allCapacities[b]||0) / totalCap) * total
     }));
-    shares.forEach(x => x.floor = Math.floor(x.exact));
+    shares.forEach(x => { x.floor = Math.floor(x.exact); x.frac = (x.exact - x.floor) + jitter(x.b); });
     let remainder = total - shares.reduce((s,x)=>s+x.floor, 0);
-    // Give +1 to builders with largest fractional remainders
-    [...shares].sort((a,b)=>(b.exact-b.floor)-(a.exact-a.floor))
+    // Give +1 to builders with the largest (jittered) fractional remainders
+    [...shares].sort((a,b)=>b.frac-a.frac)
       .forEach((x,i)=>{ if(i<remainder) x.floor++; });
     shares.forEach(x=>{
       const cell = document.getElementById(`load-cell-${projId}-${x.b.replace(/\s/g,'_')}`);
