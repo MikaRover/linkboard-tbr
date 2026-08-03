@@ -1,59 +1,129 @@
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+// Smart backlink checker — fetches the page that should contain the backlink,
+// looks for the target URL, and reports status. Uses realistic browser headers
+// and retries to avoid false "403 / not found" on bot-protected sites.
 
-  const { linkIn, linkTo, anchor, url } = req.body || {};
-  const targetUrl = linkIn || url;
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
-  if (!targetUrl) return res.status(400).json({ error: 'linkIn or url required' });
+function normUrl(u){
+  return String(u||'').trim().replace(/\/+$/,'').replace(/^http:\/\//i,'https://');
+}
+function domainOf(u){
+  return String(u||'').replace(/^https?:\/\//i,'').replace(/^www\./i,'').split('/')[0].toLowerCase().trim();
+}
 
+async function fetchPage(url, attempt=0){
+  const headers = {
+    'User-Agent': UA,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none'
+  };
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
-
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LinkChecker/1.0)' },
-      redirect: 'follow'
-    });
-
-    clearTimeout(timeout);
-
-    const html = await response.text().catch(() => '');
-    const status = response.status;
-
-    let found = false;
-    if (linkTo && html) {
-      const cleanLinkTo = linkTo.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').toLowerCase();
-      found = html.toLowerCase().includes(cleanLinkTo);
-    }
-
-    let anchorFound = false;
-    if (anchor && html) {
-      anchorFound = html.toLowerCase().includes(anchor.toLowerCase());
-    }
-
-    let result;
-    if (!response.ok) {
-      result = `❌ HTTP ${status}`;
-    } else if (linkTo && !found) {
-      result = `⚠️ Link not found`;
-    } else if (anchor && !anchorFound) {
-      result = `⚠️ Anchor not found`;
-    } else {
-      result = `✅ Link found`;
-    }
-
-    return res.json({ result, status, ok: response.ok, found, anchorFound });
-
-  } catch (e) {
-    if (e.name === 'AbortError') {
-      return res.json({ result: '⚠️ Timeout' });
-    }
-    return res.json({ result: '⚠️ Error: ' + e.message.slice(0, 50) });
+    const res = await fetch(url, { headers, redirect:'follow', signal: AbortSignal.timeout(15000) });
+    return res;
+  } catch(e){
+    if(attempt < 1){ await new Promise(r=>setTimeout(r,800)); return fetchPage(url, attempt+1); }
+    throw e;
   }
+}
+
+module.exports = async function handler(req, res){
+  res.setHeader('Access-Control-Allow-Origin','*');
+  res.setHeader('Access-Control-Allow-Methods','POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers','Content-Type');
+  if(req.method==='OPTIONS') return res.status(200).end();
+  if(req.method!=='POST') return res.status(405).json({error:'Method not allowed'});
+
+  const { linkIn, linkTo, anchor } = req.body || {};
+  if(!linkIn || !linkTo) return res.status(400).json({result:'⚠️ Missing linkIn/linkTo'});
+
+  const pageUrl = normUrl(linkIn);
+  const targetDomain = domainOf(linkTo);
+  const targetPath = normUrl(linkTo).replace(/^https?:\/\/(www\.)?/i,'');
+
+  let response;
+  try {
+    response = await fetchPage(pageUrl);
+  } catch(e){
+    return res.json({ result: '⚠️ Unreachable', ok:false, detail:e.message.slice(0,60) });
+  }
+
+  const status = response.status;
+
+  // Bot-protected but page likely exists — don't call it dead
+  if(status === 403 || status === 406 || status === 429){
+    return res.json({ result: '🔒 Blocked (bot protection) — verify manually', ok:null, http:status });
+  }
+  if(status === 404 || status === 410){
+    return res.json({ result: '❌ Page gone (HTTP '+status+')', ok:false, http:status });
+  }
+  if(status >= 500){
+    return res.json({ result: '⚠️ Server error (HTTP '+status+')', ok:null, http:status });
+  }
+  if(!(status>=200 && status<300)){
+    return res.json({ result: '⚠️ HTTP '+status, ok:null, http:status });
+  }
+
+  let html;
+  try { html = await response.text(); } catch(e){ return res.json({result:'⚠️ Could not read page', ok:null}); }
+
+  // Look for the target link in the HTML (match by domain+path, tolerant of http/https/www)
+  const hLower = html.toLowerCase();
+  const needle1 = targetPath.toLowerCase();
+  const needle2 = targetDomain.toLowerCase();
+
+  const found = hLower.includes(needle1) || (needle1.length<=needle2.length+1 && hLower.includes(needle2));
+
+  if(!found){
+    return res.json({ result: '⚠️ Link not found on page', ok:false, http:status });
+  }
+
+  // Found — inspect the <a> tag for rel attributes & anchor text
+  let rel = '', foundAnchor = '';
+  try {
+    // Find an anchor tag whose href contains the target
+    const aRegex = /<a\b[^>]*href\s*=\s*["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let m;
+    while((m = aRegex.exec(html)) !== null){
+      const href = (m[1]||'').toLowerCase();
+      if(href.includes(needle2)){
+        const tag = m[0].toLowerCase();
+        const relMatch = tag.match(/rel\s*=\s*["']([^"']*)["']/);
+        rel = relMatch ? relMatch[1] : '';
+        foundAnchor = (m[2]||'').replace(/<[^>]*>/g,'').trim().slice(0,60);
+        break;
+      }
+    }
+  } catch(e){}
+
+  const isNofollow = /nofollow/i.test(rel);
+  const isSponsored = /sponsored/i.test(rel);
+  const isUgc = /ugc/i.test(rel);
+
+  let flags = [];
+  if(isNofollow) flags.push('nofollow');
+  if(isSponsored) flags.push('sponsored');
+  if(isUgc) flags.push('ugc');
+
+  // Anchor text match check (optional)
+  let anchorNote = '';
+  if(anchor && foundAnchor){
+    const aMatch = foundAnchor.toLowerCase().includes(String(anchor).toLowerCase().trim());
+    anchorNote = aMatch ? '' : ` · anchor differs ("${foundAnchor}")`;
+  }
+
+  const linkType = flags.length ? ('⚠️ '+flags.join('+')) : '✅ dofollow';
+  return res.json({
+    result: `✅ Live · ${linkType}${anchorNote}`,
+    ok: true,
+    http: status,
+    rel,
+    nofollow: isNofollow,
+    anchor: foundAnchor
+  });
 };
