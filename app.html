@@ -998,7 +998,7 @@ tr:hover td{background:var(--bg3);}
   <div class="card">
     <div class="card-head">Team members</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Name</th><th>Role</th><th>Total links</th><th>Live</th><th>Pending</th><th>Dups</th><th>Load (this mo)</th><th>Target/mo</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Role</th><th>Load (this mo)</th><th>Target/mo</th><th></th></tr></thead>
       <tbody id="team-tbody"></tbody>
     </table></div>
   </div>
@@ -3875,7 +3875,7 @@ function renderTeam(){
       roster.push({name, role:'builder', uid:null, registered:false, bl:linksFor(name)});
     });
 
-    if(!roster.length){tb.innerHTML='<tr><td colspan="9" class="loading">No team members yet</td></tr>';return;}
+    if(!roster.length){tb.innerHTML='<tr><td colspan="5" class="loading">No team members yet</td></tr>';return;}
 
     // Sort by total links desc
     roster.sort((a,b)=>b.bl.length-a.bl.length);
@@ -3913,13 +3913,9 @@ function renderTeam(){
       const loadBtn = isInactive
         ? `<button onclick="toggleBuilderLoad('${safeName}')" title="Restore to Load" style="background:none;border:1px solid rgba(0,196,174,0.4);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--teal);white-space:nowrap;">↩ Restore</button>`
         : `<button onclick="toggleBuilderLoad('${safeName}')" title="Remove from Load distribution" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;white-space:nowrap;" onmouseover="this.style.borderColor='#f0a500';this.style.color='#f0a500'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">🚫 Load</button>`;
-      return`<tr style="${isInactive?'opacity:0.5;':''}cursor:pointer;" onclick="openBuilderLinks('${safeName}')" title="Click to see ${r.name}'s links">
-        <td style="font-weight:700;color:var(--teal);">${r.name}</td>
+      return`<tr style="${isInactive?'opacity:0.5;':''}cursor:pointer;" onclick="openBuilderLinks('${safeName}')" title="Click to see ${r.name}'s links (${bl.length} total)">
+        <td style="font-weight:700;color:var(--teal);">${r.name} <span style="color:var(--text3);font-weight:400;font-size:11px;">· ${bl.length} links</span></td>
         <td>${roleBadge}</td>
-        <td>${bl.length}</td>
-        <td style="color:var(--teal);">${bl.filter(l=>l.status==='live').length}</td>
-        <td style="color:#f0a500;">${bl.filter(l=>l.status==='pending').length}</td>
-        <td style="${dups?'color:#ff6b6b;font-weight:600;':'color:var(--text3);'}">${dups}</td>
         <td>${loadCell}</td>
         <td>${targetCell}</td>
         <td onclick="event.stopPropagation()" style="display:flex;gap:6px;align-items:center;">${loadBtn}${actionBtn}</td>
