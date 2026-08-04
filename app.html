@@ -961,7 +961,7 @@ tr:hover td{background:var(--bg3);}
   <div class="card">
     <div class="card-head">Team members</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Name</th><th>Role</th><th>Total links</th><th>Live</th><th>Pending</th><th>Dups</th><th>Target/mo</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Role</th><th>Total links</th><th>Live</th><th>Pending</th><th>Dups</th><th>Load (this mo)</th><th>Target/mo</th><th></th></tr></thead>
       <tbody id="team-tbody"></tbody>
     </table></div>
   </div>
@@ -3743,6 +3743,54 @@ async function addTeamMember(){
   }
 }
 
+function openBuilderLinks(name){
+  const bl = allLinks.filter(l=>{
+    const lb=(l.builder||'').trim().toLowerCase();
+    return lb===(name||'').trim().toLowerCase();
+  }).sort((a,b)=>{
+    const pa=(a.date||'').split(/[.\-\/]/).reverse().join('');
+    const pb=(b.date||'').split(/[.\-\/]/).reverse().join('');
+    return pb.localeCompare(pa);
+  });
+
+  let modal = document.getElementById('builder-links-modal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'builder-links-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;';
+    modal.onclick = (e)=>{ if(e.target===modal) modal.remove(); };
+    document.body.appendChild(modal);
+  }
+
+  const live = bl.filter(l=>(l.status||'').toLowerCase()==='live').length;
+  const pend = bl.filter(l=>(l.status||'').toLowerCase()==='pending').length;
+
+  const rows = bl.map(l=>`
+    <tr>
+      <td style="color:var(--text3);font-size:11px;white-space:nowrap;">${l.date||''}</td>
+      <td><a href="https://${nd(l.domain)}" target="_blank" style="color:var(--teal);text-decoration:none;">${l.domain||''}</a></td>
+      <td>${l.project||''}</td>
+      <td style="font-size:12px;">${l.anchor||''}</td>
+      <td>${(l.status||'').toLowerCase()==='live'?'<span style="color:var(--teal);">✅ live</span>':(l.status||'').toLowerCase()==='pending'?'<span style="color:#f0a500;">⏳ pending</span>':(l.status||'')}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1rem;">No links</td></tr>';
+
+  modal.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:900px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--text);">${name}'s links</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;">${bl.length} total · <span style="color:var(--teal);">${live} live</span> · <span style="color:#f0a500;">${pend} pending</span></div>
+        </div>
+        <button onclick="document.getElementById('builder-links-modal').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1;">×</button>
+      </div>
+      <div style="overflow:auto;padding:8px 22px 22px;">
+        <table class="tbl" style="width:100%;"><thead><tr>
+          <th>Date</th><th>Domain</th><th>Project</th><th>Anchor</th><th>Status</th>
+        </tr></thead><tbody>${rows}</tbody></table>
+      </div>
+    </div>`;
+}
+
 function renderTeam(){
   document.getElementById('team-stats').innerHTML=`
     <div class="stat"><div class="stat-l">Total links</div><div class="stat-v" style="color:var(--teal)">${allLinks.length}</div></div>
@@ -3786,7 +3834,7 @@ function renderTeam(){
       roster.push({name, role:'builder', uid:null, registered:false, bl:linksFor(name)});
     });
 
-    if(!roster.length){tb.innerHTML='<tr><td colspan="8" class="loading">No team members yet</td></tr>';return;}
+    if(!roster.length){tb.innerHTML='<tr><td colspan="9" class="loading">No team members yet</td></tr>';return;}
 
     // Sort by total links desc
     roster.sort((a,b)=>b.bl.length-a.bl.length);
@@ -3806,19 +3854,34 @@ function renderTeam(){
       const cap = allCapacities[r.name] || 0;
       const safeName = r.name.replace(/'/g,"\\'");
       const isInactive = inactiveBuilders.has(r.name);
-      const targetCell = `<input type="number" min="0" value="${cap}" onchange="setBuilderTarget('${safeName}',this.value)" style="width:64px;text-align:center;margin:0;padding:5px;font-size:13px;font-weight:700;"/>`;
+      // This month's assigned load + done
+      const curMonthName = MONTHS_EN[new Date().getMonth()];
+      const curYr = new Date().getFullYear();
+      const assignedLoad = (typeof allLoads!=='undefined'?allLoads:[]).filter(l=>l.builder===r.name && l.month===curMonthName).reduce((s,l)=>s+(l.count||0),0);
+      const doneThisMonth = bl.filter(l=>{
+        if((l.status||'').toLowerCase()!=='live') return false;
+        if(!l.date) return false;
+        const dp=l.date.split(/[.\-\/]/); if(dp.length!==3) return false;
+        return (parseInt(dp[1])-1)===new Date().getMonth() && (parseInt(dp[2].length===2?'20'+dp[2]:dp[2]))===curYr;
+      }).length;
+      const loadDone = assignedLoad>0 && doneThisMonth>=assignedLoad;
+      const loadCell = assignedLoad>0
+        ? `<span style="font-weight:700;color:${loadDone?'var(--teal)':'var(--text)'};">${doneThisMonth}/${assignedLoad}</span>`
+        : `<span style="color:var(--text3);">—</span>`;
+      const targetCell = `<input type="number" min="0" value="${cap}" onchange="event.stopPropagation();setBuilderTarget('${safeName}',this.value)" onclick="event.stopPropagation()" style="width:64px;text-align:center;margin:0;padding:5px;font-size:13px;font-weight:700;"/>`;
       const loadBtn = isInactive
         ? `<button onclick="toggleBuilderLoad('${safeName}')" title="Restore to Load" style="background:none;border:1px solid rgba(0,196,174,0.4);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--teal);white-space:nowrap;">↩ Restore</button>`
         : `<button onclick="toggleBuilderLoad('${safeName}')" title="Remove from Load distribution" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;white-space:nowrap;" onmouseover="this.style.borderColor='#f0a500';this.style.color='#f0a500'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">🚫 Load</button>`;
-      return`<tr style="${isInactive?'opacity:0.5;':''}">
-        <td style="font-weight:700;">${r.name}</td>
+      return`<tr style="${isInactive?'opacity:0.5;':''}cursor:pointer;" onclick="openBuilderLinks('${safeName}')" title="Click to see ${r.name}'s links">
+        <td style="font-weight:700;color:var(--teal);">${r.name}</td>
         <td>${roleBadge}</td>
         <td>${bl.length}</td>
         <td style="color:var(--teal);">${bl.filter(l=>l.status==='live').length}</td>
         <td style="color:#f0a500;">${bl.filter(l=>l.status==='pending').length}</td>
         <td style="${dups?'color:#ff6b6b;font-weight:600;':'color:var(--text3);'}">${dups}</td>
+        <td>${loadCell}</td>
         <td>${targetCell}</td>
-        <td style="display:flex;gap:6px;align-items:center;">${loadBtn}${actionBtn}</td>
+        <td onclick="event.stopPropagation()" style="display:flex;gap:6px;align-items:center;">${loadBtn}${actionBtn}</td>
       </tr>`;
     }).join('');
   });
