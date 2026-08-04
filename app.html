@@ -2732,6 +2732,7 @@ function gotoPage(name,el){
     populateBLMonths();
     renderBuilderLinks();
   }
+  if(name==='team')renderTeam();
   if(name==='load')initLoadPage();
   if(name==='analytics')initAnalytics();
   if(name==='kpi')initKPI();
@@ -3792,7 +3793,8 @@ function openBuilderLinks(name){
 }
 
 function renderTeam(){
-  document.getElementById('team-stats').innerHTML=`
+  const _ts=document.getElementById('team-stats');
+  if(_ts) _ts.innerHTML=`
     <div class="stat"><div class="stat-l">Total links</div><div class="stat-v" style="color:var(--teal)">${allLinks.length}</div></div>
     <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)">${allLinks.filter(l=>l.status==='live').length}</div></div>
     <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500">${allLinks.filter(l=>l.status==='pending').length}</div></div>`;
