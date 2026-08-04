@@ -996,7 +996,13 @@ tr:hover td{background:var(--bg3);}
 
   <!-- Team Table -->
   <div class="card">
-    <div class="card-head">Team members</div>
+    <div class="card-head" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Team members</span>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;font-weight:400;">
+        <input type="checkbox" id="show-archived-builders" onchange="renderTeam()" style="width:auto;margin:0;accent-color:var(--teal);"/>
+        Show archived
+      </label>
+    </div>
     <div class="tbl-wrap"><table>
       <thead><tr><th>Name</th><th>Role</th><th>Load (this mo)</th><th>Target/mo</th><th></th></tr></thead>
       <tbody id="team-tbody"></tbody>
@@ -3875,12 +3881,16 @@ function renderTeam(){
       roster.push({name, role:'builder', uid:null, registered:false, bl:linksFor(name)});
     });
 
-    if(!roster.length){tb.innerHTML='<tr><td colspan="5" class="loading">No team members yet</td></tr>';return;}
+    // Filter out archived builders unless "Show archived" is checked
+    const showArchived = document.getElementById('show-archived-builders')?.checked;
+    const roster2 = showArchived ? roster : roster.filter(r=>!archivedBuilders.has(r.name));
+
+    if(!roster2.length){tb.innerHTML='<tr><td colspan="5" class="loading">No team members yet</td></tr>';return;}
 
     // Sort by total links desc
-    roster.sort((a,b)=>b.bl.length-a.bl.length);
+    roster2.sort((a,b)=>b.bl.length-a.bl.length);
 
-    tb.innerHTML=roster.map(r=>{
+    tb.innerHTML=roster2.map(r=>{
       const bl=r.bl;
       const domCnt={};
       bl.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domCnt[key]=(domCnt[key]||0)+1;});
@@ -3895,6 +3905,10 @@ function renderTeam(){
       const cap = allCapacities[r.name] || 0;
       const safeName = r.name.replace(/'/g,"\\'");
       const isInactive = inactiveBuilders.has(r.name);
+      const isArchived = archivedBuilders.has(r.name);
+      const archiveBtn = isArchived
+        ? `<button onclick="toggleArchiveBuilder('${safeName}')" title="Unarchive — bring back to team" style="background:none;border:1px solid rgba(0,196,174,0.4);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--teal);white-space:nowrap;">↩ Unarchive</button>`
+        : `<button onclick="toggleArchiveBuilder('${safeName}')" title="Archive — left the team (keeps their link history)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);white-space:nowrap;" onmouseover="this.style.borderColor='var(--text2)';this.style.color='var(--text2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">📦 Archive</button>`;
       // This month's assigned load + done
       const curMonthName = MONTHS_EN[new Date().getMonth()];
       const curYr = new Date().getFullYear();
@@ -3918,7 +3932,7 @@ function renderTeam(){
         <td>${roleBadge}</td>
         <td>${loadCell}</td>
         <td>${targetCell}</td>
-        <td onclick="event.stopPropagation()" style="display:flex;gap:6px;align-items:center;">${loadBtn}${actionBtn}</td>
+        <td onclick="event.stopPropagation()" style="display:flex;gap:6px;align-items:center;">${loadBtn}${archiveBtn}${actionBtn}</td>
       </tr>`;
     }).join('');
   });
@@ -3929,6 +3943,26 @@ async function setBuilderTarget(name, value){
   try {
     await db.collection('capacities').doc(name).set({capacity:cap, updatedAt:firebase.firestore.FieldValue.serverTimestamp()}, {merge:true});
   } catch(e){ alert('Error saving target: '+e.message); }
+}
+
+async function toggleArchiveBuilder(name){
+  const isArchived = archivedBuilders.has(name);
+  if(isArchived){
+    try {
+      await db.collection('capacities').doc(name).set({archived:false}, {merge:true});
+      archivedBuilders.delete(name);
+      showToast('↩ '+name+' unarchived');
+    } catch(e){ alert('Error: '+e.message); }
+  } else {
+    if(!confirm(`Archive "${name}"?\n\nThey'll be hidden from the team list (their link history stays). Use "Show archived" to restore.`)) return;
+    try {
+      await db.collection('capacities').doc(name).set({archived:true, inactive:true}, {merge:true});
+      archivedBuilders.add(name);
+      inactiveBuilders.add(name);
+      showToast('📦 '+name+' archived');
+    } catch(e){ alert('Error: '+e.message); }
+  }
+  renderTeam();
 }
 
 async function toggleBuilderLoad(name){
@@ -6271,13 +6305,13 @@ function openBuilderModal(builderName){
 }
 
 // ─── CAPACITY ─────────────────────────────────────────────
-let allCapacities = {}; let inactiveBuilders=new Set(); let loadUncheckedBuilders=new Set(); let loadUncheckedProjects=new Set();
+let allCapacities = {}; let inactiveBuilders=new Set(); let archivedBuilders=new Set(); let loadUncheckedBuilders=new Set(); let loadUncheckedProjects=new Set();
 
 function listenCapacities(){
   db.collection('capacities').onSnapshot(snap=>{
     allCapacities = {};
-    inactiveBuilders = new Set();
-    snap.docs.forEach(d=>{ allCapacities[d.id] = d.data().capacity||0; if(d.data().inactive) inactiveBuilders.add(d.id); });
+    inactiveBuilders = new Set(); archivedBuilders = new Set();
+    snap.docs.forEach(d=>{ allCapacities[d.id] = d.data().capacity||0; if(d.data().inactive) inactiveBuilders.add(d.id); if(d.data().archived) archivedBuilders.add(d.id); });
     if(document.getElementById('p-capacity')?.classList.contains('active')) renderCapacityList();
   });
 }
