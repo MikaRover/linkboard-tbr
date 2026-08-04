@@ -480,6 +480,43 @@ tr:hover td{background:var(--bg3);}
 .status-tab.active-pend{background:rgba(240,165,0,0.1);border-color:rgba(240,165,0,0.35);color:var(--yellow);}
 .status-tab.active-all{background:var(--bg3);border-color:var(--border2);color:var(--text);}
 .month-sep-row td{background:var(--bg3) !important;padding:6px 10px !important;border-top:2px solid var(--border) !important;}
+
+/* ── Bigger, clearer UI for builders (team members) ── */
+.role-builder .status-tab{
+  font-size:15px !important;
+  padding:11px 22px !important;
+  font-weight:700 !important;
+  border-radius:10px !important;
+}
+.role-builder .btn-sm{
+  font-size:15px !important;
+  padding:12px 22px !important;
+  font-weight:700 !important;
+  border-radius:10px !important;
+}
+.role-builder .btn-ghost{
+  font-size:14px !important;
+  padding:11px 18px !important;
+  font-weight:600 !important;
+  border-radius:10px !important;
+}
+.role-builder .nav{
+  font-size:15px !important;
+  padding:12px 14px !important;
+}
+.role-builder .page-title{
+  font-size:26px !important;
+}
+/* Status dropdowns inside builder link rows — easier to tap */
+.role-builder table select{
+  font-size:14px !important;
+  padding:7px 10px !important;
+}
+/* Link-check action buttons a touch larger */
+.role-builder .link-check-btn{
+  font-size:14px !important;
+  padding:7px 10px !important;
+}
 </style>
 </head>
 <body>
@@ -2130,6 +2167,8 @@ function startApp(){
 
   const isAdmin=cu.role==='admin';
   const isManager=cu.role==='manager';
+  // Bigger, clearer UI for builders (team members)
+  document.body.classList.toggle('role-builder', !isAdmin);
 
   // Show/hide admin-only elements
   document.querySelectorAll('.adm').forEach(el=>el.style.display=isAdmin?'block':'none');
