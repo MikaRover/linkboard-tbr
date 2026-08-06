@@ -1206,8 +1206,13 @@ tr:hover td{background:var(--bg3);}
         </div>
       </div>
       <div style="margin-bottom:12px;">
-        <div class="section-label">Anchor text</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <div class="section-label" style="margin:0;">Anchor text</div>
+          <button type="button" onclick="toggleAnchorBulk()" id="aam-bulk-toggle" style="background:none;border:none;color:var(--teal);font-size:11px;cursor:pointer;padding:0;">+ Add many at once</button>
+        </div>
         <input id="aam-anchor" placeholder="e.g. website builder api" style="margin:0;"/>
+        <textarea id="aam-bulk" placeholder="Paste one anchor per line. Optional target after a comma:&#10;website builder api, 5&#10;ai video maker, 3&#10;seo tool" style="display:none;margin:0;width:100%;min-height:120px;font-size:13px;line-height:1.6;resize:vertical;"></textarea>
+        <div id="aam-bulk-hint" style="display:none;font-size:11px;color:var(--text3);margin-top:4px;">One anchor per line. Add a target with a comma: <code>anchor, 5</code> (default target = the Target field above).</div>
       </div>
       <div style="margin-bottom:18px;">
         <div class="section-label">Link to (optional)</div>
@@ -5346,7 +5351,7 @@ function renderAnchors(){
   if(_adminCtl) _adminCtl.style.display = _isBuilder ? 'none' : '';
 
   // Get all projects that have ANY anchors
-  const projsWithReqs = allProjects.filter(p=>allReqs.some(r=>r.project===p.name));
+  const projsWithReqs = allProjects.filter(p=>!p.hidden);
   const projList = document.getElementById('anc-proj-list');
 
   if(!projsWithReqs.length){
@@ -5451,6 +5456,11 @@ function openAddAnchorModal(){
   document.getElementById('aam-linkto').value='';
   document.getElementById('aam-max').value='';
   document.getElementById('aam-error').style.display='none';
+  aamBulkMode=false;
+  const _at=document.getElementById('aam-anchor'); if(_at) _at.style.display='';
+  const _bt=document.getElementById('aam-bulk'); if(_bt){ _bt.style.display='none'; _bt.value=''; }
+  const _bh=document.getElementById('aam-bulk-hint'); if(_bh) _bh.style.display='none';
+  const _btg=document.getElementById('aam-bulk-toggle'); if(_btg) _btg.textContent='+ Add many at once';
   document.getElementById('add-anchor-modal').style.display='flex';
   setTimeout(()=>document.getElementById('aam-anchor').focus(),50);
 }
@@ -5514,7 +5524,75 @@ async function importAnchorsFromImage(input){
   }
 }
 
+let aamBulkMode = false;
+function toggleAnchorBulk(){
+  aamBulkMode = !aamBulkMode;
+  document.getElementById('aam-anchor').style.display = aamBulkMode ? 'none' : '';
+  document.getElementById('aam-bulk').style.display = aamBulkMode ? 'block' : 'none';
+  document.getElementById('aam-bulk-hint').style.display = aamBulkMode ? 'block' : 'none';
+  document.getElementById('aam-bulk-toggle').textContent = aamBulkMode ? '– Single anchor' : '+ Add many at once';
+}
+
 async function saveAnchorFromModal(btn){
+  const proj = ancSelectedProj;
+  const month = document.getElementById('aam-month').value;
+  const year = document.getElementById('aam-year').value;
+  const monthYear = month+' '+year;
+  const linkto = document.getElementById('aam-linkto').value.trim();
+  const defaultMax = parseInt(document.getElementById('aam-max').value) || 1;
+  const errEl = document.getElementById('aam-error');
+
+  // ── BULK MODE ──
+  if(aamBulkMode){
+    const lines = document.getElementById('aam-bulk').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    if(!lines.length){ errEl.textContent='Paste at least one anchor.'; errEl.style.display='block'; return; }
+    errEl.style.display='none';
+    if(btn){ btn.disabled=true; }
+    let saved=0;
+    for(const line of lines){
+      // format: "anchor" OR "anchor, target" OR "anchor | linkto | target"
+      let parts = line.includes('|') ? line.split('|') : line.split(',');
+      parts = parts.map(p=>p.trim());
+      const anchor = (parts[0]||'').toLowerCase();
+      if(!anchor) continue;
+      let lt = linkto, mx = defaultMax;
+      if(parts.length===2){ // anchor, target  OR  anchor | linkto
+        if(/^\d+$/.test(parts[1])) mx = parseInt(parts[1]); else lt = parts[1];
+      } else if(parts.length>=3){ lt = parts[1]; mx = parseInt(parts[2])||defaultMax; }
+      const existing = allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor);
+      if(existing) await db.collection('requirements').doc(existing.id).update({max:mx, linkto:lt});
+      else await db.collection('requirements').add({project:proj, month:monthYear, anchor, linkto:lt, max:mx});
+      saved++;
+      if(btn) btn.textContent = `Adding ${saved}/${lines.length}...`;
+    }
+    if(btn){ btn.disabled=false; btn.textContent='Add anchor →'; }
+    closeAddAnchorModal();
+    return;
+  }
+
+  // ── SINGLE MODE ──
+  const anchor = document.getElementById('aam-anchor').value.trim().toLowerCase();
+  const max = defaultMax;
+  if(!anchor || !max || max<1){
+    errEl.textContent = 'Please enter an anchor and a target number.';
+    errEl.style.display='block';
+    return;
+  }
+  errEl.style.display='none';
+  if(btn){ btn.disabled=true; btn.textContent='Adding...'; }
+  try {
+    const existing = allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor);
+    if(existing) await db.collection('requirements').doc(existing.id).update({max,linkto});
+    else await db.collection('requirements').add({project:proj,month:monthYear,anchor,linkto,max});
+    closeAddAnchorModal();
+  } catch(e){
+    errEl.textContent = 'Error: '+e.message;
+    errEl.style.display='block';
+  }
+  if(btn){ btn.disabled=false; btn.textContent='Add anchor →'; }
+}
+
+async function _oldSaveAnchorFromModal_unused(btn){
   const proj = ancSelectedProj;
   const month = document.getElementById('aam-month').value;
   const year = document.getElementById('aam-year').value;
@@ -5557,7 +5635,11 @@ function renderAnchorDetail(){
   const reqs = allReqs.filter(r=>r.project===proj);
 
   if(!reqs.length){
-    contentEl.innerHTML = `<div style="color:var(--text2);font-size:13px;">No anchors for ${proj}</div>`;
+    const canAdd = !(cu && cu.role!=='admin');
+    contentEl.innerHTML = `
+      <div style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px;">${proj}</div>
+      <div style="color:var(--text3);font-size:13px;margin-bottom:20px;">No anchors set for this project yet.</div>
+      ${canAdd?`<button class="btn-sm" onclick="openAddAnchorModal()" style="width:auto;">+ Add anchors for ${proj}</button>`:`<div style="color:var(--text2);font-size:13px;">No anchors available yet — check back once they're set.</div>`}`;
     return;
   }
 
