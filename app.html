@@ -17,8 +17,8 @@
   --border:#1a3048;--border2:#243d58;
   --text:#dff0ee;--text2:#6a90aa;--text3:#3d6078;
   --red:#ff5f5f;--yellow:#f0a500;
-  --radius:10px;--radius-lg:14px;
-  --shadow:0 2px 16px rgba(0,0,0,0.4);
+  --radius:12px;--radius-lg:20px;
+  --shadow:0 1px 3px rgba(0,0,0,0.18),0 8px 30px rgba(0,0,0,0.28);
   --shadow-teal:0 4px 24px rgba(0,196,174,0.18);
 }
 /* ── NEON BACKGROUND ── */
@@ -75,25 +75,26 @@
 .chain-link{position:absolute;opacity:0.12;}
 .chain-link svg{stroke:var(--teal);fill:none;stroke-width:1.5;}
 
-body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Inter','Segoe UI',sans-serif;background:var(--bg);letter-spacing:-0.011em;color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
 
 /* ── LIGHT THEME ── */
 body.light{
-  --bg:#f7f9fc;
+  --bg:#fbfbfd;
   --bg2:#ffffff;
-  --bg3:#eef2f7;
-  --bg4:#e2e9f0;
-  --teal:#0891b2;
+  --bg3:#f5f5f7;
+  --bg4:#ececee;
+  --teal:#0a8577;
   --teal2:#06b6d4;
-  --teal-glow:rgba(8,145,178,0.08);
-  --yellow:#d97706;
-  --red:#dc2626;
-  --border:#dde5ee;
-  --border2:#c4d0de;
-  --text:#0f172a;
-  --text2:#475569;
-  --text3:#94a3b8;
-  --shadow-teal:0 0 0 3px rgba(8,145,178,0.12);
+  --teal-glow:rgba(10,133,119,0.08);
+  --yellow:#b45309;
+  --red:#e0352b;
+  --border:#e8e8ed;
+  --border2:#d2d2d7;
+  --text:#1d1d1f;
+  --text2:#6e6e73;
+  --text3:#a1a1a6;
+  --shadow:0 1px 2px rgba(0,0,0,0.04),0 6px 24px rgba(0,0,0,0.06);
+  --shadow-teal:0 0 0 4px rgba(10,133,119,0.10);
 }
 body.light input,body.light select{background:#fff;color:var(--text);border-color:var(--border);box-shadow:0 1px 2px rgba(0,0,0,0.04);}
 body.light select option{background:#fff;color:var(--text);}
@@ -489,10 +490,10 @@ tr:hover td{background:var(--bg3);}
   border-radius:10px !important;
 }
 .role-builder .btn-sm{
-  font-size:15px !important;
-  padding:12px 22px !important;
+  font-size:16px !important;
+  padding:14px 28px !important;
   font-weight:700 !important;
-  border-radius:10px !important;
+  border-radius:980px !important;
 }
 .role-builder .btn-ghost{
   font-size:14px !important;
@@ -517,6 +518,88 @@ tr:hover td{background:var(--bg3);}
   font-size:14px !important;
   padding:7px 10px !important;
 }
+
+/* ══════════════════════════════════════════════════════
+   Apple-inspired design refresh (visual only)
+   ══════════════════════════════════════════════════════ */
+*{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+
+/* Smooth, springy transitions everywhere */
+button, .nav, .card, .stat, input, select, .proj-card, .status-tab, a{
+  transition: background .22s ease, border-color .22s ease, color .18s ease, box-shadow .25s ease, transform .18s cubic-bezier(.2,.8,.2,1) !important;
+}
+
+/* Headings: tight Apple tracking */
+.page-title, h1, h2{ letter-spacing:-0.02em !important; font-weight:700 !important; }
+
+/* Cards — softer, rounded, subtle depth */
+.card, .stat, .proj-card{
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow) !important;
+  border:1px solid var(--border) !important;
+}
+.card:hover, .proj-card:hover{ box-shadow:0 2px 6px rgba(0,0,0,0.06),0 12px 40px rgba(0,0,0,0.10) !important; }
+
+/* Frosted-glass sidebar */
+.sidebar{
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Buttons — pill-ish, confident, springy press */
+.btn-sm, button.btn-sm{
+  border-radius: 980px !important;
+  font-weight:600 !important;
+  letter-spacing:-0.01em !important;
+  font-size:15px !important;
+  padding:12px 24px !important;
+}
+.btn-sm:hover{ transform:translateY(-1px); filter:brightness(1.05); }
+.btn-sm:active{ transform:translateY(0) scale(0.98); }
+.btn-ghost{
+  border-radius: 980px !important;
+  font-weight:500 !important;
+  font-size:14px !important;
+  padding:11px 20px !important;
+}
+.btn-ghost:hover{ transform:translateY(-1px); }
+
+/* Nav items — rounded, subtle hover fill */
+.nav{ border-radius:10px !important; font-weight:500 !important; }
+.nav:hover{ background:var(--bg3) !important; }
+.nav.active{ font-weight:600 !important; }
+
+/* Inputs & selects — softer, rounded, focus ring like macOS */
+input, select, textarea{
+  border-radius:10px !important;
+  border:1px solid var(--border) !important;
+}
+input:focus, select:focus, textarea:focus{
+  outline:none !important;
+  border-color:var(--teal) !important;
+  box-shadow:0 0 0 4px var(--teal-glow) !important;
+}
+
+/* Status filter tabs — segmented-control feel */
+.status-tab{ border-radius:980px !important; font-weight:600 !important; font-size:14px !important; padding:10px 20px !important; }
+
+/* Tables — airier rows */
+table td, table th{ padding-top:13px !important; padding-bottom:13px !important; }
+table th{ font-weight:600 !important; letter-spacing:0.02em !important; }
+tr.link-row:hover td{ background:var(--bg3) !important; }
+
+/* Modals — glass + big rounding */
+#add-anchor-modal > div, #builder-links-modal > div{
+  border-radius:22px !important;
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+}
+
+/* Scrollbars — thin, Apple-like */
+::-webkit-scrollbar{ width:10px; height:10px; }
+::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:980px; border:2px solid transparent; background-clip:padding-box; }
+::-webkit-scrollbar-thumb:hover{ background:var(--text3); background-clip:padding-box; }
+::-webkit-scrollbar-track{ background:transparent; }
 </style>
 </head>
 <body>
