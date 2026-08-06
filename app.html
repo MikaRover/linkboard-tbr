@@ -591,6 +591,7 @@ tr:hover td{background:var(--bg3);}
   <!-- BUILDER NAV -->
   <div class="nav nav-bld" id="bld-nav-dashboard" onclick="gotoPage('b-dashboard',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='3' y='3' width='7' height='7'/><rect x='14' y='3' width='7' height='7'/><rect x='14' y='14' width='7' height='7'/><rect x='3' y='14' width='7' height='7'/></svg>Dashboard</div>
   <div class="nav nav-bld" id="bld-nav-links" onclick="gotoPage('b-links',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/><path d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/></svg>My Links</div>
+  <div class="nav nav-bld" id="bld-nav-anchors" onclick="gotoPage('anchors',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M12 2a3 3 0 0 0-3 3c0 1.3.8 2.4 2 2.8V10H8v2h3v7.9A8 8 0 0 1 4 12H2a10 10 0 0 0 20 0h-2a8 8 0 0 1-7 7.9V12h3v-2h-3V7.8A3 3 0 0 0 12 2z'/></svg>Anchors</div>
   <div class="nav nav-bld" id="bld-nav-add" onclick="gotoPage('add',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><line x1='12' y1='5' x2='12' y2='19'/><line x1='5' y1='12' x2='19' y2='12'/></svg>Add link</div>
   <div class="nav nav-bld nav-outreach" onclick="gotoPage('outreach',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='12' cy='12' r='10'/><circle cx='12' cy='12' r='6'/><circle cx='12' cy='12' r='2'/></svg>Outreach</div>
   <div class="nav nav-bld" onclick="gotoPage('domains',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><ellipse cx='12' cy='5' rx='9' ry='3'/><path d='M21 12c0 1.66-4 3-9 3s-9-1.34-9-3'/><path d='M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5'/></svg>Domains DB</div>
@@ -1236,7 +1237,7 @@ tr:hover td{background:var(--bg3);}
 
   <div class="page-top">
     <div class="page-title">⚓ Anchors</div>
-    <div style="display:flex;gap:8px;align-items:center;">
+    <div style="display:flex;gap:8px;align-items:center;" id="anchor-admin-controls">
       <button class="btn-sm" onclick="openAddAnchorModal()" style="width:auto;">+ Add anchors</button>
       <button class="btn-sm" onclick="resetAllAnchors()" style="width:auto;background:transparent;border:1px solid rgba(255,107,107,0.4);color:#ff6b6b;margin-left:8px;">🗑 Reset all</button>
     </div>
@@ -5339,6 +5340,11 @@ function initAnchors(){
 }
 
 function renderAnchors(){
+  // Hide add/reset/delete controls for builders — they get a read-only availability view
+  const _isBuilder = cu && cu.role!=='admin';
+  const _adminCtl = document.getElementById('anchor-admin-controls');
+  if(_adminCtl) _adminCtl.style.display = _isBuilder ? 'none' : '';
+
   // Get all projects that have ANY anchors
   const projsWithReqs = allProjects.filter(p=>allReqs.some(r=>r.project===p.name));
   const projList = document.getElementById('anc-proj-list');
@@ -5654,7 +5660,7 @@ function renderAnchorDetail(){
                 })()}
               </div>
             </div>
-            <button onclick="deleteAnchor('${r.id}','${r.anchor.replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>
+            ${(cu&&cu.role==='admin')?`<button onclick="deleteAnchor('${r.id}','${r.anchor.replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`:''}
           </div>
         </div>
         <div style="height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;">
