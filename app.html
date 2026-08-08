@@ -2215,6 +2215,10 @@ auth.onAuthStateChanged(async user=>{
     sApp.classList.remove('active');
     sApp.classList.add('screen');
     window.scrollTo(0,0);
+    // Clear sensitive in-memory data so the next user never sees a flash of the previous one's
+    cu = null;
+    allLinks = [];
+    window.currentPage = null;
   }
 });
 
@@ -2549,8 +2553,10 @@ function runDataCheck(){
   }).filter(l=>l._issues.length>0);
 
   const proj=document.getElementById('chk-proj');
+  const _chkPrev=proj.value;
   proj.innerHTML='<option value="">All projects</option>';
   [...new Set(checkerResults.map(l=>l.project))].sort().forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;proj.appendChild(o);});
+  if(_chkPrev && [...proj.options].some(o=>o.value===_chkPrev)) proj.value=_chkPrev;
 
   const shifted=checkerResults.filter(l=>l._issues.includes('shifted')).length;
   const missing=checkerResults.filter(l=>l._issues.includes('no-domain')||l._issues.includes('no-anchor')).length;
@@ -3329,7 +3335,6 @@ function renderActivePageForLinks(){
       renderAnchors();
       if(typeof ancSelectedProj!=='undefined' && ancSelectedProj) renderAnchorDetail(ancSelectedProj);
       break;
-    case 'load': if(typeof renderLoadTable==='function') renderLoadTable(); break;
     default:
       // Dashboard stats are the most commonly glanced-at; keep them fresh cheaply
       renderDashboard();
