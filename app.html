@@ -2208,7 +2208,13 @@ auth.onAuthStateChanged(async user=>{
     else auth.signOut();
   } else {
     document.getElementById('s-login').classList.add('active');
-    document.getElementById('s-app').classList.remove('active');
+    // Re-add the 'screen' class so s-app is fully hidden again on logout.
+    // (Login removes 'screen' to reveal it, so removing 'active' alone left it visible
+    //  and its data scrollable behind the login form.)
+    const sApp = document.getElementById('s-app');
+    sApp.classList.remove('active');
+    sApp.classList.add('screen');
+    window.scrollTo(0,0);
   }
 });
 
