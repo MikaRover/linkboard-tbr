@@ -7058,8 +7058,12 @@ function populateBLMonths(){
     const pa=a.split(' '), pb=b.split(' ');
     return (parseInt(pb[1]||0)-parseInt(pa[1]||0))||MONTHS_EN.indexOf(pb[0])-MONTHS_EN.indexOf(pa[0]);
   });
+  // Preserve the user's current selection across real-time re-renders
+  const prev = blMonthSel.value;
   blMonthSel.innerHTML='<option value="">All time</option>';
   months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;blMonthSel.appendChild(o);});
+  // Restore selection if it still exists as an option
+  if(prev && months.includes(prev)) blMonthSel.value = prev;
 }
 
 function renderBuilderLinks(){
