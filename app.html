@@ -475,7 +475,7 @@ tr:hover td{background:var(--bg3);}
 .quota-bar{height:6px;background:var(--bg4);border-radius:4px;overflow:hidden;}
 .quota-fill{height:6px;border-radius:4px;transition:width 0.4s ease;}
 .link-status-tabs{display:flex;gap:8px;margin-bottom:1rem;}
-.status-tab{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2);transition:all 0.15s ease;}
+.status-tab{padding:10px 20px;border-radius:980px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2);transition:all 0.15s ease;}
 .status-tab:hover{border-color:var(--teal);color:var(--teal);}
 .status-tab.active-live{background:rgba(0,196,174,0.12);border-color:rgba(0,196,174,0.4);color:var(--teal);}
 .status-tab.active-pend{background:rgba(240,165,0,0.1);border-color:rgba(240,165,0,0.35);color:var(--yellow);}
@@ -487,7 +487,7 @@ tr:hover td{background:var(--bg3);}
 .role-builder .nav{ font-size:14px !important; padding:11px 14px !important; }
 .role-builder .page-title{ font-size:22px !important; }
 /* Main filter tabs (All / Live / Pending) — comfortable tap size */
-.role-builder .status-tab{ font-size:14px !important; padding:9px 18px !important; font-weight:600 !important; }
+
 /* Only the PRIMARY action buttons grow (width:auto ones like +Add link, Check selected) */
 .role-builder .btn-sm{ font-size:14px !important; padding:11px 22px !important; font-weight:600 !important; }
 .role-builder .btn-ghost{ font-size:13px !important; padding:10px 16px !important; }
@@ -506,8 +506,7 @@ tr:hover td{background:var(--bg3);}
   font-size:13px !important;
   padding:9px 18px !important;
 }
-/* Status dropdowns in link rows — easy to tap but not huge */
-.role-builder table select{ font-size:13px !important; padding:7px 10px !important; }
+
 
 /* ══════════════════════════════════════════════════════
    Apple-inspired design refresh (visual only)
@@ -592,6 +591,75 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
 ::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:980px; border:2px solid transparent; background-clip:padding-box; }
 ::-webkit-scrollbar-thumb:hover{ background:var(--text3); background-clip:padding-box; }
 ::-webkit-scrollbar-track{ background:transparent; }
+
+/* ── Builder My Links table polish ── */
+/* Status select — pill-shaped, readable */
+.role-builder table select{
+  font-size:12px !important;
+  padding:6px 12px !important;
+  border-radius:980px !important;
+  border:1px solid var(--border) !important;
+  background:var(--bg2) !important;
+  cursor:pointer !important;
+  appearance:none !important;
+  -webkit-appearance:none !important;
+  min-width:100px !important;
+}
+/* Link check column — nicer badges */
+.role-builder td[style*="white-space:nowrap"] a{
+  color:var(--teal) !important;
+  font-size:12px !important;
+}
+/* Checkbox column */
+.role-builder .bl-row-check{ width:16px !important; height:16px !important; accent-color:var(--teal); }
+/* Table header — uppercased, spaced */
+#p-b-links th{
+  font-size:11px !important;
+  text-transform:uppercase !important;
+  letter-spacing:0.06em !important;
+  color:var(--text3) !important;
+  font-weight:600 !important;
+  padding:10px 8px !important;
+}
+/* Month group header — bolder, left-aligned badge */
+.role-builder tr td[colspan]{
+  font-size:13px !important;
+  font-weight:700 !important;
+}
+/* Domain links — teal, medium weight */
+.role-builder .domain-teal a{
+  font-weight:600 !important;
+  font-size:13px !important;
+}
+/* Row hover — subtle highlight */
+.role-builder .link-row:hover td{
+  background:var(--bg3) !important;
+}
+/* Edit expand row — softer bg */
+.role-builder tr[id^="edit-"] td{
+  background:var(--bg3) !important;
+  border-radius:0 !important;
+}
+/* DR/Traffic columns — mono, muted */
+.role-builder .link-row td:nth-child(4),
+.role-builder .link-row td:nth-child(5){
+  font-variant-numeric:tabular-nums !important;
+  color:var(--text2) !important;
+  font-size:12px !important;
+}
+/* Search input */
+#p-b-links input[type="text"],
+#p-b-links input[placeholder*="Search"]{
+  font-size:14px !important;
+  padding:10px 14px !important;
+}
+/* Month/project filter dropdowns */
+#p-b-links select#bl-month,
+#p-b-links select#bl-proj{
+  font-size:13px !important;
+  padding:9px 12px !important;
+  border-radius:10px !important;
+}
 </style>
 </head>
 <body>
@@ -2711,8 +2779,8 @@ function renderDetailLinks(){
       <td>${l.date||''}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.domain}</a></td>
       <td>${l.dr||'—'}</td><td>${trafficVal}</td><td>${l.ss||'—'}</td><td>${priceVal}</td><td>${l.anchor||'—'}</td><td>${l.builder||'—'}</td>
-      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select></td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="openLCModal(\'${lid}\')">↗</button></td>
+      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select></td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${lid}\')">↗</button></td>
       <td>${dupB(l,domainCount)}</td>
       <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button></td>
     </tr>
@@ -2822,13 +2890,18 @@ async function checkDetailProjectLinks(btn){
 }
 
 function goToMyLinks(filter){
-  // Navigate to My Links page and set the status filter tab
   gotoPage('b-links', document.getElementById('bld-nav-links'));
-  // Set the filter tab after a tick (page needs to render first)
   setTimeout(()=>{
-    if(filter==='live' && typeof setBTab==='function') setBTab('live');
-    else if(filter==='pending' && typeof setBTab==='function') setBTab('pending');
-    else if(typeof setBTab==='function') setBTab('all');
+    // Find the matching tab button and click it (setBTab needs the element for highlighting)
+    const tabs = document.querySelectorAll('.status-tab');
+    const target = filter || 'all';
+    for(const t of tabs){
+      const oc = t.getAttribute('onclick')||'';
+      if(oc.includes("'"+target+"'")){ t.click(); return; }
+    }
+    // Fallback — set filter directly
+    bStatusFilter = target;
+    renderBuilderLinks();
   },50);
 }
 
@@ -3429,10 +3502,10 @@ function linkMonthKey(l){
 
 
 function monthSeparatorRow(monthKey, count, colspan){
-  return`<tr style="background:var(--bg3);border-top:2px solid var(--border);">
-    <td colspan="${colspan}" style="padding:8px 12px;">
-      <span style="font-size:12px;font-weight:700;color:var(--teal);">${monthKey}</span>
-      <span style="font-size:11px;color:var(--text3);margin-left:8px;">${count} links</span>
+  return`<tr style="background:var(--bg3);border-top:1px solid var(--border);">
+    <td colspan="${colspan}" style="padding:12px 14px;">
+      <span style="font-size:13px;font-weight:700;color:var(--teal);letter-spacing:-0.01em;">${monthKey}</span>
+      <span style="font-size:11px;color:var(--text3);margin-left:8px;font-weight:500;">${count} links</span>
     </td>
   </tr>`;
 }
@@ -3664,7 +3737,7 @@ function renderDashboard(){
     const tb=document.getElementById(id);
     if(!arr.length){tb.innerHTML='<tr><td colspan="9" class="loading">No links</td></tr>';return;}
     tb.innerHTML=arr.slice(0,20).map(l=>`<tr>
-      <td style="color:var(--text3);font-size:11px;">${l.date||''}</td>
+      <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${l.date||''}</td>
       <td class="domain-teal"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;">${l.domain}</a></td>
       <td>${l.dr||'—'}</td>
       <td>${l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||l.traffic:'—'}</td>
@@ -3732,15 +3805,15 @@ function renderLinks(){
     const ssVal=l.ss?String(l.ss).replace(/%/g,'')+'%':'';
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${lid}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td style="color:var(--text3);font-size:11px;">${l.date||''}</td>
+      <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${l.date||''}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.domain}</a></td>
       <td>${l.dr||'—'}</td>
       <td>${trafficVal}</td>
-      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.anchor||'—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${l.anchor||'—'}</td>
       <td>${l.project||'—'}</td>
       <td>${l.builder||'—'}</td>
-      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select></td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="openLCModal(\'${lid}\')">↗</button></td>
+      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select></td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${lid}\')">↗</button></td>
       <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button>`:''}</td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
@@ -7082,19 +7155,19 @@ function renderBuilderLinks(){
     const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="bl-row-check" value="${lid}" onchange="updateBlCheckBtn()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td style="color:var(--text3);font-size:11px;">${l.date||''}</td>
+      <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${l.date||''}</td>
       <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;">${l.domain}</a></td>
       <td>${l.dr||'—'}</td><td>${trafficVal}</td>
-      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.anchor||'—'}</td>
-      <td>${l.project||'—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${l.anchor||'—'}</td>
+      <td style="font-size:13px;font-weight:500;">${l.project||'—'}</td>
       <td onclick="event.stopPropagation()">
-        <select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-size:11px;color:var(--text);width:auto;margin:0;cursor:pointer;">
+        <select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;">
           <option value="live" ${l.status==='live'?'selected':''}>✅ Live</option>
           <option value="pending" ${l.status==='pending'?'selected':''}>⏳ Pending</option>
         </select>
       </td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
-        <button class="btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:2px;" onclick="openLCModal(\'${lid}\')">↗</button>
+        <button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${lid}\')">↗</button>
       </td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
