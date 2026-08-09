@@ -483,41 +483,31 @@ tr:hover td{background:var(--bg3);}
 .month-sep-row td{background:var(--bg3) !important;padding:6px 10px !important;border-top:2px solid var(--border) !important;}
 
 /* ── Bigger, clearer UI for builders (team members) ── */
-.role-builder .status-tab{
-  font-size:15px !important;
-  padding:11px 22px !important;
-  font-weight:700 !important;
-  border-radius:10px !important;
+/* Builders get a slightly larger, clearer UI — kept tasteful, not oversized */
+.role-builder .nav{ font-size:14px !important; padding:11px 14px !important; }
+.role-builder .page-title{ font-size:22px !important; }
+/* Main filter tabs (All / Live / Pending) — comfortable tap size */
+.role-builder .status-tab{ font-size:14px !important; padding:9px 18px !important; font-weight:600 !important; }
+/* Only the PRIMARY action buttons grow (width:auto ones like +Add link, Check selected) */
+.role-builder .btn-sm{ font-size:14px !important; padding:11px 22px !important; font-weight:600 !important; }
+.role-builder .btn-ghost{ font-size:13px !important; padding:10px 16px !important; }
+/* Inline edit form — keep compact so it never looks oversized */
+.role-builder .link-row + tr input,
+.role-builder .link-row + tr select,
+.role-builder tr[id^="edit-"] input,
+.role-builder tr[id^="edit-"] select,
+.role-builder input[id^="ei-"],
+.role-builder select[id^="ei-"]{
+  font-size:13px !important;
+  padding:9px 12px !important;
 }
-.role-builder .btn-sm{
-  font-size:16px !important;
-  padding:14px 28px !important;
-  font-weight:700 !important;
-  border-radius:980px !important;
+/* Save/Cancel inside an edit row — normal size, not the big pill */
+.role-builder .edit-btn, .edit-btn{
+  font-size:13px !important;
+  padding:9px 18px !important;
 }
-.role-builder .btn-ghost{
-  font-size:14px !important;
-  padding:11px 18px !important;
-  font-weight:600 !important;
-  border-radius:10px !important;
-}
-.role-builder .nav{
-  font-size:15px !important;
-  padding:12px 14px !important;
-}
-.role-builder .page-title{
-  font-size:26px !important;
-}
-/* Status dropdowns inside builder link rows — easier to tap */
-.role-builder table select{
-  font-size:14px !important;
-  padding:7px 10px !important;
-}
-/* Link-check action buttons a touch larger */
-.role-builder .link-check-btn{
-  font-size:14px !important;
-  padding:7px 10px !important;
-}
+/* Status dropdowns in link rows — easy to tap but not huge */
+.role-builder table select{ font-size:13px !important; padding:7px 10px !important; }
 
 /* ══════════════════════════════════════════════════════
    Apple-inspired design refresh (visual only)
@@ -2277,36 +2267,11 @@ function startApp(){
 
   // Show/hide admin-only elements
   document.querySelectorAll('.adm').forEach(el=>el.style.display=isAdmin?'block':'none');
-  // Manager sees only the reqs (Add anchors) nav item
-  if(isManager){
-    document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='none');
-    document.querySelectorAll('.nav.adm').forEach(el=>el.style.display='none');
-    // Show only anchors & reqs nav
-    document.querySelectorAll('.nav.adm').forEach(el=>{
-      if(el.getAttribute('onclick')&&(el.getAttribute('onclick').includes("'reqs'")|| el.getAttribute('onclick').includes("'anchors'")||el.getAttribute('onclick').includes("'domains'")))
-        el.style.display='block';
-    });
-  }
-
   if(isAdmin){
     // Admin sees all admin nav, builder nav hidden
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='none');
-  } else if(isManager){
-    // Manager — hide ALL builder nav items except outreach
-    document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='none');
-    // Also hide all links nav if exists
-    document.querySelectorAll('.nav').forEach(el=>{
-      if(!el.classList.contains('nav-bld')&&!el.classList.contains('adm')) el.style.display='none';
-    });
-    // Show outreach, add link and batch for manager
-    document.querySelectorAll('.nav-outreach').forEach(el=>el.style.display='block');
-    document.querySelectorAll('.nav-bld').forEach(el=>{
-      const oc = el.getAttribute('onclick')||'';
-      if(oc.includes("'add'")||oc.includes("'batch'"))
-        el.style.display='block';
-    });
   } else {
-    // Builder sees only builder nav, admin nav hidden
+    // Manager + Builder get the SAME view — only the builder nav, admin nav hidden
     document.querySelectorAll('.nav').forEach(el=>{
       if(!el.classList.contains('nav-bld')) el.style.display='none';
     });
@@ -2335,9 +2300,8 @@ function startApp(){
 
   if(isAdmin){
     gotoPage('dashboard',document.querySelector('.nav:not(.nav-bld).active')||document.querySelector('.nav:not(.nav-bld)'));
-  } else if(isManager){
-    gotoPage('anchors',document.querySelector('.nav.adm[onclick*="anchors"]'));
   } else {
+    // Manager + Builder both land on the builder dashboard
     gotoPage('b-dashboard',document.getElementById('bld-nav-dashboard'));
   }
 
@@ -2768,7 +2732,7 @@ function renderDetailLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
-        <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+        <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${lid}')" style="width:auto;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
       </td>
     </tr>`;
   };
@@ -3784,7 +3748,7 @@ function renderLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${safeLinkto}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
-        <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+        <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${lid}')" style="width:auto;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
       </td>
     </tr>`;
   };
