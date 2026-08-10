@@ -1,10 +1,11 @@
 {
   "functions": {
-    "api/agent.js": { "maxDuration": 60 },
     "api/snov.js": { "maxDuration": 60 },
     "api/prospect.js": { "maxDuration": 60 },
     "api/scan-project.js": { "maxDuration": 60 },
     "api/image-req.js": { "maxDuration": 60 },
-    "api/dapa.js": { "maxDuration": 30 }
+    "api/dapa.js": { "maxDuration": 30 },
+    "api/scrape-contacts.js": { "maxDuration": 30 },
+    "api/check-link.js": { "maxDuration": 30 }
   }
 }

@@ -1,5 +1,3 @@
-const DAPA_API_KEY = 'e218e97a1e5a48456991555d3245498581a7aa9f';
-
 function cleanDomain(raw){
   return String(raw||'').trim().replace(/^https?:\/\//i,'').replace(/^www\./i,'').replace(/\/.*$/,'').replace(/\/$/,'').toLowerCase();
 }
@@ -15,6 +13,9 @@ module.exports = async function handler(req, res){
   let list = Array.isArray(domains) ? domains : (domain ? [domain] : []);
   if(!list.length) return res.status(400).json({error:'domain(s) required'});
   const cleaned = list.map(cleanDomain).filter(Boolean);
+
+  const DAPA_API_KEY = process.env.DAPA_API_KEY;
+  if(!DAPA_API_KEY) return res.status(500).json({error:'DAPA API key not configured'});
 
   try {
     const resp = await fetch('https://www.dapachecker.org/api/user/dapa-checker', {

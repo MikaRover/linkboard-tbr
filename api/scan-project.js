@@ -1,3 +1,5 @@
+const { isSafeHost } = require('./_lib/security');
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -5,10 +7,11 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { domain, anthropicKey } = req.body || {};
+  const { domain } = req.body || {};
   if (!domain) return res.status(400).json({ error: 'domain required' });
+  if (!isSafeHost(domain)) return res.status(400).json({ error: 'Invalid or disallowed domain' });
 
-  const ANTHROPIC_KEY = anthropicKey || process.env.ANTHROPIC_KEY || '';
+  const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || '';
   const baseUrl = `https://${domain.replace(/^https?:\/\//, '').replace(/^www\./, '')}`;
 
   const fetchPage = async (url) => {

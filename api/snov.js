@@ -3,8 +3,8 @@
 // Google Apps Script Engine, adapted for Vercel serverless (fetch).
 // ══════════════════════════════════════════════════════════════
 
-const SNOV_CLIENT_ID = '6b423e67c549ace7c01ed4914935d0c2';
-const SNOV_CLIENT_SECRET = '8a864926f4ad1d63c1b8fee73b17f741';
+const SNOV_CLIENT_ID = process.env.SNOV_CLIENT_ID;
+const SNOV_CLIENT_SECRET = process.env.SNOV_CLIENT_SECRET;
 
 // ── Target roles (same grouping as Engine) ──
 const CORE_LINK_BUILDING_ROLES = [
@@ -313,6 +313,7 @@ module.exports = async function handler(req, res) {
 
   const { domain, action } = req.body || {};
   if (!domain) return res.status(400).json({error:'domain required'});
+  if (!SNOV_CLIENT_ID || !SNOV_CLIENT_SECRET) return res.status(500).json({error:'Snov credentials not configured'});
 
   const cleanDomain = domain.replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*/,'').trim();
 

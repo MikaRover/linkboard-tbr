@@ -2059,9 +2059,6 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
 
 <script>
 // ─── CONFIG ───────────────────────────────────────────────
-const OPENAI_KEY = "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";
-const ANTHROPIC_KEY = "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";
-
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCrcZvfeT04BASPS7qQ-j0F4x0ukvZaddA",
   authDomain: "link-board-tbr.firebaseapp.com",
@@ -2530,7 +2527,7 @@ async function scanProject(projId, projName, btn){
     const resp = await fetch('/api/scan-project', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ domain, anthropicKey: ANTHROPIC_KEY })
+      body: JSON.stringify({ domain })
     });
     const data = await resp.json();
 
@@ -3060,7 +3057,7 @@ async function detectCategory(domain){
     const resp=await fetch('/api/detect-category',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({domain, openaiKey:ANTHROPIC_KEY})
+      body:JSON.stringify({domain})
     });
     const data=await resp.json();
     const cat=normalizeCategory(data.category||'Other');
@@ -6411,8 +6408,7 @@ async function openProspector(){
         domain,
         project: proj,
         linkTo,
-        anchors,
-        openaiKey: OPENAI_KEY
+        anchors
       })
     });
     const data = await resp.json();
@@ -7532,7 +7528,7 @@ async function runProspectorPage(btn){
     const finalAnchors = manualAnchor ? [manualAnchor, ...anchors.filter(a=>a!==manualAnchor)] : anchors;
     const resp = await fetch('/api/prospect',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({domain, project:proj, linkTo, anchors: finalAnchors, siteData, openaiKey: ANTHROPIC_KEY})
+      body: JSON.stringify({domain, project:proj, linkTo, anchors: finalAnchors, siteData})
     });
     const data = await resp.json();
     clearInterval(st);
@@ -7719,7 +7715,7 @@ async function runBatchAnalyze(btn){
         // Detect category
         const cResp = await fetch('/api/detect-category',{
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({domain, openaiKey: ANTHROPIC_KEY})
+          body: JSON.stringify({domain})
         });
         const cData = await cResp.json();
         category = normalizeCategory(cData.category||'');

@@ -1,6 +1,17 @@
 // Simple in-memory cache (persists for serverless function lifetime)
 const cache = {};
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_MAX_ENTRIES = 500;
+
+function cachePrune() {
+  const keys = Object.keys(cache);
+  if (keys.length <= CACHE_MAX_ENTRIES) return;
+  keys
+    .map(k => [k, cache[k].ts])
+    .sort((a, b) => a[1] - b[1])
+    .slice(0, keys.length - CACHE_MAX_ENTRIES)
+    .forEach(([k]) => delete cache[k]);
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -25,7 +36,8 @@ module.exports = async function handler(req, res) {
     return res.json({ ...cached.data, cached: true });
   }
 
-  const AHREFS_KEY = '7dNernlzY4mixkKwyIEOVsZK8e0Rx0Hgq3YszXti';
+  const AHREFS_KEY = process.env.AHREFS_API_KEY;
+  if (!AHREFS_KEY) return res.status(500).json({ error: 'Ahrefs API key not configured' });
   const today = new Date().toISOString().slice(0, 10);
   const headers = {
     'Authorization': `Bearer ${AHREFS_KEY}`,
@@ -80,6 +92,7 @@ module.exports = async function handler(req, res) {
     // Only cache if we got valid data
     if (dr !== null || traffic !== null) {
       cache[cleanDomain] = { ts: Date.now(), data: result };
+      cachePrune();
     }
 
     return res.json(result);

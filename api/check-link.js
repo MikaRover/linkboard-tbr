@@ -2,6 +2,8 @@
 // looks for the target URL, and reports status. Uses realistic browser headers
 // and retries to avoid false "403 / not found" on bot-protected sites.
 
+const { isSafeHost } = require('./_lib/security');
+
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
 function normUrl(u){
@@ -41,6 +43,7 @@ module.exports = async function handler(req, res){
 
   const { linkIn, linkTo, anchor } = req.body || {};
   if(!linkIn || !linkTo) return res.status(400).json({result:'⚠️ Missing linkIn/linkTo'});
+  if(!isSafeHost(linkIn)) return res.status(400).json({result:'⚠️ Invalid or disallowed URL'});
 
   const pageUrl = normUrl(linkIn);
   const targetDomain = domainOf(linkTo);

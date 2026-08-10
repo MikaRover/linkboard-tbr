@@ -1,3 +1,5 @@
+const { isSafeHost } = require('./_lib/security');
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -5,8 +7,11 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { domain, openaiKey } = req.body || {};
+  const { domain } = req.body || {};
   if (!domain) return res.status(400).json({ error: 'domain required' });
+  if (!isSafeHost(domain)) return res.status(400).json({ error: 'Invalid or disallowed domain' });
+
+  const anthropicKey = process.env.ANTHROPIC_API_KEY || '';
 
   const normalizedDomain = domain.replace(/^https?:\/\//i,'').replace(/^www\./i,'').split('/')[0].trim();
   const base = 'https://' + normalizedDomain;
@@ -47,7 +52,7 @@ module.exports = async function handler(req, res) {
 
   const heuristic = heuristicClassify(combinedText, normalizedDomain, homepageHtml);
 
-  if (!openaiKey) {
+  if (!anthropicKey) {
     return res.json({ category: heuristic.suggestedCategory, method: 'heuristic', confidence: null });
   }
 
@@ -91,7 +96,7 @@ No explanation, no markdown, just JSON.`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': openaiKey,
+        'x-api-key': anthropicKey,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({

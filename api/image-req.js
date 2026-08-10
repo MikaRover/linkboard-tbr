@@ -1,5 +1,3 @@
-const OPENAI_KEY = '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';
-
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -9,6 +7,9 @@ module.exports = async function handler(req, res) {
 
   const { imageBase64, mediaType } = req.body || {};
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 required' });
+
+  const OPENAI_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_KEY) return res.status(500).json({ error: 'OpenAI API key not configured' });
 
   const mt = mediaType || 'image/png';
 
