@@ -504,7 +504,26 @@ tr:hover td{background:var(--bg3);}
 /* Save/Cancel inside an edit row — normal size, not the big pill */
 .role-builder .edit-btn, .edit-btn{
   font-size:13px !important;
-  padding:9px 18px !important;
+  padding:8px 16px !important;
+  border-radius:10px !important;
+  font-weight:600 !important;
+}
+/* Edit form inputs — compact, consistent */
+.role-builder tr[id^="edit-"] input,
+.role-builder tr[id^="edit-"] select{
+  font-size:13px !important;
+  padding:8px 10px !important;
+  border-radius:8px !important;
+}
+/* Edit form labels */
+.role-builder tr[id^="edit-"] .section-label{
+  font-size:10px !important;
+}
+/* Link in / Link to buttons in edit row */
+.role-builder tr[id^="edit-"] .btn-ghost{
+  font-size:12px !important;
+  padding:5px 10px !important;
+  border-radius:8px !important;
 }
 
 
@@ -869,6 +888,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
 <div id="p-links" class="page">
   <div class="page-top">
     <div class="page-title">All links</div>
+    <div id="approval-banner" style="display:none;"></div>
     <div style="display:flex;gap:8px;align-items:center;">
       <select id="check-proj-select" style="margin:0;padding:6px 10px;font-size:12px;width:auto;">
         <option value="">All projects</option>
@@ -2802,7 +2822,7 @@ function renderDetailLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
-        <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${lid}')" style="width:auto;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+        <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${lid}')" style="width:auto;padding:8px 16px !important;font-size:13px !important;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
       </td>
     </tr>`;
   };
@@ -2887,6 +2907,61 @@ async function checkDetailProjectLinks(btn){
     done++;
   }
   btn.textContent='✅ Done';setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},2500);
+}
+
+function showPendingApprovals(){
+  const pending = allLinks.filter(l=>l.needsApproval && l.approvalStatus==='pending');
+  let modal = document.getElementById('approval-modal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'approval-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;';
+    modal.onclick = (e)=>{ if(e.target===modal) modal.remove(); };
+    document.body.appendChild(modal);
+  }
+  const rows = pending.map(l=>`
+    <tr>
+      <td style="font-size:12px;color:var(--text3);">${l.date||''}</td>
+      <td><a href="https://${nd(l.domain)}" target="_blank" style="color:var(--teal);">${l.domain||''}</a></td>
+      <td>${l.project||''}</td>
+      <td style="font-size:12px;">${l.anchor||''}</td>
+      <td style="font-size:12px;">${l.builder||''}</td>
+      <td style="font-size:11px;color:var(--yellow);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${l.approvalReason||''}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn-sm" onclick="approveLink('${l.id}')" style="width:auto;font-size:12px;padding:6px 14px;">✅ Approve</button>
+        <button class="btn-ghost" onclick="rejectLink('${l.id}')" style="font-size:12px;padding:6px 14px;color:var(--red);">✕ Reject</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3);">No pending approvals</td></tr>';
+
+  modal.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:20px;width:960px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);">
+        <div style="font-size:16px;font-weight:800;color:var(--text);">Pending approvals (${pending.length})</div>
+        <button onclick="document.getElementById('approval-modal').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;">×</button>
+      </div>
+      <div style="overflow:auto;padding:8px 22px 22px;">
+        <table class="tbl" style="width:100%;"><thead><tr>
+          <th>Date</th><th>Domain</th><th>Project</th><th>Anchor</th><th>Builder</th><th>Reason</th><th></th>
+        </tr></thead><tbody>${rows}</tbody></table>
+      </div>
+    </div>`;
+}
+
+async function approveLink(id){
+  await db.collection('links').doc(id).update({needsApproval:false, approvalStatus:'approved'});
+  showToast('✅ Link approved');
+  const modal = document.getElementById('approval-modal');
+  if(modal) showPendingApprovals(); // refresh modal
+  renderLinks();
+}
+
+async function rejectLink(id){
+  if(!confirm('Reject and delete this link?')) return;
+  await db.collection('links').doc(id).delete();
+  showToast('✕ Link rejected and removed');
+  const modal = document.getElementById('approval-modal');
+  if(modal) showPendingApprovals();
+  renderLinks();
 }
 
 function goToMyLinks(filter){
@@ -3283,9 +3358,20 @@ async function addLink(){
 
   if(!domain||!anchor||!proj){alert('Domain, anchor and project are required');return;}
 
+  let needsApproval = false, approvalReason = '';
+
   // Duplicate check per project
   const existing=allLinks.find(l=>nd(l.domain)===nd(domain)&&l.project===proj);
-  if(existing){if(!confirm('Duplicate! '+domain+' already exists in '+proj+'. Add anyway?'))return;}
+  if(existing){
+    if(cu.role==='admin'){
+      if(!confirm('Duplicate! '+domain+' already exists in '+proj+'. Add anyway?'))return;
+    } else {
+      // Builder can't bypass — needs admin approval
+      if(!confirm('⚠️ '+domain+' already exists in '+proj+'.\n\nSend to admin for approval?')) return;
+      needsApproval = true;
+      approvalReason = 'Duplicate: '+domain+' already in '+proj;
+    }
+  }
 
   // Quality requirements validation (hard stop)
   const qr=allQualityReqs.find(r=>r.project===proj);
@@ -3298,8 +3384,13 @@ async function addLink(){
     if(qr.allowedCategories&&qr.allowedCategories.length>0&&category&&!qr.allowedCategories.includes(category)) failures.push(`Category "${category}" is not allowed for ${proj}`);
 
     if(failures.length>0){
-      alert('🚫 Quality requirements not met for '+proj+':\n\n• '+failures.join('\n• '));
-      return; // hard stop
+      if(cu.role==='admin'){
+        if(!confirm('🚫 Quality requirements not met for '+proj+':\n\n• '+failures.join('\n• ')+'\n\nAdd anyway?')) return;
+      } else {
+        alert('⚠️ Quality requirements not met for '+proj+':\n\n• '+failures.join('\n• ')+'\n\nSending to admin for approval.');
+        needsApproval = true;
+        approvalReason = 'Quality: '+failures.join(', ');
+      }
     }
   }
 
@@ -3332,8 +3423,8 @@ async function addLink(){
       check:getCheck(domain,anchor,proj),
       relevancy:'',linkcheck:'',
       createdAt:firebase.firestore.FieldValue.serverTimestamp(),
-      date:new Date().toLocaleDateString('en-GB')
-    });
+      date:new Date().toLocaleDateString('en-GB'),
+    ...(needsApproval ? {needsApproval:true, approvalReason, approvalStatus:'pending'} : {})});
     const ok=document.getElementById('al-ok');
     ok.style.display='block';ok.textContent='✅ Link added!';
     setTimeout(()=>{
@@ -3755,6 +3846,19 @@ function renderDashboard(){
 }
 
 function renderLinks(){
+  // Show pending-approval banner for admin
+  const pendApprovals = allLinks.filter(l=>l.needsApproval && l.approvalStatus==='pending');
+  const apBanner = document.getElementById('approval-banner');
+  if(apBanner){
+    if(pendApprovals.length>0){
+      apBanner.style.display='block';
+      apBanner.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(240,165,0,0.1);border:1px solid rgba(240,165,0,0.3);border-radius:12px;margin-bottom:16px;">
+        <span style="font-size:14px;font-weight:600;color:var(--yellow);">⚠️ ${pendApprovals.length} link${pendApprovals.length>1?'s':''} pending approval</span>
+        <button class="btn-sm" onclick="showPendingApprovals()" style="width:auto;font-size:13px;padding:8px 16px;">Review →</button>
+      </div>`;
+    } else { apBanner.style.display='none'; }
+  }
+
   const s=(document.getElementById('ls-s').value||'').toLowerCase();
   const p=document.getElementById('ls-p').value;
   const st=document.getElementById('ls-st').value;
@@ -3834,7 +3938,7 @@ function renderLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${safeLinkto}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
-        <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${lid}')" style="width:auto;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+        <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${lid}')" style="width:auto;padding:8px 16px !important;font-size:13px !important;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
       </td>
     </tr>`;
   };
@@ -4183,7 +4287,14 @@ async function checkSelectedBuilderLinks(btn){
         body: JSON.stringify({linkIn:l.linkin, linkTo:l.linkto, anchor:l.anchor||''})
       });
       const data = await resp.json();
-      await db.collection('links').doc(id).update({linkcheck: data.result||'⚠️ No response'});
+      const updateObj = {linkcheck: data.result||'⚠️ No response'};
+      // Auto-update status based on check result
+      if(data.ok===true && (data.result||'').includes('Live')){
+        updateObj.status = 'live';
+      } else if(data.ok===false && ((data.result||'').includes('Page gone')||(data.result||'').includes('not found'))){
+        updateObj.status = 'lost';
+      }
+      await db.collection('links').doc(id).update(updateObj);
     }catch(e){
       await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'}).catch(()=>{});
     }
@@ -7171,7 +7282,7 @@ function renderBuilderLinks(){
       </td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
-      <td colspan="8" style="padding:14px 16px;">
+      <td colspan="9" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
           ${l.linkin?`<a href="${l.linkin}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
           ${l.linkto?`<a href="${l.linkto}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
