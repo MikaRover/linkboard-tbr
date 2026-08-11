@@ -21,23 +21,12 @@
   --shadow:0 1px 3px rgba(0,0,0,0.18),0 8px 30px rgba(0,0,0,0.28);
   --shadow-teal:0 4px 24px rgba(0,196,174,0.18);
 }
-/* ── NEON BACKGROUND ── */
-@keyframes neonFloat1{0%,100%{transform:translate(0,0) scale(1);}33%{transform:translate(30px,-20px) scale(1.05);}66%{transform:translate(-20px,15px) scale(0.97);}}
-@keyframes neonFloat2{0%,100%{transform:translate(0,0) scale(1);}33%{transform:translate(-25px,20px) scale(1.03);}66%{transform:translate(20px,-25px) scale(0.98);}}
-@keyframes neonFloat3{0%,100%{transform:translate(0,0);}50%{transform:translate(15px,10px);}}
-.neon-bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
-.neon-orb{position:absolute;border-radius:50%;filter:blur(80px);}
-.neon-orb.o1{width:600px;height:600px;background:radial-gradient(circle,rgba(0,196,174,0.5),transparent 70%);top:-150px;left:-150px;opacity:0.25;animation:neonFloat1 14s ease-in-out infinite;}
-.neon-orb.o2{width:500px;height:500px;background:radial-gradient(circle,rgba(0,80,255,0.5),transparent 70%);bottom:-100px;right:-100px;opacity:0.2;animation:neonFloat2 17s ease-in-out infinite;}
-.neon-orb.o3{width:400px;height:400px;background:radial-gradient(circle,rgba(0,229,204,0.4),transparent 70%);top:45%;left:55%;opacity:0.15;animation:neonFloat3 11s ease-in-out infinite;}
-.neon-orb.o4{width:350px;height:350px;background:radial-gradient(circle,rgba(100,0,255,0.35),transparent 70%);top:15%;right:25%;opacity:0.1;animation:neonFloat1 20s ease-in-out infinite reverse;}
-
 /* ── SPLASH SCREEN ── */
 #app-splash{position:fixed;inset:0;background:#080f1e;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;}
 #app-splash.hide{animation:splashOut 0.5s cubic-bezier(0.4,0,1,1) forwards;}
 @keyframes splashOut{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(1.04);pointer-events:none;}}
 .splash-logo-txt{font-size:64px;font-weight:800;color:#e8f5f2;opacity:0;transform:translateY(16px);animation:logoIn 0.7s 0.3s cubic-bezier(0.22,1,0.36,1) forwards;font-family:"Inter",-apple-system,sans-serif;letter-spacing:-2px;}
-.splash-logo-txt span{color:#00c4ae;text-shadow:0 0 32px rgba(0,196,174,0.7),0 0 70px rgba(0,196,174,0.3);}
+.splash-logo-txt span{color:#00c4ae;}
 .splash-sub-txt{font-size:13px;color:#4a7090;letter-spacing:4px;text-transform:uppercase;opacity:0;animation:fadeIn2 0.5s 0.6s ease forwards;margin-top:12px;}
 .splash-bar-wrap{width:200px;height:2px;background:rgba(0,196,174,0.1);border-radius:2px;overflow:hidden;opacity:0;animation:fadeIn2 0.3s 0.8s ease forwards;margin-top:24px;}
 .splash-bar{height:100%;width:0%;background:linear-gradient(90deg,#00c4ae,#00e5cc);border-radius:2px;box-shadow:0 0 10px rgba(0,196,174,0.9);animation:barFill 1.4s 0.9s cubic-bezier(0.4,0,0.2,1) forwards;}
@@ -54,26 +43,6 @@
 #s-app.app-ready .sidebar,#s-app.app-ready .content{opacity:1;transform:translateX(0);}
 .stat{transition:opacity 0.4s ease,transform 0.4s ease;}
 .stat.anim-hidden{opacity:0;transform:translateY(12px);}
-
-/* ── CHAIN LINK ANIMATION ── */
-@keyframes chainFloat {
-  0%,100%{transform:translateY(0) rotate(0deg);opacity:0.12;}
-  50%{transform:translateY(-30px) rotate(15deg);opacity:0.22;}
-}
-@keyframes chainFloat2 {
-  0%,100%{transform:translateY(0) rotate(-10deg);opacity:0.08;}
-  50%{transform:translateY(20px) rotate(5deg);opacity:0.18;}
-}
-@keyframes chainDrift {
-  0%{transform:translateX(0) translateY(0) rotate(0deg);}
-  25%{transform:translateX(15px) translateY(-20px) rotate(20deg);}
-  50%{transform:translateX(-10px) translateY(-35px) rotate(-10deg);}
-  75%{transform:translateX(-20px) translateY(-15px) rotate(15deg);}
-  100%{transform:translateX(0) translateY(0) rotate(0deg);}
-}
-.chain-bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
-.chain-link{position:absolute;opacity:0.12;}
-.chain-link svg{stroke:var(--teal);fill:none;stroke-width:1.5;}
 
 body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Inter','Segoe UI',sans-serif;background:var(--bg);letter-spacing:-0.011em;color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
 
@@ -112,7 +81,6 @@ body.light .nav.active{background:rgba(8,145,178,0.1);color:var(--teal);}
 body.light .page-title{color:var(--text);}
 body.light .sb-logo span{color:var(--teal);}
 body.light .login-box{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.10);}
-body.light .neon-bg .neon-orb{opacity:0.04;}
 
 /* ── PERF: reduce transitions on scroll ── */
 body,body *{transition:background-color 0.18s ease,color 0.15s ease,border-color 0.15s ease;}
@@ -128,7 +96,7 @@ body,body *{transition:background-color 0.18s ease,color 0.15s ease,border-color
 /* ── LAYOUT ── */
 .screen{display:none;}.screen.active{display:block;}
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;}
-.login-box{width:380px;background:rgba(12,24,41,0.85);backdrop-filter:blur(20px);border:1px solid rgba(0,196,174,0.25);border-radius:20px;padding:2.5rem;box-shadow:0 0 80px rgba(0,196,174,0.15),0 0 0 1px rgba(0,196,174,0.08),0 4px 40px rgba(0,0,0,0.6);animation:fadeSlideIn 0.35s ease;position:relative;z-index:1;}
+.login-box{width:380px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:2.5rem;box-shadow:var(--shadow);animation:fadeSlideIn 0.35s ease;position:relative;z-index:1;}
 .login-logo{font-size:26px;font-weight:800;color:var(--text);margin-bottom:4px;text-align:center;letter-spacing:-0.5px;}
 .login-logo span{color:var(--teal);}
 .login-sub{font-size:13px;color:var(--text2);text-align:center;margin-bottom:2rem;}
@@ -683,13 +651,6 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
 </head>
 <body>
 
-<div class="neon-bg">
-  <div class="neon-orb o1"></div>
-  <div class="neon-orb o2"></div>
-  <div class="neon-orb o3"></div>
-  <div class="neon-orb o4"></div>
-</div>
-<div class="chain-bg" id="chain-bg"></div>
 <!-- ══ SPLASH SCREEN ══ -->
 <div id="app-splash">
   <canvas id="splash-3d-canvas"></canvas>
@@ -2179,32 +2140,6 @@ function toggleTheme(){
   }
 })();
 
-// ── CHAIN LINK BACKGROUND ──
-(function(){
-  const bg = document.getElementById('chain-bg');
-  if(!bg) return;
-  const positions = [
-    {x:'8%',y:'12%',size:28,dur:'18s',delay:'0s',fn:'chainFloat'},
-    {x:'85%',y:'8%',size:36,dur:'22s',delay:'-3s',fn:'chainFloat2'},
-    {x:'15%',y:'75%',size:24,dur:'16s',delay:'-5s',fn:'chainDrift'},
-    {x:'78%',y:'68%',size:40,dur:'25s',delay:'-8s',fn:'chainFloat'},
-    {x:'45%',y:'5%',size:20,dur:'14s',delay:'-2s',fn:'chainFloat2'},
-    {x:'92%',y:'40%',size:32,dur:'20s',delay:'-10s',fn:'chainDrift'},
-    {x:'3%',y:'45%',size:44,dur:'28s',delay:'-6s',fn:'chainFloat'},
-    {x:'55%',y:'88%',size:22,dur:'17s',delay:'-12s',fn:'chainFloat2'},
-    {x:'30%',y:'90%',size:30,dur:'21s',delay:'-4s',fn:'chainDrift'},
-    {x:'68%',y:'25%',size:26,dur:'19s',delay:'-9s',fn:'chainFloat'},
-    {x:'22%',y:'35%',size:18,dur:'15s',delay:'-7s',fn:'chainFloat2'},
-    {x:'75%',y:'85%',size:38,dur:'23s',delay:'-11s',fn:'chainDrift'},
-  ];
-  positions.forEach(p=>{
-    const div = document.createElement('div');
-    div.className = 'chain-link';
-    div.style.cssText = `left:${p.x};top:${p.y};animation:${p.fn} ${p.dur} ease-in-out ${p.delay} infinite;`;
-    div.innerHTML = `<svg width="${p.size}" height="${p.size}" viewBox="0 0 24 24" fill="none" stroke="rgba(0,196,174,0.6)" stroke-width="1.5" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
-    bg.appendChild(div);
-  });
-})();
 
 // ── 3D SPLASH ANIMATION ──
 (function(){
@@ -2365,7 +2300,7 @@ function startApp(){
   const neonColor=NEON_COLORS[displayName]||NEON_COLORS['Admin'];
   const sbName=document.getElementById('sb-name');
   sbName.textContent=displayName;
-  sbName.style.cssText=`color:${neonColor};font-weight:700;text-shadow:0 0 8px ${neonColor}88,0 0 20px ${neonColor}44;`;
+  sbName.style.cssText=`color:${neonColor};font-weight:700;`;
   document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':cu.role==='manager'?'Manager':'Link Builder';
 
   const isAdmin=cu.role==='admin';
@@ -6175,7 +6110,7 @@ function renderKPI(){
 
     return `<div class="quota-card" style="border-color:${b.color}22;position:relative;overflow:hidden;">
       <div style="position:absolute;top:10px;right:12px;font-size:20px;">${rankEmoji}</div>
-      <div style="font-size:16px;font-weight:800;color:${b.color};margin-bottom:6px;text-shadow:0 0 8px ${b.color}44;">${escapeHtml(b.name)}</div>
+      <div style="font-size:16px;font-weight:800;color:${b.color};margin-bottom:6px;">${escapeHtml(b.name)}</div>
       <div style="font-size:11px;font-weight:700;color:${badgeColor};margin-bottom:10px;">${badge}</div>
 
       <!-- Score bar -->
@@ -6356,7 +6291,7 @@ function renderAnalytics(){
 
     return `<div class="quota-card" style="cursor:pointer;" onclick="openBuilderModal('${escAttr(b)}')">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <span style="font-size:14px;font-weight:700;color:${color};text-shadow:0 0 8px ${color}44;">${escapeHtml(b)}</span>
+        <span style="font-size:14px;font-weight:700;color:${color};">${escapeHtml(b)}</span>
         <span style="font-size:20px;font-weight:800;color:${color};">${bLinks.length}</span>
       </div>
       <div style="display:flex;gap:12px;margin-bottom:10px;">
@@ -6589,7 +6524,7 @@ function openBuilderModal(builderName){
   // Name with neon
   const nameEl = document.getElementById('bm-name');
   nameEl.textContent = builderName;
-  nameEl.style.cssText = `font-size:20px;font-weight:800;letter-spacing:-0.5px;color:${color};text-shadow:0 0 12px ${color}66;`;
+  nameEl.style.cssText = `font-size:20px;font-weight:800;letter-spacing:-0.5px;color:${color};`;
 
   // All links for this builder
   const bl = allLinks.filter(l=>l.builder===builderName);
@@ -7199,15 +7134,15 @@ function renderBuilderDashboard(){
       const color=full?'var(--teal)':done>0?'var(--yellow)':'var(--text3)';
       const glowColor=full?'var(--teal)':done>0?'var(--yellow)':'transparent';
       const glowRgb=full?'0,196,174':done>0?'240,165,0':'0,0,0';
-      return`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border:1px solid ${full?'rgba(0,196,174,0.3)':done>0?'rgba(240,165,0,0.2)':'var(--border)'};border-radius:8px;transition:all 0.2s;${full?'box-shadow:0 0 10px rgba(0,196,174,0.08);':''}">
+      return`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border:1px solid ${full?'rgba(0,196,174,0.3)':done>0?'rgba(240,165,0,0.2)':'var(--border)'};border-radius:8px;transition:all 0.2s;">
         <div style="font-size:12px;font-weight:600;color:var(--text);min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${proj}</div>
         <div style="flex:1;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;">
-          <div style="height:3px;border-radius:2px;background:${glowColor};width:${pct}%;transition:width 0.5s;${pct>0?'box-shadow:0 0 6px rgba('+glowRgb+',0.6);':''}"></div>
+          <div style="height:3px;border-radius:2px;background:${glowColor};width:${pct}%;transition:width 0.5s;"></div>
         </div>
-        <div style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;min-width:36px;text-align:right;${pct>0?'text-shadow:0 0 8px rgba('+glowRgb+',0.5);':''}">
+        <div style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;min-width:36px;text-align:right;">
           ${done}/${target}
         </div>
-        ${full?'<span style="font-size:11px;filter:drop-shadow(0 0 4px rgba(0,196,174,0.6));">✅</span>':''}
+        ${full?'<span style="font-size:11px;">✅</span>':''}
       </div>`;
     }).join('');
   }
