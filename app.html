@@ -2079,6 +2079,27 @@ let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows
 window.currentPage = 'dashboard';
 let catDetectTimer=null, currentDetectedCategory='', catDetectAbort=false;
 
+// ─── XSS ESCAPING ───────────────────────────────────────────
+// Wrap any string that came from Firestore, a scraped page, or an AI
+// response before interpolating it into innerHTML or an inline handler
+// attribute (e.g. onclick="fn('${escAttr(x)}')").
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+// For values going inside onclick="fn('${escAttr(x)}')" — must survive BOTH the
+// double-quoted HTML attribute AND the single-quoted JS string literal inside it.
+function escAttr(str){
+  return String(str==null?'':str)
+    .replace(/\\/g,'\\\\')
+    .replace(/&/g,'&amp;')
+    .replace(/'/g,"\\'")
+    .replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;')
+    .replace(/\r?\n/g,'\\n');
+}
+
 // ─── AUTH ─────────────────────────────────────────────────
 function globalSearch(){
   const q=(document.getElementById('global-search').value||'').toLowerCase().trim();
@@ -2101,10 +2122,10 @@ function globalSearch(){
 
   res.style.display='block';
   res.innerHTML=matches.map(l=>`
-    <div onclick="openSearchResult('${l.id}','${l.project}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.1s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
-      <div style="font-size:12px;font-weight:600;color:${allLinks.filter(x=>nd(x.domain)===nd(l.domain)&&x.project===l.project).length>1?'#ff6b6b':'var(--teal)'};">${l.domain}</div>
-      <div style="font-size:11px;color:var(--text2);">${l.project} · ${l.builder||'—'} · <span style="color:${l.status==='live'?'var(--teal)':'#f0a500'}">${l.status}</span></div>
-      ${l.anchor?`<div style="font-size:10px;color:var(--text3);">${l.anchor}</div>`:''}
+    <div onclick="openSearchResult('${escAttr(l.id)}','${escAttr(l.project)}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.1s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      <div style="font-size:12px;font-weight:600;color:${allLinks.filter(x=>nd(x.domain)===nd(l.domain)&&x.project===l.project).length>1?'#ff6b6b':'var(--teal)'};">${escapeHtml(l.domain)}</div>
+      <div style="font-size:11px;color:var(--text2);">${escapeHtml(l.project)} · ${escapeHtml(l.builder||'—')} · <span style="color:${l.status==='live'?'var(--teal)':'#f0a500'}">${escapeHtml(l.status)}</span></div>
+      ${l.anchor?`<div style="font-size:10px;color:var(--text3);">${escapeHtml(l.anchor)}</div>`:''}
     </div>
   `).join('');
 }
@@ -2482,25 +2503,25 @@ function renderProjectsPage(){
     const isHidden = !!p.hidden;
     return`<div class="proj-card" style="flex-direction:column;align-items:stretch;gap:10px;${isHidden?'opacity:0.45;':''}">
       <div style="display:flex;align-items:flex-start;gap:8px;">
-        <div style="cursor:pointer;flex:1;" onclick="openProjectDetail('${p.name}')">
-          <div class="proj-name" style="${isHidden?'color:var(--text3);text-decoration:line-through;':''}">${p.name}</div>
+        <div style="cursor:pointer;flex:1;" onclick="openProjectDetail('${escAttr(p.name)}')">
+          <div class="proj-name" style="${isHidden?'color:var(--text3);text-decoration:line-through;':''}">${escapeHtml(p.name)}</div>
           <div class="proj-count" style="color:var(--teal);">${count} links →</div>
           <div style="font-size:10px;color:var(--text3);margin-top:3px;">✅ ${live} · ⏳ ${pend}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
-          <button class="btn-ghost" style="font-size:11px;padding:4px 10px;white-space:nowrap;" onclick="scanProject('${p.id}','${p.name}',this)">
+          <button class="btn-ghost" style="font-size:11px;padding:4px 10px;white-space:nowrap;" onclick="scanProject('${escAttr(p.id)}','${escAttr(p.name)}',this)">
             ${scanned?'🔄 Re-scan':'🔍 Scan'}
           </button>
-          <button class="btn-ghost" style="font-size:11px;padding:4px 8px;" onclick="toggleHideProject('${p.id}',${isHidden})" title="${isHidden?'Unhide project':'Hide project'}">
+          <button class="btn-ghost" style="font-size:11px;padding:4px 8px;" onclick="toggleHideProject('${escAttr(p.id)}',${isHidden})" title="${isHidden?'Unhide project':'Hide project'}">
             ${isHidden?'👁 Show':'🙈 Hide'}
           </button>
-          <button class="btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteProject('${p.id}','${p.name}')">✕</button>
+          <button class="btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteProject('${escAttr(p.id)}','${escAttr(p.name)}')">✕</button>
         </div>
       </div>
       ${scanned?`<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:11px;">
-        <div style="font-weight:700;color:var(--teal);margin-bottom:5px;">${sd.niche||''}</div>
-        ${sd.coreTopics&&sd.coreTopics.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px;">${sd.coreTopics.slice(0,5).map(t=>`<span style="padding:1px 7px;border-radius:20px;background:rgba(0,196,174,0.1);color:var(--teal);font-size:10px;">${t}</span>`).join('')}</div>`:''}
-        <div style="color:var(--text3);font-size:10px;">📅 Scanned ${sd.lastScanned}</div>
+        <div style="font-weight:700;color:var(--teal);margin-bottom:5px;">${escapeHtml(sd.niche||'')}</div>
+        ${sd.coreTopics&&sd.coreTopics.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px;">${sd.coreTopics.slice(0,5).map(t=>`<span style="padding:1px 7px;border-radius:20px;background:rgba(0,196,174,0.1);color:var(--teal);font-size:10px;">${escapeHtml(t)}</span>`).join('')}</div>`:''}
+        <div style="color:var(--text3);font-size:10px;">📅 Scanned ${escapeHtml(sd.lastScanned)}</div>
       </div>`:''}
     </div>`;
   }).join('');
@@ -2642,14 +2663,14 @@ function renderCheckerResults(){
     const ancPreview=String(l.anchor||'').slice(0,70);
     const issuesHtml=l._issues.map(i=>iLabel[i]||i).join(' ');
     return`<tr style="${l._issues.includes('shifted')?'background:rgba(240,165,0,0.04);':''}">
-      <td><input type="checkbox" class="chk-cb" data-id="${lid}" onchange="onChkSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
+      <td><input type="checkbox" class="chk-cb" data-id="${escapeHtml(lid)}" onchange="onChkSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="min-width:140px;">${issuesHtml}</td>
-      <td style="color:var(--text3);font-size:11px;">${l.date||'—'}</td>
-      <td class="domain-teal">${l.domain||'—'}</td>
-      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;color:${l._issues.includes('shifted')?'var(--yellow)':'var(--text2)'};" title="${String(l.anchor||'').replace(/"/g,'&quot;')}">${ancPreview}</td>
-      <td>${l.project||'—'}</td>
-      <td>${l.builder||'—'}</td>
-      <td><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button></td>
+      <td style="color:var(--text3);font-size:11px;">${escapeHtml(l.date||'—')}</td>
+      <td class="domain-teal">${escapeHtml(l.domain||'—')}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;color:${l._issues.includes('shifted')?'var(--yellow)':'var(--text2)'};" title="${escapeHtml(l.anchor||'')}">${escapeHtml(ancPreview)}</td>
+      <td>${escapeHtml(l.project||'—')}</td>
+      <td>${escapeHtml(l.builder||'—')}</td>
+      <td><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -2789,37 +2810,37 @@ function renderDetailLinks(){
     const lid=l.id;
     const isDup=domainCount[nd(l.domain)]>1;
     const trafficVal=l.traffic&&!isNaN(Number(l.traffic))?Number(l.traffic).toLocaleString():'—';
-    const priceVal=l.price?'$'+String(l.price).replace(/^\$+/,''):'—';
+    const priceVal=l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—';
     const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
-    return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
-      <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${lid}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td>${l.date||''}</td>
-      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.domain}</a></td>
-      <td>${l.dr||'—'}</td><td>${trafficVal}</td><td>${l.ss||'—'}</td><td>${priceVal}</td><td>${l.anchor||'—'}</td><td>${l.builder||'—'}</td>
-      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select></td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${lid}\')">↗</button></td>
+    return`<tr class="link-row" data-lid="${escapeHtml(lid)}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${escapeHtml(lid)}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
+      <td>${escapeHtml(l.date||'')}</td>
+      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
+      <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${escapeHtml(l.builder||'—')}</td>
+      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select></td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${escAttr(lid)}\')">↗</button></td>
       <td>${dupB(l,domainCount)}</td>
-      <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button></td>
+      <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button></td>
     </tr>
-    <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
+    <tr id="edit-${escapeHtml(lid)}" style="display:none;background:var(--bg3);">
       <td colspan="13" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
-          ${l.linkin?`<a href="${l.linkin}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
-          ${l.linkto?`<a href="${l.linkto}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
-          <span style="font-size:11px;color:var(--text3);">${l.ss?'SS: '+l.ss+' ':''}${l.category?'· '+l.category+' ':''}${l.price?'· $'+String(l.price).replace(/^\$+/,''):''}</span>
+          ${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
+          ${l.linkto?`<a href="${escAttr(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
+          <span style="font-size:11px;color:var(--text3);">${l.ss?'SS: '+escapeHtml(l.ss)+' ':''}${l.category?'· '+escapeHtml(l.category)+' ':''}${l.price?'· $'+escapeHtml(String(l.price).replace(/^\$+/,'')):''}</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${String(l.price||'').replace(/^\$+/,'')}" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
-          <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
-          <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${escapeHtml(lid)}" value="${escapeHtml(l.date||'')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${escapeHtml(lid)}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${escapeHtml(lid)}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${escapeHtml(lid)}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${escapeHtml(lid)}" value="${escapeHtml(String(l.price||'').replace(/^\$+/,''))}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${escapeHtml(lid)}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${escapeHtml(lid)}" value="${escapeHtml(l.linkin||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${escapeHtml(lid)}" value="${escapeHtml(l.linkto||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${escapeHtml(lid)}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
-        <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${lid}')" style="width:auto;padding:8px 16px !important;font-size:13px !important;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+        <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${escAttr(lid)}')" style="width:auto;padding:8px 16px !important;font-size:13px !important;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${escAttr(lid)}',null,true)">Cancel</button><span id="ei-saved-${escapeHtml(lid)}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
       </td>
     </tr>`;
   };
@@ -2918,15 +2939,15 @@ function showPendingApprovals(){
   }
   const rows = pending.map(l=>`
     <tr>
-      <td style="font-size:12px;color:var(--text3);">${l.date||''}</td>
-      <td><a href="https://${nd(l.domain)}" target="_blank" style="color:var(--teal);">${l.domain||''}</a></td>
-      <td>${l.project||''}</td>
-      <td style="font-size:12px;">${l.anchor||''}</td>
-      <td style="font-size:12px;">${l.builder||''}</td>
-      <td style="font-size:11px;color:var(--yellow);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${l.approvalReason||''}</td>
+      <td style="font-size:12px;color:var(--text3);">${escapeHtml(l.date||'')}</td>
+      <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);">${escapeHtml(l.domain||'')}</a></td>
+      <td>${escapeHtml(l.project||'')}</td>
+      <td style="font-size:12px;">${escapeHtml(l.anchor||'')}</td>
+      <td style="font-size:12px;">${escapeHtml(l.builder||'')}</td>
+      <td style="font-size:11px;color:var(--yellow);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(l.approvalReason||'')}</td>
       <td style="white-space:nowrap;">
-        <button class="btn-sm" onclick="approveLink('${l.id}')" style="width:auto;font-size:12px;padding:6px 14px;">✅ Approve</button>
-        <button class="btn-ghost" onclick="rejectLink('${l.id}')" style="font-size:12px;padding:6px 14px;color:var(--red);">✕ Reject</button>
+        <button class="btn-sm" onclick="approveLink('${escAttr(l.id)}')" style="width:auto;font-size:12px;padding:6px 14px;">✅ Approve</button>
+        <button class="btn-ghost" onclick="rejectLink('${escAttr(l.id)}')" style="font-size:12px;padding:6px 14px;color:var(--red);">✕ Reject</button>
       </td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3);">No pending approvals</td></tr>';
 
@@ -3064,7 +3085,7 @@ async function detectCategory(domain){
     renderCatButtons(cat);
     renderCompatCards();
     const isGpt=data.method==='gpt';
-    const label=isGpt?`🤖 ${cat} (GPT${data.confidence?' '+data.confidence+'%':''})`:`⚡ ${cat} (heuristic)`;
+    const label=isGpt?`🤖 ${escapeHtml(cat)} (GPT${data.confidence?' '+escapeHtml(data.confidence)+'%':''})`:`⚡ ${escapeHtml(cat)} (heuristic)`;
     statusEl.innerHTML=`<span class="det-status ${isGpt?'det-gpt':'det-heuristic'}">${label}</span>`;
   }catch(e){
     statusEl.innerHTML='<span class="det-status det-heuristic">⚡ Detection failed</span>';
@@ -3113,12 +3134,12 @@ function onDomainInput(){
     const selectedProj=document.getElementById('f-proj')?.value||'';
     const sameProject=selectedProj&&dupProjects.includes(selectedProj);
     dupEl.innerHTML=(sameProject?
-      `<div style="padding:8px 12px;background:rgba(255,107,107,0.15);border:1px solid rgba(255,107,107,0.4);border-radius:8px;margin-bottom:6px;font-size:12px;font-weight:600;color:#ff6b6b;">⚠️ This domain already exists in ${selectedProj}!</div>`
+      `<div style="padding:8px 12px;background:rgba(255,107,107,0.15);border:1px solid rgba(255,107,107,0.4);border-radius:8px;margin-bottom:6px;font-size:12px;font-weight:600;color:#ff6b6b;">⚠️ This domain already exists in ${escapeHtml(selectedProj)}!</div>`
       :'')+
       '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Already used in</div>'
       +dupProjects.map(p=>{
         const links=dupLinks.filter(l=>l.project===p);
-        return links.map(link=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;margin-right:6px;margin-bottom:4px;">❌ ${p} <span style="font-weight:400;font-size:10px;color:rgba(255,107,107,0.7);">${link.status} · ${link.builder||'—'}</span></span>`).join('');
+        return links.map(link=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;margin-right:6px;margin-bottom:4px;">❌ ${escapeHtml(p)} <span style="font-weight:400;font-size:10px;color:rgba(255,107,107,0.7);">${escapeHtml(link.status)} · ${escapeHtml(link.builder||'—')}</span></span>`).join('');
       }).join('');
   } else {
     dupEl.style.display='none';
@@ -3213,12 +3234,12 @@ function renderCompatCards(){
       const alreadyUsed=allLinks.some(l=>nd(l.domain)===nd(document.getElementById('f-domain').value)&&l.project===proj.name);
       if(alreadyUsed){
         return`<div class="compat-pill fail">
-          <span class="compat-pill-icon">❌</span>${proj.name}
+          <span class="compat-pill-icon">❌</span>${escapeHtml(proj.name)}
           <div class="compat-tooltip"><div class="compat-tooltip-row fail-item">Already used in this project</div></div>
         </div>`;
       }
       return`<div class="compat-pill no-req">
-        <span class="compat-pill-icon">○</span>${proj.name}
+        <span class="compat-pill-icon">○</span>${escapeHtml(proj.name)}
         <div class="compat-tooltip"><div class="compat-tooltip-row neutral">No requirements set</div></div>
       </div>`;
     }
@@ -3226,7 +3247,7 @@ function renderCompatCards(){
     const alreadyUsed=allLinks.some(l=>nd(l.domain)===nd(document.getElementById('f-domain').value)&&l.project===proj.name);
     if(alreadyUsed){
       return`<div class="compat-pill fail">
-        <span class="compat-pill-icon">❌</span>${proj.name}
+        <span class="compat-pill-icon">❌</span>${escapeHtml(proj.name)}
         <div class="compat-tooltip"><div class="compat-tooltip-row fail-item">Already used in this project</div></div>
       </div>`;
     }
@@ -3256,7 +3277,7 @@ function renderCompatCards(){
 
     if(!checks.length){
       return`<div class="compat-pill no-req">
-        <span class="compat-pill-icon">○</span>${proj.name}
+        <span class="compat-pill-icon">○</span>${escapeHtml(proj.name)}
         <div class="compat-tooltip"><div class="compat-tooltip-row neutral">No criteria set</div></div>
       </div>`;
     }
@@ -3266,12 +3287,12 @@ function renderCompatCards(){
     const tooltipRows=checks.map(c=>{
       const cls=c.pass===true?'pass':c.pass===false?'fail-item':'neutral';
       const sym=c.pass===true?'✓':c.pass===false?'✗':'·';
-      return`<div class="compat-tooltip-row ${cls}">${sym} ${c.label}</div>`;
+      return`<div class="compat-tooltip-row ${cls}">${sym} ${escapeHtml(c.label)}</div>`;
     }).join('');
-    const notes=qr.notes?`<div class="compat-tooltip-row neutral" style="margin-top:5px;border-top:1px solid var(--border);padding-top:5px;">${qr.notes}</div>`:'';
+    const notes=qr.notes?`<div class="compat-tooltip-row neutral" style="margin-top:5px;border-top:1px solid var(--border);padding-top:5px;">${escapeHtml(qr.notes)}</div>`:'';
 
-    return`<div class="compat-pill ${pillClass}" onclick="document.getElementById('f-proj').value='${proj.name}';onAnchorInput();">
-      <span class="compat-pill-icon">${icon}</span>${proj.name}
+    return`<div class="compat-pill ${pillClass}" onclick="document.getElementById('f-proj').value='${escAttr(proj.name)}';onAnchorInput();">
+      <span class="compat-pill-icon">${icon}</span>${escapeHtml(proj.name)}
       <div class="compat-tooltip">${tooltipRows}${notes}</div>
     </div>`;
   }).join('');
@@ -3302,12 +3323,12 @@ function renderAnchorReqs(){
     const full=used>=r.max;
     const color=full?'var(--red)':used>0?'var(--yellow)':'var(--teal)';
     return`<div onclick="${full?'':''}" style="background:var(--bg3);border:1px solid ${full?'rgba(255,95,95,0.3)':'var(--border)'};border-radius:8px;padding:8px 12px;cursor:${full?'not-allowed':'pointer'};opacity:${full?0.6:1};"
-      onclick="if(!${full}){document.getElementById('f-anchor').value='${r.anchor.replace(/'/g,"\\'")}';${r.linkto?`document.getElementById('f-linkto').value='${r.linkto.replace(/'/g,"\\'")}';`:''}onAnchorInput();}">
+      onclick="if(!${full}){document.getElementById('f-anchor').value='${escAttr(r.anchor)}';${r.linkto?`document.getElementById('f-linkto').value='${escAttr(r.linkto)}';`:''}onAnchorInput();}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <span style="font-size:12px;font-weight:600;color:${full?'var(--red)':'var(--text)'};">${r.anchor}</span>
+        <span style="font-size:12px;font-weight:600;color:${full?'var(--red)':'var(--text)'};">${escapeHtml(r.anchor)}</span>
         <span style="font-size:11px;font-weight:700;color:${color};">${used}/${r.max} ${full?'❌ Full':'✓'}</span>
       </div>
-      ${r.linkto?`<div style="font-size:10px;color:var(--text3);">→ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,40)}</div>`:''}
+      ${r.linkto?`<div style="font-size:10px;color:var(--text3);">→ ${escapeHtml(r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,40))}</div>`:''}
       <div class="req-bar-bg" style="margin-top:4px;"><div class="req-bar-fill" style="width:${pct}%;background:${color};"></div></div>
     </div>`;
   }).join('');
@@ -3592,7 +3613,7 @@ function linkMonthKey(l){
 function monthSeparatorRow(monthKey, count, colspan){
   return`<tr style="background:var(--bg3);border-top:1px solid var(--border);">
     <td colspan="${colspan}" style="padding:12px 14px;">
-      <span style="font-size:13px;font-weight:700;color:var(--teal);letter-spacing:-0.01em;">${monthKey}</span>
+      <span style="font-size:13px;font-weight:700;color:var(--teal);letter-spacing:-0.01em;">${escapeHtml(monthKey)}</span>
       <span style="font-size:11px;color:var(--text3);margin-left:8px;font-weight:500;">${count} links</span>
     </td>
   </tr>`;
@@ -3668,15 +3689,15 @@ function renderQualityReqs(){
   const tb=document.getElementById('qreq-tbody');
   if(!allQualityReqs.length){tb.innerHTML='<tr><td colspan="8" class="loading">No quality requirements yet</td></tr>';return;}
   tb.innerHTML=allQualityReqs.map(r=>{
-    const cats=(r.allowedCategories||[]).map(c=>`<span class="badge b-saas" style="font-size:10px;padding:2px 7px;">${c}</span>`).join(' ')||'<span style="color:var(--text3)">Any</span>';
+    const cats=(r.allowedCategories||[]).map(c=>`<span class="badge b-saas" style="font-size:10px;padding:2px 7px;">${escapeHtml(c)}</span>`).join(' ')||'<span style="color:var(--text3)">Any</span>';
     return`<tr>
-      <td style="font-weight:600;">${r.project}</td>
+      <td style="font-weight:600;">${escapeHtml(r.project)}</td>
       <td>${r.minDR!=null?'≥ '+r.minDR:'—'}</td>
       <td>${r.minTraffic!=null?'≥ '+Number(r.minTraffic).toLocaleString():'—'}</td>
       <td>${r.maxSS!=null?'≤ '+r.maxSS+'%':'—'}</td>
       <td>${cats}</td>
-      <td style="font-size:11px;color:var(--text3);">${r.notes||'—'}</td>
-      <td><button class="btn-ghost" onclick="db.collection('qualityRequirements').doc('${r.id}').delete()">Remove</button></td>
+      <td style="font-size:11px;color:var(--text3);">${escapeHtml(r.notes||'—')}</td>
+      <td><button class="btn-ghost" onclick="db.collection('qualityRequirements').doc('${escAttr(r.id)}').delete()">Remove</button></td>
     </tr>`;
   }).join('');
 }
@@ -3685,7 +3706,7 @@ function renderQualityReqs(){
 function catBadge(c){
   if(!c)return'<span style="color:var(--text3);font-size:11px;">—</span>';
   const cls=c==='SaaS'?'b-saas':c==='Service'?'b-service':'b-blog';
-  return`<span class="badge ${cls}">${c}</span>`;
+  return`<span class="badge ${cls}">${escapeHtml(c)}</span>`;
 }
 function dupB(l, domainCount){
   const isDup=domainCount&&domainCount[nd(l.domain)+'|'+(l.project||'')]>1;
@@ -3814,7 +3835,7 @@ function renderDashboard(){
         <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:10px;padding:8px 14px;min-width:140px;">
           <span style="font-size:16px;">${medals[i]||'·'}</span>
           <div>
-            <div style="font-size:13px;font-weight:700;color:var(--text);">${name}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">${escapeHtml(name)}</div>
             <div style="font-size:11px;color:var(--teal);font-weight:600;">${count} live link${count!==1?'s':''}</div>
           </div>
         </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:4px 0;">No live links this month yet</div>';
@@ -3825,15 +3846,15 @@ function renderDashboard(){
     const tb=document.getElementById(id);
     if(!arr.length){tb.innerHTML='<tr><td colspan="9" class="loading">No links</td></tr>';return;}
     tb.innerHTML=arr.slice(0,20).map(l=>`<tr>
-      <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${l.date||''}</td>
-      <td class="domain-teal"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;">${l.domain}</a></td>
-      <td>${l.dr||'—'}</td>
-      <td>${l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||l.traffic:'—'}</td>
-      <td>${l.ss||'—'}</td>
+      <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
+      <td class="domain-teal"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
+      <td>${escapeHtml(l.dr||'—')}</td>
+      <td>${l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||escapeHtml(l.traffic):'—'}</td>
+      <td>${escapeHtml(l.ss||'—')}</td>
       <td>${catBadge(l.category)}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.anchor||'—'}</td>
-      <td>${l.project||'—'}</td>
-      <td>${l.builder||'—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(l.anchor||'—')}</td>
+      <td>${escapeHtml(l.project||'—')}</td>
+      <td>${escapeHtml(l.builder||'—')}</td>
     </tr>`).join('');
   };
 
@@ -3900,42 +3921,42 @@ function renderLinks(){
     const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
     const lid=l.id;
     const isDup=domainCount[nd(l.domain)+'|'+(l.project||'')]>1;
-    const safeLinkin=(l.linkin||'').replace(/"/g,'&quot;');
-    const safeLinkto=(l.linkto||'').replace(/"/g,'&quot;');
-    const priceVal=l.price?'$'+String(l.price).replace(/\$+/g,''):'';
-    const ssVal=l.ss?String(l.ss).replace(/%/g,'')+'%':'';
-    return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
-      <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${lid}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${l.date||''}</td>
-      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.domain}</a></td>
-      <td>${l.dr||'—'}</td>
+    const safeLinkin=escapeHtml(l.linkin||'');
+    const safeLinkto=escapeHtml(l.linkto||'');
+    const priceVal=l.price?'$'+escapeHtml(String(l.price).replace(/\$+/g,'')):'';
+    const ssVal=l.ss?escapeHtml(String(l.ss).replace(/%/g,'')+'%'):'';
+    return`<tr class="link-row" data-lid="${escapeHtml(lid)}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${escapeHtml(lid)}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
+      <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
+      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
+      <td>${escapeHtml(l.dr||'—')}</td>
       <td>${trafficVal}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${l.anchor||'—'}</td>
-      <td>${l.project||'—'}</td>
-      <td>${l.builder||'—'}</td>
-      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select></td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${lid}\')">↗</button></td>
-      <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${lid}','${l.domain}')">✕</button>`:''}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
+      <td>${escapeHtml(l.project||'—')}</td>
+      <td>${escapeHtml(l.builder||'—')}</td>
+      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select></td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${escAttr(lid)}\')">↗</button></td>
+      <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button>`:''}</td>
     </tr>
-    <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
+    <tr id="edit-${escapeHtml(lid)}" style="display:none;background:var(--bg3);">
       <td colspan="11" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
-          ${l.linkin?`<a href="${l.linkin}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
-          ${l.linkto?`<a href="${l.linkto}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
-          <span style="font-size:11px;color:var(--text3);">${ssVal?'SS: '+ssVal:''} ${l.category?'· '+l.category:''} ${priceVal?'· '+priceVal:''}</span>
+          ${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
+          ${l.linkto?`<a href="${escAttr(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
+          <span style="font-size:11px;color:var(--text3);">${ssVal?'SS: '+ssVal:''} ${l.category?'· '+escapeHtml(l.category):''} ${priceVal?'· '+priceVal:''}</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${String(l.price||'').replace(/\$+/g,'')}" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
-          <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${safeLinkin}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${safeLinkto}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
-          <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${escapeHtml(lid)}" value="${escapeHtml(l.date||'')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${escapeHtml(lid)}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${escapeHtml(lid)}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${escapeHtml(lid)}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${escapeHtml(lid)}" value="${escapeHtml(String(l.price||'').replace(/\$+/g,''))}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${escapeHtml(lid)}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${escapeHtml(lid)}" value="${safeLinkin}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${escapeHtml(lid)}" value="${safeLinkto}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${escapeHtml(lid)}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
-        <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${lid}')" style="width:auto;padding:8px 16px !important;font-size:13px !important;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${lid}',null,true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+        <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${escAttr(lid)}')" style="width:auto;padding:8px 16px !important;font-size:13px !important;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${escAttr(lid)}',null,true)">Cancel</button><span id="ei-saved-${escapeHtml(lid)}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
       </td>
     </tr>`;
   };
@@ -3971,8 +3992,8 @@ function cleanNum(v){
 
 function safeLink(url, label, style){
   if(!url) return '<span style="color:var(--text3);font-size:10px;">—</span>';
-  const safe=url.replace(/"/g,'&quot;');
-  return `<a href="${safe}" target="_blank" style="${style}" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text3)'">${label}</a>`;
+  const safe=escapeHtml(url);
+  return `<a href="${safe}" target="_blank" style="${style}" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text3)'">${escapeHtml(label)}</a>`;
 }
 
 function renderReqs(){
@@ -3981,13 +4002,13 @@ function renderReqs(){
   tb.innerHTML=allReqs.map(r=>{
     const used=allLinks.filter(l=>l.project===r.project&&(l.anchor||'').toLowerCase()===r.anchor&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     const pct=Math.min(100,Math.round(used/r.max*100));const over=used>r.max;
-    const linktoHtml=r.linkto?`<a href="${r.linkto}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none;" title="${r.linkto}">↗ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,30)}</a>`:'<span style="color:var(--text3);font-size:11px;">—</span>';
+    const linktoHtml=r.linkto?`<a href="${escAttr(r.linkto)}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none;" title="${escapeHtml(r.linkto)}">↗ ${escapeHtml(r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,30))}</a>`:'<span style="color:var(--text3);font-size:11px;">—</span>';
     return`<tr>
-      <td>${r.project}</td><td>${r.month}</td><td>${r.anchor}</td>
+      <td>${escapeHtml(r.project)}</td><td>${escapeHtml(r.month)}</td><td>${escapeHtml(r.anchor)}</td>
       <td>${linktoHtml}</td>
       <td style="min-width:130px;"><div class="req-bar-bg"><div class="req-bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':'var(--teal)'}"></div></div><span style="font-size:11px;color:${over?'#ff6b6b':'var(--text2)'};">${used}/${r.max}</span></td>
       <td>${r.max}</td>
-      <td><button onclick="if(confirm('Delete anchor &quot;'+${JSON.stringify(r.anchor)}+'&quot;?'))db.collection('requirements').doc('${r.id}').delete()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button></td>
+      <td><button onclick="if(confirm('Delete anchor &quot;${escAttr(r.anchor)}&quot;?'))db.collection('requirements').doc('${escAttr(r.id)}').delete()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -4064,18 +4085,18 @@ function openBuilderLinks(name){
 
   const rows = bl.map(l=>`
     <tr>
-      <td style="color:var(--text3);font-size:11px;white-space:nowrap;">${l.date||''}</td>
-      <td><a href="https://${nd(l.domain)}" target="_blank" style="color:var(--teal);text-decoration:none;">${l.domain||''}</a></td>
-      <td>${l.project||''}</td>
-      <td style="font-size:12px;">${l.anchor||''}</td>
-      <td>${(l.status||'').toLowerCase()==='live'?'<span style="color:var(--teal);">✅ live</span>':(l.status||'').toLowerCase()==='pending'?'<span style="color:#f0a500;">⏳ pending</span>':(l.status||'')}</td>
+      <td style="color:var(--text3);font-size:11px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
+      <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(l.domain||'')}</a></td>
+      <td>${escapeHtml(l.project||'')}</td>
+      <td style="font-size:12px;">${escapeHtml(l.anchor||'')}</td>
+      <td>${(l.status||'').toLowerCase()==='live'?'<span style="color:var(--teal);">✅ live</span>':(l.status||'').toLowerCase()==='pending'?'<span style="color:#f0a500;">⏳ pending</span>':escapeHtml(l.status||'')}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1rem;">No links</td></tr>';
 
   modal.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:900px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);">
         <div>
-          <div style="font-size:16px;font-weight:800;color:var(--text);">${name}'s links</div>
+          <div style="font-size:16px;font-weight:800;color:var(--text);">${escapeHtml(name)}'s links</div>
           <div style="font-size:12px;color:var(--text3);margin-top:2px;">${bl.length} total · <span style="color:var(--teal);">${live} live</span> · <span style="color:#f0a500;">${pend} pending</span></div>
         </div>
         <button onclick="document.getElementById('builder-links-modal').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1;">×</button>
@@ -4148,13 +4169,13 @@ function renderTeam(){
       const dups=bl.filter(l=>domCnt[nd(l.domain)+'|'+(l.project||'')]>1).length;
       const roleColor=r.role==='admin'?'var(--teal)':'var(--text2)';
       const roleBadge=r.registered
-        ? `<span class="badge" style="background:rgba(0,196,174,0.1);color:${roleColor};">${r.role}</span>`
+        ? `<span class="badge" style="background:rgba(0,196,174,0.1);color:${roleColor};">${escapeHtml(r.role)}</span>`
         : `<span class="badge" style="background:var(--bg4);color:var(--text3);">no account</span>`;
       const actionBtn=r.registered
-        ? `<button onclick="deleteUser('${r.uid}','${r.name.replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`
+        ? `<button onclick="deleteUser('${escAttr(r.uid)}','${escAttr(r.name)}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`
         : `<span style="font-size:11px;color:var(--text3);">—</span>`;
       const cap = allCapacities[r.name] || 0;
-      const safeName = r.name.replace(/'/g,"\\'");
+      const safeName = escAttr(r.name);
       const isInactive = inactiveBuilders.has(r.name);
       const isArchived = archivedBuilders.has(r.name);
       const archiveBtn = isArchived
@@ -4178,8 +4199,8 @@ function renderTeam(){
       const loadBtn = isInactive
         ? `<button onclick="toggleBuilderLoad('${safeName}')" title="Restore to Load" style="background:none;border:1px solid rgba(0,196,174,0.4);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--teal);white-space:nowrap;">↩ Restore</button>`
         : `<button onclick="toggleBuilderLoad('${safeName}')" title="Remove from Load distribution" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;white-space:nowrap;" onmouseover="this.style.borderColor='#f0a500';this.style.color='#f0a500'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">🚫 Load</button>`;
-      return`<tr style="${isInactive?'opacity:0.5;':''}cursor:pointer;" onclick="openBuilderLinks('${safeName}')" title="Click to see ${r.name}'s links (${bl.length} total)">
-        <td style="font-weight:700;color:var(--teal);">${r.name} <span style="color:var(--text3);font-weight:400;font-size:11px;">· ${bl.length} links</span></td>
+      return`<tr style="${isInactive?'opacity:0.5;':''}cursor:pointer;" onclick="openBuilderLinks('${safeName}')" title="Click to see ${escapeHtml(r.name)}'s links (${bl.length} total)">
+        <td style="font-weight:700;color:var(--teal);">${escapeHtml(r.name)} <span style="color:var(--text3);font-weight:400;font-size:11px;">· ${bl.length} links</span></td>
         <td>${roleBadge}</td>
         <td>${loadCell}</td>
         <td>${targetCell}</td>
@@ -4246,10 +4267,11 @@ async function deleteUser(uid, name){
 
 function linkCheckBadge(v, linkin, linkto, id){
   if(!v) return '<span style="color:var(--text3);font-size:11px;">—</span>';
-  if(v.includes('✅')) return`<span style="color:#00c9b0;font-size:11px;">${v}</span>`;
-  if(v.includes('❌')) return`<span style="color:#ff6b6b;font-size:11px;">${v}</span>`;
-  if(v.includes('⚠️')) return`<span style="color:#f0a500;font-size:11px;">${v}</span>`;
-  return`<span style="font-size:11px;color:var(--text2);">${v}</span>`;
+  const ev=escapeHtml(v);
+  if(v.includes('✅')) return`<span style="color:#00c9b0;font-size:11px;">${ev}</span>`;
+  if(v.includes('❌')) return`<span style="color:#ff6b6b;font-size:11px;">${ev}</span>`;
+  if(v.includes('⚠️')) return`<span style="color:#f0a500;font-size:11px;">${ev}</span>`;
+  return`<span style="font-size:11px;color:var(--text2);">${ev}</span>`;
 }
 
 function toggleAllBuilderChecks(master){
@@ -4558,7 +4580,7 @@ function handleCsvFile(file){
     const pend=csvRows.filter(r=>r.status==='pending').length;
     document.getElementById('imp-log').innerHTML=
       `<div style="margin-bottom:6px;"><span style="color:var(--teal);">✅ Live: ${live}</span> &nbsp; <span style="color:#f0a500;">⏳ Pending: ${pend}</span></div>`
-      +csvRows.slice(0,6).map(r=>`<div><span style="color:${r.status==='live'?'var(--teal)':'#f0a500'}">${r.status==='live'?'✅':'⏳'}</span> ${r.domain} — ${r.builder||'?'} ${r.month?'· '+r.month:''}</div>`).join('')
+      +csvRows.slice(0,6).map(r=>`<div><span style="color:${r.status==='live'?'var(--teal)':'#f0a500'}">${r.status==='live'?'✅':'⏳'}</span> ${escapeHtml(r.domain)} — ${escapeHtml(r.builder||'?')} ${r.month?'· '+escapeHtml(r.month):''}</div>`).join('')
       +(csvRows.length>6?`<div style="color:var(--text3);">...and ${csvRows.length-6} more</div>`:'');
   };
   reader.readAsText(file);
@@ -4594,7 +4616,7 @@ async function startImport(){
       prog.style.width=pct+'%';
       log.innerHTML+=`<div style="color:var(--teal);">✓ ${i+chunk.length}/${total} (${pct}%)</div>`;
       log.scrollTop=log.scrollHeight;
-    }catch(e){errors++;log.innerHTML+=`<div style="color:#ff6b6b;">✗ ${e.message}</div>`;}
+    }catch(e){errors++;log.innerHTML+=`<div style="color:#ff6b6b;">✗ ${escapeHtml(e.message)}</div>`;}
   }
   log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${created} created, ${updated} updated${errors?' ('+errors+' errors)':''}.</div>`;
 }
@@ -4622,12 +4644,12 @@ function handleReqCsvFile(file){
     // Summary by month
     const byMonth={};
     reqCsvRows.forEach(r=>{byMonth[r.month]=(byMonth[r.month]||0)+1;});
-    const summary=Object.entries(byMonth).map(([m,c])=>`${m}: ${c}`).join(' · ');
+    const summary=Object.entries(byMonth).map(([m,c])=>`${escapeHtml(m)}: ${c}`).join(' · ');
 
     countEl.textContent=`${reqCsvRows.length} anchors found`;
     preview.style.display='block';
     log.innerHTML=`<div style="color:var(--text2);margin-bottom:6px;">${summary}</div>`
-      +reqCsvRows.slice(0,8).map(r=>`<div>✓ [${r.month}] "${r.anchor}" — max ${r.max}</div>`).join('')
+      +reqCsvRows.slice(0,8).map(r=>`<div>✓ [${escapeHtml(r.month)}] "${escapeHtml(r.anchor)}" — max ${r.max}</div>`).join('')
       +(reqCsvRows.length>8?`<div style="color:var(--text3);">...and ${reqCsvRows.length-8} more</div>`:'');
   };
   reader.readAsText(file);
@@ -4717,7 +4739,7 @@ async function startReqImport(){
       }
     }catch(e){
       errors++;
-      log.innerHTML+=`<div style="color:#ff6b6b;">✗ "${item.anchor}": ${e.message}</div>`;
+      log.innerHTML+=`<div style="color:#ff6b6b;">✗ "${escapeHtml(item.anchor)}": ${escapeHtml(e.message)}</div>`;
     }
   }
 
@@ -4985,7 +5007,7 @@ function renderProspects(data, domain){
       <div style="font-size:11px;color:var(--text2);">Verified ✅</div>
     </div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
-      <div style="font-size:14px;font-weight:700;color:var(--teal);">${domain}</div>
+      <div style="font-size:14px;font-weight:700;color:var(--teal);">${escapeHtml(domain)}</div>
       <div style="font-size:11px;color:var(--text2);">searched</div>
     </div>`;
 
@@ -5002,8 +5024,8 @@ function renderProspects(data, domain){
       ${hasEmail?`<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--teal),transparent);"></div>`:''}
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
         <div>
-          <div style="font-size:14px;font-weight:800;color:var(--text);">${p.first_name||''} ${p.last_name||''}</div>
-          <div style="font-size:11px;color:${rs.color};margin-top:2px;font-weight:600;">${p.position||'—'}</div>
+          <div style="font-size:14px;font-weight:800;color:var(--text);">${escapeHtml(p.first_name||'')} ${escapeHtml(p.last_name||'')}</div>
+          <div style="font-size:11px;color:${rs.color};margin-top:2px;font-weight:600;">${escapeHtml(p.position||'—')}</div>
         </div>
         <div style="font-size:14px;">${rs.rank}</div>
       </div>
@@ -5011,18 +5033,18 @@ function renderProspects(data, domain){
       ${hasEmail?`
       <div style="background:var(--bg3);border:1px solid rgba(0,196,174,0.15);border-radius:8px;padding:8px 10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div style="font-size:12px;font-weight:700;color:var(--teal);">${p.email}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--teal);">${escapeHtml(p.email)}</div>
           <div style="margin-top:3px;">${smtpBadge(p.smtp)}</div>
         </div>
-        <button onclick="navigator.clipboard.writeText('${p.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);"
+        <button onclick="navigator.clipboard.writeText('${escAttr(p.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);"
           class="btn-ghost" style="font-size:11px;padding:4px 10px;white-space:nowrap;">Copy</button>
       </div>`:`
       <div style="background:var(--bg4);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:var(--text3);">No email found</div>`}
 
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <a href="${linkedinUrl}" target="_blank" class="btn-ghost" style="flex:1;text-align:center;font-size:11px;padding:6px;text-decoration:none;display:block;min-width:70px;">💼 LinkedIn</a>
-        ${hasEmail?`<button onclick="composeOutreach('${p.first_name}','${p.email}','${domain}')" class="btn-sm" style="flex:1;font-size:11px;padding:6px;min-width:70px;">✉️ Template</button>`:''}
-        <button onclick="saveContactToDB({domain:'${domain}',email:'${(p.email||'')}',smtp:'${p.smtp||'unknown'}',firstName:'${(p.first_name||'').replace(/'/g,'')}',lastName:'${(p.last_name||'').replace(/'/g,'')}',position:'${(p.position||'').replace(/'/g,'')}'});" 
+        <a href="${escAttr(linkedinUrl)}" target="_blank" class="btn-ghost" style="flex:1;text-align:center;font-size:11px;padding:6px;text-decoration:none;display:block;min-width:70px;">💼 LinkedIn</a>
+        ${hasEmail?`<button onclick="composeOutreach('${escAttr(p.first_name)}','${escAttr(p.email)}','${escAttr(domain)}')" class="btn-sm" style="flex:1;font-size:11px;padding:6px;min-width:70px;">✉️ Template</button>`:''}
+        <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(p.email||'')}',smtp:'${escAttr(p.smtp||'unknown')}',firstName:'${escAttr(p.first_name||'')}',lastName:'${escAttr(p.last_name||'')}',position:'${escAttr(p.position||'')}'});"
           class="btn-ghost" style="flex:1;font-size:11px;padding:6px;min-width:70px;color:var(--teal);border-color:rgba(0,196,174,0.3);">💾 Save</button>
       </div>
     </div>`;
@@ -5036,7 +5058,7 @@ function renderScrapedEmails(data, domain){
   document.getElementById('ot-summary').innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
       <div style="font-size:22px;font-weight:800;color:var(--teal);">${emails.length}</div>
-      <div style="font-size:11px;color:var(--text2);">Emails scraped from ${domain}</div>
+      <div style="font-size:11px;color:var(--text2);">Emails scraped from ${escapeHtml(domain)}</div>
     </div>`;
 
   document.getElementById('ot-contacts').innerHTML = '';
@@ -5049,12 +5071,12 @@ function renderScrapedEmails(data, domain){
 
   document.getElementById('ot-emails-tbody').innerHTML = emails.map(e=>`
     <tr>
-      <td style="font-weight:600;color:var(--teal);">${e.email}</td>
+      <td style="font-weight:600;color:var(--teal);">${escapeHtml(e.email)}</td>
       <td>${smtpBadge(e.smtp)}</td>
       <td>
-        <button onclick="navigator.clipboard.writeText('${e.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);"
+        <button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);"
           class="btn-ghost" style="font-size:11px;padding:3px 10px;">Copy</button>
-        <button onclick="saveContactToDB({domain:'${domain}', email:'${e.email}', smtp:'${e.smtp||'unknown'}', firstName:'', lastName:'', position:'Scraped'})"
+        <button onclick="saveContactToDB({domain:'${escAttr(domain)}', email:'${escAttr(e.email)}', smtp:'${escAttr(e.smtp||'unknown')}', firstName:'', lastName:'', position:'Scraped'})"
           class="btn-ghost" style="font-size:11px;padding:3px 10px;color:var(--teal);">💾 Save</button>
       </td>
     </tr>`).join('');
@@ -5153,7 +5175,7 @@ function renderFreeResults(data, domain){
       <div style="font-size:11px;color:var(--text2);">Pattern guesses</div>
     </div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
-      <div style="font-size:14px;font-weight:700;color:var(--teal);">${domain}</div>
+      <div style="font-size:14px;font-weight:700;color:var(--teal);">${escapeHtml(domain)}</div>
       <div style="font-size:11px;color:var(--text2);">🆓 Free scan</div>
     </div>`;
 
@@ -5161,9 +5183,9 @@ function renderFreeResults(data, domain){
   const liSection = `
     <div style="background:var(--bg2);border:1px solid rgba(0,119,181,0.3);border-radius:12px;padding:14px;margin-bottom:1rem;">
       <div style="font-size:13px;font-weight:700;color:#0077b5;margin-bottom:8px;">💼 LinkedIn Search</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Search for SEO/outreach contacts at ${domain} on LinkedIn</div>
-      ${data.linkedinProfiles?.length ? data.linkedinProfiles.map(url=>`<a href="${url}" target="_blank" style="display:block;font-size:11px;color:#0077b5;margin-bottom:4px;text-decoration:none;">↗ ${url.replace('https://www.linkedin.com/in/','')}</a>`).join('') : ''}
-      <a href="${data.linkedinSearchUrl}" target="_blank" class="btn-sm" style="display:inline-block;margin-top:8px;text-decoration:none;background:rgba(0,119,181,0.15);color:#0077b5;border:1px solid rgba(0,119,181,0.3);font-size:12px;padding:6px 14px;">🔍 Search on LinkedIn →</a>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Search for SEO/outreach contacts at ${escapeHtml(domain)} on LinkedIn</div>
+      ${data.linkedinProfiles?.length ? data.linkedinProfiles.map(url=>`<a href="${escAttr(url)}" target="_blank" style="display:block;font-size:11px;color:#0077b5;margin-bottom:4px;text-decoration:none;">↗ ${escapeHtml(url.replace('https://www.linkedin.com/in/',''))}</a>`).join('') : ''}
+      <a href="${escAttr(data.linkedinSearchUrl)}" target="_blank" class="btn-sm" style="display:inline-block;margin-top:8px;text-decoration:none;background:rgba(0,119,181,0.15);color:#0077b5;border:1px solid rgba(0,119,181,0.3);font-size:12px;padding:6px 14px;">🔍 Search on LinkedIn →</a>
     </div>`;
 
   // Emails table
@@ -5173,13 +5195,13 @@ function renderFreeResults(data, domain){
       <div class="tbl-wrap"><table>
         <thead><tr><th>Email</th><th>Source</th><th>Status</th><th>Type</th><th></th></tr></thead>
         <tbody>${all.map(e=>`<tr>
-          <td style="font-weight:600;color:${e.guessed?'var(--yellow)':'var(--teal)'};">${e.email}</td>
-          <td style="font-size:11px;color:var(--text3);">${e.source||'scraped'}</td>
+          <td style="font-weight:600;color:${e.guessed?'var(--yellow)':'var(--teal)'};">${escapeHtml(e.email)}</td>
+          <td style="font-size:11px;color:var(--text3);">${escapeHtml(e.source||'scraped')}</td>
           <td>${smtpBadge(e.smtp||'unknown')}</td>
           <td><span style="font-size:10px;padding:2px 7px;border-radius:20px;background:${e.guessed?'rgba(240,165,0,0.1)':'rgba(0,196,174,0.1)'};color:${e.guessed?'var(--yellow)':'var(--teal)'};">${e.guessed?'🎲 Guess':'✅ Found'}</span></td>
           <td style="white-space:nowrap;">
-            <button onclick="navigator.clipboard.writeText('${e.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>
-            <button onclick="saveContactToDB({domain:'${domain}',email:'${e.email}',smtp:'${e.smtp||'unknown'}',firstName:'',lastName:'',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾 Save</button>
+            <button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>
+            <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'',lastName:'',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾 Save</button>
           </td>
         </tr>`).join('')}</tbody>
       </table></div>
@@ -5216,23 +5238,23 @@ async function runBulkFreeSearch(){
       // Render row
       const tb = document.getElementById('ot-bulk-tbody');
       if(!all.length){
-        tb.innerHTML += `<tr><td style="color:var(--teal);font-weight:600;">${domain}</td><td colspan="5" style="color:var(--text3);font-size:12px;">No emails found</td><td></td></tr>`;
+        tb.innerHTML += `<tr><td style="color:var(--teal);font-weight:600;">${escapeHtml(domain)}</td><td colspan="5" style="color:var(--text3);font-size:12px;">No emails found</td><td></td></tr>`;
       } else {
         all.forEach(e=>{
           tb.innerHTML += `<tr>
-            <td style="color:var(--teal);font-weight:600;font-size:12px;">${domain}</td>
+            <td style="color:var(--teal);font-weight:600;font-size:12px;">${escapeHtml(domain)}</td>
             <td colspan="2" style="font-size:11px;color:${e.guessed?'var(--yellow)':'var(--text)'};">${e.guessed?'🎲 Guess':'✅ Found'}</td>
-            <td style="font-weight:600;color:var(--teal);font-size:12px;">${e.email}</td>
+            <td style="font-weight:600;color:var(--teal);font-size:12px;">${escapeHtml(e.email)}</td>
             <td>${smtpBadge(e.smtp||'unknown')}</td>
             <td>—</td>
             <td style="white-space:nowrap;">
-              <button onclick="navigator.clipboard.writeText('${e.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>
-              <button onclick="saveContactToDB({domain:'${domain}',email:'${e.email}',smtp:'${e.smtp||'unknown'}',firstName:'',lastName:'',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾</button>
+              <button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>
+              <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'',lastName:'',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾</button>
             </td></tr>`;
         });
       }
     } catch(err){
-      document.getElementById('ot-bulk-tbody').innerHTML += `<tr><td style="color:var(--teal);">${domain}</td><td colspan="6" style="color:var(--red);font-size:11px;">⚠️ ${err.message.slice(0,50)}</td></tr>`;
+      document.getElementById('ot-bulk-tbody').innerHTML += `<tr><td style="color:var(--teal);">${escapeHtml(domain)}</td><td colspan="6" style="color:var(--red);font-size:11px;">⚠️ ${escapeHtml(err.message.slice(0,50))}</td></tr>`;
     }
   }
 
@@ -5322,7 +5344,7 @@ function renderBulkRow(domain, data, action){
     const prospects = (data.prospects||[]).filter(p=>p.email||p.first_name);
     if(!prospects.length){
       tb.innerHTML += `<tr style="background:rgba(255,95,95,0.03);">
-        <td style="color:var(--teal);font-weight:600;">${domain}</td>
+        <td style="color:var(--teal);font-weight:600;">${escapeHtml(domain)}</td>
         <td colspan="5" style="color:var(--text3);font-size:12px;">No contacts found</td>
         <td></td></tr>`;
       return;
@@ -5330,28 +5352,28 @@ function renderBulkRow(domain, data, action){
     prospects.forEach(p=>{
       const rs = roleScoreInfo(p.position);
       tb.innerHTML += `<tr>
-        <td style="color:var(--teal);font-weight:600;font-size:12px;">${domain}</td>
-        <td style="font-weight:600;">${p.first_name||''} ${p.last_name||''}</td>
-        <td style="font-size:11px;color:${rs.color};">${p.position||'—'}</td>
-        <td style="font-weight:600;color:var(--teal);font-size:12px;">${p.email||'<span style="color:var(--text3);">—</span>'}</td>
+        <td style="color:var(--teal);font-weight:600;font-size:12px;">${escapeHtml(domain)}</td>
+        <td style="font-weight:600;">${escapeHtml(p.first_name||'')} ${escapeHtml(p.last_name||'')}</td>
+        <td style="font-size:11px;color:${rs.color};">${escapeHtml(p.position||'—')}</td>
+        <td style="font-weight:600;color:var(--teal);font-size:12px;">${p.email?escapeHtml(p.email):'<span style="color:var(--text3);">—</span>'}</td>
         <td>${p.email?smtpBadge(p.smtp||'unknown'):''}</td>
         <td style="text-align:center;">${rs.stars}</td>
         <td style="white-space:nowrap;">
-          ${p.email?`<button onclick="navigator.clipboard.writeText('${p.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>`:''}
+          ${p.email?`<button onclick="navigator.clipboard.writeText('${escAttr(p.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>`:''}
           <a href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent((p.first_name||'')+' '+(p.last_name||'')+' '+domain)}" target="_blank" class="btn-ghost" style="font-size:10px;padding:2px 8px;text-decoration:none;">LI</a>
-          <button onclick="saveContactToDB({domain:'${domain}',email:'${(p.email||'').replace(/'/g,'')}',smtp:'${p.smtp||'unknown'}',firstName:'${(p.first_name||'').replace(/'/g,'')}',lastName:'${(p.last_name||'').replace(/'/g,'')}',position:'${(p.position||'').replace(/'/g,'')}'});" 
+          <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(p.email||'')}',smtp:'${escAttr(p.smtp||'unknown')}',firstName:'${escAttr(p.first_name||'')}',lastName:'${escAttr(p.last_name||'')}',position:'${escAttr(p.position||'')}'});"
             class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾</button>
         </td></tr>`;
     });
   } else {
     (data.emails||[]).forEach(e=>{
       tb.innerHTML += `<tr>
-        <td style="color:var(--teal);font-weight:600;font-size:12px;">${domain}</td>
+        <td style="color:var(--teal);font-weight:600;font-size:12px;">${escapeHtml(domain)}</td>
         <td colspan="2" style="color:var(--text3);font-size:11px;">Scraped</td>
-        <td style="font-weight:600;color:var(--teal);font-size:12px;">${e.email}</td>
+        <td style="font-weight:600;color:var(--teal);font-size:12px;">${escapeHtml(e.email)}</td>
         <td>${smtpBadge(e.smtp||'unknown')}</td>
         <td>—</td>
-        <td><button onclick="navigator.clipboard.writeText('${e.email}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button></td>
+        <td><button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button></td>
       </tr>`;
     });
   }
@@ -5359,7 +5381,7 @@ function renderBulkRow(domain, data, action){
 
 function appendBulkError(domain, msg){
   document.getElementById('ot-bulk-tbody').innerHTML +=
-    `<tr><td style="color:var(--teal);">${domain}</td><td colspan="6" style="color:var(--red);font-size:11px;">⚠️ ${msg.slice(0,60)}</td></tr>`;
+    `<tr><td style="color:var(--teal);">${escapeHtml(domain)}</td><td colspan="6" style="color:var(--red);font-size:11px;">⚠️ ${escapeHtml(String(msg).slice(0,60))}</td></tr>`;
 }
 
 function roleScoreInfo(pos){
@@ -5481,7 +5503,7 @@ function initOnlinePage(){
         const lastSeen = u.lastSeen?.toDate ? u.lastSeen.toDate().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
         return `<div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid ${color}44;border-radius:10px;padding:8px 14px;">
           <div style="width:8px;height:8px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color};animation:pulse 2s infinite;"></div>
-          <span style="font-size:13px;font-weight:700;color:${color};">${u.name}</span>
+          <span style="font-size:13px;font-weight:700;color:${color};">${escapeHtml(u.name)}</span>
           <span style="font-size:10px;color:var(--text3);">since ${lastSeen}</span>
         </div>`;
       }).join('');
@@ -5641,13 +5663,13 @@ function renderAnchors(){
     const color = pct>=100?'var(--teal)':pct>50?'var(--yellow)':'var(--text3)';
     const months = [...new Set(reqs.map(r=>r.month).filter(Boolean))];
 
-    return `<div onclick="selectAnchorProject('${p.name.replace(/'/g,"\'")}');" style="
+    return `<div onclick="selectAnchorProject('${escAttr(p.name)}');" style="
       padding:10px 12px;border-radius:8px;cursor:pointer;
       background:${isActive?'var(--bg3)':'transparent'};
       border:1px solid ${isActive?'var(--teal)':'transparent'};
       transition:all 0.15s;
     ">
-      <div style="font-size:12px;font-weight:600;color:${isActive?'var(--teal)':'var(--text)'};">${p.name}</div>
+      <div style="font-size:12px;font-weight:600;color:${isActive?'var(--teal)':'var(--text)'};">${escapeHtml(p.name)}</div>
       <div style="font-size:10px;color:${color};margin-top:2px;">${totalUsed}/${totalMax} links</div>
       <div style="height:3px;background:var(--bg4);border-radius:2px;margin-top:4px;overflow:hidden;">
         <div style="height:3px;background:${color};width:${pct}%;border-radius:2px;"></div>
@@ -5979,8 +6001,8 @@ function renderAnchorDetail(){
       return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
           <div style="flex:1;min-width:0;margin-right:10px;">
-            <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.anchor}</div>
-            ${r.linkto?`<a href="${r.linkto}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;">↗ ${r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,45)}</a>`:''}
+            <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(r.anchor)}</div>
+            ${r.linkto?`<a href="${escapeHtml(r.linkto)}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;">↗ ${escapeHtml(r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,45))}</a>`:''}
           </div>
           <div style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
             <div style="text-align:right;">
@@ -5994,7 +6016,7 @@ function renderAnchorDetail(){
                 })()}
               </div>
             </div>
-            ${(cu&&cu.role==='admin')?`<button onclick="deleteAnchor('${r.id}','${r.anchor.replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`:''}
+            ${(cu&&cu.role==='admin')?`<button onclick="deleteAnchor('${escAttr(r.id)}','${escAttr(r.anchor)}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`:''}
           </div>
         </div>
         <div style="height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;">
@@ -6151,7 +6173,7 @@ function renderKPI(){
 
     return `<div class="quota-card" style="border-color:${b.color}22;position:relative;overflow:hidden;">
       <div style="position:absolute;top:10px;right:12px;font-size:20px;">${rankEmoji}</div>
-      <div style="font-size:16px;font-weight:800;color:${b.color};margin-bottom:6px;text-shadow:0 0 8px ${b.color}44;">${b.name}</div>
+      <div style="font-size:16px;font-weight:800;color:${b.color};margin-bottom:6px;text-shadow:0 0 8px ${b.color}44;">${escapeHtml(b.name)}</div>
       <div style="font-size:11px;font-weight:700;color:${badgeColor};margin-bottom:10px;">${badge}</div>
 
       <!-- Score bar -->
@@ -6191,7 +6213,7 @@ function renderKPI(){
   document.getElementById('kpi-tbody').innerHTML = builderStats.map(b=>{
     const {badge,color:badgeColor} = getKPIBadge(b.score);
     return `<tr>
-      <td style="font-weight:700;color:${b.color};">${b.name}</td>
+      <td style="font-weight:700;color:${b.color};">${escapeHtml(b.name)}</td>
       <td style="text-align:center;font-weight:700;">${b.links}</td>
       <td style="text-align:center;color:var(--text3);">${b.loadTarget||t.links||'—'}</td>
       <td style="text-align:center;${t.dr&&b.avgDR<t.dr?'color:var(--red);':'color:var(--teal);'}">${b.avgDR||'—'}</td>
@@ -6270,7 +6292,7 @@ function renderAnalytics(){
         <div style="position:absolute;bottom:0;left:0;right:0;height:${livePct}%;background:${b.color};opacity:0.9;"></div>
         <div style="position:absolute;bottom:${livePct}%;left:0;right:0;height:${100-livePct}%;background:${b.color};opacity:0.3;"></div>
       </div>
-      <span style="font-size:10px;color:var(--text3);text-align:center;word-break:break-word;">${b.name}</span>
+      <span style="font-size:10px;color:var(--text3);text-align:center;word-break:break-word;">${escapeHtml(b.name)}</span>
     </div>`;
   }).join('');
 
@@ -6330,9 +6352,9 @@ function renderAnalytics(){
       return s + allLoads.filter(l=>l.builder===b&&l.month===mo).reduce((ss,l)=>ss+l.count,0);
     },0);
 
-    return `<div class="quota-card" style="cursor:pointer;" onclick="openBuilderModal('${b}')">
+    return `<div class="quota-card" style="cursor:pointer;" onclick="openBuilderModal('${escAttr(b)}')">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <span style="font-size:14px;font-weight:700;color:${color};text-shadow:0 0 8px ${color}44;">${b}</span>
+        <span style="font-size:14px;font-weight:700;color:${color};text-shadow:0 0 8px ${color}44;">${escapeHtml(b)}</span>
         <span style="font-size:20px;font-weight:800;color:${color};">${bLinks.length}</span>
       </div>
       <div style="display:flex;gap:12px;margin-bottom:10px;">
@@ -6433,13 +6455,13 @@ async function openProspector(){
       <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:4px;">Anchor: "${s.anchor}"</div>
-            <a href="${s.articleUrl}" target="_blank" style="font-size:11px;color:var(--text3);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:400px;" title="${s.articleUrl}">${s.articleUrl}</a>
+            <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:4px;">Anchor: "${escapeHtml(s.anchor)}"</div>
+            <a href="${escapeHtml(s.articleUrl)}" target="_blank" style="font-size:11px;color:var(--text3);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:400px;" title="${escapeHtml(s.articleUrl)}">${escapeHtml(s.articleUrl)}</a>
           </div>
           <button onclick="applyProspectorSuggestion(window._prospectorSuggestions[${i}])" class="btn-sm" style="width:auto;margin-left:10px;white-space:nowrap;flex-shrink:0;">Use this →</button>
         </div>
-        <div style="font-size:12px;color:var(--text);margin-bottom:6px;line-height:1.6;font-style:italic;">"${s.insertion}"</div>
-        <div style="font-size:11px;color:var(--text3);">💡 ${s.reason}</div>
+        <div style="font-size:12px;color:var(--text);margin-bottom:6px;line-height:1.6;font-style:italic;">"${escapeHtml(s.insertion)}"</div>
+        <div style="font-size:11px;color:var(--text3);">💡 ${escapeHtml(s.reason)}</div>
       </div>`).join('');
 
     window._prospectorSuggestions = data.suggestions;
@@ -6487,7 +6509,7 @@ function openLCModal(id){
   // Show current status
   const statusEl = document.getElementById('lc-status');
   if(link.linkcheck){
-    statusEl.innerHTML = `<span style="font-size:13px;">${link.linkcheck}</span>`;
+    statusEl.innerHTML = `<span style="font-size:13px;">${escapeHtml(link.linkcheck)}</span>`;
   } else {
     statusEl.innerHTML = '<span style="color:var(--text3);font-size:12px;">Not checked yet</span>';
   }
@@ -6613,14 +6635,14 @@ function openBuilderModal(builderName){
       const pp = load.count>0 ? Math.min(100,Math.round(projLinks.length/load.count*100)) : 0;
       const pc = projLinks.length>=load.count&&load.count>0 ? 'var(--teal)' : projLinks.length>0 ? 'var(--yellow)' : 'var(--text3)';
       return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-        <span style="font-size:11px;color:var(--text2);min-width:110px;overflow:hidden;text-overflow:ellipsis;">${load.project}</span>
+        <span style="font-size:11px;color:var(--text2);min-width:110px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(load.project)}</span>
         <div style="flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;">
           <div style="height:4px;background:${pc};width:${pp}%;border-radius:2px;transition:width 0.3s;"></div>
         </div>
         <span style="font-size:11px;font-weight:700;color:${pc};white-space:nowrap;">${projLinks.length}/${load.count}</span>
       </div>`;
     }).join('') : links.slice(0,5).map(l=>`
-      <div style="font-size:11px;color:var(--text3);padding:2px 0;">${l.domain} — ${l.project} — <span style="color:${l.status==='live'?'var(--teal)':'var(--yellow)'};">${l.status}</span></div>`).join('');
+      <div style="font-size:11px;color:var(--text3);padding:2px 0;">${escapeHtml(l.domain)} — ${escapeHtml(l.project)} — <span style="color:${l.status==='live'?'var(--teal)':'var(--yellow)'};">${escapeHtml(l.status)}</span></div>`).join('');
 
     return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -6663,12 +6685,12 @@ function renderCapacityList(){
   const allCap = [...BUILDERS, ...extraBuilders].filter(b=>!inactiveBuilders.has(b));
   list.innerHTML = allCap.map(b => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
-      <span onclick="openBuilderModal('${b}')" style="font-size:14px;font-weight:600;color:var(--text);cursor:pointer;transition:color 0.15s;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text)'">${b} <span style='font-size:10px;color:var(--text3);'>↗</span></span>
+      <span onclick="openBuilderModal('${escAttr(b)}')" style="font-size:14px;font-weight:600;color:var(--text);cursor:pointer;transition:color 0.15s;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text)'">${escapeHtml(b)} <span style='font-size:10px;color:var(--text3);'>↗</span></span>
       <div style="display:flex;align-items:center;gap:8px;">
-        <input type="number" min="0" max="200" id="cap-${b.replace(/\s/g,'_')}"
+        <input type="number" min="0" max="200" id="cap-${escapeHtml(b.replace(/[^a-zA-Z0-9_-]/g,'_'))}"
           value="${allCapacities[b]||0}"
           style="width:80px;text-align:center;margin:0;padding:6px;font-size:14px;font-weight:700;"/>
-        ${`<button onclick="removeCapacityBuilder('${b}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`}
+        ${`<button onclick="removeCapacityBuilder('${escAttr(b)}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`}
       </div>
     </div>`).join('') + `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0 4px;margin-top:6px;border-top:2px solid var(--border2);">
@@ -6684,7 +6706,7 @@ async function saveCapacity(){
   const extraBuilders = Object.keys(allCapacities).filter(b=>!BUILDERS.some(bld=>bld.toLowerCase()===b.toLowerCase()));
   const allCap = [...BUILDERS, ...extraBuilders].filter(b=>!inactiveBuilders.has(b));
   allCap.forEach(b=>{
-    const val = parseInt(document.getElementById('cap-'+b.replace(/\s/g,'_'))?.value)||0;
+    const val = parseInt(document.getElementById('cap-'+b.replace(/[^a-zA-Z0-9_-]/g,'_'))?.value)||0;
     batch.set(db.collection('capacities').doc(b), {capacity:val, updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
   });
   await batch.commit();
@@ -6704,7 +6726,7 @@ function addCapacityBuilder(){
   renderCapacityList();
   // Focus the new input
   setTimeout(()=>{
-    const inp = document.getElementById('cap-'+clean.replace(/\s/g,'_'));
+    const inp = document.getElementById('cap-'+clean.replace(/[^a-zA-Z0-9_-]/g,'_'));
     if(inp) inp.focus();
   }, 100);
 }
@@ -6770,8 +6792,8 @@ function initLoadPage(){
   if(pwrap) pwrap.innerHTML = allProjects.map(p => `
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;transition:all 0.15s;"
       onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
-      <input type="checkbox" value="${p.name}" onchange="onLoadFilterChange()" style="width:auto;margin:0;cursor:pointer;" ${loadUncheckedProjects.has(p.name)?'':'checked'}/>
-      ${p.name}
+      <input type="checkbox" value="${escapeHtml(p.name)}" onchange="onLoadFilterChange()" style="width:auto;margin:0;cursor:pointer;" ${loadUncheckedProjects.has(p.name)?'':'checked'}/>
+      ${escapeHtml(p.name)}
     </label>`).join('');
 
   renderLoadTable();
@@ -6805,18 +6827,18 @@ function renderLoadTable(){
   // Body
   document.getElementById('load-tbody').innerHTML = projects.map(proj => `
     <tr>
-      <td style="font-weight:600;position:sticky;left:0;z-index:1;background:var(--bg2);">${proj}</td>
+      <td style="font-weight:600;position:sticky;left:0;z-index:1;background:var(--bg2);">${escapeHtml(proj)}</td>
       <td style="text-align:center;">
         <input type="number" min="0" placeholder="0"
-          id="load-total-${proj.replace(/\s/g,'_')}"
+          id="load-total-${proj.replace(/[^a-zA-Z0-9_-]/g,'_')}"
           oninput="redistributeAllLoad()"
           style="width:60px;text-align:center;margin:0;padding:4px;font-size:13px;font-weight:700;background:var(--bg4);border:1px solid var(--border);border-radius:6px;"/>
       </td>
       ${builders.map((b,i)=>`
         <td style="text-align:center;">
           <input type="number" min="0" placeholder="0"
-            id="load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}"
-            oninput="updateRowTotal('${proj.replace(/\s/g,'_')}', ${builders.length})"
+            id="load-cell-${proj.replace(/[^a-zA-Z0-9_-]/g,'_')}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}"
+            oninput="updateRowTotal('${proj.replace(/[^a-zA-Z0-9_-]/g,'_')}', ${builders.length})"
             style="width:55px;text-align:center;margin:0;padding:4px;font-size:12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;"/>
         </td>`).join('')}
     </tr>`).join('');
@@ -6825,7 +6847,7 @@ function renderLoadTable(){
   document.getElementById('load-tfoot').innerHTML = `<tr style="background:var(--bg3);border-top:2px solid var(--border);">
     <td style="font-weight:700;padding:8px 10px;position:sticky;left:0;z-index:1;background:var(--bg3);">Total</td>
     <td style="text-align:center;font-weight:700;color:var(--teal);" id="load-grand-total">0</td>
-    ${builders.map(b=>`<td style="text-align:center;font-weight:700;color:var(--teal);" id="load-btotal-${b.replace(/\s/g,'_')}">0</td>`).join('')}
+    ${builders.map(b=>`<td style="text-align:center;font-weight:700;color:var(--teal);" id="load-btotal-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}">0</td>`).join('')}
   </tr>`;
 
   // Fill saved values from Firebase allLoads
@@ -6834,7 +6856,7 @@ function renderLoadTable(){
     builders.forEach(b=>{
       const saved = allLoads.find(l=>l.month===month&&l.project===proj&&l.builder===b);
       if(saved&&saved.count){
-        const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+        const cell = document.getElementById(`load-cell-${proj.replace(/[^a-zA-Z0-9_-]/g,'_')}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
         if(cell) cell.value = saved.count;
       }
     });
@@ -6842,10 +6864,10 @@ function renderLoadTable(){
     const builders2 = getSelectedBuilders();
     let rowTotal = 0;
     builders2.forEach(b=>{
-      const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+      const cell = document.getElementById(`load-cell-${proj.replace(/[^a-zA-Z0-9_-]/g,'_')}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
       rowTotal += parseInt(cell?.value)||0;
     });
-    const totalEl = document.getElementById(`load-total-${proj.replace(/\s/g,'_')}`);
+    const totalEl = document.getElementById(`load-total-${proj.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
     if(totalEl&&rowTotal>0) totalEl.value = rowTotal;
   });
   updateGrandTotals();
@@ -6867,7 +6889,7 @@ function fillByCapacity(){
   if(!builders.length || !projects.length){ alert('Select at least one builder and one project.'); return; }
 
   // Project weights from the entered totals; equal weight if none entered
-  let weights = projects.map(p=>parseInt(document.getElementById('load-total-'+p.replace(/\s/g,'_'))?.value)||0);
+  let weights = projects.map(p=>parseInt(document.getElementById('load-total-'+p.replace(/[^a-zA-Z0-9_-]/g,'_'))?.value)||0);
   let W = weights.reduce((a,b)=>a+b,0);
   if(W===0){ weights = projects.map(()=>1); W = projects.length; }
 
@@ -6879,7 +6901,7 @@ function fillByCapacity(){
     let rem = cap - ex.reduce((s,x)=>s+x.fl,0);
     [...ex].sort((a,b)=>(b.e-b.fl)-(a.e-a.fl)).forEach((x,i)=>{ if(i<rem) x.fl++; });
     ex.forEach(x=>{
-      const cell = document.getElementById(`load-cell-${x.p.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+      const cell = document.getElementById(`load-cell-${x.p.replace(/[^a-zA-Z0-9_-]/g,'_')}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
       if(cell) cell.value = x.fl||0;
     });
   });
@@ -6887,8 +6909,8 @@ function fillByCapacity(){
   // Refresh each project's TOTAL box to reflect the new column sums
   projects.forEach(p=>{
     let col=0;
-    builders.forEach(b=>{ col += parseInt(document.getElementById(`load-cell-${p.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`)?.value)||0; });
-    const tot=document.getElementById('load-total-'+p.replace(/\s/g,'_'));
+    builders.forEach(b=>{ col += parseInt(document.getElementById(`load-cell-${p.replace(/[^a-zA-Z0-9_-]/g,'_')}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`)?.value)||0; });
+    const tot=document.getElementById('load-total-'+p.replace(/[^a-zA-Z0-9_-]/g,'_'));
     if(tot) tot.value = col;
   });
 
@@ -6910,7 +6932,7 @@ function redistributeAllLoad(){
     const projId = inp.id.replace('load-total-','');
     const total = parseInt(inp.value)||0;
     // clear this project's cells
-    builders.forEach(b=>{ const c=document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`); if(c) c.value=''; });
+    builders.forEach(b=>{ const c=document.getElementById(`load-cell-${projId}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`); if(c) c.value=''; });
     if(!total) return;
 
     const assigned = {};
@@ -6934,7 +6956,7 @@ function redistributeAllLoad(){
       builders.forEach((b,i)=>{ assigned[b] = base + (i<rem?1:0); });
     }
     builders.forEach(b=>{
-      const c=document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`);
+      const c=document.getElementById(`load-cell-${projId}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
       if(c) c.value = assigned[b]||0;
     });
   });
@@ -6948,7 +6970,7 @@ function splitLoad(projId, builderCount){
 
   // Always clear all cells first
   builders.forEach(b=>{
-    const cell = document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`);
+    const cell = document.getElementById(`load-cell-${projId}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
     if(cell) cell.value = '';
   });
 
@@ -6976,7 +6998,7 @@ function splitLoad(projId, builderCount){
     [...shares].sort((a,b)=>b.frac-a.frac)
       .forEach((x,i)=>{ if(i<remainder) x.floor++; });
     shares.forEach(x=>{
-      const cell = document.getElementById(`load-cell-${projId}-${x.b.replace(/\s/g,'_')}`);
+      const cell = document.getElementById(`load-cell-${projId}-${x.b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
       if(cell) cell.value = x.floor||0;
     });
   } else {
@@ -6984,7 +7006,7 @@ function splitLoad(projId, builderCount){
     const base = Math.floor(total / builders.length);
     const remainder = total % builders.length;
     builders.forEach((b, i) => {
-      const cell = document.getElementById(`load-cell-${projId}-${b.replace(/\s/g,'_')}`);
+      const cell = document.getElementById(`load-cell-${projId}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
       if(cell) cell.value = base + (i < remainder ? 1 : 0);
     });
   }
@@ -7003,10 +7025,10 @@ function updateGrandTotals(){
   builders.forEach(b => {
     let bTotal = 0;
     projects.forEach(proj => {
-      const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+      const cell = document.getElementById(`load-cell-${proj.replace(/[^a-zA-Z0-9_-]/g,'_')}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
       bTotal += parseInt(cell?.value)||0;
     });
-    const el = document.getElementById(`load-btotal-${b.replace(/\s/g,'_')}`);
+    const el = document.getElementById(`load-btotal-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
     if(el) el.textContent = bTotal;
     grand += bTotal;
   });
@@ -7032,7 +7054,7 @@ function exportLoadCSV(){
     let rowTotal = 0;
     const vals = {};
     builders.forEach(b => {
-      const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+      const cell = document.getElementById(`load-cell-${proj.replace(/[^a-zA-Z0-9_-]/g,'_')}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
       const val = parseInt(cell?.value)||0;
       vals[b] = val;
       rowTotal += val;
@@ -7092,10 +7114,10 @@ async function saveLoad(){
 
   for(const proj of selectedProjects){
     for(const b of builders){
-      const cell = document.getElementById(`load-cell-${proj.replace(/\s/g,'_')}-${b.replace(/\s/g,'_')}`);
+      const cell = document.getElementById(`load-cell-${proj.replace(/[^a-zA-Z0-9_-]/g,'_')}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
       const val = parseInt(cell?.value)||0;
       // Save even 0 to allow clearing
-      const docId = `${month}_${proj}_${b}`.replace(/\s/g,'_');
+      const docId = `${month}_${proj}_${b}`.replace(/[^a-zA-Z0-9_-]/g,'_');
       batch.set(db.collection('load').doc(docId), {
         month, project:proj, builder:b, count:val,
         updatedAt:firebase.firestore.FieldValue.serverTimestamp()
@@ -7192,9 +7214,9 @@ function renderBuilderDashboard(){
   const tb=document.getElementById('b-recent');
   if(!recent.length){tb.innerHTML='<tr><td colspan="3" class="loading">No links yet</td></tr>';return;}
   tb.innerHTML=recent.map(l=>`<tr>
-    <td class="domain-teal" style="font-size:12px;"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;">${l.domain}</a></td>
-    <td style="font-size:12px;color:var(--text2);">${l.project||'—'}</td>
-    <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'#f0a500'};">${l.status}</span></td>
+    <td class="domain-teal" style="font-size:12px;"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
+    <td style="font-size:12px;color:var(--text2);">${escapeHtml(l.project||'—')}</td>
+    <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'#f0a500'};">${escapeHtml(l.status)}</span></td>
   </tr>`).join('');
 }
 
@@ -7263,39 +7285,39 @@ function renderBuilderLinks(){
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="bl-row-check" value="${lid}" onchange="updateBlCheckBtn()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${l.date||''}</td>
-      <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${l.domain}" target="_blank" style="color:inherit;text-decoration:none;">${l.domain}</a></td>
+      <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${l.dr||'—'}</td><td>${trafficVal}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${l.anchor||'—'}</td>
-      <td style="font-size:13px;font-weight:500;">${l.project||'—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
+      <td style="font-size:13px;font-weight:500;">${escapeHtml(l.project||'—')}</td>
       <td onclick="event.stopPropagation()">
         <select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;">
           <option value="live" ${l.status==='live'?'selected':''}>✅ Live</option>
           <option value="pending" ${l.status==='pending'?'selected':''}>⏳ Pending</option>
         </select>
       </td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${l.linkin}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
-        <button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${lid}\')">↗</button>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
+        <button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal('${escAttr(lid)}')">↗</button>
       </td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
       <td colspan="9" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
-          ${l.linkin?`<a href="${l.linkin}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
-          ${l.linkto?`<a href="${l.linkto}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
+          ${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
+          ${l.linkto?`<a href="${escapeHtml(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
           <span style="font-size:11px;color:var(--text3);">${l.ss?'SS: '+l.ss:''}${l.category?' · '+l.category:''}${l.price?' · $'+String(l.price).replace(/^\$+/,''):''}</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${(l.date||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${escapeHtml(l.date||'')}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${String(l.price||'').replace(/^\$+/,'')}" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${(l.anchor||'').replace(/"/g,'&quot;')}" style="margin:0;font-size:12px;"/></div>
-          <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${(l.linkin||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${(l.linkto||'').replace(/"/g,'&quot;')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
-          <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${(l.comments||'').replace(/"/g,'&quot;')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${escapeHtml(String(l.price||'').replace(/^\$+/,''))}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${escapeHtml(l.linkin||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${escapeHtml(l.linkto||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
-        <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${lid}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRowById('${lid}',true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+        <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${escAttr(lid)}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRowById('${escAttr(lid)}',true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
       </td>
     </tr>`;
   };
@@ -7398,20 +7420,20 @@ function renderDomainsPage(){
     const smtpHtml=d.smtp?smtpBadge(d.smtp):'<span style="color:var(--text3);">—</span>';
     const trafficV=d.traffic?Number(String(d.traffic).replace(/,/g,'')).toLocaleString():'—';
     return`<tr class="link-row">
-      <td style="font-weight:600;"><a href="https://${d.domain}" target="_blank" style="color:var(--teal);text-decoration:none;">${d.domain}</a></td>
+      <td style="font-weight:600;"><a href="https://${escapeHtml(d.domain)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(d.domain)}</a></td>
       <td style="text-align:center;">${d.dr||'—'}</td>
       <td style="text-align:right;">${trafficV}</td>
-      <td style="font-size:12px;">${d.email||'<span style="color:var(--text3);">—</span>'}
-        ${d.email?`<button onclick="navigator.clipboard.writeText('${d.email}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1500);" style="background:none;border:none;cursor:pointer;font-size:11px;margin-left:4px;">📋</button>`:''}
+      <td style="font-size:12px;">${d.email?escapeHtml(d.email):'<span style="color:var(--text3);">—</span>'}
+        ${d.email?`<button onclick="navigator.clipboard.writeText('${escAttr(d.email)}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1500);" style="background:none;border:none;cursor:pointer;font-size:11px;margin-left:4px;">📋</button>`:''}
       </td>
       <td>${smtpHtml}</td>
-      <td style="font-size:12px;">${[d.firstName,d.lastName].filter(Boolean).join(' ')||'—'}</td>
-      <td style="font-size:11px;color:var(--text2);">${d.position||'—'}</td>
-      <td style="font-size:11px;">${d.project||'—'}</td>
-      <td style="font-size:11px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;">${d.addedBy||'—'}</td>
+      <td style="font-size:12px;">${escapeHtml([d.firstName,d.lastName].filter(Boolean).join(' ')||'—')}</td>
+      <td style="font-size:11px;color:var(--text2);">${escapeHtml(d.position||'—')}</td>
+      <td style="font-size:11px;">${escapeHtml(d.project||'—')}</td>
+      <td style="font-size:11px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(d.addedBy||'—')}</td>
       <td style="white-space:nowrap;">
-        ${isAdm?`<button class="btn-ghost" style="font-size:11px;padding:2px 8px;margin-right:4px;" onclick="openDomainModal('${d.id}')">Edit</button>
-        <button class="btn-danger" style="font-size:11px;padding:2px 8px;" onclick="deleteDomain('${d.id}','${d.domain}')">✕</button>`:''}
+        ${isAdm?`<button class="btn-ghost" style="font-size:11px;padding:2px 8px;margin-right:4px;" onclick="openDomainModal('${escAttr(d.id)}')">Edit</button>
+        <button class="btn-danger" style="font-size:11px;padding:2px 8px;" onclick="deleteDomain('${escAttr(d.id)}','${escAttr(d.domain)}')">✕</button>`:''}
       </td>
     </tr>`;
   }).join('');
@@ -7495,7 +7517,7 @@ function loadProspectorAnchors(){
   list.innerHTML = reqs.map(r=>{
     const used = allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&(l.month?(l.month===curMonth||l.month.startsWith(curMonth.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonth)+' '+curYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     const full = used>=r.max;
-    return `<span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid ${full?'rgba(255,95,95,0.3)':'rgba(0,196,174,0.3)'};color:${full?'var(--red)':'var(--teal)'};background:${full?'rgba(255,95,95,0.08)':'rgba(0,196,174,0.08)'};">${r.anchor} (${used}/${r.max})${full?' ❌':''}</span>`;
+    return `<span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid ${full?'rgba(255,95,95,0.3)':'rgba(0,196,174,0.3)'};color:${full?'var(--red)':'var(--teal)'};background:${full?'rgba(255,95,95,0.08)':'rgba(0,196,174,0.08)'};">${escapeHtml(r.anchor)} (${used}/${r.max})${full?' ❌':''}</span>`;
   }).join('');
 }
 
@@ -7567,11 +7589,13 @@ function renderProspectorCards(suggestions, domain, proj, linkTo){
     const hasReq = !!req;
     const isEdit = !!(s.originalSentence);
     const displaySentence = s.editedSentence || s.insertion || '';
-    const highlighted = displaySentence.replace(
-      new RegExp(s.anchor.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),
-      `<span style="color:var(--teal);font-weight:700;text-decoration:underline dotted;">${s.anchor}</span>`
-    );
-    const copyText = displaySentence.replace(/'/g,"\'");
+    const escapedSentence = escapeHtml(displaySentence);
+    const escapedAnchor = escapeHtml(s.anchor||'');
+    const highlighted = escapedAnchor ? escapedSentence.replace(
+      new RegExp(escapedAnchor.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),
+      `<span style="color:var(--teal);font-weight:700;text-decoration:underline dotted;">${escapedAnchor}</span>`
+    ) : escapedSentence;
+    const copyText = escAttr(displaySentence);
 
     return `<div style="background:var(--bg2);border:1px solid ${full?'rgba(255,95,95,0.3)':hasReq?'rgba(0,196,174,0.25)':'var(--border)'};border-radius:14px;padding:20px;position:relative;overflow:hidden;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,${full?'var(--red)':'var(--teal)'},transparent);"></div>
@@ -7579,12 +7603,12 @@ function renderProspectorCards(suggestions, domain, proj, linkTo){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap;">
-            <span style="font-size:14px;font-weight:700;color:var(--teal);">"${s.anchor}"</span>
+            <span style="font-size:14px;font-weight:700;color:var(--teal);">"${escapeHtml(s.anchor)}"</span>
             <span style="font-size:10px;padding:2px 8px;border-radius:20px;background:${isEdit?'rgba(240,165,0,0.1)':'rgba(120,150,255,0.12)'};color:${isEdit?'var(--yellow)':'#7896ff'};font-weight:600;">${isEdit?'✏️ Edit':'➕ Add'}</span>
             ${hasReq?`<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:${full?'rgba(255,95,95,0.1)':'rgba(0,196,174,0.1)'};color:${full?'var(--red)':'var(--teal)'};font-weight:700;">${used}/${req.max} ${full?'❌':'✅'}</span>`:''}
           </div>
-          <a href="${s.articleUrl}" target="_blank" style="font-size:12px;font-weight:600;color:var(--text2);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;" title="${s.articleUrl}">${s.articleTitle||s.articleUrl}</a>
-          <a href="${s.articleUrl}" target="_blank" style="font-size:10px;color:var(--text3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">↗ ${s.articleUrl}</a>
+          <a href="${escapeHtml(s.articleUrl)}" target="_blank" style="font-size:12px;font-weight:600;color:var(--text2);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;" title="${escapeHtml(s.articleUrl)}">${escapeHtml(s.articleTitle||s.articleUrl)}</a>
+          <a href="${escapeHtml(s.articleUrl)}" target="_blank" style="font-size:10px;color:var(--text3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">↗ ${escapeHtml(s.articleUrl)}</a>
           ${s.relevancy!=null?`<div style="display:flex;align-items:center;gap:6px;margin-top:5px;">
             <div style="flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;max-width:80px;">
               <div style="height:4px;background:${s.relevancy>=80?'var(--teal)':s.relevancy>=50?'var(--yellow)':'var(--red)'};width:${s.relevancy}%;border-radius:2px;"></div>
@@ -7597,7 +7621,7 @@ function renderProspectorCards(suggestions, domain, proj, linkTo){
       ${isEdit&&s.originalSentence?`
       <div style="margin-bottom:8px;">
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Before</div>
-        <div style="background:rgba(255,95,95,0.05);border:1px solid rgba(255,95,95,0.15);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.65;text-decoration:line-through;opacity:0.65;">${s.originalSentence}</div>
+        <div style="background:rgba(255,95,95,0.05);border:1px solid rgba(255,95,95,0.15);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.65;text-decoration:line-through;opacity:0.65;">${escapeHtml(s.originalSentence)}</div>
       </div>`:''}
 
       <div style="margin-bottom:10px;">
@@ -7605,14 +7629,14 @@ function renderProspectorCards(suggestions, domain, proj, linkTo){
         <div style="background:rgba(0,196,174,0.05);border:1px solid rgba(0,196,174,0.2);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);line-height:1.7;">${highlighted}</div>
       </div>
 
-      ${s.placement?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px;">📍 <em>${s.placement}</em></div>`:''}
-      <div style="font-size:11px;color:var(--text3);margin-bottom:14px;">💡 ${s.reason}</div>
+      ${s.placement?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px;">📍 <em>${escapeHtml(s.placement)}</em></div>`:''}
+      <div style="font-size:11px;color:var(--text3);margin-bottom:14px;">💡 ${escapeHtml(s.reason)}</div>
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button onclick="useProspectorSuggestion(${i})" class="btn-sm" style="flex:1;min-width:120px;${full?'opacity:0.5;cursor:not-allowed;':''}" ${full?'disabled':''}>
           ${full?'❌ Full':'✅ Use this →'}
         </button>
-        <a href="${s.articleUrl}" target="_blank" class="btn-ghost" style="padding:6px 12px;font-size:12px;text-decoration:none;white-space:nowrap;">↗ Article</a>
+        <a href="${escapeHtml(s.articleUrl)}" target="_blank" class="btn-ghost" style="padding:6px 12px;font-size:12px;text-decoration:none;white-space:nowrap;">↗ Article</a>
         <button onclick="navigator.clipboard.writeText('${copyText}');this.textContent='✅ Copied';setTimeout(()=>this.textContent='📋 Copy',2000);" class="btn-ghost" style="padding:6px 12px;font-size:12px;white-space:nowrap;">📋 Copy</button>
       </div>
     </div>`;
@@ -7749,12 +7773,12 @@ async function runBatchAnalyze(btn){
         const drColor = dr>=70?'var(--teal)':dr>=40?'var(--yellow)':'var(--text2)';
         const catBadgeHtml = category&&category!=='—' ? catBadge(category) : '<span style="color:var(--text3);">—</span>';
         row.innerHTML = `
-          <td style="color:var(--teal);font-weight:600;"><a href="https://${domain}" target="_blank" style="color:inherit;text-decoration:none;">${domain}</a></td>
+          <td style="color:var(--teal);font-weight:600;"><a href="https://${escapeHtml(domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(domain)}</a></td>
           <td style="text-align:center;font-weight:700;color:${drColor};">${dr??'—'}</td>
           <td style="text-align:right;color:var(--text2);">${traffic?Number(traffic).toLocaleString():'—'}</td>
           <td>${catBadgeHtml}</td>
-          <td><span style="font-size:11px;color:var(--teal);">${status}${saveDB?' · Saved':''}</span></td>
-          <td><button onclick="openDomainModal('${existingDom?.id||''}')" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Edit</button></td>`;
+          <td><span style="font-size:11px;color:var(--teal);">${escapeHtml(status)}${saveDB?' · Saved':''}</span></td>
+          <td><button onclick="openDomainModal('${escAttr(existingDom?.id||'')}')" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Edit</button></td>`;
       }
     })(domain);
 
