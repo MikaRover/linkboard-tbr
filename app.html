@@ -3015,6 +3015,8 @@ function gotoPage(name,el){
   if(page){page.classList.add('active');page.style.display='';}
   if(el)el.classList.add('active');
   window.currentPage = name;
+  if(name==='dashboard')renderDashboard();
+  if(name==='links'||name==='all-links')renderLinks();
   if(name==='projects')renderProjectsPage();
   if(name==='b-dashboard')renderBuilderDashboard();
   if(name==='b-links'){
