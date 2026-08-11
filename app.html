@@ -3558,10 +3558,6 @@ function monthSeparatorRow(monthKey, count, colspan){
 
 function renderRowsGrouped(links, rowFn, colspan){
   if(!links.length)return`<tr><td colspan="${colspan}" class="loading">No links</td></tr>`;
-  let html='';
-  let lastMonth='';
-  let monthCount=0;
-  let monthStart=0;
 
   // Pre-group
   const getFullMonth = l => {
@@ -3574,16 +3570,23 @@ function renderRowsGrouped(links, rowFn, colspan){
     // Otherwise derive fully from date field
     return getMonthKey(l.date);
   };
-  const rows=links.map(l=>({l,month:getFullMonth(l)}));
-  let i=0;
-  while(i<rows.length){
-    const month=rows[i].month;
-    let j=i;
-    while(j<rows.length&&rows[j].month===month)j++;
-    html+=monthSeparatorRow(month,j-i,colspan);
-    for(let k=i;k<j;k++) html+=rowFn(rows[k].l);
-    i=j;
-  }
+  // Bucket by month key rather than assuming same-month rows are already adjacent —
+  // a row's stored month field can disagree with its date field (e.g. imported under
+  // "July 2026" but later dated in August), which would otherwise split one month
+  // into multiple non-adjacent group headers in the sorted list.
+  const order=[];
+  const buckets=new Map();
+  links.forEach(l=>{
+    const month=getFullMonth(l);
+    if(!buckets.has(month)){buckets.set(month,[]);order.push(month);}
+    buckets.get(month).push(l);
+  });
+  let html='';
+  order.forEach(month=>{
+    const rows=buckets.get(month);
+    html+=monthSeparatorRow(month,rows.length,colspan);
+    rows.forEach(l=>{html+=rowFn(l);});
+  });
   return html;
 }
 
