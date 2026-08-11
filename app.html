@@ -447,6 +447,7 @@ tr:hover td{background:var(--bg3);}
 .status-tab:hover{border-color:var(--teal);color:var(--teal);}
 .status-tab.active-live{background:rgba(0,196,174,0.12);border-color:rgba(0,196,174,0.4);color:var(--teal);}
 .status-tab.active-pend{background:rgba(240,165,0,0.1);border-color:rgba(240,165,0,0.35);color:var(--yellow);}
+.status-tab.active-needschange{background:rgba(120,150,255,0.12);border-color:rgba(120,150,255,0.4);color:#7896ff;}
 .status-tab.active-all{background:var(--bg3);border-color:var(--border2);color:var(--text);}
 .month-sep-row td{background:var(--bg3) !important;padding:6px 10px !important;border-top:2px solid var(--border) !important;}
 
@@ -861,7 +862,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   <div class="filters" style="gap:6px;margin-bottom:8px;">
     <input id="ls-s" placeholder="Search..." oninput="renderLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
     <select id="ls-p" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;">><option value="">All projects</option></select>
-    <select id="ls-st" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All statuses</option><option value="live">Live</option><option value="pending">Pending</option></select>
+    <select id="ls-st" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All statuses</option><option value="live">Live</option><option value="pending">Pending</option><option value="needs-change">Needs change</option><option value="lost">Lost</option><option value="rejected">Rejected</option></select>
     <select id="ls-b" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All builders</option></select>
     <select id="ls-cat" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All categories</option><option>SaaS</option><option>Service</option><option>Blog/Magazine</option><option>News</option><option>Agency</option><option>Other</option></select>
     <select id="ls-dup" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All</option><option value="dup">Duplicates only</option></select>
@@ -1045,7 +1046,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   <div class="stats" id="pd-stats" style="grid-template-columns:repeat(4,1fr);"></div>
   <div class="filters" style="gap:6px;margin-bottom:8px;">
     <input id="pd-s" placeholder="Search..." oninput="renderDetailLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
-    <select id="pd-st" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All statuses</option><option value="live">Live</option><option value="pending">Pending</option></select>
+    <select id="pd-st" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All statuses</option><option value="live">Live</option><option value="pending">Pending</option><option value="needs-change">Needs change</option><option value="lost">Lost</option><option value="rejected">Rejected</option></select>
     <select id="pd-b" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All builders</option></select>
     <select id="pd-dup" onchange="renderDetailLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All</option><option value="dup">Duplicates</option></select>
   </div>
@@ -1596,6 +1597,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     <div class="status-tab active-all" id="tab-all" onclick="setBTab('all',this)">All</div>
     <div class="status-tab" id="tab-live" onclick="setBTab('live',this)">✅ Live</div>
     <div class="status-tab" id="tab-pend" onclick="setBTab('pend',this)">⏳ Pending</div>
+    <div class="status-tab" id="tab-needschange" onclick="setBTab('needschange',this)">✏️ Needs change</div>
   </div>
   <div class="filters" style="gap:6px;margin-bottom:8px;">
     <input id="bl-s" placeholder="Search domain, anchor..." oninput="renderBuilderLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
@@ -2526,6 +2528,17 @@ function parseDate(str){
   return new Date(str).getTime()||0;
 }
 
+// Flags a pending link that's been sitting too long without going live.
+function pendingAgeBadge(l){
+  if(l.status!=='pending'||!l.date) return '';
+  const ts=parseDate(l.date);
+  if(!ts) return '';
+  const days=Math.floor((Date.now()-ts)/86400000);
+  if(days<14) return '';
+  const color=days>=30?'var(--red)':'var(--yellow)';
+  return `<span style="font-size:9px;font-weight:700;color:${color};margin-left:6px;white-space:nowrap;" title="Pending for ${days} days">⏱ ${days}d</span>`;
+}
+
 let currentDetailProject='';
 let pdSortField='date', pdSortDir='desc';
 
@@ -2547,6 +2560,11 @@ function detectIssues(l){
   // Bad date
   const d=String(l.date||'');
   if(!d||d==='—'||!/\d{2}[.\-\/]\d{2}[.\-\/]\d{4}/.test(d))issues.push('bad-date');
+  // Stale pending — sitting too long without going live
+  if(l.status==='pending'&&d){
+    const ts=parseDate(d);
+    if(ts&&Math.floor((Date.now()-ts)/86400000)>=14)issues.push('stale-pending');
+  }
   return[...new Set(issues)];
 }
 
@@ -2591,6 +2609,7 @@ function renderCheckerResults(){
     'no-domain':'<span style="color:var(--red);font-weight:700;">❌ No domain</span>',
     'no-anchor':'<span style="color:var(--text3);">— No anchor</span>',
     'bad-date':'<span style="color:var(--text3);">📅 Bad date</span>',
+    'stale-pending':'<span style="color:var(--yellow);font-weight:700;">⏱ Stale pending</span>',
     dup:'<span style="color:var(--red);">🔁 Dup</span>'
   };
   tb.innerHTML=fl.map(l=>{
@@ -2752,7 +2771,7 @@ function renderDetailLinks(){
       <td>${escapeHtml(l.date||'')}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${escapeHtml(l.builder||'—')}</td>
-      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select></td>
+      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${escAttr(lid)}\')">↗</button></td>
       <td>${dupB(l,domainCount)}</td>
       <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button></td>
@@ -2773,6 +2792,7 @@ function renderDetailLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${escapeHtml(lid)}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
           <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${escapeHtml(lid)}" value="${escapeHtml(l.linkin||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${escapeHtml(lid)}" value="${escapeHtml(l.linkto||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Relevancy</div><select id="ei-relevancy-${escapeHtml(lid)}" style="margin:0;font-size:12px;"><option value="" ${!l.relevancy?'selected':''}>—</option><option value="Relevant" ${l.relevancy==='Relevant'?'selected':''}>Relevant</option><option value="Weak" ${l.relevancy==='Weak'?'selected':''}>Weak</option></select></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${escapeHtml(lid)}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
         <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${escAttr(lid)}')" style="width:auto;padding:8px 16px !important;font-size:13px !important;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${escAttr(lid)}',null,true)">Cancel</button><span id="ei-saved-${escapeHtml(lid)}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
@@ -3874,7 +3894,7 @@ function renderLinks(){
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
       <td>${escapeHtml(l.project||'—')}</td>
       <td>${escapeHtml(l.builder||'—')}</td>
-      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option></select></td>
+      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${escAttr(lid)}\')">↗</button></td>
       <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button>`:''}</td>
     </tr>
@@ -3894,6 +3914,7 @@ function renderLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${escapeHtml(lid)}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
           <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${escapeHtml(lid)}" value="${safeLinkin}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${escapeHtml(lid)}" value="${safeLinkto}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Relevancy</div><select id="ei-relevancy-${escapeHtml(lid)}" style="margin:0;font-size:12px;"><option value="" ${!l.relevancy?'selected':''}>—</option><option value="Relevant" ${l.relevancy==='Relevant'?'selected':''}>Relevant</option><option value="Weak" ${l.relevancy==='Weak'?'selected':''}>Weak</option></select></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${escapeHtml(lid)}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
         <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${escAttr(lid)}')" style="width:auto;padding:8px 16px !important;font-size:13px !important;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${escAttr(lid)}',null,true)">Cancel</button><span id="ei-saved-${escapeHtml(lid)}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
@@ -4403,7 +4424,8 @@ async function saveEditRow(id){
   const anchor=(document.getElementById('ei-anchor-'+id)?.value||'').trim();
   const price=String(document.getElementById('ei-price-'+id)?.value||'').replace(/^\$+/,'').trim();
   const comments=(document.getElementById('ei-comments-'+id)?.value||'').trim();
-  await db.collection('links').doc(id).update({date,linkin,linkto,dr,traffic,ss,anchor,price,comments});
+  const relevancy=(document.getElementById('ei-relevancy-'+id)?.value||'').trim();
+  await db.collection('links').doc(id).update({date,linkin,linkto,dr,traffic,ss,anchor,price,comments,relevancy});
 
   const saved=document.getElementById('ei-saved-'+id);
   if(saved){saved.style.display='inline';setTimeout(()=>saved.style.display='none',2000);}
@@ -4421,8 +4443,8 @@ async function updateLinkStatus(id, status){
 // ─── EXPORT ───────────────────────────────────────────────
 function exportCSV(){
   if(cu.role!=='admin'){alert('Only admin can export');return;}
-  const h=['Date','Domain','DR','Traffic','SS','Category','Price','Link in','Link to','Anchor','Project','Builder','Status','Comments'];
-  const rows=allLinks.map(l=>[l.date,l.domain,l.dr,l.traffic,l.ss,l.category,l.price,l.linkin,l.linkto,l.anchor,l.project,l.builder,l.status,l.comments].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
+  const h=['Date','Domain','DR','Traffic','SS','Category','Price','Link in','Link to','Anchor','Project','Builder','Status','Comments','Relevancy'];
+  const rows=allLinks.map(l=>[l.date,l.domain,l.dr,l.traffic,l.ss,l.category,l.price,l.linkin,l.linkto,l.anchor,l.project,l.builder,l.status,l.comments,l.relevancy].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
   a.download='linkboard_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
@@ -4471,7 +4493,7 @@ function handleCsvFile(file){
 
       if(isPending){status='pending';continue;}
       if(isRejected){status='rejected';continue;}
-      if(isNeedChange){continue;}
+      if(isNeedChange){status='needs-change';continue;}
       if(isLiveHeader||isMonthHeader){
         status='live';
         // Extract month name AND year from header e.g. "April 2026 live links"
@@ -7210,6 +7232,7 @@ function renderBuilderLinks(){
     if(lb!==mn && lb!==cn && lb!==ce)return false;
     if(bStatusFilter==='live'&&l.status!=='live')return false;
     if(bStatusFilter==='pend'&&l.status!=='pending')return false;
+    if(bStatusFilter==='needschange'&&l.status!=='needs-change')return false;
     if(p&&l.project!==p)return false;
     if(blMonth&&l.date){const mk=getMonthKey(l.date);if(mk!==blMonth)return false;}
     if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s))return false;
@@ -7230,10 +7253,13 @@ function renderBuilderLinks(){
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
       <td style="font-size:13px;font-weight:500;">${escapeHtml(l.project||'—')}</td>
       <td onclick="event.stopPropagation()">
-        <select onchange="updateLinkStatus('${lid}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;">
+        <select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;">
           <option value="live" ${l.status==='live'?'selected':''}>✅ Live</option>
           <option value="pending" ${l.status==='pending'?'selected':''}>⏳ Pending</option>
-        </select>
+          <option value="needs-change" ${l.status==='needs-change'?'selected':''}>✏️ Needs change</option>
+          <option value="lost" ${l.status==='lost'?'selected':''}>❌ Lost</option>
+          <option value="rejected" ${l.status==='rejected'?'selected':''}>🚫 Rejected</option>
+        </select>${pendingAgeBadge(l)}
       </td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
         <button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal('${escAttr(lid)}')">↗</button>
@@ -7255,6 +7281,7 @@ function renderBuilderLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
           <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${escapeHtml(l.linkin||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${escapeHtml(l.linkto||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Relevancy</div><select id="ei-relevancy-${lid}" style="margin:0;font-size:12px;"><option value="" ${!l.relevancy?'selected':''}>—</option><option value="Relevant" ${l.relevancy==='Relevant'?'selected':''}>Relevant</option><option value="Weak" ${l.relevancy==='Weak'?'selected':''}>Weak</option></select></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
         <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${escAttr(lid)}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRowById('${escAttr(lid)}',true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
