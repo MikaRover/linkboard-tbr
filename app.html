@@ -3798,11 +3798,36 @@ function renderActivePageForLinks(){
 }
 
 // ─── ADMIN NOTIFICATIONS ("added anyway" bypass alerts) ──
+let notifListenerReady=false;
 function listenNotifications(){
   db.collection('notifications').orderBy('createdAt','desc').limit(50).onSnapshot(snap=>{
+    // Only chime for notifications that arrive while already online — not the
+    // batch of pre-existing ones loaded when the listener first attaches.
+    if(notifListenerReady){
+      snap.docChanges().forEach(ch=>{ if(ch.type==='added') playNotifSound(); });
+    }
     allNotifs=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderNotifList();
+    notifListenerReady=true;
   });
+}
+let _notifAudioCtx=null;
+function playNotifSound(){
+  try{
+    if(!_notifAudioCtx)_notifAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const ctx=_notifAudioCtx;
+    if(ctx.state==='suspended')ctx.resume();
+    const t=ctx.currentTime;
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type='sine';
+    o.frequency.setValueAtTime(880,t);
+    o.frequency.setValueAtTime(1108,t+0.12);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.28,t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);
+    o.connect(g);g.connect(ctx.destination);
+    o.start(t);o.stop(t+0.4);
+  }catch(e){}
 }
 function notifyAdminAnywayAdd(info){
   db.collection('notifications').add({
