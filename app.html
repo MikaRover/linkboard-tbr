@@ -1707,9 +1707,9 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
         <th style="width:28px;"><input type="checkbox" id="bl-check-all" onchange="toggleAllBuilderChecks(this)" style="width:auto;margin:0;cursor:pointer;"/></th>
         <th style="cursor:pointer;" onclick="toggleBSort()">Date <span id="b-sort-date">↓</span></th>
         <th>Domain</th><th>DR</th><th>Traffic</th><th>Anchor</th><th>Project</th>
-        <th>Status</th><th>Link check</th>
+        <th>Status</th><th>Link check</th><th style="width:36px;"></th>
       </tr></thead>
-      <tbody id="b-tbody"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+      <tbody id="b-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -7685,7 +7685,8 @@ function renderBuilderLinks(){
   });
   fl.sort((a,b)=>{const av=parseDate(a.date),bv=parseDate(b.date);return bSortDir==='desc'?bv-av:av-bv;});
   const tb=document.getElementById('b-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="9" class="loading">No links found</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="10" class="loading">No links found</td></tr>';return;}
+  const canDelete=cu.role==='admin'||cu.role==='manager';
   const rowFn=(l)=>{
     const lid=l.id;
     const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
@@ -7709,9 +7710,10 @@ function renderBuilderLinks(){
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
         <button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal('${escAttr(lid)}')">↗</button>
       </td>
+      <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:5px 8px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button>`:''}</td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
-      <td colspan="9" style="padding:14px 16px;">
+      <td colspan="10" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
           ${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
           ${l.linkto?`<a href="${escapeHtml(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
@@ -7739,7 +7741,7 @@ function renderBuilderLinks(){
       </td>
     </tr>`;
   };
-  tb.innerHTML=renderRowsGrouped(fl,rowFn,8);
+  tb.innerHTML=renderRowsGrouped(fl,rowFn,10);
 }
 
 function updateDoubleCheckBadge(){
