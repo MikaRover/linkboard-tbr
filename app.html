@@ -753,12 +753,17 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
       <span>Notifications</span>
       <span id="notif-badge" style="display:none;min-width:22px;height:22px;padding:0 7px;border-radius:20px;background:#ff5a5a;color:#fff;font-size:12px;font-weight:800;line-height:22px;text-align:center;"></span>
     </div>
-    <div id="notif-panel" style="display:none;position:absolute;top:100%;left:1rem;right:1rem;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;margin-top:6px;max-height:320px;overflow-y:auto;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.35);">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);">
-        <span style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Notifications</span>
-        <span onclick="markAllNotifsRead()" style="font-size:11px;color:var(--teal);cursor:pointer;">Mark all read</span>
+  </div>
+  <div id="notif-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center;padding:24px;" onclick="if(event.target===this)toggleNotifPanel()">
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:480px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);">
+        <span style="font-size:15px;font-weight:800;color:var(--text);">Notifications</span>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <span onclick="markAllNotifsRead()" style="font-size:12px;color:var(--teal);cursor:pointer;">Mark all read</span>
+          <span onclick="toggleNotifPanel()" style="cursor:pointer;color:var(--text3);font-size:20px;line-height:1;">×</span>
+        </div>
       </div>
-      <div id="notif-list"></div>
+      <div id="notif-list" style="overflow-y:auto;"></div>
     </div>
   </div>
   <div style="padding:0 1rem 10px;">
@@ -3924,7 +3929,11 @@ function notifyBuilderApprovalResult(builderName,info){
 function toggleNotifPanel(){
   const p=document.getElementById('notif-panel');
   if(!p)return;
-  p.style.display=p.style.display==='none'?'block':'none';
+  // Portal to <body> so no ancestor (e.g. the sidebar's backdrop-filter)
+  // can turn this fixed-position overlay into a mispositioned/invisible one.
+  if(p.parentElement!==document.body)document.body.appendChild(p);
+  const opening=p.style.display==='none'||!p.style.display;
+  p.style.display=opening?'flex':'none';
 }
 function renderNotifList(){
   const list=document.getElementById('notif-list');
@@ -3958,12 +3967,7 @@ function markNotifRead(id){
 function markAllNotifsRead(){
   allNotifs.filter(n=>!n.read).forEach(n=>db.collection('notifications').doc(n.id).update({read:true}).catch(()=>{}));
 }
-document.addEventListener('click',(e)=>{
-  const wrap=document.getElementById('notif-bell-wrap');
-  const panel=document.getElementById('notif-panel');
-  if(!wrap||!panel||panel.style.display==='none')return;
-  if(!wrap.contains(e.target))panel.style.display='none';
-});
+// Closing on outside-click is handled by the overlay's own backdrop onclick.
 
 function listenQualityReqs(){
   db.collection('qualityRequirements').onSnapshot(snap=>{
