@@ -3235,8 +3235,15 @@ function renderCompatCards(){
   // Get quality req for this project (no month)
   const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const currentMonth=monthNames[new Date().getMonth()];
+  const currentMonthYear=currentMonth+' '+new Date().getFullYear();
 
-  const pills=allProjects.map(proj=>{
+  // Only show projects that actually have an anchor requirement (i.e. are being worked on) this month
+  const activeProjects=allProjects.filter(proj=>
+    allReqs.some(r=>r.project===proj.name&&(r.month===currentMonthYear||r.month===currentMonth))
+  );
+  if(!activeProjects.length){compatSection.style.display='none';return;}
+
+  const pills=activeProjects.map(proj=>{
     const qr=allQualityReqs.find(r=>r.project===proj.name);
 
     if(!qr){
