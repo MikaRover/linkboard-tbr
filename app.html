@@ -422,6 +422,9 @@ tr:hover td{background:var(--bg3);}
 .compat-tooltip-row.pass{color:#00c9b0;}
 .compat-tooltip-row.fail-item{color:#ff6b6b;}
 .compat-tooltip-row.neutral{color:var(--text3);}
+.rel-tip-wrap{position:relative;display:inline-block;}
+.rel-tip{display:none;position:absolute;bottom:calc(100% + 6px);left:0;z-index:100;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;font-size:11px;color:var(--text2);width:200px;white-space:normal;line-height:1.4;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+.rel-tip-wrap:hover .rel-tip{display:block;}
 
 /* ── REQUIREMENTS PAGE ENHANCED ── */
 .req-form-section{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;}
@@ -2924,7 +2927,7 @@ function renderDetailLinks(){
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${escapeHtml(l.builder||'—')}</td>
       <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal(\'${escAttr(lid)}\')">↗</button></td>
-      <td onclick="event.stopPropagation()" title="${escapeHtml(l.relevancyReason||'')}"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancyRow('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
+      <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancyRow('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
       <td>${dupB(l,domainCount)}</td>
       <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button></td>
     </tr>
