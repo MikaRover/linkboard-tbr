@@ -1608,7 +1608,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
         <div style="font-size:13px;font-weight:700;color:var(--text);">This month's quotas</div>
         <div style="font-size:11px;color:var(--text3);" id="b-quota-month"></div>
       </div>
-      <div id="b-quota-grid" style="display:flex;flex-direction:column;gap:6px;">
+      <div id="b-quota-grid" style="display:flex;flex-direction:column;gap:4px;max-height:420px;overflow-y:auto;">
         <div class="loading">Loading quotas...</div>
       </div>
     </div>
@@ -7218,8 +7218,8 @@ function renderBuilderDashboard(){
       const color=full?'var(--teal)':done>0?'var(--yellow)':'var(--text3)';
       const glowColor=full?'var(--teal)':done>0?'var(--yellow)':'transparent';
       const glowRgb=full?'0,196,174':done>0?'240,165,0':'0,0,0';
-      return`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border:1px solid ${full?'rgba(0,196,174,0.3)':done>0?'rgba(240,165,0,0.2)':'var(--border)'};border-radius:8px;transition:all 0.2s;">
-        <div style="font-size:12px;font-weight:600;color:var(--text);min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${proj}</div>
+      return`<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--bg2);border:1px solid ${full?'rgba(0,196,174,0.3)':done>0?'rgba(240,165,0,0.2)':'var(--border)'};border-radius:6px;transition:all 0.2s;">
+        <div style="font-size:11px;font-weight:600;color:var(--text);min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${proj}</div>
         <div style="flex:1;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;">
           <div style="height:3px;border-radius:2px;background:${glowColor};width:${pct}%;transition:width 0.5s;"></div>
         </div>
