@@ -2443,7 +2443,7 @@ function startApp(){
   const sbName=document.getElementById('sb-name');
   sbName.textContent=displayName;
   sbName.style.cssText=`color:${neonColor};font-weight:700;`;
-  document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':cu.role==='manager'?'Manager':'Link Builder';
+  document.getElementById('sb-role').textContent=cu.role==='admin'?'Administrator':cu.role==='manager'?'Admin Secretary':'Link Builder';
 
   const isAdmin=cu.role==='admin';
   const isManager=cu.role==='manager';
@@ -4644,9 +4644,12 @@ function renderTeam(){
       const domCnt={};
       bl.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domCnt[key]=(domCnt[key]||0)+1;});
       const dups=bl.filter(l=>domCnt[nd(l.domain)+'|'+(l.project||'')]>1).length;
-      const roleColor=r.role==='admin'?'var(--teal)':'var(--text2)';
       const roleBadge=r.registered
-        ? `<span class="badge" style="background:rgba(0,196,174,0.1);color:${roleColor};">${escapeHtml(r.role)}</span>`
+        ? `<select onchange="event.stopPropagation();changeUserRole('${escAttr(r.uid)}','${escAttr(r.name)}',this.value)" onclick="event.stopPropagation()" style="margin:0;padding:5px 8px;font-size:12px;width:auto;font-weight:600;">
+             <option value="builder" ${r.role==='builder'?'selected':''}>Builder</option>
+             <option value="manager" ${r.role==='manager'?'selected':''}>Admin Secretary</option>
+             <option value="admin" ${r.role==='admin'?'selected':''}>Admin</option>
+           </select>`
         : `<span class="badge" style="background:var(--bg4);color:var(--text3);">no account</span>`;
       const actionBtn=r.registered
         ? `<button onclick="deleteUser('${escAttr(r.uid)}','${escAttr(r.name)}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`
@@ -4736,6 +4739,16 @@ async function deleteUser(uid, name){
   if(!confirm('Delete user "'+name+'"? This cannot be undone.')) return;
   try{
     await db.collection('users').doc(uid).delete();
+    renderTeam();
+  }catch(e){
+    alert('Error: '+e.message);
+  }
+}
+
+async function changeUserRole(uid, name, role){
+  try{
+    await db.collection('users').doc(uid).update({role});
+    showToast(name+' is now '+role);
     renderTeam();
   }catch(e){
     alert('Error: '+e.message);
@@ -6175,8 +6188,9 @@ function initAnchors(){
 }
 
 function renderAnchors(){
-  // Hide add/reset/delete controls for builders — they get a read-only availability view
-  const _isBuilder = cu && cu.role!=='admin';
+  // Hide add/reset/delete controls for plain builders — admin and manager
+  // ("admin's helper") both get full anchor-management access.
+  const _isBuilder = cu && cu.role!=='admin' && cu.role!=='manager';
   const _adminCtl = document.getElementById('anchor-admin-controls');
   if(_adminCtl) _adminCtl.style.display = _isBuilder ? 'none' : '';
 
@@ -6465,7 +6479,7 @@ function renderAnchorDetail(){
   const reqs = allReqs.filter(r=>r.project===proj);
 
   if(!reqs.length){
-    const canAdd = !(cu && cu.role!=='admin');
+    const canAdd = cu && (cu.role==='admin' || cu.role==='manager');
     contentEl.innerHTML = `
       <div style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px;">${proj}</div>
       <div style="color:var(--text3);font-size:13px;margin-bottom:20px;">No anchors set for this project yet.</div>
@@ -6572,7 +6586,7 @@ function renderAnchorDetail(){
                 })()}
               </div>
             </div>
-            ${(cu&&cu.role==='admin')?`<button onclick="deleteAnchor('${escAttr(r.id)}','${escAttr(r.anchor)}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`:''}
+            ${(cu&&(cu.role==='admin'||cu.role==='manager'))?`<button onclick="deleteAnchor('${escAttr(r.id)}','${escAttr(r.anchor)}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button>`:''}
           </div>
         </div>
         <div style="height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;">
