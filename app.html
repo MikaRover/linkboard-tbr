@@ -2586,14 +2586,17 @@ function renderProjectsPage(){
         <div style="cursor:pointer;flex:1;" onclick="openProjectDetail('${escAttr(p.name)}')">
           <div class="proj-name" style="${isHidden?'color:var(--text3);text-decoration:line-through;':''}">${escapeHtml(p.name)}</div>
           <div class="proj-count" style="color:var(--teal);">${count} links →</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:3px;">✅ ${live} · ⏳ ${pend}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px;display:flex;align-items:center;gap:8px;">
+            <span style="display:inline-flex;align-items:center;gap:3px;"><svg width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/><polyline points='22 4 12 14.01 9 11.01'/></svg>${live}</span>
+            <span style="display:inline-flex;align-items:center;gap:3px;"><svg width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>${pend}</span>
+          </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
           <button class="btn-ghost" style="font-size:11px;padding:4px 10px;white-space:nowrap;" onclick="scanProject('${escAttr(p.id)}','${escAttr(p.name)}',this)">
-            ${scanned?'🔄 Re-scan':'🔍 Scan'}
+            <svg width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='vertical-align:-1px;margin-right:4px;'>${scanned?`<polyline points='23 4 23 10 17 10'/><polyline points='1 20 1 14 7 14'/><path d='M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15'/>`:`<circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/>`}</svg>${scanned?'Re-scan':'Scan'}
           </button>
           <button class="btn-ghost" style="font-size:11px;padding:4px 8px;" onclick="toggleHideProject('${escAttr(p.id)}',${isHidden})" title="${isHidden?'Unhide project':'Hide project'}">
-            ${isHidden?'👁 Show':'🙈 Hide'}
+            <svg width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='vertical-align:-1px;margin-right:4px;'>${isHidden?`<path d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'/><circle cx='12' cy='12' r='3'/>`:`<path d='M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19'/><path d='M14.12 14.12a3 3 0 1 1-4.24-4.24'/><line x1='1' y1='1' x2='23' y2='23'/>`}</svg>${isHidden?'Show':'Hide'}
           </button>
           <button class="btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteProject('${escAttr(p.id)}','${escAttr(p.name)}')">✕</button>
         </div>
@@ -2601,7 +2604,7 @@ function renderProjectsPage(){
       ${scanned?`<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:11px;">
         <div style="font-weight:700;color:var(--teal);margin-bottom:5px;">${escapeHtml(sd.niche||'')}</div>
         ${sd.coreTopics&&sd.coreTopics.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px;">${sd.coreTopics.slice(0,5).map(t=>`<span style="padding:1px 7px;border-radius:20px;background:rgba(0,196,174,0.1);color:var(--teal);font-size:10px;">${escapeHtml(t)}</span>`).join('')}</div>`:''}
-        <div style="color:var(--text3);font-size:10px;">📅 Scanned ${escapeHtml(sd.lastScanned)}</div>
+        <div style="color:var(--text3);display:flex;align-items:center;gap:4px;font-size:10px;"><svg width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='3' y='4' width='18' height='18' rx='2'/><line x1='16' y1='2' x2='16' y2='6'/><line x1='8' y1='2' x2='8' y2='6'/><line x1='3' y1='10' x2='21' y2='10'/></svg>Scanned ${escapeHtml(sd.lastScanned)}</div>
       </div>`:''}
     </div>`;
   }).join('');
