@@ -7686,7 +7686,7 @@ function renderBuilderLinks(){
   fl.sort((a,b)=>{const av=parseDate(a.date),bv=parseDate(b.date);return bSortDir==='desc'?bv-av:av-bv;});
   const tb=document.getElementById('b-tbody');
   if(!fl.length){tb.innerHTML='<tr><td colspan="10" class="loading">No links found</td></tr>';return;}
-  const canDelete=cu.role==='admin'||cu.role==='manager';
+  const canDelete=true;
   const rowFn=(l)=>{
     const lid=l.id;
     const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
