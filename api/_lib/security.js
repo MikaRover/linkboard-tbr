@@ -25,4 +25,23 @@ function isSafeHost(rawDomain) {
   return true;
 }
 
-module.exports = { isSafeHost, cleanHost };
+// Realistic browser headers for outbound page fetches. A bare User-Agent
+// (or worse, one that self-identifies as a bot, e.g. "SEOBot/1.0") is an easy
+// signal for basic bot-detection to key on — this mimics a real top-level
+// Chrome navigation closely enough to pass naive checks. It won't get past
+// Cloudflare/Akamai JS-challenge or TLS-fingerprint protection; nothing
+// short of a real headless browser can, and that's out of scope here.
+function browserHeaders() {
+  return {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1'
+  };
+}
+
+module.exports = { isSafeHost, cleanHost, browserHeaders };

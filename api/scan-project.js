@@ -1,4 +1,4 @@
-const { isSafeHost } = require('./_lib/security');
+const { isSafeHost, browserHeaders } = require('./_lib/security');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
   const fetchPage = async (url) => {
     try {
       const r = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEOBot/1.0)' },
+        headers: browserHeaders(),
         signal: AbortSignal.timeout(6000), redirect: 'follow'
       });
       if (!r.ok) return null;
@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
   let blogLinks = [];
   try {
     const blogHtml = await fetch(`${baseUrl}/blog`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(5000)
+      headers: browserHeaders(), signal: AbortSignal.timeout(5000)
     }).then(r => r.text()).catch(() => '');
 
     const linkRe = /href="([^"#?]*\/blog\/[^"#?][^"]*)"/gi;

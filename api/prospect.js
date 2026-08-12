@@ -1,4 +1,4 @@
-const { isSafeHost } = require('./_lib/security');
+const { isSafeHost, browserHeaders } = require('./_lib/security');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
   const fetchHtml = async (url, timeout = 7000) => {
     try {
       const r = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+        headers: browserHeaders(),
         signal: AbortSignal.timeout(timeout),
         redirect: 'follow'
       });

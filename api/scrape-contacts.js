@@ -2,7 +2,7 @@
 // target site and regex-extracts emails. Called by the "Free scrape" outreach
 // flow (renderFreeResults / bulk free-scrape in app.html).
 
-const { isSafeHost, cleanHost } = require('./_lib/security');
+const { isSafeHost, cleanHost, browserHeaders } = require('./_lib/security');
 
 const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
 const SKIP = ['example', 'domain', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', 'sentry', 'wixpress', 'noreply', 'no-reply', 'donotreply', 'wpcf7', 'schema'];
@@ -11,7 +11,7 @@ const PATHS = ['', '/contact', '/contact-us', '/about', '/about-us', '/write-for
 async function scrapePage(url) {
   try {
     const r = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      headers: browserHeaders(),
       signal: AbortSignal.timeout(5000),
       redirect: 'follow'
     });

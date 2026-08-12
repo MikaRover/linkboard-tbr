@@ -3,6 +3,8 @@
 // Google Apps Script Engine, adapted for Vercel serverless (fetch).
 // ══════════════════════════════════════════════════════════════
 
+const { browserHeaders } = require('./_lib/security');
+
 const SNOV_CLIENT_ID = process.env.SNOV_CLIENT_ID;
 const SNOV_CLIENT_SECRET = process.env.SNOV_CLIENT_SECRET;
 
@@ -252,7 +254,7 @@ async function deepFetchEmails(domain, token) {
 async function scrapePage(url) {
   try {
     const r = await fetch(url, {
-      headers:{ 'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      headers: browserHeaders(),
       signal: AbortSignal.timeout(6000), redirect:'follow'
     });
     if (!isOk(r.status)) return [];
@@ -268,7 +270,7 @@ async function scrapePage(url) {
 
 async function findInternalPages(url) {
   try {
-    const r = await fetch(url, { headers:{'User-Agent':'Mozilla/5.0'}, signal:AbortSignal.timeout(6000), redirect:'follow' });
+    const r = await fetch(url, { headers: browserHeaders(), signal:AbortSignal.timeout(6000), redirect:'follow' });
     if (!isOk(r.status)) return [];
     const html = await r.text();
     const linkRegex = /href\s*=\s*["']([^"']+)["']/gi;

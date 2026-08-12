@@ -2,9 +2,7 @@
 // asks Claude whether it's topically relevant for the anchor/target project,
 // mirroring what "Relevancy checker" meant in the team's old spreadsheet.
 
-const { isSafeHost } = require('./_lib/security');
-
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+const { isSafeHost, browserHeaders } = require('./_lib/security');
 
 function htmlToText(html) {
   return html
@@ -37,7 +35,7 @@ module.exports = async function handler(req, res) {
   try {
     const url = /^https?:\/\//i.test(linkin) ? linkin : 'https://' + linkin;
     const r = await fetch(url, {
-      headers: { 'User-Agent': UA },
+      headers: browserHeaders(),
       redirect: 'follow',
       signal: AbortSignal.timeout(10000)
     });
