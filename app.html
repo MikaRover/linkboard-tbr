@@ -686,6 +686,24 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   .filters input,.filters select{width:100%;min-width:0;}
   .quota-grid{grid-template-columns:1fr;}
 }
+
+/* ── QUICK-ADD MODAL (reuses the #p-add page markup, no navigation) ── */
+.qa-close{display:none;}
+.page.as-modal{
+  display:flex !important;position:fixed;inset:0;z-index:300;
+  align-items:flex-start;justify-content:center;
+  background:rgba(0,0,0,0.6);padding:5vh 20px;overflow-y:auto;
+  animation:fadeIn 0.15s ease;
+}
+.page.as-modal .card{margin:0;box-shadow:0 20px 60px rgba(0,0,0,0.5);position:relative;}
+.page.as-modal .page-top{display:none;}
+.page.as-modal .qa-close{
+  display:flex;align-items:center;justify-content:center;
+  position:absolute;top:14px;right:14px;width:30px;height:30px;
+  border-radius:8px;background:var(--bg3);border:1px solid var(--border);
+  color:var(--text2);cursor:pointer;z-index:1;
+}
+.page.as-modal .qa-close:hover{color:var(--text);border-color:var(--border2);}
 </style>
 </head>
 <body>
@@ -779,7 +797,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   <div class="page-top">
     <div class="page-title">Dashboard</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn-sm" onclick="gotoPage('add',document.querySelectorAll('.nav')[1])" style="width:auto;">+ Add link</button>
+      <button class="btn-sm" onclick="openAddLinkModal()" style="width:auto;">+ Add link</button>
       <button class="btn-sm adm" onclick="bulkRefreshMetrics(6,this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">↺ Refresh DR/Traffic (6mo)</button>
       <button class="btn-sm" onclick="bulkCheckMyLinks(this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">🔗 Check my links</button>
     </div>
@@ -817,6 +835,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
 <div id="p-add" class="page">
   <div class="page-top"><div class="page-title">Add link</div></div>
   <div class="card" style="max-width:720px;">
+    <div class="qa-close" onclick="closeAddLinkModal()" title="Close">✕</div>
     <div class="card-body">
       <div id="al-dup" class="alert a-dup"></div>
       <div id="al-req" class="alert a-warn"></div>
@@ -1081,7 +1100,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="btn-ghost" onclick="checkDetailProjectLinks(this)" style="white-space:nowrap;">▶ Check links</button>
-      <button class="btn-sm" onclick="gotoPage('add',document.querySelectorAll('.nav')[1]);setTimeout(()=>{const s=document.getElementById('f-proj');if(s)s.value=currentDetailProject;},100)" style="white-space:nowrap;">+ Add link</button>
+      <button class="btn-sm" onclick="openAddLinkModal();setTimeout(()=>{const s=document.getElementById('f-proj');if(s)s.value=currentDetailProject;},60)" style="white-space:nowrap;">+ Add link</button>
       <button class="btn-danger adm" onclick="clearProjectLinks()" style="white-space:nowrap;padding:6px 12px;font-size:12px;">🗑 Clear all links</button>
     </div>
   </div>
@@ -1589,7 +1608,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
       <div style="font-size:13px;color:var(--text2);margin-top:4px;" id="b-month-label"></div>
       <div id="b-motivation" style="font-size:12px;color:var(--text3);margin-top:6px;font-style:italic;min-height:16px;"></div>
     </div>
-    <button class="btn-sm" onclick="gotoPage('add',document.getElementById('bld-nav-add'))" style="width:auto;">+ Add link</button>
+    <button class="btn-sm" onclick="openAddLinkModal()" style="width:auto;">+ Add link</button>
   </div>
 
   <!-- Stats row — 4 cards -->
@@ -1632,7 +1651,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     <div class="page-title">My Links</div>
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="btn-ghost" id="bl-check-btn" onclick="checkSelectedBuilderLinks(this)" style="width:auto;white-space:nowrap;display:none;" title="Run link checker on selected links">🔍 Check selected</button>
-      <button class="btn-sm" onclick="gotoPage('add',document.getElementById('bld-nav-add'))" style="width:auto;">+ Add link</button>
+      <button class="btn-sm" onclick="openAddLinkModal()" style="width:auto;">+ Add link</button>
     </div>
   </div>
   <div class="link-status-tabs">
@@ -3014,6 +3033,33 @@ function toggleSidebar(open){
   if(bd)bd.classList.toggle('mobile-open',show);
 }
 
+// ── QUICK-ADD MODAL — reuses the #p-add form/logic, but as a floating
+// overlay on top of whatever page you're on, instead of navigating away.
+let addLinkModalOpen=false;
+function openAddLinkModal(){
+  const page=document.getElementById('p-add');
+  if(!page)return;
+  addLinkModalOpen=true;
+  page.classList.add('as-modal');
+  // Reset the form (same fields addLink() clears on success)
+  ['f-domain','f-linkin','f-linkto','f-anchor','f-dr','f-traffic','f-us-traffic','f-ss','f-price','f-invoice','f-comments'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const builderEl=document.getElementById('f-builder'); if(builderEl)builderEl.value='';
+  document.getElementById('f-category').value='';
+  document.getElementById('f-status').value='pending';
+  document.getElementById('al-dup').style.display='none';
+  document.getElementById('al-req').style.display='none';
+  document.getElementById('al-ok').style.display='none';
+  document.getElementById('dc-box').classList.remove('show');
+  document.getElementById('compat-section').style.display='none';
+  document.getElementById('cat-status').innerHTML='';
+  renderCatButtons('');
+  setTimeout(()=>document.getElementById('f-domain')?.focus(),50);
+}
+function closeAddLinkModal(){
+  addLinkModalOpen=false;
+  document.getElementById('p-add')?.classList.remove('as-modal');
+}
+
 function gotoPage(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav').forEach(n=>n.classList.remove('active'));
@@ -3459,21 +3505,26 @@ async function addLink(){
       createdAt:firebase.firestore.FieldValue.serverTimestamp(),
       date:new Date().toLocaleDateString('en-GB'),
     ...(needsApproval ? {needsApproval:true, approvalReason, approvalStatus:'pending'} : {})});
-    const ok=document.getElementById('al-ok');
-    ok.style.display='block';ok.textContent='✅ Link added!';
-    setTimeout(()=>{
-      ok.style.display='none';
-      const proj=document.getElementById('f-proj').value;
-      if(cu.role==='admin'){
-        gotoPage('links',document.querySelectorAll('.nav')[2]);
-        document.getElementById('ls-st').value='pending';
-        if(proj) document.getElementById('ls-p').value=proj;
-        renderLinks();
-      } else {
-        gotoPage('b-links',document.getElementById('bld-nav-links'));
-        renderBuilderLinks();
-      }
-    },1200);
+    if(addLinkModalOpen){
+      closeAddLinkModal();
+      showToast('✅ Link added!');
+    } else {
+      const ok=document.getElementById('al-ok');
+      ok.style.display='block';ok.textContent='✅ Link added!';
+      setTimeout(()=>{
+        ok.style.display='none';
+        const proj=document.getElementById('f-proj').value;
+        if(cu.role==='admin'){
+          gotoPage('links',document.querySelectorAll('.nav')[2]);
+          document.getElementById('ls-st').value='pending';
+          if(proj) document.getElementById('ls-p').value=proj;
+          renderLinks();
+        } else {
+          gotoPage('b-links',document.getElementById('bld-nav-links'));
+          renderBuilderLinks();
+        }
+      },1200);
+    }
     ['f-domain','f-linkin','f-linkto','f-anchor','f-dr','f-traffic','f-ss','f-price','f-invoice','f-comments'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('f-builder').value='';
     document.getElementById('f-category').value='';
