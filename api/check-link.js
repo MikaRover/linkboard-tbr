@@ -13,6 +13,20 @@ function domainOf(u){
   return String(u||'').replace(/^https?:\/\//i,'').replace(/^www\./i,'').split('/')[0].toLowerCase().trim();
 }
 
+// Free fallback for bot-protected pages: r.jina.ai is a public reader
+// service that fetches + renders the page on its own infrastructure (no
+// API key, no cost) and returns cleaned text — often gets through basic
+// bot-detection that blocks a plain fetch. Can't recover rel="nofollow"
+// etc. since it strips tags, only whether the link is present at all.
+async function fetchViaFreeBypass(url){
+  try{
+    const r = await fetch('https://r.jina.ai/'+url, { signal: AbortSignal.timeout(15000) });
+    if(!r.ok) return null;
+    const text = await r.text();
+    return text && text.trim() ? text : null;
+  }catch(e){ return null; }
+}
+
 async function fetchPage(url, attempt=0){
   const headers = {
     'User-Agent': UA,
@@ -58,8 +72,17 @@ module.exports = async function handler(req, res){
 
   const status = response.status;
 
-  // Bot-protected but page likely exists — don't call it dead
+  // Bot-protected — try the free reader-proxy fallback before giving up
   if(status === 403 || status === 406 || status === 429){
+    const bypassText = await fetchViaFreeBypass(pageUrl);
+    if(bypassText){
+      const bLower = bypassText.toLowerCase();
+      const bFound = bLower.includes(targetPath.toLowerCase()) || (targetPath.length<=targetDomain.length+1 && bLower.includes(targetDomain.toLowerCase()));
+      if(bFound){
+        return res.json({ result: '✅ Live (checked via bot-bypass) — rel/anchor unknown', ok:true, http:status, viaBypass:true });
+      }
+      return res.json({ result: '⚠️ Checked via bot-bypass — link not found on page', ok:false, http:status, viaBypass:true });
+    }
     return res.json({ result: '🔒 Blocked (bot protection) — verify manually', ok:null, http:status });
   }
   if(status === 404 || status === 410){

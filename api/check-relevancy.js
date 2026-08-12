@@ -4,6 +4,16 @@
 
 const { isSafeHost, browserHeaders } = require('./_lib/security');
 
+// Free fallback for bot-protected pages — see api/check-link.js for details.
+async function fetchViaFreeBypass(url) {
+  try {
+    const r = await fetch('https://r.jina.ai/' + url, { signal: AbortSignal.timeout(10000) });
+    if (!r.ok) return null;
+    const text = await r.text();
+    return text && text.trim() ? text.slice(0, 6000) : null;
+  } catch (e) { return null; }
+}
+
 function htmlToText(html) {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -39,8 +49,14 @@ module.exports = async function handler(req, res) {
       redirect: 'follow',
       signal: AbortSignal.timeout(10000)
     });
-    if (!r.ok) return res.json({ relevancy: '', reason: `Could not fetch page (HTTP ${r.status})` });
-    text = htmlToText(await r.text()).slice(0, 6000);
+    if (!r.ok) {
+      if (r.status === 403 || r.status === 406 || r.status === 429) {
+        text = await fetchViaFreeBypass(url);
+      }
+      if (!text) return res.json({ relevancy: '', reason: `Could not fetch page (HTTP ${r.status})` });
+    } else {
+      text = htmlToText(await r.text()).slice(0, 6000);
+    }
   } catch (e) {
     if (e.name === 'TimeoutError') return res.json({ relevancy: '', reason: 'Page took too long to load' });
     return res.json({ relevancy: '', reason: 'Could not fetch page: ' + e.message.slice(0, 100) });
