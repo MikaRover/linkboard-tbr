@@ -2918,6 +2918,8 @@ function renderDetailLinks(){
             </div>
             <div id="ei-relevancy-reason-${escapeHtml(lid)}" style="font-size:10px;color:var(--text3);margin-top:3px;"></div>
           </div>
+          <div><div class="section-label" style="margin-bottom:4px;">Invoice link</div><input id="ei-invoice-${escapeHtml(lid)}" value="${escapeHtml(l.invoice||'')}" placeholder="optional" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Paid</div><select id="ei-paid-${escapeHtml(lid)}" style="margin:0;font-size:12px;"><option value="no" ${!l.paid?'selected':''}>Not paid</option><option value="yes" ${l.paid?'selected':''}>Paid</option></select></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${escapeHtml(lid)}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
         <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${escAttr(lid)}')" style="width:auto;padding:8px 16px !important;font-size:13px !important;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${escAttr(lid)}',null,true)">Cancel</button><span id="ei-saved-${escapeHtml(lid)}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
@@ -4307,6 +4309,8 @@ function renderLinks(){
             </div>
             <div id="ei-relevancy-reason-${escapeHtml(lid)}" style="font-size:10px;color:var(--text3);margin-top:3px;"></div>
           </div>
+          <div><div class="section-label" style="margin-bottom:4px;">Invoice link</div><input id="ei-invoice-${escapeHtml(lid)}" value="${escapeHtml(l.invoice||'')}" placeholder="optional" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Paid</div><select id="ei-paid-${escapeHtml(lid)}" style="margin:0;font-size:12px;"><option value="no" ${!l.paid?'selected':''}>Not paid</option><option value="yes" ${l.paid?'selected':''}>Paid</option></select></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${escapeHtml(lid)}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
         <div class="edit-actions" style="display:flex;gap:8px;"><button class="btn-sm edit-btn" onclick="saveEditRow('${escAttr(lid)}')" style="width:auto;padding:8px 16px !important;font-size:13px !important;">Save →</button><button class="btn-ghost edit-btn" onclick="toggleEditRow('${escAttr(lid)}',null,true)">Cancel</button><span id="ei-saved-${escapeHtml(lid)}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
@@ -4856,7 +4860,9 @@ async function saveEditRow(id){
   const price=String(document.getElementById('ei-price-'+id)?.value||'').replace(/^\$+/,'').trim();
   const comments=(document.getElementById('ei-comments-'+id)?.value||'').trim();
   const relevancy=(document.getElementById('ei-relevancy-'+id)?.value||'').trim();
-  await db.collection('links').doc(id).update({date,linkin,linkto,dr,traffic,ss,anchor,price,comments,relevancy});
+  const invoice=(document.getElementById('ei-invoice-'+id)?.value||'').trim();
+  const paid=(document.getElementById('ei-paid-'+id)?.value||'no')==='yes';
+  await db.collection('links').doc(id).update({date,linkin,linkto,dr,traffic,ss,anchor,price,comments,relevancy,invoice,paid});
 
   const saved=document.getElementById('ei-saved-'+id);
   if(saved){saved.style.display='inline';setTimeout(()=>saved.style.display='none',2000);}
@@ -4877,8 +4883,8 @@ async function updateLinkStatus(id, status){
 // ─── EXPORT ───────────────────────────────────────────────
 function exportCSV(){
   if(cu.role!=='admin'){alert('Only admin can export');return;}
-  const h=['Date','Domain','DR','Traffic','SS','Category','Price','Link in','Link to','Anchor','Project','Builder','Status','Comments','Relevancy'];
-  const rows=allLinks.map(l=>[l.date,l.domain,l.dr,l.traffic,l.ss,l.category,l.price,l.linkin,l.linkto,l.anchor,l.project,l.builder,l.status,l.comments,l.relevancy].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
+  const h=['Date','Domain','DR','Traffic','SS','Category','Price','Link in','Link to','Anchor','Project','Builder','Status','Comments','Relevancy','Invoice link','Paid'];
+  const rows=allLinks.map(l=>[l.date,l.domain,l.dr,l.traffic,l.ss,l.category,l.price,l.linkin,l.linkto,l.anchor,l.project,l.builder,l.status,l.comments,l.relevancy,l.invoice,l.paid?'Paid':'Not paid'].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
   a.download='linkboard_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
@@ -7735,6 +7741,8 @@ function renderBuilderLinks(){
             </div>
             <div id="ei-relevancy-reason-${lid}" style="font-size:10px;color:var(--text3);margin-top:3px;"></div>
           </div>
+          <div><div class="section-label" style="margin-bottom:4px;">Invoice link</div><input id="ei-invoice-${lid}" value="${escapeHtml(l.invoice||'')}" placeholder="optional" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Paid</div><select id="ei-paid-${lid}" style="margin:0;font-size:12px;"><option value="no" ${!l.paid?'selected':''}>Not paid</option><option value="yes" ${l.paid?'selected':''}>Paid</option></select></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
         <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${escAttr(lid)}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRowById('${escAttr(lid)}',true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
