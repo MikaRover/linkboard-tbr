@@ -747,11 +747,11 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     <div class="sb-name" id="sb-name">—</div>
     <div class="sb-role" id="sb-role">—</div>
   </div>
-  <div id="notif-bell-wrap" style="display:none;position:relative;padding:0 1rem 8px;">
-    <div id="notif-bell" onclick="toggleNotifPanel()" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--border);font-size:12px;color:var(--text2);">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+  <div id="notif-bell-wrap" style="display:none;position:relative;padding:8px 1rem 10px;">
+    <div id="notif-bell" onclick="toggleNotifPanel()" style="display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;padding:14px 16px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);font-size:15px;font-weight:700;color:var(--text);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
       <span>Notifications</span>
-      <span id="notif-badge" class="dc-badge" style="display:none;margin-left:auto;"></span>
+      <span id="notif-badge" style="display:none;min-width:22px;height:22px;padding:0 7px;border-radius:20px;background:#ff5a5a;color:#fff;font-size:12px;font-weight:800;line-height:22px;text-align:center;"></span>
     </div>
     <div id="notif-panel" style="display:none;position:absolute;top:100%;left:1rem;right:1rem;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;margin-top:6px;max-height:320px;overflow-y:auto;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.35);">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);">
@@ -3740,10 +3740,12 @@ async function addLink(){
 
   const btn=document.querySelector('#p-add .btn');
   btn.textContent='Saving...';btn.disabled=true;
+  const chosenStatus=document.getElementById('f-status').value;
+  const chosenBuilder=cu.role==='admin'?(document.getElementById('f-builder').value||cu.name||cu.email):(cu.name||cu.email);
   try{
     await db.collection('links').add({
       domain,anchor,project:proj,
-      status:document.getElementById('f-status').value,
+      status:chosenStatus,
       dr:document.getElementById('f-dr').value||'',
       traffic:document.getElementById('f-traffic').value||'',
       ss:ssVal||'',category,
@@ -3752,13 +3754,15 @@ async function addLink(){
       linkto:document.getElementById('f-linkto').value||'',
       invoice:document.getElementById('f-invoice').value||'',
       comments:document.getElementById('f-comments').value||'',
-      builder:cu.role==='admin'?(document.getElementById('f-builder').value||cu.name||cu.email):(cu.name||cu.email),
+      builder:chosenBuilder,
       check:getCheck(domain,anchor,proj),
       relevancy:'',linkcheck:'',
       createdAt:firebase.firestore.FieldValue.serverTimestamp(),
       date:new Date().toLocaleDateString('en-GB'),
+    ...(chosenStatus==='live'?{needsDoubleCheck:true}:{}),
     ...(needsApproval ? {needsApproval:true, approvalReason, approvalStatus:'pending'} : {})});
     if(needsApproval)notifyAdminApproval({domain,project:proj,reason:approvalReason});
+    if(chosenStatus==='live')notifySofyaDoubleCheck({domain,project:proj,builder:chosenBuilder});
     if(addLinkModalOpen){
       closeAddLinkModal();
       showToast('✅ Link added!');
