@@ -2441,9 +2441,10 @@ function startApp(){
   document.querySelectorAll('.nav-sofya').forEach(el=>{
     el.style.display=(!isAdmin&&isSofya)?'block':'none';
   });
-  // Notification bell — admin (approvals, anyway-adds) and Sofya (double-check alerts)
+  // Notification bell — everyone: admin (approvals, anyway-adds), Sofya
+  // (double-check alerts), any builder (their own approve/reject results)
   const notifBell=document.getElementById('notif-bell-wrap');
-  if(notifBell)notifBell.style.display=(isAdmin||isSofya)?'block':'none';
+  if(notifBell)notifBell.style.display='block';
 
   const lb=document.getElementById('ls-b');
   lb.innerHTML='<option value="">All builders</option>';
@@ -2463,7 +2464,7 @@ function startApp(){
   if(findAnchBtn) findAnchBtn.style.display = isAdmin?'':'none';
 
   listenBuilders();listenCapacities();listenLoads();listenKPITargets();listenProjects();listenLinks();listenReqs();listenQualityReqs();listenDomains();
-  if(isAdmin||isSofya)listenNotifications();
+  listenNotifications();
   renderCatButtons('');
 
   if(isAdmin){
@@ -3052,7 +3053,9 @@ function showPendingApprovals(){
 }
 
 async function approveLink(id){
+  const l=allLinks.find(x=>x.id===id);
   await db.collection('links').doc(id).update({needsApproval:false, approvalStatus:'approved'});
+  if(l)notifyBuilderApprovalResult(l.builder,{domain:l.domain,project:l.project,status:'approved'});
   showToast('✅ Link approved');
   const modal = document.getElementById('approval-modal');
   if(modal) showPendingApprovals(); // refresh modal
@@ -3061,7 +3064,9 @@ async function approveLink(id){
 
 async function rejectLink(id){
   if(!confirm('Reject and delete this link?')) return;
+  const l=allLinks.find(x=>x.id===id);
   await db.collection('links').doc(id).delete();
+  if(l)notifyBuilderApprovalResult(l.builder,{domain:l.domain,project:l.project,status:'rejected'});
   showToast('✕ Link rejected and removed');
   const modal = document.getElementById('approval-modal');
   if(modal) showPendingApprovals();
@@ -3806,7 +3811,8 @@ function renderActivePageForLinks(){
 // ─── NOTIFICATIONS (admin: approvals + anyway-adds · Sofya: double-check) ──
 let notifListenerReady=false;
 function listenNotifications(){
-  const recipient=cu.role==='admin'?'admin':'sofya';
+  const recipient=cu.role==='admin'?'admin':(cu.name||cu.email||'').trim().toLowerCase();
+  if(!recipient)return;
   // No orderBy here on purpose — avoids needing a composite index for
   // (recipient ==, createdAt orderBy); sorted client-side instead.
   db.collection('notifications').where('recipient','==',recipient).limit(50).onSnapshot(snap=>{
@@ -3875,6 +3881,19 @@ function notifySofyaDoubleCheck(info){
     createdAt:firebase.firestore.FieldValue.serverTimestamp()
   }).catch(()=>{});
 }
+function notifyBuilderApprovalResult(builderName,info){
+  const recipient=(builderName||'').trim().toLowerCase();
+  if(!recipient)return;
+  db.collection('notifications').add({
+    type:'approval-result',
+    recipient,
+    domain:info.domain||'',
+    project:info.project||'',
+    status:info.status||'',
+    read:false,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(()=>{});
+}
 function toggleNotifPanel(){
   const p=document.getElementById('notif-panel');
   if(!p)return;
@@ -3890,13 +3909,15 @@ function renderNotifList(){
   if(!allNotifs.length){list.innerHTML='<div style="padding:14px 10px;font-size:12px;color:var(--text3);text-align:center;">No notifications</div>';return;}
   list.innerHTML=allNotifs.map(n=>{
     const when=n.createdAt&&n.createdAt.toDate?n.createdAt.toDate().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
-    const icon=n.type==='approval-needed'?'🔒':n.type==='double-check'?'🔍':'⚠️';
+    const icon=n.type==='approval-needed'?'🔒':n.type==='double-check'?'🔍':n.type==='approval-result'?(n.status==='approved'?'✅':'❌'):'⚠️';
     const desc=n.type==='anyway-add'
       ? `${escapeHtml(n.builder||'Someone')} added <b>${escapeHtml(n.domain||'—')}</b> without ${escapeHtml(n.missing||'required fields')}`
       : n.type==='approval-needed'
       ? `<b>${escapeHtml(n.domain||'—')}</b> (${escapeHtml(n.project||'—')}) needs your approval — ${escapeHtml(n.reason||'')}`
       : n.type==='double-check'
       ? `<b>${escapeHtml(n.domain||'—')}</b> (${escapeHtml(n.project||'—')}) went live — please double-check`
+      : n.type==='approval-result'
+      ? `Your link <b>${escapeHtml(n.domain||'—')}</b> (${escapeHtml(n.project||'—')}) was ${n.status==='approved'?'approved':'rejected and removed'}`
       : escapeHtml(n.message||'');
     return`<div onclick="markNotifRead('${escAttr(n.id)}')" style="padding:9px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);cursor:pointer;${n.read?'opacity:0.55;':'background:rgba(255,90,90,0.06);'}">
       <div>${icon} ${desc}</div>
