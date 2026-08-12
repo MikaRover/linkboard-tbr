@@ -3182,7 +3182,11 @@ async function bdQaSubmit(){
   const domain=document.getElementById('bd-qa-domain').value.trim();
   const anchor=document.getElementById('bd-qa-anchor').value.trim();
   const proj=document.getElementById('bd-qa-proj').value;
-  if(!domain||!anchor||!proj){alert('Domain, anchor and project are required');return;}
+  if(!domain){alert('Domain is required');return;}
+  if(!anchor||!proj){
+    const missing=[!anchor&&'anchor',!proj&&'project'].filter(Boolean).join(' and ');
+    if(!confirm('⚠️ No '+missing+' set. Add anyway?'))return;
+  }
 
   const dup=document.getElementById('bd-qa-dup');
   dup.style.display='none';
@@ -3629,7 +3633,11 @@ async function addLink(){
   const ss=ssVal!==''?parseFloat(ssVal):null;
   const category=document.getElementById('f-category').value||'';
 
-  if(!domain||!anchor||!proj){alert('Domain, anchor and project are required');return;}
+  if(!domain){alert('Domain is required');return;}
+  if(!anchor||!proj){
+    const missing=[!anchor&&'anchor',!proj&&'project'].filter(Boolean).join(' and ');
+    if(!confirm('⚠️ No '+missing+' set. Add anyway?'))return;
+  }
 
   let needsApproval = false, approvalReason = '';
 
