@@ -2852,7 +2852,7 @@ function renderDetailLinks(){
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${escapeHtml(l.builder||'—')}</td>
       <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${escAttr(lid)}\')">↗</button></td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal(\'${escAttr(lid)}\')">↗</button></td>
       <td>${dupB(l,domainCount)}</td>
       <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button></td>
     </tr>
@@ -4167,7 +4167,7 @@ function renderLinks(){
       <td>${escapeHtml(l.project||'—')}</td>
       <td>${escapeHtml(l.builder||'—')}</td>
       <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal(\'${escAttr(lid)}\')">↗</button></td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal(\'${escAttr(lid)}\')">↗</button></td>
       <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button>`:''}</td>
     </tr>
     <tr id="edit-${escapeHtml(lid)}" style="display:none;background:var(--bg3);">
@@ -6733,23 +6733,28 @@ let lcCurrentId = null;
 
 function openLCModal(id){
   const link = allLinks.find(l=>l.id===id);
-  if(!link) return;
+  if(!link){ console.warn('openLCModal: link not found for id', id); return; }
   lcCurrentId = id;
 
-  document.getElementById('lc-linkin').value = link.linkin||'';
-  document.getElementById('lc-linkto').value = link.linkto||'';
-  document.getElementById('lc-anchor').value = link.anchor||'';
+  try{
+    const linkinEl=document.getElementById('lc-linkin'); if(linkinEl) linkinEl.value = link.linkin||'';
+    const linktoEl=document.getElementById('lc-linkto'); if(linktoEl) linktoEl.value = link.linkto||'';
+    const anchorEl=document.getElementById('lc-anchor'); if(anchorEl) anchorEl.value = link.anchor||'';
 
-  // Show current status
-  const statusEl = document.getElementById('lc-status');
-  if(link.linkcheck){
-    statusEl.innerHTML = `<span style="font-size:13px;">${escapeHtml(link.linkcheck)}</span>`;
-  } else {
-    statusEl.innerHTML = '<span style="color:var(--text3);font-size:12px;">Not checked yet</span>';
-  }
+    // Show current status
+    const statusEl = document.getElementById('lc-status');
+    if(statusEl){
+      statusEl.innerHTML = link.linkcheck
+        ? `<span style="font-size:13px;">${escapeHtml(link.linkcheck)}</span>`
+        : '<span style="color:var(--text3);font-size:12px;">Not checked yet</span>';
+    }
 
-  document.getElementById('lc-saved').style.display = 'none';
-  document.getElementById('lc-modal-overlay').style.display = 'flex';
+    const savedEl=document.getElementById('lc-saved'); if(savedEl) savedEl.style.display = 'none';
+  }catch(e){ console.error('openLCModal error while populating fields:', e); }
+
+  const overlay=document.getElementById('lc-modal-overlay');
+  if(overlay) overlay.style.display = 'flex';
+  else console.error('openLCModal: #lc-modal-overlay not found in DOM');
 }
 
 function closeLCModal(){
@@ -7536,7 +7541,7 @@ function renderBuilderLinks(){
         </select>${pendingAgeBadge(l)}
       </td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
-        <button class="btn-ghost" style="padding:5px 10px;font-size:12px;margin-left:4px;border-radius:8px;" onclick="openLCModal('${escAttr(lid)}')">↗</button>
+        <button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal('${escAttr(lid)}')">↗</button>
       </td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
