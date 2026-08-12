@@ -78,7 +78,7 @@ Return ONLY valid JSON, no markdown: {"relevancy":"Relevant","reason":"one short
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5',
         max_tokens: 200,
         messages: [{ role: 'user', content: prompt }]
       }),
