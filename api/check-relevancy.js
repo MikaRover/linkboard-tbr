@@ -85,6 +85,10 @@ Return ONLY valid JSON, no markdown: {"relevancy":"Relevant","reason":"one short
       signal: AbortSignal.timeout(20000)
     });
     const aiData = await aiResp.json();
+    if (!aiResp.ok) {
+      console.error('Anthropic API error', aiResp.status, JSON.stringify(aiData));
+      return res.json({ relevancy: '', reason: 'AI error: ' + (aiData.error?.message || ('HTTP ' + aiResp.status)) });
+    }
     const raw = (aiData.content?.[0]?.text || '').trim();
     const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     let obj;
