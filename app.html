@@ -747,6 +747,20 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     <div class="sb-name" id="sb-name">—</div>
     <div class="sb-role" id="sb-role">—</div>
   </div>
+  <div class="adm" id="notif-bell-wrap" style="position:relative;padding:0 1rem 8px;">
+    <div id="notif-bell" onclick="toggleNotifPanel()" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--border);font-size:12px;color:var(--text2);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span>Notifications</span>
+      <span id="notif-badge" class="dc-badge" style="display:none;margin-left:auto;"></span>
+    </div>
+    <div id="notif-panel" style="display:none;position:absolute;top:100%;left:1rem;right:1rem;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;margin-top:6px;max-height:320px;overflow-y:auto;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.35);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);">
+        <span style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Notifications</span>
+        <span onclick="markAllNotifsRead()" style="font-size:11px;color:var(--teal);cursor:pointer;">Mark all read</span>
+      </div>
+      <div id="notif-list"></div>
+    </div>
+  </div>
   <div style="padding:0 1rem 10px;">
     <input id="global-search" placeholder="🔍 Search..." oninput="globalSearch()" style="margin-bottom:0;font-size:12px;padding:7px 10px;"/>
     <div id="global-results" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:280px;overflow-y:auto;position:absolute;width:188px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,0.3);"></div>
@@ -2138,7 +2152,7 @@ const db = firebase.firestore();
 let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik']; // fallback, updated from Firestore
 const CATEGORIES=['SaaS','Service','Blog/Magazine','News','Agency','Other'];
 
-let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[], allLoads=[], allDomains=[];
+let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[], allLoads=[], allDomains=[], allNotifs=[];
 window.currentPage = 'dashboard';
 let catDetectTimer=null, currentDetectedCategory='', catDetectAbort=false;
 
@@ -2445,6 +2459,7 @@ function startApp(){
   if(findAnchBtn) findAnchBtn.style.display = isAdmin?'':'none';
 
   listenBuilders();listenCapacities();listenLoads();listenKPITargets();listenProjects();listenLinks();listenReqs();listenQualityReqs();listenDomains();
+  if(isAdmin)listenNotifications();
   renderCatButtons('');
 
   if(isAdmin){
@@ -3186,6 +3201,7 @@ async function bdQaSubmit(){
   if(!anchor||!proj){
     const missing=[!anchor&&'anchor',!proj&&'project'].filter(Boolean).join(' and ');
     if(!confirm('⚠️ No '+missing+' set. Add anyway?'))return;
+    if(cu.role!=='admin')notifyAdminAnywayAdd({domain,anchor,project:proj,missing});
   }
 
   const dup=document.getElementById('bd-qa-dup');
@@ -3637,6 +3653,7 @@ async function addLink(){
   if(!anchor||!proj){
     const missing=[!anchor&&'anchor',!proj&&'project'].filter(Boolean).join(' and ');
     if(!confirm('⚠️ No '+missing+' set. Add anyway?'))return;
+    if(cu.role!=='admin')notifyAdminAnywayAdd({domain,anchor,project:proj,missing});
   }
 
   let needsApproval = false, approvalReason = '';
@@ -3777,6 +3794,62 @@ function renderActivePageForLinks(){
     renderActivePageForLinks();
   });
 }
+
+// ─── ADMIN NOTIFICATIONS ("added anyway" bypass alerts) ──
+function listenNotifications(){
+  db.collection('notifications').orderBy('createdAt','desc').limit(50).onSnapshot(snap=>{
+    allNotifs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderNotifList();
+  });
+}
+function notifyAdminAnywayAdd(info){
+  db.collection('notifications').add({
+    type:'anyway-add',
+    domain:info.domain||'',
+    anchor:info.anchor||'',
+    project:info.project||'',
+    missing:info.missing||'',
+    builder:cu.name||cu.email||'',
+    read:false,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(()=>{});
+}
+function toggleNotifPanel(){
+  const p=document.getElementById('notif-panel');
+  if(!p)return;
+  p.style.display=p.style.display==='none'?'block':'none';
+}
+function renderNotifList(){
+  const list=document.getElementById('notif-list');
+  const badge=document.getElementById('notif-badge');
+  if(!list||!badge)return;
+  const unread=allNotifs.filter(n=>!n.read);
+  if(unread.length){badge.textContent=unread.length>99?'99+':String(unread.length);badge.style.display='inline-block';}
+  else badge.style.display='none';
+  if(!allNotifs.length){list.innerHTML='<div style="padding:14px 10px;font-size:12px;color:var(--text3);text-align:center;">No notifications</div>';return;}
+  list.innerHTML=allNotifs.map(n=>{
+    const when=n.createdAt&&n.createdAt.toDate?n.createdAt.toDate().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    const desc=n.type==='anyway-add'
+      ? `${escapeHtml(n.builder||'Someone')} added <b>${escapeHtml(n.domain||'—')}</b> without ${escapeHtml(n.missing||'required fields')}`
+      : escapeHtml(n.message||'');
+    return`<div onclick="markNotifRead('${escAttr(n.id)}')" style="padding:9px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);cursor:pointer;${n.read?'opacity:0.55;':'background:rgba(255,90,90,0.06);'}">
+      <div>⚠️ ${desc}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:3px;">${escapeHtml(when)}</div>
+    </div>`;
+  }).join('');
+}
+function markNotifRead(id){
+  db.collection('notifications').doc(id).update({read:true}).catch(()=>{});
+}
+function markAllNotifsRead(){
+  allNotifs.filter(n=>!n.read).forEach(n=>db.collection('notifications').doc(n.id).update({read:true}).catch(()=>{}));
+}
+document.addEventListener('click',(e)=>{
+  const wrap=document.getElementById('notif-bell-wrap');
+  const panel=document.getElementById('notif-panel');
+  if(!wrap||!panel||panel.style.display==='none')return;
+  if(!wrap.contains(e.target))panel.style.display='none';
+});
 
 function listenQualityReqs(){
   db.collection('qualityRequirements').onSnapshot(snap=>{
