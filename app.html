@@ -1651,6 +1651,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
         <div id="bd-qa-ok" class="alert a-ok"></div>
         <input id="bd-qa-domain" placeholder="example.com — metrics load as you type" oninput="bdQaOnDomainInput()" style="margin-bottom:8px;"/>
         <div id="bd-qa-metrics" style="display:none;font-size:11px;color:var(--text2);margin:-4px 0 10px;"></div>
+        <div id="bd-qa-compat" style="display:none;flex-wrap:wrap;gap:6px;margin:-2px 0 12px;"></div>
         <div class="form-grid" style="margin-bottom:0;">
           <div><select id="bd-qa-proj" style="margin-bottom:8px;"><option value="">Select project</option></select></div>
           <div><input id="bd-qa-anchor" placeholder="anchor text" style="margin-bottom:8px;"/></div>
@@ -3084,8 +3085,10 @@ function bdQaOnDomainInput(){
   const raw=document.getElementById('bd-qa-domain').value.trim();
   const d=nd(raw);
   const mEl=document.getElementById('bd-qa-metrics');
-  if(!d){mEl.style.display='none';bdQaMetrics={dr:'',traffic:'',ss:''};return;}
+  const cEl=document.getElementById('bd-qa-compat');
+  if(!d){mEl.style.display='none';cEl.style.display='none';bdQaMetrics={dr:'',traffic:'',ss:''};return;}
   mEl.style.display='block';mEl.textContent='⏳ Looking up metrics…';
+  cEl.style.display='none';
   clearTimeout(bdQaTimer);
   bdQaTimer=setTimeout(async()=>{
     try{
@@ -3105,8 +3108,44 @@ function bdQaOnDomainInput(){
       if(bdQaMetrics.traffic)parts.push('Traffic '+Number(bdQaMetrics.traffic).toLocaleString());
       if(bdQaMetrics.ss)parts.push('SS '+bdQaMetrics.ss+'%');
       mEl.textContent=parts.length?parts.join(' · '):'No metrics found';
+      bdQaRenderCompat(d);
     }catch(e){ mEl.textContent='Could not load metrics'; }
   },500);
+}
+
+// Which of this month's active projects can this domain be used for, given its metrics?
+function bdQaRenderCompat(cleanDomain){
+  const cEl=document.getElementById('bd-qa-compat');
+  const curMonth=MONTHS_EN[new Date().getMonth()];
+  const curMonthYear=curMonth+' '+new Date().getFullYear();
+  const activeProjects=allProjects.filter(p=>
+    allReqs.some(r=>r.project===p.name&&(r.month===curMonthYear||r.month===curMonth))
+  );
+  if(!activeProjects.length){cEl.style.display='none';return;}
+
+  const dr=bdQaMetrics.dr?parseFloat(bdQaMetrics.dr):null;
+  const traffic=bdQaMetrics.traffic?parseFloat(bdQaMetrics.traffic):null;
+  const ss=bdQaMetrics.ss?parseFloat(bdQaMetrics.ss):null;
+
+  cEl.style.display='flex';
+  cEl.innerHTML=activeProjects.map(proj=>{
+    const alreadyUsed=allLinks.some(l=>nd(l.domain)===cleanDomain&&l.project===proj.name);
+    if(alreadyUsed) return `<span class="compat-pill fail" title="Already used in ${escapeHtml(proj.name)}" onclick="bdQaPickProject('${escAttr(proj.name)}')">❌ ${escapeHtml(proj.name)}</span>`;
+
+    const qr=allQualityReqs.find(r=>r.project===proj.name);
+    if(!qr) return `<span class="compat-pill no-req" title="No requirements set — always available" onclick="bdQaPickProject('${escAttr(proj.name)}')">○ ${escapeHtml(proj.name)}</span>`;
+
+    let fail=false;
+    if(qr.minDR&&dr!==null&&dr<qr.minDR) fail=true;
+    if(qr.minTraffic&&traffic!==null&&traffic<qr.minTraffic) fail=true;
+    if(qr.maxSS!=null&&qr.maxSS!==''&&ss!==null&&ss>qr.maxSS) fail=true;
+    return `<span class="compat-pill ${fail?'fail':'ok'}" title="${fail?'Does not meet requirements':'Meets requirements'}" onclick="bdQaPickProject('${escAttr(proj.name)}')">${fail?'❌':'✅'} ${escapeHtml(proj.name)}</span>`;
+  }).join('');
+}
+
+function bdQaPickProject(name){
+  const sel=document.getElementById('bd-qa-proj');
+  if(sel)sel.value=name;
 }
 
 async function bdQaSubmit(){
