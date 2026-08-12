@@ -1619,20 +1619,20 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="View live links"><div class="stat-l">Live %</div><div class="stat-v" id="b-live-pct" style="color:var(--teal)">—</div></div>
   </div>
 
-  <!-- Two column layout: quotas + recent -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start;">
-    <!-- Quotas -->
+  <!-- Content row — aligned under the 4 stat cards above: This month | Live | Pending+Live% -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1.25rem;align-items:start;">
+    <!-- Under "This month": compact quota chips -->
     <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:4px;">
         <div style="font-size:13px;font-weight:700;color:var(--text);">This month's quotas</div>
         <div style="font-size:11px;color:var(--text3);" id="b-quota-month"></div>
       </div>
-      <div id="b-quota-grid" style="display:flex;flex-direction:column;gap:4px;max-height:420px;overflow-y:auto;">
+      <div id="b-quota-grid" style="display:flex;flex-wrap:wrap;gap:6px;max-height:420px;overflow-y:auto;">
         <div class="loading">Loading quotas...</div>
       </div>
     </div>
 
-    <!-- Recent links -->
+    <!-- Under "Live": recent links -->
     <div>
       <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">Recent links</div>
       <div class="card" style="overflow:hidden;">
@@ -1641,6 +1641,24 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
           <tbody id="b-recent"><tr><td colspan="3" class="loading">Loading...</td></tr></tbody>
         </table></div>
       </div>
+    </div>
+
+    <!-- Under "Pending" + "Live %": inline quick-add (no modal, no navigation) -->
+    <div style="grid-column:span 2;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">Quick add</div>
+      <div class="card"><div class="card-body">
+        <div id="bd-qa-dup" class="alert a-dup"></div>
+        <div id="bd-qa-ok" class="alert a-ok"></div>
+        <input id="bd-qa-domain" placeholder="example.com — metrics load as you type" oninput="bdQaOnDomainInput()" style="margin-bottom:8px;"/>
+        <div id="bd-qa-metrics" style="display:none;font-size:11px;color:var(--text2);margin:-4px 0 10px;"></div>
+        <div class="form-grid" style="margin-bottom:0;">
+          <div><select id="bd-qa-proj" style="margin-bottom:8px;"><option value="">Select project</option></select></div>
+          <div><input id="bd-qa-anchor" placeholder="anchor text" style="margin-bottom:8px;"/></div>
+          <div><input id="bd-qa-linkin" placeholder="Link in (https://...)" style="margin-bottom:8px;"/></div>
+          <div><input id="bd-qa-linkto" placeholder="Link to (https://...)" style="margin-bottom:8px;"/></div>
+        </div>
+        <button class="btn-sm" onclick="bdQaSubmit()" style="width:auto;">+ Add link</button>
+      </div></div>
     </div>
   </div>
 </div>
@@ -3058,6 +3076,111 @@ function openAddLinkModal(){
 function closeAddLinkModal(){
   addLinkModalOpen=false;
   document.getElementById('p-add')?.classList.remove('as-modal');
+}
+
+// ── DASHBOARD INLINE QUICK-ADD (builder dashboard "Quick add" card) ──
+let bdQaTimer=null, bdQaMetrics={dr:'',traffic:'',ss:''};
+function bdQaOnDomainInput(){
+  const raw=document.getElementById('bd-qa-domain').value.trim();
+  const d=nd(raw);
+  const mEl=document.getElementById('bd-qa-metrics');
+  if(!d){mEl.style.display='none';bdQaMetrics={dr:'',traffic:'',ss:''};return;}
+  mEl.style.display='block';mEl.textContent='⏳ Looking up metrics…';
+  clearTimeout(bdQaTimer);
+  bdQaTimer=setTimeout(async()=>{
+    try{
+      const [mResp,dResp]=await Promise.all([
+        fetch('/api/ahrefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:d})}),
+        fetch('/api/dapa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:d})})
+      ]);
+      const mData=await mResp.json().catch(()=>({}));
+      const dData=await dResp.json().catch(()=>({}));
+      bdQaMetrics={
+        dr: mData.dr!=null?String(mData.dr):'',
+        traffic: mData.traffic!=null?String(mData.traffic):'',
+        ss: dData.spam_score!=null?String(dData.spam_score):''
+      };
+      const parts=[];
+      if(bdQaMetrics.dr)parts.push('DR '+bdQaMetrics.dr);
+      if(bdQaMetrics.traffic)parts.push('Traffic '+Number(bdQaMetrics.traffic).toLocaleString());
+      if(bdQaMetrics.ss)parts.push('SS '+bdQaMetrics.ss+'%');
+      mEl.textContent=parts.length?parts.join(' · '):'No metrics found';
+    }catch(e){ mEl.textContent='Could not load metrics'; }
+  },500);
+}
+
+async function bdQaSubmit(){
+  const domain=document.getElementById('bd-qa-domain').value.trim();
+  const anchor=document.getElementById('bd-qa-anchor').value.trim();
+  const proj=document.getElementById('bd-qa-proj').value;
+  if(!domain||!anchor||!proj){alert('Domain, anchor and project are required');return;}
+
+  const dup=document.getElementById('bd-qa-dup');
+  dup.style.display='none';
+
+  const existing=allLinks.find(l=>nd(l.domain)===nd(domain)&&l.project===proj);
+  let needsApproval=false, approvalReason='';
+  if(existing){
+    if(cu.role==='admin'){
+      if(!confirm('Duplicate! '+domain+' already exists in '+proj+'. Add anyway?'))return;
+    } else {
+      if(!confirm('⚠️ '+domain+' already exists in '+proj+'.\n\nSend to admin for approval?'))return;
+      needsApproval=true; approvalReason='Duplicate: '+domain+' already in '+proj;
+    }
+  }
+
+  const dr=bdQaMetrics.dr?parseFloat(bdQaMetrics.dr):null;
+  const traffic=bdQaMetrics.traffic?parseFloat(bdQaMetrics.traffic):null;
+  const ss=bdQaMetrics.ss?parseFloat(bdQaMetrics.ss):null;
+  const qr=allQualityReqs.find(r=>r.project===proj);
+  if(qr){
+    const failures=[];
+    if(qr.minDR&&dr!==null&&dr<qr.minDR) failures.push(`DR ${dr} is below minimum ${qr.minDR}`);
+    if(qr.minTraffic&&traffic!==null&&traffic<qr.minTraffic) failures.push(`Traffic ${Number(traffic).toLocaleString()} is below minimum ${Number(qr.minTraffic).toLocaleString()}`);
+    if(qr.maxSS!=null&&qr.maxSS!==''&&ss!==null&&ss>qr.maxSS) failures.push(`Spam Score ${ss}% exceeds maximum ${qr.maxSS}%`);
+    if(failures.length>0){
+      if(cu.role==='admin'){
+        if(!confirm('🚫 Quality requirements not met for '+proj+':\n\n• '+failures.join('\n• ')+'\n\nAdd anyway?'))return;
+      } else {
+        alert('⚠️ Quality requirements not met for '+proj+':\n\n• '+failures.join('\n• ')+'\n\nSending to admin for approval.');
+        needsApproval=true; approvalReason='Quality: '+failures.join(', ');
+      }
+    }
+  }
+
+  const anchor_lc=anchor.toLowerCase();
+  const curMonthCheck=MONTHS_EN[new Date().getMonth()];
+  const curYearCheck=new Date().getFullYear();
+  const curMYCheck=curMonthCheck+' '+curYearCheck;
+  const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor_lc&&(r.month===curMYCheck||r.month===curMonthCheck));
+  if(req){
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&(l.month?(l.month===curMYCheck||l.month.startsWith(curMYCheck.split(' ')[0])):l.date&&getMonthKey(l.date)===curMYCheck)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+    if(used>=req.max){alert('🚫 Anchor limit reached ('+used+'/'+req.max+') for '+curMYCheck);return;}
+  }
+
+  const btn=document.querySelector('[onclick="bdQaSubmit()"]');
+  if(btn){btn.textContent='Saving...';btn.disabled=true;}
+  try{
+    await db.collection('links').add({
+      domain,anchor,project:proj,status:'pending',
+      dr:bdQaMetrics.dr||'',traffic:bdQaMetrics.traffic||'',ss:bdQaMetrics.ss||'',category:'',
+      price:'',linkin:document.getElementById('bd-qa-linkin').value.trim(),linkto:document.getElementById('bd-qa-linkto').value.trim(),
+      invoice:'',comments:'',
+      builder:cu.name||cu.email,
+      check:getCheck(domain,anchor,proj),
+      relevancy:'',linkcheck:'',
+      createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+      date:new Date().toLocaleDateString('en-GB'),
+    ...(needsApproval?{needsApproval:true,approvalReason,approvalStatus:'pending'}:{})});
+    const ok=document.getElementById('bd-qa-ok');
+    ok.style.display='block';ok.textContent='✅ Link added!';
+    setTimeout(()=>{ok.style.display='none';},2500);
+    ['bd-qa-domain','bd-qa-anchor','bd-qa-linkin','bd-qa-linkto'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('bd-qa-proj').value='';
+    document.getElementById('bd-qa-metrics').style.display='none';
+    bdQaMetrics={dr:'',traffic:'',ss:''};
+  }catch(e){alert('Error: '+e.message);}
+  if(btn){btn.textContent='+ Add link';btn.disabled=false;}
 }
 
 function gotoPage(name,el){
@@ -7258,28 +7381,30 @@ function renderBuilderDashboard(){
   }
 
   if(!myLoads.length){
-    quotaGrid.innerHTML=`<div style="color:var(--text2);font-size:13px;grid-column:1/-1;padding:1rem 0;">No load assigned for ${curMonth}. Ask admin to set load distribution.</div>`;
+    quotaGrid.innerHTML=`<div style="color:var(--text2);font-size:13px;padding:1rem 0;">No load assigned for ${curMonth}. Ask admin to set load distribution.</div>`;
   } else {
+    // Compact equal-sized chips, one row (wraps if it doesn't fit)
     quotaGrid.innerHTML=myLoads.map(load=>{
       const proj=load.project;
       const target=load.count;
       const done=myLinks.filter(l=>l.project===proj&&l.date&&getMonthKey(l.date)===`${curMonth} ${curYear}`).length;
-      const pct=Math.min(100,Math.round(done/target*100));
       const full=done>=target;
       const color=full?'var(--teal)':done>0?'var(--yellow)':'var(--text3)';
-      const glowColor=full?'var(--teal)':done>0?'var(--yellow)':'transparent';
-      const glowRgb=full?'0,196,174':done>0?'240,165,0':'0,0,0';
-      return`<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--bg2);border:1px solid ${full?'rgba(0,196,174,0.3)':done>0?'rgba(240,165,0,0.2)':'var(--border)'};border-radius:6px;transition:all 0.2s;">
-        <div style="font-size:11px;font-weight:600;color:var(--text);min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${proj}</div>
-        <div style="flex:1;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;">
-          <div style="height:3px;border-radius:2px;background:${glowColor};width:${pct}%;transition:width 0.5s;"></div>
-        </div>
-        <div style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;min-width:36px;text-align:right;">
-          ${done}/${target}
-        </div>
-        ${full?'<span style="font-size:11px;">✅</span>':''}
+      const border=full?'rgba(0,196,174,0.35)':done>0?'rgba(240,165,0,0.3)':'var(--border)';
+      return`<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--bg2);border:1px solid ${border};border-radius:20px;font-size:11px;white-space:nowrap;">
+        <span style="font-weight:600;color:var(--text);">${escapeHtml(proj)}</span>
+        <span style="font-weight:700;color:${color};">${done}/${target}</span>
+        ${full?'✅':''}
       </div>`;
     }).join('');
+  }
+
+  // Quick-add widget's project dropdown
+  const qaProjSel=document.getElementById('bd-qa-proj');
+  if(qaProjSel){
+    const prevQa=qaProjSel.value;
+    qaProjSel.innerHTML='<option value="">Select project</option>'+allProjects.map(p=>`<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
+    if(prevQa)qaProjSel.value=prevQa;
   }
 
   const recent=myLinks.slice(0,10);
