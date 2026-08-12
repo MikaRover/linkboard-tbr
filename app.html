@@ -41,7 +41,8 @@
 #s-app.animating .content{opacity:0;}
 #s-app .sidebar{transition:opacity 0.5s 0.1s ease,transform 0.5s 0.1s cubic-bezier(0.22,1,0.36,1);}
 #s-app .content{transition:opacity 0.4s 0.2s ease;}
-#s-app.app-ready .sidebar,#s-app.app-ready .content{opacity:1;transform:translateX(0);}
+#s-app.app-ready .sidebar{opacity:1;transform:translateX(0);}
+#s-app.app-ready .content{opacity:1;}
 .stat{transition:opacity 0.4s ease,transform 0.4s ease;}
 .stat.anim-hidden{opacity:0;transform:translateY(12px);}
 
@@ -6305,7 +6306,13 @@ function openAddAnchorModal(){
   const _bt=document.getElementById('aam-bulk'); if(_bt){ _bt.style.display='none'; _bt.value=''; }
   const _bh=document.getElementById('aam-bulk-hint'); if(_bh) _bh.style.display='none';
   const _btg=document.getElementById('aam-bulk-toggle'); if(_btg) _btg.textContent='+ Add many at once';
-  document.getElementById('add-anchor-modal').style.display='flex';
+  const _modal=document.getElementById('add-anchor-modal');
+  // Portal to <body> — an ancestor .page's transform/filter otherwise turns
+  // this fixed-position overlay into one positioned relative to that
+  // ancestor's box instead of the viewport (same class of bug fixed
+  // elsewhere this session for the link-check and notification modals).
+  if(_modal.parentElement!==document.body)document.body.appendChild(_modal);
+  _modal.style.display='flex';
   setTimeout(()=>document.getElementById('aam-anchor').focus(),50);
 }
 
@@ -6986,7 +6993,9 @@ async function openProspector(){
     .map(r=>r.anchor)
     .filter(Boolean);
 
-  document.getElementById('prospect-overlay').style.display = 'flex';
+  const _prospectModal=document.getElementById('prospect-overlay');
+  if(_prospectModal.parentElement!==document.body)document.body.appendChild(_prospectModal);
+  _prospectModal.style.display = 'flex';
   document.getElementById('prospect-domain-label').textContent = domain + (proj?' · '+proj:'');
   document.getElementById('prospect-loading').style.display = 'block';
   document.getElementById('prospect-results').style.display = 'none';
@@ -7241,6 +7250,7 @@ function openBuilderModal(builderName){
 
   document.getElementById('bm-months').innerHTML = monthsHtml || '<div style="color:var(--text3);font-size:13px;">No links yet</div>';
 
+  if(overlay.parentElement!==document.body)document.body.appendChild(overlay);
   overlay.style.display='flex';
 }
 
@@ -8134,7 +8144,9 @@ function openDomainModal(id){
   ps.innerHTML='<option value="">— none —</option>';
   allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;ps.appendChild(o);});
   if(d?.project)ps.value=d.project;
-  document.getElementById('dom-modal-overlay').style.display='flex';
+  const _domModal=document.getElementById('dom-modal-overlay');
+  if(_domModal.parentElement!==document.body)document.body.appendChild(_domModal);
+  _domModal.style.display='flex';
 }
 
 function closeDomainModal(){
