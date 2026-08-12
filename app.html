@@ -6753,8 +6753,12 @@ function openLCModal(id){
   }catch(e){ console.error('openLCModal error while populating fields:', e); }
 
   const overlay=document.getElementById('lc-modal-overlay');
-  if(overlay) overlay.style.display = 'flex';
-  else console.error('openLCModal: #lc-modal-overlay not found in DOM');
+  if(overlay){
+    // Move to a direct child of <body> so no ancestor (transform/filter/
+    // backdrop-filter/overflow) can ever break its position:fixed centering.
+    if(overlay.parentElement!==document.body) document.body.appendChild(overlay);
+    overlay.style.cssText='display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:99999;align-items:center;justify-content:center;';
+  } else console.error('openLCModal: #lc-modal-overlay not found in DOM');
 }
 
 function closeLCModal(){
