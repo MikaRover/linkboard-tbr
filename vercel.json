@@ -6,6 +6,7 @@
     "api/image-req.js": { "maxDuration": 60 },
     "api/dapa.js": { "maxDuration": 30 },
     "api/scrape-contacts.js": { "maxDuration": 30 },
-    "api/check-link.js": { "maxDuration": 30 }
+    "api/check-link.js": { "maxDuration": 30 },
+    "api/check-relevancy.js": { "maxDuration": 30 }
   }
 }
