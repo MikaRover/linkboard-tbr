@@ -1319,6 +1319,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
       <option value="">All issues</option>
       <option value="shifted">Shifted columns</option>
       <option value="no-domain">Missing domain</option>
+      <option value="bad-domain">Malformed domain</option>
       <option value="no-anchor">Missing anchor</option>
       <option value="bad-date">Bad date</option>
       <option value="dup">Duplicate domain</option>
@@ -2742,6 +2743,9 @@ function detectIssues(l){
   else if(/https?:\/\//.test(anc))issues.push('shifted');
   // Missing domain
   if(!l.domain||l.domain.trim()===''||l.domain==='—')issues.push('no-domain');
+  // Malformed domain — e.g. a sync/import wrote a note or comment ("change
+  // it, Gor, Not found") into the domain field instead of an actual domain
+  else if(!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(nd(l.domain)))issues.push('bad-domain');
   // Missing anchor
   if(!anc||anc==='—'||anc==='')issues.push('no-anchor');
   // Bad date
@@ -2771,7 +2775,7 @@ function runDataCheck(){
   if(_chkPrev && [...proj.options].some(o=>o.value===_chkPrev)) proj.value=_chkPrev;
 
   const shifted=checkerResults.filter(l=>l._issues.includes('shifted')).length;
-  const missing=checkerResults.filter(l=>l._issues.includes('no-domain')||l._issues.includes('no-anchor')).length;
+  const missing=checkerResults.filter(l=>l._issues.includes('no-domain')||l._issues.includes('bad-domain')||l._issues.includes('no-anchor')).length;
   const dups=checkerResults.filter(l=>l._issues.includes('dup')).length;
   document.getElementById('checker-stats').innerHTML=`
     <div class="stat"><div class="stat-l">Total issues</div><div class="stat-v" style="color:var(--red)">${checkerResults.length}</div></div>
@@ -2794,6 +2798,7 @@ function renderCheckerResults(){
   const iLabel={
     shifted:'<span style="color:var(--yellow);font-weight:700;">⚠ Shifted</span>',
     'no-domain':'<span style="color:var(--red);font-weight:700;">❌ No domain</span>',
+    'bad-domain':'<span style="color:var(--red);font-weight:700;">🚫 Malformed domain</span>',
     'no-anchor':'<span style="color:var(--text3);">— No anchor</span>',
     'bad-date':'<span style="color:var(--text3);">📅 Bad date</span>',
     'stale-pending':'<span style="color:var(--yellow);font-weight:700;">⏱ Stale pending</span>',
