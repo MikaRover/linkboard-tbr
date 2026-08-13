@@ -858,7 +858,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   <!-- Builder leaderboard this month -->
   <div class="card adm" id="ds-leaderboard-card">
     <div class="card-head">🏆 This month's builders <span style="font-size:12px;color:var(--text2)" id="ds-month-label"></span></div>
-    <div id="ds-leaderboard" style="display:flex;flex-wrap:wrap;gap:10px;padding:12px 0 4px;"></div>
+    <div id="ds-leaderboard" style="display:flex;flex-wrap:wrap;gap:10px;padding:14px 1.25rem 18px;"></div>
   </div>
 
   <div class="card">
@@ -4318,7 +4318,7 @@ function renderDashboard(){
       const sorted = Object.entries(builderMap).sort((a,b)=>b[1]-a[1]);
       const medals = ['🥇','🥈','🥉'];
       lb.innerHTML = sorted.length ? sorted.map(([name, count], i)=>`
-        <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:10px;padding:8px 14px;min-width:140px;">
+        <div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:10px;padding:10px 18px;min-width:140px;">
           <span style="font-size:16px;">${medals[i]||'·'}</span>
           <div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">${escapeHtml(name)}</div>
