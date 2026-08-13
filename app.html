@@ -500,8 +500,10 @@ tr:hover td{background:var(--bg3);}
 .role-builder tr[id^="edit-"] .section-label{
   font-size:10px !important;
 }
-/* Link in / Link to buttons in edit row */
-.role-builder tr[id^="edit-"] .btn-ghost{
+/* Link in / Link to <a> buttons in edit row — scoped to anchors only so it
+   doesn't also catch the Cancel <button class="btn-ghost">, which should
+   keep the same pill radius as the Save button next to it. */
+.role-builder tr[id^="edit-"] a.btn-ghost{
   font-size:12px !important;
   padding:5px 10px !important;
   border-radius:8px !important;
