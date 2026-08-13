@@ -7275,11 +7275,11 @@ function openBuilderModal(builderName){
         <span style="font-size:11px;font-weight:700;color:${pc};white-space:nowrap;">${projLinks.length}/${load.count}</span>
       </div>`;
     }).join('') : links.slice(0,5).map(l=>`
-      <div style="font-size:11px;color:var(--text3);padding:2px 0;">${escapeHtml(l.domain)} — ${escapeHtml(l.project)} — <span style="color:${l.status==='live'?'var(--teal)':'var(--yellow)'};">${escapeHtml(l.status)}</span></div>`).join('');
+      <div onclick="document.getElementById('builder-modal-overlay').style.display='none';openBuilderLinks('${escAttr(builderName)}')" style="font-size:11px;color:var(--text3);padding:2px 0;cursor:pointer;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'">${escapeHtml(l.domain)} — ${escapeHtml(l.project)} — <span style="color:${l.status==='live'?'var(--teal)':'var(--yellow)'};">${escapeHtml(l.status)}</span></div>`).join('');
 
     return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <span style="font-size:13px;font-weight:700;color:var(--teal);">${month}</span>
+      <div onclick="document.getElementById('builder-modal-overlay').style.display='none';openBuilderLinks('${escAttr(builderName)}')" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;cursor:pointer;" title="See full list">
+        <span style="font-size:13px;font-weight:700;color:var(--teal);">${month} →</span>
         <div style="display:flex;gap:10px;align-items:center;">
           ${totalTarget>0?`<span style="font-size:11px;color:${color2};">${links.length}/${totalTarget} links</span>`:''}
           <span style="font-size:11px;color:var(--teal);">✅ ${liveCnt}</span>
