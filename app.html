@@ -683,7 +683,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
    stat grids (many set via inline style, hence !important here) got
    squeezed instead of reflowing. */
 @media (max-width:1300px) and (min-width:861px){
-  .stats, #pd-stats, #team-stats, #checker-stats, #an-stats, #dom-stats{
+  .stats, #pd-stats, #team-stats, #checker-stats, #an-stats, #dom-stats, #inv-stats{
     grid-template-columns:repeat(2,1fr) !important;
   }
   .quota-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr)) !important;}
@@ -815,6 +815,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   <div class="nav adm" onclick="gotoPage('projects',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/></svg>Projects</div>
   <div class="nav adm" onclick="gotoPage('reqs',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M9 11l3 3L22 4'/><path d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/></svg>Requirements</div>
   <div class="nav adm" onclick="gotoPage('team',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg>Team</div>
+  <div class="nav adm" onclick="gotoPage('invoices',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M4 2h11l5 5v15a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z'/><path d='M14 2v6h6'/><line x1='8' y1='13' x2='16' y2='13'/><line x1='8' y1='17' x2='13' y2='17'/></svg>Invoices</div>
   <div class="nav adm" onclick="gotoPage('checker',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><polyline points='22 12 18 12 15 21 9 3 6 12 2 12'/></svg>Data Checker</div>
   <div class="nav adm" onclick="gotoPage('import',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' y1='15' x2='12' y2='3'/></svg>Import CSV</div>
   <div class="nav-section" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding:14px 16px 4px;opacity:0.6;">Analytics</div>
@@ -1252,6 +1253,44 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     <div class="tbl-wrap"><table>
       <thead><tr><th>Name</th><th>Role</th><th>Load (this mo)</th><th>Target/mo</th><th></th></tr></thead>
       <tbody id="team-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- INVOICES -->
+<div id="p-invoices" class="page">
+  <div class="page-top">
+    <div class="page-title">🧾 Invoices</div>
+    <button class="btn-sm" onclick="exportInvoicesCSV()" style="width:auto;background:transparent;border:1px solid var(--teal);color:var(--teal);">Export CSV</button>
+  </div>
+  <div class="stats" id="inv-stats" style="grid-template-columns:repeat(4,1fr);"></div>
+  <div class="filters" style="gap:8px;margin-bottom:10px;">
+    <input id="inv-s" placeholder="Search domain..." oninput="renderInvoices()" style="flex:2;margin-bottom:0;font-size:12px;padding:7px 10px;"/>
+    <select id="inv-builder" onchange="renderInvoices()" style="margin-bottom:0;font-size:12px;padding:7px 10px;"><option value="">All builders</option></select>
+    <select id="inv-project" onchange="renderInvoices()" style="margin-bottom:0;font-size:12px;padding:7px 10px;"><option value="">All projects</option></select>
+    <select id="inv-month" onchange="renderInvoices()" style="margin-bottom:0;font-size:12px;padding:7px 10px;"><option value="">All time</option></select>
+    <select id="inv-paid" onchange="renderInvoices()" style="margin-bottom:0;font-size:12px;padding:7px 10px;"><option value="">All</option><option value="unpaid">Unpaid</option><option value="paid">Paid</option></select>
+  </div>
+
+  <div class="card" style="margin-bottom:1.25rem;">
+    <div class="card-head">Owed by builder (unpaid)</div>
+    <div id="inv-builder-breakdown" style="display:flex;flex-wrap:wrap;gap:10px;padding:12px 20px 16px;"></div>
+  </div>
+
+  <div id="inv-batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
+    <span id="inv-batch-count" style="font-size:13px;color:var(--text2);"></span>
+    <button class="btn-sm" onclick="invBatchMarkPaid(true)" style="width:auto;padding:6px 14px;">✅ Mark paid</button>
+    <button class="btn-ghost" onclick="invBatchMarkPaid(false)">Mark unpaid</button>
+    <button class="btn-ghost" onclick="clearInvSelection()" style="margin-left:auto;">Clear</button>
+  </div>
+
+  <div class="card">
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th><input type="checkbox" id="inv-select-all" onclick="toggleInvSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th>
+        <th>Date</th><th>Domain</th><th>Project</th><th>Builder</th><th>Price</th><th>Invoice link</th><th>Status</th>
+      </tr></thead>
+      <tbody id="inv-tbody"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -3373,6 +3412,7 @@ function gotoPage(name,el){
   if(name==='doublecheck')renderDoubleCheckQueue();
   if(name==='dc-history')renderDCHistory();
   if(name==='team')renderTeam();
+  if(name==='invoices')initInvoicesPage();
   if(name==='load')initLoadPage();
   if(name==='analytics')initAnalytics();
   if(name==='kpi')initKPI();
@@ -3869,6 +3909,7 @@ function renderActivePageForLinks(){
       if(typeof ancSelectedProj!=='undefined' && ancSelectedProj) renderAnchorDetail(ancSelectedProj);
       break;
     case 'doublecheck': renderDoubleCheckQueue(); break;
+    case 'invoices': renderInvoices(); break;
     default:
       // Dashboard stats are the most commonly glanced-at; keep them fresh cheaply
       renderDashboard();
@@ -5106,6 +5147,132 @@ function exportCSV(){
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
   a.download='linkboard_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+// ─── INVOICES ─────────────────────────────────────────────
+function invoiceLinks(){
+  return allLinks.filter(l=>l.invoice||l.price);
+}
+function initInvoicesPage(){
+  const bSel=document.getElementById('inv-builder');
+  const pSel=document.getElementById('inv-project');
+  const mSel=document.getElementById('inv-month');
+  if(!bSel||!pSel||!mSel)return;
+  const links=invoiceLinks();
+  const prevB=bSel.value,prevP=pSel.value,prevM=mSel.value;
+  const builders=[...new Set(links.map(l=>l.builder).filter(Boolean))].sort();
+  const projects=[...new Set(links.map(l=>l.project).filter(Boolean))].sort();
+  const months=[...new Set(links.map(l=>getMonthKey(l.date)).filter(m=>m&&m!=='Unknown'))];
+  months.sort((a,b)=>{
+    const pa=a.split(' '),pb=b.split(' ');
+    return (parseInt(pb[1]||0)-parseInt(pa[1]||0))||MONTHS_EN.indexOf(pb[0])-MONTHS_EN.indexOf(pa[0]);
+  });
+  bSel.innerHTML='<option value="">All builders</option>'+builders.map(b=>`<option value="${escAttr(b)}">${escapeHtml(b)}</option>`).join('');
+  pSel.innerHTML='<option value="">All projects</option>'+projects.map(p=>`<option value="${escAttr(p)}">${escapeHtml(p)}</option>`).join('');
+  mSel.innerHTML='<option value="">All time</option>'+months.map(m=>`<option value="${escAttr(m)}">${escapeHtml(m)}</option>`).join('');
+  if(builders.includes(prevB))bSel.value=prevB;
+  if(projects.includes(prevP))pSel.value=prevP;
+  if(months.includes(prevM))mSel.value=prevM;
+  renderInvoices();
+}
+function priceNum(l){
+  const n=parseFloat(String(l.price||'').replace(/[^0-9.]/g,''));
+  return isNaN(n)?0:n;
+}
+function renderInvoices(){
+  const tb=document.getElementById('inv-tbody');
+  if(!tb)return;
+  const s=(document.getElementById('inv-s')?.value||'').toLowerCase();
+  const b=document.getElementById('inv-builder')?.value||'';
+  const p=document.getElementById('inv-project')?.value||'';
+  const m=document.getElementById('inv-month')?.value||'';
+  const paidF=document.getElementById('inv-paid')?.value||'';
+
+  let fl=invoiceLinks().filter(l=>{
+    if(s&&!(l.domain||'').toLowerCase().includes(s))return false;
+    if(b&&l.builder!==b)return false;
+    if(p&&l.project!==p)return false;
+    if(m&&getMonthKey(l.date)!==m)return false;
+    if(paidF==='paid'&&!l.paid)return false;
+    if(paidF==='unpaid'&&l.paid)return false;
+    return true;
+  });
+  fl.sort((a,b2)=>parseDate(b2.date)-parseDate(a.date));
+
+  const total=fl.reduce((s2,l)=>s2+priceNum(l),0);
+  const paidSum=fl.filter(l=>l.paid).reduce((s2,l)=>s2+priceNum(l),0);
+  const unpaidSum=total-paidSum;
+  document.getElementById('inv-stats').innerHTML=`
+    <div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--text)">$${total.toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-l">Paid</div><div class="stat-v" style="color:var(--teal)">$${paidSum.toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-l">Unpaid</div><div class="stat-v" style="color:#f0a500">$${unpaidSum.toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-l">Invoices</div><div class="stat-v" style="color:var(--text2)">${fl.length}</div></div>`;
+
+  // Owed-by-builder breakdown (unpaid only, unaffected by the paid filter itself)
+  const unpaidAll=invoiceLinks().filter(l=>{
+    if(l.paid)return false;
+    if(b&&l.builder!==b)return false;
+    if(p&&l.project!==p)return false;
+    if(m&&getMonthKey(l.date)!==m)return false;
+    return true;
+  });
+  const byBuilder={};
+  unpaidAll.forEach(l=>{const k=l.builder||'—';byBuilder[k]=(byBuilder[k]||0)+priceNum(l);});
+  const sortedBuilders=Object.entries(byBuilder).filter(([,v])=>v>0).sort((a,b2)=>b2[1]-a[1]);
+  const bb=document.getElementById('inv-builder-breakdown');
+  if(bb){
+    bb.innerHTML=sortedBuilders.length?sortedBuilders.map(([name,sum])=>`
+      <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:10px;padding:8px 14px;min-width:140px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);">${escapeHtml(name)}</div>
+          <div style="font-size:11px;color:#f0a500;font-weight:600;">$${sum.toLocaleString()} owed</div>
+        </div>
+      </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:4px 0;">Nothing owed 🎉</div>';
+  }
+
+  if(!fl.length){tb.innerHTML='<tr><td colspan="8" class="loading">No invoices found</td></tr>';return;}
+  tb.innerHTML=fl.map(l=>{
+    const lid=l.id;
+    return`<tr>
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="inv-cb" data-id="${escapeHtml(lid)}" onchange="onInvSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
+      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'—')}</td>
+      <td class="domain-teal"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
+      <td>${escapeHtml(l.project||'—')}</td>
+      <td>${escapeHtml(l.builder||'—')}</td>
+      <td style="font-weight:600;">${l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—'}</td>
+      <td>${l.invoice?`<a href="${escapeHtml(l.invoice)}" target="_blank" style="color:var(--teal);">↗ Invoice</a>`:'<span style="color:var(--text3);">—</span>'}</td>
+      <td><button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;background:${l.paid?'linear-gradient(135deg,var(--teal),var(--teal2))':'transparent'};border:${l.paid?'none':'1px solid var(--border2)'};color:${l.paid?'#061520':'var(--text2)'};" onclick="toggleInvoicePaid('${escAttr(lid)}',${!l.paid})">${l.paid?'✅ Paid':'⏳ Unpaid'}</button></td>
+    </tr>`;
+  }).join('');
+}
+async function toggleInvoicePaid(id,paid){
+  await db.collection('links').doc(id).update({paid});
+}
+function getInvSelectedIds(){return Array.from(document.querySelectorAll('.inv-cb:checked')).map(c=>c.dataset.id);}
+function onInvSelect(){
+  const ids=getInvSelectedIds();
+  const bar=document.getElementById('inv-batch-bar');
+  if(ids.length){bar.style.display='flex';document.getElementById('inv-batch-count').textContent=ids.length+' selected';}
+  else bar.style.display='none';
+}
+function toggleInvSelectAll(el){document.querySelectorAll('.inv-cb').forEach(c=>c.checked=el.checked);onInvSelect();}
+function clearInvSelection(){document.querySelectorAll('.inv-cb').forEach(c=>c.checked=false);const el=document.getElementById('inv-select-all');if(el)el.checked=false;document.getElementById('inv-batch-bar').style.display='none';}
+async function invBatchMarkPaid(paid){
+  const ids=getInvSelectedIds();if(!ids.length)return;
+  for(let i=0;i<ids.length;i+=400){
+    const batch=db.batch();
+    ids.slice(i,i+400).forEach(id=>batch.update(db.collection('links').doc(id),{paid}));
+    await batch.commit();
+  }
+  clearInvSelection();
+}
+function exportInvoicesCSV(){
+  if(cu.role!=='admin'){alert('Only admin can export');return;}
+  const h=['Date','Domain','Project','Builder','Price','Invoice link','Status'];
+  const rows=invoiceLinks().map(l=>[l.date,l.domain,l.project,l.builder,l.price,l.invoice,l.paid?'Paid':'Unpaid'].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
+  a.download='invoices_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
 
 // ─── CSV IMPORT ───────────────────────────────────────────
