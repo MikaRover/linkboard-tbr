@@ -849,10 +849,9 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
       <button class="btn-sm" onclick="bulkCheckMyLinks(this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">🔗 Check my links</button>
     </div>
   </div>
-  <div class="stats">
+  <div class="stats" style="grid-template-columns:repeat(3,1fr);">
     <div class="stat"><div class="stat-l">This month live</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
     <div class="stat"><div class="stat-l">This month pending</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
-    <div class="stat"><div class="stat-l">All time live</div><div class="stat-v" style="color:var(--text2)" id="ds-live">—</div></div>
     <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:#ff6b6b" id="ds-dup">—</div></div>
   </div>
 
@@ -4286,7 +4285,6 @@ function renderDashboard(){
     return linkMonthIdx === now.getMonth() && linkYear === curYear;
   });
 
-  const live=myLinks.filter(l=>l.status==='live');
   const pend=myLinks.filter(l=>l.status==='pending');
   const thisLive=thisMonthLinks.filter(l=>l.status==='live');
   const thisPend=thisMonthLinks.filter(l=>l.status==='pending');
@@ -4297,7 +4295,6 @@ function renderDashboard(){
   // Stat cards — current month focus
   document.getElementById('ds-total').textContent = thisLive.length;
   document.getElementById('ds-pend').textContent  = thisPend.length;
-  document.getElementById('ds-live').textContent  = live.length;
   document.getElementById('ds-dup').textContent   = dupCount;
   document.getElementById('lc').textContent = thisLive.length + ' links';
   document.getElementById('pc').textContent = pend.length + ' links';
