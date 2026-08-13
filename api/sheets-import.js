@@ -30,7 +30,7 @@ module.exports = async function handler(req, res) {
 
   const {
     domain, anchor, project, dr, traffic, ss, price,
-    linkin, linkto, builder, date, status, invoice, comments
+    linkin, linkto, builder, date, status, invoice, comments, paid
   } = req.body || {};
 
   if (!domain) return res.status(400).json({ error: 'domain required' });
@@ -39,15 +39,21 @@ module.exports = async function handler(req, res) {
   try {
     const db = getDb();
 
-    // Skip if this exact domain+project pair already exists — the sheet
-    // may get re-synced (e.g. re-running the menu action on old rows).
+    // If this exact domain+project pair already exists, don't create a
+    // duplicate — but do sync the paid flag, since re-running the sheet
+    // sync is also how a payment (marked by a green cell in the sheet)
+    // gets reflected here after the fact.
     const dup = await db.collection('links')
       .where('domain', '==', String(domain).trim())
       .where('project', '==', String(project).trim())
       .limit(1)
       .get();
     if (!dup.empty) {
-      return res.json({ ok: true, skipped: true, reason: 'Already exists', id: dup.docs[0].id });
+      const existing = dup.docs[0];
+      if (typeof paid === 'boolean' && existing.data().paid !== paid) {
+        await existing.ref.update({ paid });
+      }
+      return res.json({ ok: true, skipped: true, reason: 'Already exists', id: existing.id });
     }
 
     const docRef = await db.collection('links').add({
@@ -63,6 +69,7 @@ module.exports = async function handler(req, res) {
       builder: builder || '',
       status: status || 'pending',
       invoice: invoice || '',
+      paid: typeof paid === 'boolean' ? paid : false,
       comments: comments || '',
       relevancy: '',
       linkcheck: '',
