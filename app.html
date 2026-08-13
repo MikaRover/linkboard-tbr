@@ -567,6 +567,16 @@ input, select, textarea{
   border-radius:10px !important;
   border:1px solid var(--border) !important;
 }
+/* Custom dropdown chevron with real breathing room — the native OS arrow
+   sat flush against the border regardless of padding. */
+select{
+  appearance:none;-webkit-appearance:none;-moz-appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a9bab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+  background-repeat:no-repeat !important;
+  background-position:right 14px center !important;
+  background-size:14px !important;
+  padding-right:38px !important;
+}
 input:focus, select:focus, textarea:focus{
   outline:none !important;
   border-color:var(--teal) !important;
