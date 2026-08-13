@@ -4333,7 +4333,7 @@ function renderDashboard(){
       const sorted = Object.entries(builderMap).sort((a,b)=>b[1]-a[1]);
       const medals = ['🥇','🥈','🥉'];
       lb.innerHTML = sorted.length ? sorted.map(([name, count], i)=>`
-        <div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:10px;padding:10px 18px;min-width:140px;">
+        <div onclick="openBuilderModal('${escAttr(name)}')" style="display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:10px;padding:10px 18px;min-width:140px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'">
           <span style="font-size:16px;">${medals[i]||'·'}</span>
           <div>
             <div style="font-size:13px;font-weight:700;color:var(--text);">${escapeHtml(name)}</div>
