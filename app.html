@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>LinkBoard · TBR</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2300c4ae'/%3E%3Cpath d='M40 60a15 15 0 0 1 0-21l10-10a15 15 0 0 1 21 21l-5 5' stroke='%23061520' stroke-width='9' fill='none' stroke-linecap='round'/%3E%3Cpath d='M60 40a15 15 0 0 1 0 21l-10 10a15 15 0 0 1-21-21l5-5' stroke='%23061520' stroke-width='9' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -803,7 +804,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     </div>
   </div>
   <div style="padding:0 1rem 10px;">
-    <input id="global-search" placeholder="🔍 Search..." oninput="globalSearch()" style="margin-bottom:0;font-size:12px;padding:7px 10px;"/>
+    <input id="global-search" placeholder="🔍  Search..." oninput="globalSearch()" style="margin-bottom:0;font-size:12px;padding:7px 10px;"/>
     <div id="global-results" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:280px;overflow-y:auto;position:absolute;width:188px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,0.3);"></div>
   </div>
   <div class="nav active" onclick="gotoPage('dashboard',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='3' y='3' width='7' height='7'/><rect x='14' y='3' width='7' height='7'/><rect x='14' y='14' width='7' height='7'/><rect x='3' y='14' width='7' height='7'/></svg>Dashboard</div>
