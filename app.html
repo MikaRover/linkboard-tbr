@@ -902,7 +902,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
         </div>
         <div class="dc-grid">
           <div class="dc-item"><div class="dc-label">DR</div><input class="dc-input" id="f-dr" type="text" placeholder="—" oninput="renderCompatCards()"/></div>
-          <div class="dc-item"><div class="dc-label">Traffic</div><input class="dc-input" id="f-traffic" type="text" placeholder="—" oninput="renderCompatCards()"/></div>
+          <div class="dc-item"><div class="dc-label">Traffic</div><input class="dc-input" id="f-traffic" type="text" placeholder="—" oninput="formatTrafficInput(this);renderCompatCards()"/></div>
           <div class="dc-item"><div class="dc-label">US Traffic %</div><input class="dc-input" id="f-us-traffic" type="text" placeholder="—"/></div>
           <div class="dc-item"><div class="dc-label">Spam Score %</div><input class="dc-input" id="f-ss" type="text" placeholder="—" oninput="renderCompatCards()"/></div>
         </div>
@@ -3515,7 +3515,7 @@ function onDomainInput(){
         document.getElementById('f-dr').value=mData.dr;
       }
       if(mData.traffic!==null&&mData.traffic!==undefined&&mData.traffic!==0){
-        document.getElementById('f-traffic').value=mData.traffic;
+        document.getElementById('f-traffic').value=Number(mData.traffic).toLocaleString('en-US');
       }
       // Show US traffic % if available
       if(mData.usTrafficPct!==null&&mData.usTrafficPct!==undefined){
@@ -3543,7 +3543,7 @@ function renderCompatCards(){
   if(!allProjects.length){compatSection.style.display='none';return;}
 
   const dr=parseFloat(document.getElementById('f-dr').value)||null;
-  const traffic=parseFloat(document.getElementById('f-traffic').value)||null;
+  const traffic=parseFloat(cleanNum(document.getElementById('f-traffic').value))||null;
   const ss=parseFloat(document.getElementById('f-ss').value);
   const ssVal=isNaN(ss)?null:ss;
   const category=document.getElementById('f-category').value||currentDetectedCategory||'';
@@ -3708,7 +3708,7 @@ async function addLink(){
   const anchor=document.getElementById('f-anchor').value.trim();
   const proj=document.getElementById('f-proj').value;
   const dr=parseFloat(document.getElementById('f-dr').value)||null;
-  const traffic=parseFloat(document.getElementById('f-traffic').value)||null;
+  const traffic=parseFloat(cleanNum(document.getElementById('f-traffic').value))||null;
   const ssVal=document.getElementById('f-ss').value;
   const ss=ssVal!==''?parseFloat(ssVal):null;
   const category=document.getElementById('f-category').value||'';
@@ -3776,7 +3776,7 @@ async function addLink(){
       domain,anchor,project:proj,
       status:chosenStatus,
       dr:document.getElementById('f-dr').value||'',
-      traffic:document.getElementById('f-traffic').value||'',
+      traffic:cleanNum(document.getElementById('f-traffic').value)||'',
       ss:ssVal||'',category,
       price:String(document.getElementById('f-price').value||'').replace(/\$+/g,'').trim(),
       linkin:document.getElementById('f-linkin').value||'',
@@ -4468,6 +4468,19 @@ function tryPath(url,maxLen){
   }catch(e){return url.slice(0,maxLen);}
 }
 
+// Live comma-formatting for the Traffic input as you type — display only;
+// cleanNum() strips the commas back out wherever the value is read/saved.
+function formatTrafficInput(el){
+  const digitsBefore=el.value.slice(0,el.selectionStart).replace(/[^\d]/g,'').length;
+  const digits=el.value.replace(/[^\d]/g,'');
+  el.value=digits?Number(digits).toLocaleString('en-US'):'';
+  let count=0,newPos=el.value.length;
+  for(let i=0;i<el.value.length;i++){
+    if(/\d/.test(el.value[i]))count++;
+    if(count===digitsBefore){newPos=i+1;break;}
+  }
+  el.setSelectionRange(newPos,newPos);
+}
 function cleanNum(v){
   const s=String(v||'').trim();
   if(!s||s==='-'||s==='—')return'';
