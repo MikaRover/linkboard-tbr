@@ -2496,9 +2496,9 @@ function startApp(){
     });
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='block');
   }
-  // Double-check queue nav — Sofya only
+  // Double-check queue nav — Sofya and admin
   document.querySelectorAll('.nav-sofya').forEach(el=>{
-    el.style.display=(!isAdmin&&isSofya)?'block':'none';
+    el.style.display=(isAdmin||isSofya)?'block':'none';
   });
   // Notification bell — everyone: admin (approvals, anyway-adds), Sofya
   // (double-check alerts), any builder (their own approve/reject results)
@@ -3863,6 +3863,7 @@ function renderActivePageForLinks(){
       renderAnchors();
       if(typeof ancSelectedProj!=='undefined' && ancSelectedProj) renderAnchorDetail(ancSelectedProj);
       break;
+    case 'doublecheck': renderDoubleCheckQueue(); break;
     default:
       // Dashboard stats are the most commonly glanced-at; keep them fresh cheaply
       renderDashboard();
