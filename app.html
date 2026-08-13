@@ -6273,12 +6273,12 @@ function renderAnchors(){
       border:1px solid ${isActive?'var(--teal)':'transparent'};
       transition:all 0.15s;
     ">
-      <div style="font-size:12px;font-weight:600;color:${isActive?'var(--teal)':'var(--text)'};">${escapeHtml(p.name)}</div>
-      <div style="font-size:10px;color:${color};margin-top:2px;">${totalUsed}/${totalMax} links</div>
+      <div style="font-size:14px;font-weight:600;color:${isActive?'var(--teal)':'var(--text)'};">${escapeHtml(p.name)}</div>
+      <div style="font-size:12px;color:${color};margin-top:2px;">${totalUsed}/${totalMax} links</div>
       <div style="height:3px;background:var(--bg4);border-radius:2px;margin-top:4px;overflow:hidden;">
         <div style="height:3px;background:${color};width:${pct}%;border-radius:2px;"></div>
       </div>
-      <div style="font-size:9px;color:var(--text3);margin-top:3px;">${(()=>{
+      <div style="font-size:11px;color:var(--text3);margin-top:3px;">${(()=>{
         const allMonths=[...new Set(reqs.map(r=>r.month.split(' ')[0]).filter(Boolean))];
         allMonths.sort((a,b)=>MONTHS_EN.indexOf(b)-MONTHS_EN.indexOf(a));
         return allMonths[0]||'';
