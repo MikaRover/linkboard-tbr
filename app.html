@@ -4333,7 +4333,7 @@ function renderDashboard(){
     const tb=document.getElementById(id);
     if(!arr.length){tb.innerHTML='<tr><td colspan="9" class="loading">No links</td></tr>';return;}
     tb.innerHTML=arr.slice(0,20).map(l=>`<tr>
-      <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
+      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
       <td class="domain-teal"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td>
       <td>${l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||escapeHtml(l.traffic):'—'}</td>
@@ -4414,7 +4414,7 @@ function renderLinks(){
     const ssVal=l.ss?escapeHtml(String(l.ss).replace(/%/g,'')+'%'):'';
     return`<tr class="link-row" data-lid="${escapeHtml(lid)}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${escapeHtml(lid)}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
+      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td>
       <td>${trafficVal}</td>
@@ -7908,7 +7908,7 @@ function renderBuilderLinks(){
     const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="bl-row-check" value="${lid}" onchange="updateBlCheckBtn()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${l.date||''}</td>
+      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${l.date||''}</td>
       <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${l.dr||'—'}</td><td>${trafficVal}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
@@ -7985,7 +7985,7 @@ function renderDoubleCheckQueue(){
     const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
     const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
     return`<tr id="dc-row-${lid}">
-      <td style="color:var(--text3);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
+      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
       <td class="domain-teal"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
