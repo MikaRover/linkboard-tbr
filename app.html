@@ -3342,6 +3342,7 @@ function gotoPage(name,el){
   if(page){page.classList.add('active');page.style.display='';}
   if(el)el.classList.add('active');
   if(window.innerWidth<=860)toggleSidebar(false);
+  window.scrollTo(0,0);
   window.currentPage = name;
   if(name==='dashboard')renderDashboard();
   if(name==='links'||name==='all-links')renderLinks();
