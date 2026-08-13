@@ -8153,14 +8153,14 @@ function renderDomainsPage(){
       <td style="font-weight:600;"><a href="https://${escapeHtml(d.domain)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(d.domain)}</a></td>
       <td style="text-align:center;">${d.dr||'—'}</td>
       <td style="text-align:right;">${trafficV}</td>
-      <td style="font-size:12px;">${d.email?escapeHtml(d.email):'<span style="color:var(--text3);">—</span>'}
-        ${d.email?`<button onclick="navigator.clipboard.writeText('${escAttr(d.email)}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1500);" style="background:none;border:none;cursor:pointer;font-size:11px;margin-left:4px;">📋</button>`:''}
+      <td style="font-size:13px;">${d.email?escapeHtml(d.email):'<span style="color:var(--text3);">—</span>'}
+        ${d.email?`<button onclick="navigator.clipboard.writeText('${escAttr(d.email)}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1500);" style="background:none;border:none;cursor:pointer;font-size:12px;margin-left:4px;">📋</button>`:''}
       </td>
       <td>${smtpHtml}</td>
-      <td style="font-size:12px;">${escapeHtml([d.firstName,d.lastName].filter(Boolean).join(' ')||'—')}</td>
-      <td style="font-size:11px;color:var(--text2);">${escapeHtml(d.position||'—')}</td>
-      <td style="font-size:11px;">${escapeHtml(d.project||'—')}</td>
-      <td style="font-size:11px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(d.addedBy||'—')}</td>
+      <td style="font-size:13px;">${escapeHtml([d.firstName,d.lastName].filter(Boolean).join(' ')||'—')}</td>
+      <td style="font-size:13px;color:var(--text2);">${escapeHtml(d.position||'—')}</td>
+      <td style="font-size:13px;">${escapeHtml(d.project||'—')}</td>
+      <td style="font-size:13px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(d.addedBy||'—')}</td>
       <td style="white-space:nowrap;">
         ${isAdm?`<button class="btn-ghost" style="font-size:11px;padding:2px 8px;margin-right:4px;" onclick="openDomainModal('${escAttr(d.id)}')">Edit</button>
         <button class="btn-danger" style="font-size:11px;padding:2px 8px;" onclick="deleteDomain('${escAttr(d.id)}','${escAttr(d.domain)}')">✕</button>`:''}
