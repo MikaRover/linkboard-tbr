@@ -4306,8 +4306,8 @@ async function bulkRefreshMetrics(months, btn){
 // ─── BULK CHECK MY LINKS ──────────────────────────────────
 async function bulkCheckMyLinks(btn){
   const myLinks=(cu.role==='admin'?allLinks:allLinks.filter(l=>l.builder===cu.name))
-    .filter(l=>l.status==='live'&&l.linkin);
-  if(!myLinks.length){alert('No live links with Link in URL');return;}
+    .filter(l=>l.status==='live'&&l.linkin&&l.linkto);
+  if(!myLinks.length){alert('No live links with both Link in and Link to filled in');return;}
   btn.disabled=true;
   btn.textContent=`🔗 0/${myLinks.length}`;
   let done=0;
@@ -4915,9 +4915,9 @@ async function checkSingleLink(id, _li, _lt, _anc, btn){
   const linkTo=link?.linkto||'';
   const anchor=link?.anchor||'';
 
-  if(!linkIn||!linkTo){
-    alert('Link in կամ Link to դատարկ է։ Նախ edit-ով լրացրու և Save արա։');return;
-  }
+  // Only ever called from the bulk-check loop — never alert() here, that
+  // would block with a popup per skipped row instead of just moving on.
+  if(!linkIn||!linkTo)return;
   const orig=btn.textContent;
   btn.textContent='⏳';btn.disabled=true;
   try{
