@@ -896,10 +896,11 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     </div>
   </div>
   <div class="stats dash-stat-row">
-    <div class="stat dash-chip"><div class="stat-l">This month live</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
-    <div class="stat dash-chip"><div class="stat-l">This month pending</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
-    <div class="stat dash-chip"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:#ff6b6b" id="ds-dup">—</div></div>
+    <div class="stat dash-chip"><div class="stat-l">Live this month</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
+    <div class="stat dash-chip"><div class="stat-l">Pending this month</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
+    <div class="stat dash-chip" id="ds-attn-chip"><div class="stat-l">Needs attention</div><div class="stat-v" id="ds-attn">—</div></div>
   </div>
+  <div id="ds-dup-banner" style="display:none;margin:-6px 0 1.5rem;padding:10px 16px;border-radius:10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.25);font-size:13px;color:var(--text2);cursor:pointer;" onclick="goToChecker()"></div>
 
   <!-- Builder leaderboard this month -->
   <div class="card adm" id="ds-leaderboard-card">
@@ -908,18 +909,9 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   </div>
 
   <div class="card">
-    <div class="card-head">This month — live <span style="font-size:12px;color:var(--text2)" id="lc"></span></div>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Category</th><th>Anchor</th><th>Project</th><th>Builder</th></tr></thead>
-      <tbody id="dash-live"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
-    </table></div>
+    <div class="card-head">Recent activity <a onclick="goToMyLinksFromDashboard()" style="font-size:12px;color:var(--teal);cursor:pointer;text-decoration:none;">View all →</a></div>
+    <div id="dash-recent"><div class="loading" style="padding:20px;">Loading...</div></div>
   </div>
-  <div class="card">
-    <div class="card-head pend">Pending <span style="font-size:12px;color:#f0a500" id="pc"></span></div>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Category</th><th>Anchor</th><th>Project</th><th>Builder</th></tr></thead>
-      <tbody id="dash-pend"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
-    </table></div>
   </div>
 </div>
 
@@ -4388,9 +4380,39 @@ function renderDashboard(){
   // Stat cards — current month focus
   document.getElementById('ds-total').textContent = thisLive.length;
   document.getElementById('ds-pend').textContent  = thisPend.length;
-  document.getElementById('ds-dup').textContent   = dupCount;
-  document.getElementById('lc').textContent = thisLive.length + ' links';
-  document.getElementById('pc').textContent = pend.length + ' links';
+
+  // "Needs attention" — things that actually require someone to act,
+  // replacing the old permanent Duplicates card (a data-quality metric,
+  // not a daily-glance one — it moved to a conditional banner below).
+  const stalePend = pend.filter(l=>{
+    const ts=parseDate(l.date);
+    return ts && Math.floor((Date.now()-ts)/86400000)>=14;
+  }).length;
+  const pendApprovalsCount = cu.role==='admin' ? allLinks.filter(l=>l.needsApproval&&l.approvalStatus==='pending').length : 0;
+  const unpaidCount = myLinks.filter(l=>(l.invoice||l.price)&&!l.paid).length;
+  const attnTotal = stalePend + pendApprovalsCount + unpaidCount;
+  const attnEl = document.getElementById('ds-attn');
+  const attnChip = document.getElementById('ds-attn-chip');
+  if(attnEl) attnEl.textContent = attnTotal;
+  if(attnChip){
+    attnChip.style.color = attnTotal>0 ? '#ff6b6b' : 'var(--text3)';
+    attnChip.title = attnTotal>0
+      ? [stalePend&&`${stalePend} stale pending (14d+)`, pendApprovalsCount&&`${pendApprovalsCount} awaiting approval`, unpaidCount&&`${unpaidCount} unpaid invoice${unpaidCount!==1?'s':''}`].filter(Boolean).join(' · ')
+      : 'Nothing needs action right now';
+    const v=attnChip.querySelector('.stat-v');
+    if(v) v.style.color = attnTotal>0 ? '#ff6b6b' : 'var(--text3)';
+  }
+
+  // Duplicates — conditional banner instead of a permanent stat card
+  const dupBanner = document.getElementById('ds-dup-banner');
+  if(dupBanner){
+    if(dupCount>0){
+      dupBanner.style.display='block';
+      dupBanner.innerHTML = `⚠️ <b style="color:#ff6b6b;">${dupCount} duplicate domain${dupCount!==1?'s':''}</b> found — review in Data Checker →`;
+    } else {
+      dupBanner.style.display='none';
+    }
+  }
 
   // Month label
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -4421,25 +4443,34 @@ function renderDashboard(){
     }
   }
 
-  const rr=(arr,id)=>{
-    const tb=document.getElementById(id);
-    if(!arr.length){tb.innerHTML='<tr><td colspan="9" class="loading">No links</td></tr>';return;}
-    tb.innerHTML=arr.slice(0,20).map(l=>`<tr>
-      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
-      <td class="domain-teal"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
-      <td>${escapeHtml(l.dr||'—')}</td>
-      <td>${l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||escapeHtml(l.traffic):'—'}</td>
-      <td>${escapeHtml(l.ss||'—')}</td>
-      <td>${catBadge(l.category)}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(l.anchor||'—')}</td>
-      <td>${l.project?`<span style="display:inline-block;padding:3px 10px;border-radius:6px;border:1px solid var(--border2);font-size:12px;color:var(--text2);">${escapeHtml(l.project)}</span>`:'—'}</td>
-      <td>${l.builder?`<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--accent2-glow);color:var(--accent2);font-size:10px;font-weight:700;" title="${escapeHtml(l.builder)}">${escapeHtml(l.builder.charAt(0).toUpperCase())}</span>`:'—'}</td>
-    </tr>`).join('');
-  };
-
-  // Always show this month's live links in dashboard table
-  rr(thisLive,'dash-live');
-  rr(pend,'dash-pend');
+  // Recent activity — compact list (domain/project/builder/status),
+  // replacing the old two full 9-column raw tables (live + pending) that
+  // just duplicated what All Links/My Links already shows.
+  const recentEl = document.getElementById('dash-recent');
+  if(recentEl){
+    const recent = [...myLinks].sort((a,b)=>parseDate(b.date)-parseDate(a.date)).slice(0,8);
+    if(!recent.length){
+      recentEl.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px;">No links yet</div>';
+    } else {
+      recentEl.innerHTML = recent.map(l=>{
+        const statusColor = l.status==='live' ? 'var(--teal)' : l.status==='pending' ? '#f0a500' : l.status==='needs-change' ? '#8b8bf0' : 'var(--text3)';
+        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-top:1px solid var(--border);">
+          <span style="width:7px;height:7px;border-radius:50%;background:${statusColor};flex-shrink:0;"></span>
+          <a href="https://${escAttr(l.domain)}" target="_blank" style="color:var(--text);font-weight:600;font-size:13px;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(l.domain||'—')}</a>
+          ${l.project?`<span style="display:inline-block;padding:3px 10px;border-radius:6px;border:1px solid var(--border2);font-size:11px;color:var(--text2);white-space:nowrap;">${escapeHtml(l.project)}</span>`:''}
+          ${cu.role==='admin'&&l.builder?`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--accent2-glow);color:var(--accent2);font-size:9px;font-weight:700;flex-shrink:0;" title="${escapeHtml(l.builder)}">${escapeHtml(l.builder.charAt(0).toUpperCase())}</span>`:''}
+          <span style="font-size:11px;color:var(--text3);white-space:nowrap;font-family:var(--font-mono);">${escapeHtml(l.date||'')}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+function goToChecker(){
+  gotoPage('checker', document.querySelector(`.nav[onclick*="'checker'"]`));
+}
+function goToMyLinksFromDashboard(){
+  if(cu.role==='admin') gotoPage('links', document.querySelector(`.nav[onclick*="'links'"]`));
+  else gotoPage('b-links', document.getElementById('bld-nav-links'));
 }
 
 function renderLinks(){
