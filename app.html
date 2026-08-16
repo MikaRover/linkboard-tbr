@@ -13,15 +13,16 @@
 /* ── RESET & VARS ── */
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#0a0e1e;--bg2:#0e1a2b;--bg3:#132133;--bg4:#182648;
-  --teal:#00c4ae;--teal2:#00e5cc;--teal-glow:rgba(0,196,174,0.15);
-  --accent2:#7c8fff;--accent2-glow:rgba(124,143,255,0.15);
-  --border:#1c3049;--border2:#28405c;
-  --text:#e4f2ef;--text2:#7396ae;--text3:rgba(255,255,255,0.4);
-  --red:#ff5f5f;--yellow:#f0a500;
-  --radius:12px;--radius-lg:20px;
-  --shadow:0 1px 3px rgba(0,0,0,0.18),0 8px 30px rgba(0,0,0,0.28);
-  --shadow-teal:0 4px 24px rgba(0,196,174,0.18);
+  --bg:#0b0f16;--bg2:#121722;--bg3:#171d2b;--bg4:#1c2334;
+  --teal:#2dd4bf;--teal2:#5eead4;--teal-glow:rgba(45,212,191,0.15);
+  --accent2:#8b8bf0;--accent2-glow:rgba(139,139,240,0.15);
+  --border:#232b3d;--border2:#2d3750;
+  --text:#e9edf3;--text2:#8a95a8;--text3:rgba(255,255,255,0.4);
+  --red:#f4795b;--yellow:#f2b73e;
+  --radius:12px;--radius-lg:18px;
+  --shadow:0 1px 2px rgba(0,0,0,0.24),0 10px 28px rgba(0,0,0,0.3);
+  --shadow-teal:0 4px 24px rgba(45,212,191,0.16);
+  --font-mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,monospace;
 }
 /* ── SPLASH SCREEN ── */
 #app-splash{position:fixed;inset:0;background:#080f1e;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;}
@@ -672,6 +673,25 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   font-size:13px !important;
   padding:9px 12px !important;
   border-radius:10px !important;
+}
+
+/* ══════════════════════════════════════════════════════
+   Refined dark direction — tabular monospace for all data
+   numbers (DR, Traffic, $, stat values) so columns line up
+   and figures read at a glance, matching the approved preview.
+   ══════════════════════════════════════════════════════ */
+.stat-v{
+  font-family:var(--font-mono);
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-0.02em;
+}
+#all-tbody td:nth-child(4),#all-tbody td:nth-child(5),
+#pd-tbody td:nth-child(4),#pd-tbody td:nth-child(5),
+#b-tbody td:nth-child(4),#b-tbody td:nth-child(5),
+#dc-tbody td:nth-child(3),#dc-tbody td:nth-child(4),
+#inv-tbody td:nth-child(6){
+  font-family:var(--font-mono);
+  font-variant-numeric:tabular-nums;
 }
 
 /* ── MOBILE RESPONSIVE ── */
