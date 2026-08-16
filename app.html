@@ -25,14 +25,14 @@
   --font-mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,monospace;
 }
 /* ── SPLASH SCREEN ── */
-#app-splash{position:fixed;inset:0;background:#080f1e;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;}
+#app-splash{position:fixed;inset:0;background:#08090a;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;}
 #app-splash.hide{animation:splashOut 0.5s cubic-bezier(0.4,0,1,1) forwards;}
 @keyframes splashOut{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(1.04);pointer-events:none;}}
 .splash-logo-txt{font-size:64px;font-weight:800;color:#e8f5f2;opacity:0;transform:translateY(16px);animation:logoIn 0.7s 0.3s cubic-bezier(0.22,1,0.36,1) forwards;font-family:"Inter",-apple-system,sans-serif;letter-spacing:-2px;}
-.splash-logo-txt span{color:#00c4ae;}
-.splash-sub-txt{font-size:13px;color:#4a7090;letter-spacing:4px;text-transform:uppercase;opacity:0;animation:fadeIn2 0.5s 0.6s ease forwards;margin-top:12px;}
-.splash-bar-wrap{width:200px;height:2px;background:rgba(0,196,174,0.1);border-radius:2px;overflow:hidden;opacity:0;animation:fadeIn2 0.3s 0.8s ease forwards;margin-top:24px;}
-.splash-bar{height:100%;width:0%;background:linear-gradient(90deg,#00c4ae,#00e5cc);border-radius:2px;box-shadow:0 0 10px rgba(0,196,174,0.9);animation:barFill 1.4s 0.9s cubic-bezier(0.4,0,0.2,1) forwards;}
+.splash-logo-txt span{color:#7c88e8;}
+.splash-sub-txt{font-size:13px;color:#5c6280;letter-spacing:4px;text-transform:uppercase;opacity:0;animation:fadeIn2 0.5s 0.6s ease forwards;margin-top:12px;}
+.splash-bar-wrap{width:200px;height:2px;background:rgba(124,136,232,0.15);border-radius:2px;overflow:hidden;opacity:0;animation:fadeIn2 0.3s 0.8s ease forwards;margin-top:24px;}
+.splash-bar{height:100%;width:0%;background:linear-gradient(90deg,#7c88e8,#a3addf);border-radius:2px;box-shadow:0 0 10px rgba(124,136,232,0.9);animation:barFill 1.4s 0.9s cubic-bezier(0.4,0,0.2,1) forwards;}
 #splash-3d-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
 @keyframes logoIn{to{opacity:1;transform:translateY(0);}}
 @keyframes fadeIn2{to{opacity:1;}}
@@ -76,7 +76,7 @@ body.light{
 }
 body.light input,body.light select{background:#fff;color:var(--text);border-color:var(--border);box-shadow:0 1px 2px rgba(0,0,0,0.04);}
 body.light select option{background:#fff;color:var(--text);}
-body.light .btn,body.light .btn-sm{color:#fff;background:var(--teal);}
+body.light .btn,body.light .btn-sm{color:#fff;background:var(--accent2);}
 body.light .btn-ghost{color:var(--text2);border-color:var(--border2);}
 body.light .btn-ghost:hover{background:var(--bg3);}
 body.light .sidebar{background:#fff;border-color:var(--border);box-shadow:1px 0 8px rgba(0,0,0,0.05);}
@@ -86,9 +86,9 @@ body.light table thead th{background:#f1f5f9;color:var(--text2);}
 body.light table tbody tr:hover{background:#f8fafc;}
 body.light .nav{color:var(--text2);}
 body.light .nav:hover{background:var(--bg3);color:var(--text);}
-body.light .nav.active{background:rgba(8,145,178,0.1);color:var(--teal);}
+body.light .nav.active{background:var(--accent2-glow);color:var(--accent2);}
 body.light .page-title{color:var(--text);}
-body.light .sb-logo span{color:var(--teal);}
+body.light .sb-logo span{color:var(--accent2);}
 body.light .login-box{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.10);}
 
 /* ── PERF: reduce transitions on scroll ── */
@@ -105,9 +105,9 @@ body,body *{transition:background-color 0.18s ease,color 0.15s ease,border-color
 /* ── LAYOUT ── */
 .screen{display:none;}.screen.active{display:block;}
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;}
-.login-box{width:380px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:2.5rem;box-shadow:var(--shadow),0 0 40px rgba(0,196,174,0.06);animation:fadeSlideIn 0.35s ease;position:relative;z-index:1;}
+.login-box{width:380px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:2.5rem;box-shadow:var(--shadow),0 0 40px rgba(124,136,232,0.08);animation:fadeSlideIn 0.35s ease;position:relative;z-index:1;}
 .login-logo{font-size:26px;font-weight:800;color:var(--text);margin-bottom:4px;text-align:center;letter-spacing:-0.5px;}
-.login-logo span{color:var(--teal);}
+.login-logo span{color:var(--accent2);}
 .login-sub{font-size:13px;color:var(--text2);text-align:center;margin-bottom:2rem;}
 label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:0.5px;}
 .err{font-size:12px;color:var(--red);margin-bottom:12px;display:none;padding:10px 14px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;animation:slideDown 0.2s ease;}
@@ -117,12 +117,12 @@ label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;displa
 .sidebar{width:220px;min-width:220px;background:linear-gradient(180deg,var(--bg2) 0%,var(--bg3) 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1.25rem 0;position:fixed;height:100vh;overflow-y:auto;}
 .sb-top{padding:0 1.25rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:10px;}
 .sb-logo{font-size:19px;font-weight:800;color:var(--text);margin-bottom:10px;letter-spacing:-0.5px;}
-.sb-logo span{color:var(--teal);}
+.sb-logo span{color:var(--accent2);}
 .sb-name{font-size:14px;font-weight:600;color:var(--text);}
 .sb-role{font-size:11px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:0.3px;}
 .nav{padding:10px 1.25rem;font-size:14px;font-weight:500;cursor:pointer;color:var(--text2);border-left:2px solid transparent;transition:all 0.15s ease;border-radius:0 8px 8px 0;margin:1px 8px 1px 0;display:flex;align-items:center;}
 .nav:hover{color:var(--text);background:var(--bg4);border-left-color:var(--border2);}
-.nav.active{color:var(--teal);background:var(--teal-glow);border-left-color:var(--teal);font-weight:700;}
+.nav.active{color:var(--accent2);background:var(--accent2-glow);border-left-color:var(--accent2);font-weight:700;}
 .sb-bottom{margin-top:auto;padding:1.25rem;}
 .logout{font-size:13px;color:var(--text3);cursor:pointer;transition:color 0.15s;}
 .logout:hover{color:var(--red);}
@@ -137,7 +137,7 @@ label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;displa
 /* ── STATS ── */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem;}
 .stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.2rem;transition:all 0.15s ease;cursor:default;position:relative;overflow:hidden;}
-.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--teal),transparent);opacity:0;transition:opacity 0.2s;}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent2),transparent);opacity:0;transition:opacity 0.2s;}
 .stat:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:var(--shadow-teal);}
 .stat:hover::before{opacity:1;}
 .stat-l{font-size:10px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.8px;}
@@ -166,13 +166,13 @@ tr:last-child td{border-bottom:none;}
 .btn-sm:hover{box-shadow:0 2px 10px rgba(124,136,232,0.35);filter:brightness(1.05);}
 .btn-sm:active{transform:scale(0.97);}
 .btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2);padding:5px 12px;font-size:12px;border-radius:6px;cursor:pointer;transition:all 0.15s ease;}
-.btn-ghost:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-glow);}
+.btn-ghost:hover{border-color:var(--accent2);color:var(--accent2);background:var(--accent2-glow);}
 .btn-danger{background:transparent;border:1px solid rgba(255,95,95,0.3);color:var(--red);padding:5px 10px;font-size:11px;border-radius:6px;cursor:pointer;transition:all 0.15s ease;}
 .btn-danger:hover{background:rgba(255,95,95,0.08);border-color:var(--red);}
 
 /* ── INPUTS ── */
 input,select{width:100%;padding:10px 12px;font-size:15px;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);margin-bottom:14px;outline:none;transition:border-color 0.15s ease,box-shadow 0.15s ease;font-family:inherit;}
-input:focus,select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,196,174,0.1);}
+input:focus,select:focus{border-color:var(--accent2);box-shadow:0 0 0 3px var(--accent2-glow);}
 select option{background:var(--bg2);}
 
 /* ── BADGES ── */
@@ -2300,6 +2300,19 @@ function escAttr(str){
     .replace(/\r?\n/g,'\\n');
 }
 
+// Shared table-cell renderers — project as a bordered tag pill, builder as
+// a colored initial-avatar circle — used across every link table so the
+// same visual language (from the Dashboard recent-activity list) is
+// consistent app-wide instead of plain text per table.
+function projTag(name){
+  if(!name) return '<span style="color:var(--text3);">—</span>';
+  return `<span style="display:inline-block;padding:3px 10px;border-radius:6px;border:1px solid var(--border2);font-size:11px;color:var(--text2);white-space:nowrap;">${escapeHtml(name)}</span>`;
+}
+function builderAvatar(name){
+  if(!name) return '<span style="color:var(--text3);">—</span>';
+  return `<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--accent2-glow);color:var(--accent2);font-size:9px;font-weight:700;flex-shrink:0;">${escapeHtml(name.charAt(0).toUpperCase())}</span>${escapeHtml(name)}</span>`;
+}
+
 // ─── AUTH ─────────────────────────────────────────────────
 function globalSearch(){
   const q=(document.getElementById('global-search').value||'').toLowerCase().trim();
@@ -2877,8 +2890,8 @@ function renderCheckerResults(){
       <td style="color:var(--text3);font-size:11px;">${escapeHtml(l.date||'—')}</td>
       <td class="domain-teal">${escapeHtml(l.domain||'—')}</td>
       <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;color:${l._issues.includes('shifted')?'var(--yellow)':'var(--text2)'};" title="${escapeHtml(l.anchor||'')}">${escapeHtml(ancPreview)}</td>
-      <td>${escapeHtml(l.project||'—')}</td>
-      <td>${escapeHtml(l.builder||'—')}</td>
+      <td>${projTag(l.project)}</td>
+      <td>${builderAvatar(l.builder)}</td>
       <td><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button></td>
     </tr>`;
   }).join('');
@@ -3025,7 +3038,7 @@ function renderDetailLinks(){
       <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${escapeHtml(lid)}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td>${escapeHtml(l.date||'')}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
-      <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${escapeHtml(l.builder||'—')}</td>
+      <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${builderAvatar(l.builder)}</td>
       <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal(\'${escAttr(lid)}\')">↗</button></td>
       <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancyRow('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
@@ -3160,9 +3173,9 @@ function showPendingApprovals(){
     <tr>
       <td style="font-size:12px;color:var(--text3);">${escapeHtml(l.date||'')}</td>
       <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);">${escapeHtml(l.domain||'')}</a></td>
-      <td>${escapeHtml(l.project||'')}</td>
+      <td>${projTag(l.project)}</td>
       <td style="font-size:12px;">${escapeHtml(l.anchor||'')}</td>
-      <td style="font-size:12px;">${escapeHtml(l.builder||'')}</td>
+      <td style="font-size:12px;">${builderAvatar(l.builder)}</td>
       <td style="font-size:11px;color:var(--yellow);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(l.approvalReason||'')}</td>
       <td style="white-space:nowrap;">
         <button class="btn-sm" onclick="approveLink('${escAttr(l.id)}')" style="width:auto;font-size:12px;padding:6px 14px;">✅ Approve</button>
@@ -4542,8 +4555,8 @@ function renderLinks(){
       <td>${escapeHtml(l.dr||'—')}</td>
       <td>${trafficVal}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
-      <td>${escapeHtml(l.project||'—')}</td>
-      <td>${escapeHtml(l.builder||'—')}</td>
+      <td>${projTag(l.project)}</td>
+      <td>${builderAvatar(l.builder)}</td>
       <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal(\'${escAttr(lid)}\')">↗</button></td>
       <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button>`:''}</td>
@@ -4719,7 +4732,7 @@ function openBuilderLinks(name){
     <tr>
       <td style="color:var(--text3);font-size:11px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
       <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(l.domain||'')}</a></td>
-      <td>${escapeHtml(l.project||'')}</td>
+      <td>${projTag(l.project)}</td>
       <td style="font-size:12px;">${escapeHtml(l.anchor||'')}</td>
       <td>${(l.status||'').toLowerCase()==='live'?'<span style="color:var(--teal);">✅ live</span>':(l.status||'').toLowerCase()==='pending'?'<span style="color:#f0a500;">⏳ pending</span>':escapeHtml(l.status||'')}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1rem;">No links</td></tr>';
@@ -5300,8 +5313,8 @@ function renderInvoices(){
       <td onclick="event.stopPropagation()"><input type="checkbox" class="inv-cb" data-id="${escapeHtml(lid)}" onchange="onInvSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'—')}</td>
       <td class="domain-teal"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
-      <td>${escapeHtml(l.project||'—')}</td>
-      <td>${escapeHtml(l.builder||'—')}</td>
+      <td>${projTag(l.project)}</td>
+      <td>${builderAvatar(l.builder)}</td>
       <td style="font-weight:600;">${l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—'}</td>
       <td>${l.invoice?`<a href="${escapeHtml(l.invoice)}" target="_blank" style="color:var(--teal);">↗ Invoice</a>`:'<span style="color:var(--text3);">—</span>'}</td>
       <td><button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;background:${l.paid?'linear-gradient(135deg,var(--teal),var(--teal2))':'transparent'};border:${l.paid?'none':'1px solid var(--border2)'};color:${l.paid?'#061520':'var(--text2)'};" onclick="toggleInvoicePaid('${escAttr(lid)}',${!l.paid})">${l.paid?'✅ Paid':'⏳ Unpaid'}</button></td>
@@ -8086,7 +8099,7 @@ function renderBuilderDashboard(){
   if(!recent.length){tb.innerHTML='<tr><td colspan="3" class="loading">No links yet</td></tr>';return;}
   tb.innerHTML=recent.map(l=>`<tr>
     <td class="domain-teal" style="font-size:12px;"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
-    <td style="font-size:12px;color:var(--text2);">${escapeHtml(l.project||'—')}</td>
+    <td style="font-size:12px;">${projTag(l.project)}</td>
     <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'#f0a500'};">${escapeHtml(l.status)}</span></td>
   </tr>`).join('');
 }
@@ -8161,7 +8174,7 @@ function renderBuilderLinks(){
       <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${l.dr||'—'}</td><td>${trafficVal}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
-      <td style="font-size:13px;font-weight:500;">${escapeHtml(l.project||'—')}</td>
+      <td>${projTag(l.project)}</td>
       <td onclick="event.stopPropagation()">
         <select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;">
           <option value="live" ${l.status==='live'?'selected':''}>✅ Live</option>
@@ -8238,8 +8251,8 @@ function renderDoubleCheckQueue(){
       <td class="domain-teal"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
-      <td style="font-size:13px;font-weight:500;">${escapeHtml(l.project||'—')}</td>
-      <td style="font-size:12px;color:var(--text3);">${escapeHtml(l.builder||'—')}</td>
+      <td>${projTag(l.project)}</td>
+      <td>${builderAvatar(l.builder)}</td>
       <td style="white-space:nowrap;">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
         <button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="openLCModal('${escAttr(lid)}')">↗</button>
       </td>
