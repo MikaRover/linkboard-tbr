@@ -13,11 +13,11 @@
 /* ── RESET & VARS ── */
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#0b0f16;--bg2:#121722;--bg3:#171d2b;--bg4:#1c2334;
+  --bg:#08090a;--bg2:#0d0e11;--bg3:#141517;--bg4:#1a1b1e;
   --teal:#2dd4bf;--teal2:#5eead4;--teal-glow:rgba(45,212,191,0.15);
-  --accent2:#8b8bf0;--accent2-glow:rgba(139,139,240,0.15);
-  --border:#232b3d;--border2:#2d3750;
-  --text:#e9edf3;--text2:#8a95a8;--text3:rgba(255,255,255,0.4);
+  --accent2:#7c88e8;--accent2-2:#a3addf;--accent2-glow:rgba(124,136,232,0.16);
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);
+  --text:#f7f8f8;--text2:#8a8f98;--text3:rgba(255,255,255,0.4);
   --red:#f4795b;--yellow:#f2b73e;
   --radius:12px;--radius-lg:18px;
   --shadow:0 1px 2px rgba(0,0,0,0.24),0 10px 28px rgba(0,0,0,0.3);
@@ -159,11 +159,11 @@ tr:last-child td{border-bottom:none;}
 .link-row:hover td{background:var(--bg3);}
 
 /* ── BUTTONS ── */
-.btn{width:100%;padding:11px;font-size:14px;border-radius:var(--radius);border:none;background:linear-gradient(135deg,var(--teal),var(--teal2));color:#061520;cursor:pointer;font-weight:700;transition:all 0.15s ease;letter-spacing:0.2px;}
+.btn{width:100%;padding:11px;font-size:14px;border-radius:var(--radius);border:none;background:linear-gradient(135deg,var(--accent2),var(--accent2-2));color:#0e1030;cursor:pointer;font-weight:700;transition:all 0.15s ease;letter-spacing:0.2px;}
 .btn:hover{box-shadow:var(--shadow-teal);filter:brightness(1.05);}
 .btn:active{transform:scale(0.98);}
-.btn-sm{padding:5px 14px;font-size:12px;background:linear-gradient(135deg,var(--teal),var(--teal2));color:#061520;border:none;border-radius:6px;cursor:pointer;font-weight:700;transition:all 0.15s ease;}
-.btn-sm:hover{box-shadow:0 2px 10px rgba(0,196,174,0.3);filter:brightness(1.05);}
+.btn-sm{padding:5px 14px;font-size:12px;background:linear-gradient(135deg,var(--accent2),var(--accent2-2));color:#0e1030;border:none;border-radius:6px;cursor:pointer;font-weight:700;transition:all 0.15s ease;}
+.btn-sm:hover{box-shadow:0 2px 10px rgba(124,136,232,0.35);filter:brightness(1.05);}
 .btn-sm:active{transform:scale(0.97);}
 .btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2);padding:5px 12px;font-size:12px;border-radius:6px;cursor:pointer;transition:all 0.15s ease;}
 .btn-ghost:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-glow);}
@@ -694,6 +694,18 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   font-variant-numeric:tabular-nums;
 }
 
+/* Dashboard hero stats as compact chips (number+label side by side)
+   instead of full-width equal-column cards — scoped to this one row
+   via .dash-stat-row so the shared .stat/.stat-l/.stat-v classes keep
+   their normal card layout everywhere else in the app. */
+.dash-stat-row{display:flex;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap;}
+.dash-stat-row .dash-chip{
+  display:flex;align-items:center;gap:10px;padding:12px 18px;
+  border-radius:12px;flex:none;
+}
+.dash-stat-row .dash-chip .stat-l{order:2;font-size:13px;font-weight:500;margin:0;}
+.dash-stat-row .dash-chip .stat-v{order:1;font-size:22px;margin:0;}
+
 /* ── MOBILE RESPONSIVE ── */
 .sidebar-toggle{display:none;}
 .sidebar-backdrop{display:none;}
@@ -883,10 +895,10 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
       <button class="btn-sm" onclick="bulkCheckMyLinks(this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">🔗 Check my links</button>
     </div>
   </div>
-  <div class="stats" style="grid-template-columns:repeat(3,1fr);">
-    <div class="stat"><div class="stat-l">This month live</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
-    <div class="stat"><div class="stat-l">This month pending</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
-    <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:#ff6b6b" id="ds-dup">—</div></div>
+  <div class="stats dash-stat-row">
+    <div class="stat dash-chip"><div class="stat-l">This month live</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
+    <div class="stat dash-chip"><div class="stat-l">This month pending</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
+    <div class="stat dash-chip"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:#ff6b6b" id="ds-dup">—</div></div>
   </div>
 
   <!-- Builder leaderboard this month -->
@@ -4420,8 +4432,8 @@ function renderDashboard(){
       <td>${escapeHtml(l.ss||'—')}</td>
       <td>${catBadge(l.category)}</td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(l.anchor||'—')}</td>
-      <td>${escapeHtml(l.project||'—')}</td>
-      <td>${escapeHtml(l.builder||'—')}</td>
+      <td>${l.project?`<span style="display:inline-block;padding:3px 10px;border-radius:6px;border:1px solid var(--border2);font-size:12px;color:var(--text2);">${escapeHtml(l.project)}</span>`:'—'}</td>
+      <td>${l.builder?`<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--accent2-glow);color:var(--accent2);font-size:10px;font-weight:700;" title="${escapeHtml(l.builder)}">${escapeHtml(l.builder.charAt(0).toUpperCase())}</span>`:'—'}</td>
     </tr>`).join('');
   };
 
