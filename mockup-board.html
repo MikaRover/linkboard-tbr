@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LinkBoard — Board mockup</title>
+<style>
+:root{
+  --bg:#F6F4EF;
+  --surface:#FFFFFF;
+  --surface-2:#FBFAF7;
+  --border:#E5E1D8;
+  --border-2:#D8D3C6;
+  --ink:#1B1A17;
+  --ink-2:#726E63;
+  --ink-3:#A7A290;
+  --blue:#2F5CFF;
+  --blue-dim:#EEF1FF;
+  --blue-ink:#1638B0;
+  --green:#1E8A5B;
+  --green-dim:#E7F5EC;
+  --amber:#B7791F;
+  --amber-dim:#FBF0DD;
+  --red:#C23B2E;
+  --red-dim:#FBEAE7;
+  --purple:#6E4FCF;
+  --purple-dim:#F0EBFC;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg);color:var(--ink);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;letter-spacing:-0.006em;
+}
+::selection{background:var(--blue);color:#fff;}
+
+/* ── TOP BAR (replaces left sidebar entirely) ── */
+.topnav{
+  display:flex;align-items:center;gap:6px;
+  padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:20;
+}
+.logo{font-size:17px;font-weight:800;letter-spacing:-0.5px;margin-right:18px;flex-shrink:0;}
+.logo span{color:var(--blue);}
+.topnav-item{
+  font-size:13px;font-weight:700;color:var(--ink-2);padding:8px 13px;border-radius:8px;cursor:pointer;
+  white-space:nowrap;
+}
+.topnav-item:hover{background:var(--surface-2);color:var(--ink);}
+.topnav-item.active{background:var(--ink);color:#fff;}
+.topnav-sep{width:1px;height:20px;background:var(--border);margin:0 8px;flex-shrink:0;}
+.topnav-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.search-mini{
+  display:flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);
+  border-radius:980px;padding:7px 13px;font-size:12.5px;color:var(--ink-3);width:200px;
+}
+.search-mini svg{width:13px;height:13px;opacity:0.6;flex-shrink:0;}
+.avatar-me{
+  width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;
+}
+
+/* ── PAGE BODY ── */
+.body{max-width:1500px;margin:0 auto;padding:26px 24px 60px;}
+
+.page-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;}
+.eyebrow{font-size:12px;font-weight:700;color:var(--blue);margin-bottom:5px;}
+.h1{font-size:26px;font-weight:800;letter-spacing:-0.6px;}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700;
+  background:var(--blue);color:#fff;border:none;padding:10px 18px;border-radius:980px;cursor:pointer;
+  transition:transform .12s,box-shadow .15s;
+}
+.btn:hover{box-shadow:0 4px 14px rgba(47,92,255,0.3);transform:translateY(-1px);}
+
+/* ── BENTO STAT ROW (asymmetric, not 4 equal boxes) ── */
+.bento{display:grid;grid-template-columns:1.4fr 1fr 1fr 1.1fr;gap:12px;margin-bottom:26px;}
+.bento-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px 22px;position:relative;overflow:hidden;}
+.bento-card.hero{background:var(--ink);color:#fff;display:flex;flex-direction:column;justify-content:space-between;}
+.bento-hero-top{display:flex;justify-content:space-between;align-items:flex-start;}
+.bento-l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;opacity:0.65;}
+.bento-hero .bento-l{color:#fff;}
+.bento-v{font-family:var(--mono);font-size:36px;font-weight:700;letter-spacing:-1px;margin-top:8px;font-variant-numeric:tabular-nums;}
+.bento-sub{font-size:11.5px;color:var(--ink-3);margin-top:6px;}
+.bento-hero .bento-sub{color:rgba(255,255,255,0.6);}
+.spark{display:flex;align-items:flex-end;gap:3px;height:30px;margin-top:10px;}
+.spark div{width:6px;background:rgba(255,255,255,0.35);border-radius:2px 2px 0 0;}
+.spark div:last-child{background:var(--blue);}
+.bento-v.amber{color:var(--amber);}
+.bento-v.blue{color:var(--blue-ink);}
+.bento-mini-list{margin-top:12px;display:flex;flex-direction:column;gap:7px;}
+.bento-mini-row{display:flex;justify-content:space-between;font-size:12px;}
+.bento-mini-row b{font-family:var(--mono);font-weight:700;}
+
+/* ── BOARD (kanban) ── */
+.board-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.board-head h2{font-size:15px;font-weight:800;}
+.board-controls{display:flex;gap:8px;}
+.chip-select{
+  font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-2);
+  background:var(--surface);border:1px solid var(--border-2);border-radius:980px;padding:6px 13px;cursor:pointer;
+}
+.view-toggle{display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:980px;padding:2px;}
+.view-toggle span{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:980px;cursor:pointer;color:var(--ink-3);}
+.view-toggle span.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,0.08);}
+
+.board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start;}
+.col{background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:12px;}
+.col-head{display:flex;align-items:center;gap:8px;padding:4px 6px 12px;}
+.col-dot{width:8px;height:8px;border-radius:50%;}
+.col-dot.live{background:var(--green);}
+.col-dot.pending{background:var(--amber);}
+.col-dot.change{background:var(--purple);}
+.col-dot.lost{background:var(--red);}
+.col-title{font-size:12.5px;font-weight:800;}
+.col-count{
+  margin-left:auto;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--ink-3);
+  background:var(--surface);border:1px solid var(--border);padding:1px 8px;border-radius:980px;
+}
+.card-stack{display:flex;flex-direction:column;gap:8px;}
+
+.lcard{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 13px;cursor:pointer;
+  transition:border-color .15s,box-shadow .15s,transform .1s;
+}
+.lcard:hover{border-color:var(--border-2);box-shadow:0 3px 10px rgba(27,26,23,0.06);transform:translateY(-1px);}
+.lcard-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;}
+.lcard-domain{font-size:13px;font-weight:700;line-height:1.25;}
+.lcard-dr{font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--ink-3);flex-shrink:0;margin-left:8px;}
+.lcard-anchor{font-size:11.5px;color:var(--ink-2);margin-bottom:10px;line-height:1.35;}
+.lcard-foot{display:flex;justify-content:space-between;align-items:center;}
+.lcard-tag{
+  font-size:10.5px;font-weight:700;background:var(--blue-dim);color:var(--blue-ink);
+  padding:2px 9px;border-radius:980px;
+}
+.lcard-avatar{
+  width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;font-size:9px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.lcard.flag{border-color:var(--red);background:var(--red-dim);}
+.lcard.flag .lcard-tag{background:#fff;color:var(--red);}
+
+.col-add{
+  margin-top:10px;text-align:center;font-size:11.5px;font-weight:700;color:var(--ink-3);
+  padding:8px;border:1px dashed var(--border-2);border-radius:10px;cursor:pointer;
+}
+.col-add:hover{color:var(--ink);border-color:var(--ink-3);}
+
+@media (max-width:1200px){
+  .bento{grid-template-columns:1fr 1fr;}
+  .board{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="logo">Link<span>Board</span></div>
+  <div class="topnav-item active">Links</div>
+  <div class="topnav-item">Projects</div>
+  <div class="topnav-item">Team</div>
+  <div class="topnav-item">Invoices</div>
+  <div class="topnav-item">Analytics</div>
+  <div class="topnav-sep"></div>
+  <div class="topnav-item">Data Checker</div>
+  <div class="topnav-right">
+    <div class="search-mini"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search…</div>
+    <div class="avatar-me">AD</div>
+  </div>
+</div>
+
+<div class="body">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">August 2026</div>
+      <div class="h1">Links board</div>
+    </div>
+    <button class="btn">＋ Add link</button>
+  </div>
+
+  <div class="bento">
+    <div class="bento-card hero">
+      <div class="bento-hero-top">
+        <div>
+          <div class="bento-l">Live this month</div>
+          <div class="bento-v">142</div>
+        </div>
+      </div>
+      <div>
+        <div class="spark">
+          <div style="height:40%"></div><div style="height:55%"></div><div style="height:35%"></div>
+          <div style="height:70%"></div><div style="height:50%"></div><div style="height:80%"></div>
+          <div style="height:100%"></div>
+        </div>
+        <div class="bento-sub">↑ 18 vs last month</div>
+      </div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-l">Pending</div>
+      <div class="bento-v amber">27</div>
+      <div class="bento-sub">4 waiting 14d+</div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-l">Needs attention</div>
+      <div class="bento-v blue">6</div>
+      <div class="bento-sub">2 approvals · 4 unpaid</div>
+    </div>
+    <div class="bento-card">
+      <div class="bento-l">Top builders</div>
+      <div class="bento-mini-list">
+        <div class="bento-mini-row"><span>Lusine</span><b>30</b></div>
+        <div class="bento-mini-row"><span>Syuzi</span><b>27</b></div>
+        <div class="bento-mini-row"><span>Tam</span><b>24</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-head">
+    <h2>All projects · 143 links</h2>
+    <div class="board-controls">
+      <select class="chip-select"><option>All projects</option></select>
+      <select class="chip-select"><option>All builders</option></select>
+      <div class="view-toggle"><span class="active">Board</span><span>Table</span></div>
+    </div>
+  </div>
+
+  <div class="board">
+    <div class="col">
+      <div class="col-head"><span class="col-dot live"></span><span class="col-title">Live</span><span class="col-count">142</span></div>
+      <div class="card-stack">
+        <div class="lcard">
+          <div class="lcard-top"><div class="lcard-domain">techreviewhub.com</div><div class="lcard-dr">DR 62</div></div>
+          <div class="lcard-anchor">"best ai tools 2026"</div>
+          <div class="lcard-foot"><span class="lcard-tag">Aikido</span><span class="lcard-avatar">L</span></div>
+        </div>
+        <div class="lcard">
+          <div class="lcard-top"><div class="lcard-domain">saasgrowthblog.io</div><div class="lcard-dr">DR 48</div></div>
+          <div class="lcard-anchor">"saas ppc advertising"</div>
+          <div class="lcard-foot"><span class="lcard-tag">Camel</span><span class="lcard-avatar">T</span></div>
+        </div>
+        <div class="lcard">
+          <div class="lcard-top"><div class="lcard-domain">chargeinfra.news</div><div class="lcard-dr">DR 71</div></div>
+          <div class="lcard-anchor">"ev charging as a service"</div>
+          <div class="lcard-foot"><span class="lcard-tag">Ampaway</span><span class="lcard-avatar">A</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-head"><span class="col-dot pending"></span><span class="col-title">Pending</span><span class="col-count">27</span></div>
+      <div class="card-stack">
+        <div class="lcard flag">
+          <div class="lcard-top"><div class="lcard-domain">quantumsim.dev</div><div class="lcard-dr">DR 54</div></div>
+          <div class="lcard-anchor">"quantum computing platform" · 16 days waiting</div>
+          <div class="lcard-foot"><span class="lcard-tag">Bluequbit</span><span class="lcard-avatar">S</span></div>
+        </div>
+        <div class="lcard">
+          <div class="lcard-top"><div class="lcard-domain">otpsecurity.com</div><div class="lcard-dr">DR 39</div></div>
+          <div class="lcard-anchor">"two-factor authentication"</div>
+          <div class="lcard-foot"><span class="lcard-tag">Dexatel</span><span class="lcard-avatar">G</span></div>
+        </div>
+      </div>
+      <div class="col-add">＋ Add to Pending</div>
+    </div>
+
+    <div class="col">
+      <div class="col-head"><span class="col-dot change"></span><span class="col-title">Needs change</span><span class="col-count">5</span></div>
+      <div class="card-stack">
+        <div class="lcard">
+          <div class="lcard-top"><div class="lcard-domain">easydmarc.com</div><div class="lcard-dr">DR 58</div></div>
+          <div class="lcard-anchor">wrong anchor placed — swap link</div>
+          <div class="lcard-foot"><span class="lcard-tag">EasyDMARC</span><span class="lcard-avatar">V</span></div>
+        </div>
+      </div>
+      <div class="col-add">＋ Add to Needs change</div>
+    </div>
+
+    <div class="col">
+      <div class="col-head"><span class="col-dot lost"></span><span class="col-title">Lost</span><span class="col-count">9</span></div>
+      <div class="card-stack">
+        <div class="lcard">
+          <div class="lcard-top"><div class="lcard-domain">cheaterbuster.co</div><div class="lcard-dr">DR 44</div></div>
+          <div class="lcard-anchor">page removed by publisher</div>
+          <div class="lcard-foot"><span class="lcard-tag">CheaterBuster</span><span class="lcard-avatar">N</span></div>
+        </div>
+      </div>
+      <div class="col-add">＋ Add to Lost</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
