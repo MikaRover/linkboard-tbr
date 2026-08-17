@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LinkBoard — Board mockup</title>
+<title>LinkBoard — Board (interactive)</title>
 <style>
 :root{
   --bg:#F6F4EF;
@@ -35,7 +35,7 @@ body{
 }
 ::selection{background:var(--blue);color:#fff;}
 
-/* ── TOP BAR (replaces left sidebar entirely) ── */
+/* ── TOP BAR ── */
 .topnav{
   display:flex;align-items:center;gap:6px;
   padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--border);
@@ -45,7 +45,7 @@ body{
 .logo span{color:var(--blue);}
 .topnav-item{
   font-size:13px;font-weight:700;color:var(--ink-2);padding:8px 13px;border-radius:8px;cursor:pointer;
-  white-space:nowrap;
+  white-space:nowrap;border:none;background:none;font-family:inherit;
 }
 .topnav-item:hover{background:var(--surface-2);color:var(--ink);}
 .topnav-item.active{background:var(--ink);color:#fff;}
@@ -63,6 +63,9 @@ body{
 
 /* ── PAGE BODY ── */
 .body{max-width:1500px;margin:0 auto;padding:26px 24px 60px;}
+.page{display:none;animation:fadeIn .18s ease;}
+.page.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
 
 .page-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;}
 .eyebrow{font-size:12px;font-weight:700;color:var(--blue);margin-bottom:5px;}
@@ -70,11 +73,11 @@ body{
 .btn{
   display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700;
   background:var(--blue);color:#fff;border:none;padding:10px 18px;border-radius:980px;cursor:pointer;
-  transition:transform .12s,box-shadow .15s;
+  transition:transform .12s,box-shadow .15s;font-family:inherit;
 }
 .btn:hover{box-shadow:0 4px 14px rgba(47,92,255,0.3);transform:translateY(-1px);}
 
-/* ── BENTO STAT ROW (asymmetric, not 4 equal boxes) ── */
+/* ── BENTO STAT ROW ── */
 .bento{display:grid;grid-template-columns:1.4fr 1fr 1fr 1.1fr;gap:12px;margin-bottom:26px;}
 .bento-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px 22px;position:relative;overflow:hidden;}
 .bento-card.hero{background:var(--ink);color:#fff;display:flex;flex-direction:column;justify-content:space-between;}
@@ -96,14 +99,17 @@ body{
 /* ── BOARD (kanban) ── */
 .board-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
 .board-head h2{font-size:15px;font-weight:800;}
-.board-controls{display:flex;gap:8px;}
+.board-controls{display:flex;gap:8px;align-items:center;}
 .chip-select{
   font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-2);
   background:var(--surface);border:1px solid var(--border-2);border-radius:980px;padding:6px 13px;cursor:pointer;
 }
 .view-toggle{display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:980px;padding:2px;}
-.view-toggle span{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:980px;cursor:pointer;color:var(--ink-3);}
-.view-toggle span.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,0.08);}
+.view-toggle button{
+  font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:980px;cursor:pointer;color:var(--ink-3);
+  border:none;background:none;font-family:inherit;
+}
+.view-toggle button.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,0.08);}
 
 .board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start;}
 .col{background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:12px;}
@@ -130,22 +136,67 @@ body{
 .lcard-dr{font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--ink-3);flex-shrink:0;margin-left:8px;}
 .lcard-anchor{font-size:11.5px;color:var(--ink-2);margin-bottom:10px;line-height:1.35;}
 .lcard-foot{display:flex;justify-content:space-between;align-items:center;}
-.lcard-tag{
-  font-size:10.5px;font-weight:700;background:var(--blue-dim);color:var(--blue-ink);
-  padding:2px 9px;border-radius:980px;
-}
+.lcard-tag{font-size:10.5px;font-weight:700;background:var(--blue-dim);color:var(--blue-ink);padding:2px 9px;border-radius:980px;}
 .lcard-avatar{
   width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;font-size:9px;font-weight:700;
   display:flex;align-items:center;justify-content:center;
 }
 .lcard.flag{border-color:var(--red);background:var(--red-dim);}
 .lcard.flag .lcard-tag{background:#fff;color:var(--red);}
-
 .col-add{
   margin-top:10px;text-align:center;font-size:11.5px;font-weight:700;color:var(--ink-3);
   padding:8px;border:1px dashed var(--border-2);border-radius:10px;cursor:pointer;
 }
 .col-add:hover{color:var(--ink);border-color:var(--ink-3);}
+
+/* ── TABLE VIEW (Links, alt) ── */
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+table{width:100%;border-collapse:collapse;font-size:13.5px;}
+thead th{
+  text-align:left;font-size:10.5px;font-weight:700;color:var(--ink-3);text-transform:uppercase;
+  letter-spacing:0.5px;padding:10px 18px;border-bottom:1px solid var(--border);white-space:nowrap;
+}
+tbody td{padding:12px 18px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--surface-2);}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+.dim{color:var(--ink-3);}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;}
+.status::before{content:'';width:7px;height:7px;border-radius:50%;}
+.status.live{color:var(--green);}.status.live::before{background:var(--green);}
+.status.pending{color:var(--amber);}.status.pending::before{background:var(--amber);}
+
+/* ── PROJECTS PAGE ── */
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;}
+.proj-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;}
+.proj-name{font-size:15px;font-weight:800;margin-bottom:3px;}
+.proj-desc{font-size:12px;color:var(--ink-2);margin-bottom:14px;line-height:1.4;min-height:32px;}
+.proj-stats{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-3);padding-top:12px;border-top:1px solid var(--border);}
+.proj-stats b{color:var(--ink);font-family:var(--mono);}
+
+/* ── TEAM PAGE ── */
+.team-list{display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.team-row{background:var(--surface);padding:14px 20px;display:flex;align-items:center;gap:14px;}
+.team-avatar{
+  width:36px;height:36px;border-radius:50%;background:var(--ink);color:#fff;font-size:13px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.team-name{font-size:14px;font-weight:700;}
+.team-role{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:0.4px;}
+.team-cap{margin-left:auto;width:180px;}
+.cap-bar-bg{height:6px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:4px;}
+.cap-bar-fill{height:6px;background:var(--blue);border-radius:4px;}
+.cap-label{font-size:11px;color:var(--ink-3);font-family:var(--mono);text-align:right;}
+
+/* ── INVOICES PAGE ── */
+.inv-pill{display:inline-flex;font-size:11px;font-weight:700;padding:3px 10px;border-radius:980px;}
+.inv-pill.paid{background:var(--green-dim);color:var(--green);}
+.inv-pill.unpaid{background:var(--amber-dim);color:var(--amber);}
+
+.placeholder{
+  background:var(--surface);border:1px dashed var(--border-2);border-radius:16px;
+  padding:60px 20px;text-align:center;color:var(--ink-3);font-size:13px;
+}
 
 @media (max-width:1200px){
   .bento{grid-template-columns:1fr 1fr;}
@@ -157,13 +208,13 @@ body{
 
 <div class="topnav">
   <div class="logo">Link<span>Board</span></div>
-  <div class="topnav-item active">Links</div>
-  <div class="topnav-item">Projects</div>
-  <div class="topnav-item">Team</div>
-  <div class="topnav-item">Invoices</div>
-  <div class="topnav-item">Analytics</div>
+  <button class="topnav-item active" data-page="links">Links</button>
+  <button class="topnav-item" data-page="projects">Projects</button>
+  <button class="topnav-item" data-page="team">Team</button>
+  <button class="topnav-item" data-page="invoices">Invoices</button>
+  <button class="topnav-item" data-page="analytics">Analytics</button>
   <div class="topnav-sep"></div>
-  <div class="topnav-item">Data Checker</div>
+  <button class="topnav-item" data-page="checker">Data Checker</button>
   <div class="topnav-right">
     <div class="search-mini"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search…</div>
     <div class="avatar-me">AD</div>
@@ -171,124 +222,164 @@ body{
 </div>
 
 <div class="body">
-  <div class="page-head">
-    <div>
-      <div class="eyebrow">August 2026</div>
-      <div class="h1">Links board</div>
-    </div>
-    <button class="btn">＋ Add link</button>
-  </div>
 
-  <div class="bento">
-    <div class="bento-card hero">
-      <div class="bento-hero-top">
+  <!-- LINKS -->
+  <div class="page active" id="page-links">
+    <div class="page-head">
+      <div><div class="eyebrow">August 2026</div><div class="h1">Links board</div></div>
+      <button class="btn">＋ Add link</button>
+    </div>
+
+    <div class="bento">
+      <div class="bento-card hero">
+        <div class="bento-hero-top"><div><div class="bento-l">Live this month</div><div class="bento-v">142</div></div></div>
         <div>
-          <div class="bento-l">Live this month</div>
-          <div class="bento-v">142</div>
+          <div class="spark"><div style="height:40%"></div><div style="height:55%"></div><div style="height:35%"></div><div style="height:70%"></div><div style="height:50%"></div><div style="height:80%"></div><div style="height:100%"></div></div>
+          <div class="bento-sub">↑ 18 vs last month</div>
         </div>
       </div>
-      <div>
-        <div class="spark">
-          <div style="height:40%"></div><div style="height:55%"></div><div style="height:35%"></div>
-          <div style="height:70%"></div><div style="height:50%"></div><div style="height:80%"></div>
-          <div style="height:100%"></div>
+      <div class="bento-card"><div class="bento-l">Pending</div><div class="bento-v amber">27</div><div class="bento-sub">4 waiting 14d+</div></div>
+      <div class="bento-card"><div class="bento-l">Needs attention</div><div class="bento-v blue">6</div><div class="bento-sub">2 approvals · 4 unpaid</div></div>
+      <div class="bento-card">
+        <div class="bento-l">Top builders</div>
+        <div class="bento-mini-list">
+          <div class="bento-mini-row"><span>Lusine</span><b>30</b></div>
+          <div class="bento-mini-row"><span>Syuzi</span><b>27</b></div>
+          <div class="bento-mini-row"><span>Tam</span><b>24</b></div>
         </div>
-        <div class="bento-sub">↑ 18 vs last month</div>
       </div>
     </div>
-    <div class="bento-card">
-      <div class="bento-l">Pending</div>
-      <div class="bento-v amber">27</div>
-      <div class="bento-sub">4 waiting 14d+</div>
-    </div>
-    <div class="bento-card">
-      <div class="bento-l">Needs attention</div>
-      <div class="bento-v blue">6</div>
-      <div class="bento-sub">2 approvals · 4 unpaid</div>
-    </div>
-    <div class="bento-card">
-      <div class="bento-l">Top builders</div>
-      <div class="bento-mini-list">
-        <div class="bento-mini-row"><span>Lusine</span><b>30</b></div>
-        <div class="bento-mini-row"><span>Syuzi</span><b>27</b></div>
-        <div class="bento-mini-row"><span>Tam</span><b>24</b></div>
+
+    <div class="board-head">
+      <h2>All projects · 143 links</h2>
+      <div class="board-controls">
+        <select class="chip-select"><option>All projects</option></select>
+        <select class="chip-select"><option>All builders</option></select>
+        <div class="view-toggle">
+          <button class="active" data-view="board">Board</button>
+          <button data-view="table">Table</button>
+        </div>
       </div>
+    </div>
+
+    <div id="links-board" class="board">
+      <div class="col">
+        <div class="col-head"><span class="col-dot live"></span><span class="col-title">Live</span><span class="col-count">142</span></div>
+        <div class="card-stack">
+          <div class="lcard"><div class="lcard-top"><div class="lcard-domain">techreviewhub.com</div><div class="lcard-dr">DR 62</div></div><div class="lcard-anchor">"best ai tools 2026"</div><div class="lcard-foot"><span class="lcard-tag">Aikido</span><span class="lcard-avatar">L</span></div></div>
+          <div class="lcard"><div class="lcard-top"><div class="lcard-domain">saasgrowthblog.io</div><div class="lcard-dr">DR 48</div></div><div class="lcard-anchor">"saas ppc advertising"</div><div class="lcard-foot"><span class="lcard-tag">Camel</span><span class="lcard-avatar">T</span></div></div>
+          <div class="lcard"><div class="lcard-top"><div class="lcard-domain">chargeinfra.news</div><div class="lcard-dr">DR 71</div></div><div class="lcard-anchor">"ev charging as a service"</div><div class="lcard-foot"><span class="lcard-tag">Ampaway</span><span class="lcard-avatar">A</span></div></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="col-head"><span class="col-dot pending"></span><span class="col-title">Pending</span><span class="col-count">27</span></div>
+        <div class="card-stack">
+          <div class="lcard flag"><div class="lcard-top"><div class="lcard-domain">quantumsim.dev</div><div class="lcard-dr">DR 54</div></div><div class="lcard-anchor">"quantum computing platform" · 16 days waiting</div><div class="lcard-foot"><span class="lcard-tag">Bluequbit</span><span class="lcard-avatar">S</span></div></div>
+          <div class="lcard"><div class="lcard-top"><div class="lcard-domain">otpsecurity.com</div><div class="lcard-dr">DR 39</div></div><div class="lcard-anchor">"two-factor authentication"</div><div class="lcard-foot"><span class="lcard-tag">Dexatel</span><span class="lcard-avatar">G</span></div></div>
+        </div>
+        <div class="col-add">＋ Add to Pending</div>
+      </div>
+      <div class="col">
+        <div class="col-head"><span class="col-dot change"></span><span class="col-title">Needs change</span><span class="col-count">5</span></div>
+        <div class="card-stack">
+          <div class="lcard"><div class="lcard-top"><div class="lcard-domain">easydmarc.com</div><div class="lcard-dr">DR 58</div></div><div class="lcard-anchor">wrong anchor placed — swap link</div><div class="lcard-foot"><span class="lcard-tag">EasyDMARC</span><span class="lcard-avatar">V</span></div></div>
+        </div>
+        <div class="col-add">＋ Add to Needs change</div>
+      </div>
+      <div class="col">
+        <div class="col-head"><span class="col-dot lost"></span><span class="col-title">Lost</span><span class="col-count">9</span></div>
+        <div class="card-stack">
+          <div class="lcard"><div class="lcard-top"><div class="lcard-domain">cheaterbuster.co</div><div class="lcard-dr">DR 44</div></div><div class="lcard-anchor">page removed by publisher</div><div class="lcard-foot"><span class="lcard-tag">CheaterBuster</span><span class="lcard-avatar">N</span></div></div>
+        </div>
+        <div class="col-add">＋ Add to Lost</div>
+      </div>
+    </div>
+
+    <div id="links-table" class="tbl-wrap" style="display:none;">
+      <table>
+        <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="mono dim">08.16</td><td>techreviewhub.com</td><td class="mono">62</td><td>best ai tools 2026</td><td><span class="lcard-tag">Aikido</span></td><td><span class="lcard-avatar" style="display:inline-flex;">L</span> Lusine</td><td><span class="status live">Live</span></td></tr>
+          <tr><td class="mono dim">08.16</td><td>quantumsim.dev</td><td class="mono">54</td><td>quantum computing platform</td><td><span class="lcard-tag">Bluequbit</span></td><td><span class="lcard-avatar" style="display:inline-flex;">S</span> Syuzi</td><td><span class="status pending">Pending</span></td></tr>
+          <tr><td class="mono dim">08.15</td><td>saasgrowthblog.io</td><td class="mono">48</td><td>saas ppc advertising</td><td><span class="lcard-tag">Camel</span></td><td><span class="lcard-avatar" style="display:inline-flex;">T</span> Tam</td><td><span class="status live">Live</span></td></tr>
+          <tr><td class="mono dim">08.15</td><td>chargeinfra.news</td><td class="mono">71</td><td>ev charging as a service</td><td><span class="lcard-tag">Ampaway</span></td><td><span class="lcard-avatar" style="display:inline-flex;">A</span> Armen</td><td><span class="status live">Live</span></td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <div class="board-head">
-    <h2>All projects · 143 links</h2>
-    <div class="board-controls">
-      <select class="chip-select"><option>All projects</option></select>
-      <select class="chip-select"><option>All builders</option></select>
-      <div class="view-toggle"><span class="active">Board</span><span>Table</span></div>
+  <!-- PROJECTS -->
+  <div class="page" id="page-projects">
+    <div class="page-head"><div><div class="eyebrow">6 active</div><div class="h1">Projects</div></div><button class="btn">＋ New project</button></div>
+    <div class="proj-grid">
+      <div class="proj-card"><div class="proj-name">Aikido</div><div class="proj-desc">stablecoin-based financial operating system</div><div class="proj-stats"><span>Links <b>123</b></span><span>Live <b>95</b></span></div></div>
+      <div class="proj-card"><div class="proj-name">Ampaway</div><div class="proj-desc">EV charging infrastructure for properties</div><div class="proj-stats"><span>Links <b>105</b></span><span>Live <b>91</b></span></div></div>
+      <div class="proj-card"><div class="proj-name">Bluequbit</div><div class="proj-desc">quantum computing simulation SaaS</div><div class="proj-stats"><span>Links <b>501</b></span><span>Live <b>474</b></span></div></div>
+      <div class="proj-card"><div class="proj-name">Camel</div><div class="proj-desc">SaaS PPC agency for B2B tech companies</div><div class="proj-stats"><span>Links <b>417</b></span><span>Live <b>394</b></span></div></div>
+      <div class="proj-card"><div class="proj-name">Dexatel</div><div class="proj-desc">omnichannel messaging &amp; communication APIs</div><div class="proj-stats"><span>Links <b>276</b></span><span>Live <b>268</b></span></div></div>
+      <div class="proj-card"><div class="proj-name">EasyDMARC</div><div class="proj-desc">email security &amp; DMARC monitoring</div><div class="proj-stats"><span>Links <b>362</b></span><span>Live <b>327</b></span></div></div>
     </div>
   </div>
 
-  <div class="board">
-    <div class="col">
-      <div class="col-head"><span class="col-dot live"></span><span class="col-title">Live</span><span class="col-count">142</span></div>
-      <div class="card-stack">
-        <div class="lcard">
-          <div class="lcard-top"><div class="lcard-domain">techreviewhub.com</div><div class="lcard-dr">DR 62</div></div>
-          <div class="lcard-anchor">"best ai tools 2026"</div>
-          <div class="lcard-foot"><span class="lcard-tag">Aikido</span><span class="lcard-avatar">L</span></div>
-        </div>
-        <div class="lcard">
-          <div class="lcard-top"><div class="lcard-domain">saasgrowthblog.io</div><div class="lcard-dr">DR 48</div></div>
-          <div class="lcard-anchor">"saas ppc advertising"</div>
-          <div class="lcard-foot"><span class="lcard-tag">Camel</span><span class="lcard-avatar">T</span></div>
-        </div>
-        <div class="lcard">
-          <div class="lcard-top"><div class="lcard-domain">chargeinfra.news</div><div class="lcard-dr">DR 71</div></div>
-          <div class="lcard-anchor">"ev charging as a service"</div>
-          <div class="lcard-foot"><span class="lcard-tag">Ampaway</span><span class="lcard-avatar">A</span></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col">
-      <div class="col-head"><span class="col-dot pending"></span><span class="col-title">Pending</span><span class="col-count">27</span></div>
-      <div class="card-stack">
-        <div class="lcard flag">
-          <div class="lcard-top"><div class="lcard-domain">quantumsim.dev</div><div class="lcard-dr">DR 54</div></div>
-          <div class="lcard-anchor">"quantum computing platform" · 16 days waiting</div>
-          <div class="lcard-foot"><span class="lcard-tag">Bluequbit</span><span class="lcard-avatar">S</span></div>
-        </div>
-        <div class="lcard">
-          <div class="lcard-top"><div class="lcard-domain">otpsecurity.com</div><div class="lcard-dr">DR 39</div></div>
-          <div class="lcard-anchor">"two-factor authentication"</div>
-          <div class="lcard-foot"><span class="lcard-tag">Dexatel</span><span class="lcard-avatar">G</span></div>
-        </div>
-      </div>
-      <div class="col-add">＋ Add to Pending</div>
-    </div>
-
-    <div class="col">
-      <div class="col-head"><span class="col-dot change"></span><span class="col-title">Needs change</span><span class="col-count">5</span></div>
-      <div class="card-stack">
-        <div class="lcard">
-          <div class="lcard-top"><div class="lcard-domain">easydmarc.com</div><div class="lcard-dr">DR 58</div></div>
-          <div class="lcard-anchor">wrong anchor placed — swap link</div>
-          <div class="lcard-foot"><span class="lcard-tag">EasyDMARC</span><span class="lcard-avatar">V</span></div>
-        </div>
-      </div>
-      <div class="col-add">＋ Add to Needs change</div>
-    </div>
-
-    <div class="col">
-      <div class="col-head"><span class="col-dot lost"></span><span class="col-title">Lost</span><span class="col-count">9</span></div>
-      <div class="card-stack">
-        <div class="lcard">
-          <div class="lcard-top"><div class="lcard-domain">cheaterbuster.co</div><div class="lcard-dr">DR 44</div></div>
-          <div class="lcard-anchor">page removed by publisher</div>
-          <div class="lcard-foot"><span class="lcard-tag">CheaterBuster</span><span class="lcard-avatar">N</span></div>
-        </div>
-      </div>
-      <div class="col-add">＋ Add to Lost</div>
+  <!-- TEAM -->
+  <div class="page" id="page-team">
+    <div class="page-head"><div><div class="eyebrow">13 on roster</div><div class="h1">Team</div></div></div>
+    <div class="team-list">
+      <div class="team-row"><div class="team-avatar">L</div><div><div class="team-name">Lusine</div><div class="team-role">Builder</div></div><div class="team-cap"><div class="cap-bar-bg"><div class="cap-bar-fill" style="width:100%"></div></div><div class="cap-label">30 / 30</div></div></div>
+      <div class="team-row"><div class="team-avatar">S</div><div><div class="team-name">Syuzi</div><div class="team-role">Builder</div></div><div class="team-cap"><div class="cap-bar-bg"><div class="cap-bar-fill" style="width:90%"></div></div><div class="cap-label">27 / 30</div></div></div>
+      <div class="team-row"><div class="team-avatar">T</div><div><div class="team-name">Tam</div><div class="team-role">Builder</div></div><div class="team-cap"><div class="cap-bar-bg"><div class="cap-bar-fill" style="width:80%"></div></div><div class="cap-label">24 / 30</div></div></div>
+      <div class="team-row"><div class="team-avatar">A</div><div><div class="team-name">Armen</div><div class="team-role">Builder</div></div><div class="team-cap"><div class="cap-bar-bg"><div class="cap-bar-fill" style="width:70%"></div></div><div class="cap-label">19 / 27</div></div></div>
+      <div class="team-row"><div class="team-avatar">AD</div><div><div class="team-name">Admin</div><div class="team-role">Administrator</div></div></div>
     </div>
   </div>
+
+  <!-- INVOICES -->
+  <div class="page" id="page-invoices">
+    <div class="page-head"><div><div class="eyebrow">$4,120 owed</div><div class="h1">Invoices</div></div></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Domain</th><th>Project</th><th>Builder</th><th>Price</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>techreviewhub.com</td><td><span class="lcard-tag">Aikido</span></td><td>Lusine</td><td class="mono">$180</td><td><span class="inv-pill paid">Paid</span></td></tr>
+          <tr><td>chargeinfra.news</td><td><span class="lcard-tag">Ampaway</span></td><td>Armen</td><td class="mono">$240</td><td><span class="inv-pill unpaid">Unpaid</span></td></tr>
+          <tr><td>saasgrowthblog.io</td><td><span class="lcard-tag">Camel</span></td><td>Tam</td><td class="mono">$150</td><td><span class="inv-pill unpaid">Unpaid</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ANALYTICS (placeholder) -->
+  <div class="page" id="page-analytics">
+    <div class="page-head"><div><div class="eyebrow">Coming into this direction next</div><div class="h1">Analytics</div></div></div>
+    <div class="placeholder">Charts &amp; KPI trends would live here — same bento + monospace-number language as the Links board.</div>
+  </div>
+
+  <!-- DATA CHECKER (placeholder) -->
+  <div class="page" id="page-checker">
+    <div class="page-head"><div><div class="eyebrow">0 issues right now</div><div class="h1">Data Checker</div></div></div>
+    <div class="placeholder">Flagged rows (duplicates, bad domains, stale pending) would list here in the same table style as Invoices.</div>
+  </div>
+
 </div>
 
+<script>
+document.querySelectorAll('.topnav-item[data-page]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.topnav-item[data-page]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-'+btn.dataset.page).classList.add('active');
+  });
+});
+document.querySelectorAll('.view-toggle button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.view-toggle button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const isBoard = btn.dataset.view==='board';
+    document.getElementById('links-board').style.display = isBoard ? 'grid' : 'none';
+    document.getElementById('links-table').style.display = isBoard ? 'none' : 'block';
+  });
+});
+</script>
 </body>
 </html>
