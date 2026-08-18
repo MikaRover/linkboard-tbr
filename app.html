@@ -13,25 +13,26 @@
 /* ── RESET & VARS ── */
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#0a0e1e;--bg2:#0e1a2b;--bg3:#132133;--bg4:#182648;
-  --teal:#00c4ae;--teal2:#00e5cc;--teal-glow:rgba(0,196,174,0.15);
-  --accent2:#7c8fff;--accent2-glow:rgba(124,143,255,0.15);
-  --border:#1c3049;--border2:#28405c;
-  --text:#e4f2ef;--text2:#7396ae;--text3:rgba(255,255,255,0.4);
-  --red:#ff5f5f;--yellow:#f0a500;
-  --radius:12px;--radius-lg:20px;
-  --shadow:0 1px 3px rgba(0,0,0,0.18),0 8px 30px rgba(0,0,0,0.28);
-  --shadow-teal:0 4px 24px rgba(0,196,174,0.18);
+  --bg:#08090a;--bg2:#0d0e11;--bg3:#141517;--bg4:#1a1b1e;
+  --teal:#2dd4bf;--teal2:#5eead4;--teal-glow:rgba(45,212,191,0.15);
+  --accent2:#7c88e8;--accent2-2:#a3addf;--accent2-glow:rgba(124,136,232,0.16);
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);
+  --text:#f7f8f8;--text2:#8a8f98;--text3:rgba(255,255,255,0.4);
+  --red:#f4795b;--yellow:#f2b73e;
+  --radius:12px;--radius-lg:18px;
+  --shadow:0 1px 2px rgba(0,0,0,0.24),0 10px 28px rgba(0,0,0,0.3);
+  --shadow-teal:0 4px 24px rgba(45,212,191,0.16);
+  --font-mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,monospace;
 }
 /* ── SPLASH SCREEN ── */
-#app-splash{position:fixed;inset:0;background:#080f1e;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;}
+#app-splash{position:fixed;inset:0;background:#08090a;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;}
 #app-splash.hide{animation:splashOut 0.5s cubic-bezier(0.4,0,1,1) forwards;}
 @keyframes splashOut{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(1.04);pointer-events:none;}}
 .splash-logo-txt{font-size:64px;font-weight:800;color:#e8f5f2;opacity:0;transform:translateY(16px);animation:logoIn 0.7s 0.3s cubic-bezier(0.22,1,0.36,1) forwards;font-family:"Inter",-apple-system,sans-serif;letter-spacing:-2px;}
-.splash-logo-txt span{color:#00c4ae;}
-.splash-sub-txt{font-size:13px;color:#4a7090;letter-spacing:4px;text-transform:uppercase;opacity:0;animation:fadeIn2 0.5s 0.6s ease forwards;margin-top:12px;}
-.splash-bar-wrap{width:200px;height:2px;background:rgba(0,196,174,0.1);border-radius:2px;overflow:hidden;opacity:0;animation:fadeIn2 0.3s 0.8s ease forwards;margin-top:24px;}
-.splash-bar{height:100%;width:0%;background:linear-gradient(90deg,#00c4ae,#00e5cc);border-radius:2px;box-shadow:0 0 10px rgba(0,196,174,0.9);animation:barFill 1.4s 0.9s cubic-bezier(0.4,0,0.2,1) forwards;}
+.splash-logo-txt span{color:#7c88e8;}
+.splash-sub-txt{font-size:13px;color:#5c6280;letter-spacing:4px;text-transform:uppercase;opacity:0;animation:fadeIn2 0.5s 0.6s ease forwards;margin-top:12px;}
+.splash-bar-wrap{width:200px;height:2px;background:rgba(124,136,232,0.15);border-radius:2px;overflow:hidden;opacity:0;animation:fadeIn2 0.3s 0.8s ease forwards;margin-top:24px;}
+.splash-bar{height:100%;width:0%;background:linear-gradient(90deg,#7c88e8,#a3addf);border-radius:2px;box-shadow:0 0 10px rgba(124,136,232,0.9);animation:barFill 1.4s 0.9s cubic-bezier(0.4,0,0.2,1) forwards;}
 #splash-3d-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
 @keyframes logoIn{to{opacity:1;transform:translateY(0);}}
 @keyframes fadeIn2{to{opacity:1;}}
@@ -75,7 +76,7 @@ body.light{
 }
 body.light input,body.light select{background:#fff;color:var(--text);border-color:var(--border);box-shadow:0 1px 2px rgba(0,0,0,0.04);}
 body.light select option{background:#fff;color:var(--text);}
-body.light .btn,body.light .btn-sm{color:#fff;background:var(--teal);}
+body.light .btn,body.light .btn-sm{color:#fff;background:var(--accent2);}
 body.light .btn-ghost{color:var(--text2);border-color:var(--border2);}
 body.light .btn-ghost:hover{background:var(--bg3);}
 body.light .sidebar{background:#fff;border-color:var(--border);box-shadow:1px 0 8px rgba(0,0,0,0.05);}
@@ -85,9 +86,9 @@ body.light table thead th{background:#f1f5f9;color:var(--text2);}
 body.light table tbody tr:hover{background:#f8fafc;}
 body.light .nav{color:var(--text2);}
 body.light .nav:hover{background:var(--bg3);color:var(--text);}
-body.light .nav.active{background:rgba(8,145,178,0.1);color:var(--teal);}
+body.light .nav.active{background:var(--accent2-glow);color:var(--accent2);}
 body.light .page-title{color:var(--text);}
-body.light .sb-logo span{color:var(--teal);}
+body.light .sb-logo span{color:var(--accent2);}
 body.light .login-box{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.10);}
 
 /* ── PERF: reduce transitions on scroll ── */
@@ -104,9 +105,9 @@ body,body *{transition:background-color 0.18s ease,color 0.15s ease,border-color
 /* ── LAYOUT ── */
 .screen{display:none;}.screen.active{display:block;}
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;}
-.login-box{width:380px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:2.5rem;box-shadow:var(--shadow),0 0 40px rgba(0,196,174,0.06);animation:fadeSlideIn 0.35s ease;position:relative;z-index:1;}
+.login-box{width:380px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:2.5rem;box-shadow:var(--shadow),0 0 40px rgba(124,136,232,0.08);animation:fadeSlideIn 0.35s ease;position:relative;z-index:1;}
 .login-logo{font-size:26px;font-weight:800;color:var(--text);margin-bottom:4px;text-align:center;letter-spacing:-0.5px;}
-.login-logo span{color:var(--teal);}
+.login-logo span{color:var(--accent2);}
 .login-sub{font-size:13px;color:var(--text2);text-align:center;margin-bottom:2rem;}
 label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:0.5px;}
 .err{font-size:12px;color:var(--red);margin-bottom:12px;display:none;padding:10px 14px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;animation:slideDown 0.2s ease;}
@@ -116,12 +117,12 @@ label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;displa
 .sidebar{width:220px;min-width:220px;background:linear-gradient(180deg,var(--bg2) 0%,var(--bg3) 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1.25rem 0;position:fixed;height:100vh;overflow-y:auto;}
 .sb-top{padding:0 1.25rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:10px;}
 .sb-logo{font-size:19px;font-weight:800;color:var(--text);margin-bottom:10px;letter-spacing:-0.5px;}
-.sb-logo span{color:var(--teal);}
+.sb-logo span{color:var(--accent2);}
 .sb-name{font-size:14px;font-weight:600;color:var(--text);}
 .sb-role{font-size:11px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:0.3px;}
 .nav{padding:10px 1.25rem;font-size:14px;font-weight:500;cursor:pointer;color:var(--text2);border-left:2px solid transparent;transition:all 0.15s ease;border-radius:0 8px 8px 0;margin:1px 8px 1px 0;display:flex;align-items:center;}
 .nav:hover{color:var(--text);background:var(--bg4);border-left-color:var(--border2);}
-.nav.active{color:var(--teal);background:var(--teal-glow);border-left-color:var(--teal);font-weight:700;}
+.nav.active{color:var(--accent2);background:var(--accent2-glow);border-left-color:var(--accent2);font-weight:700;}
 .sb-bottom{margin-top:auto;padding:1.25rem;}
 .logout{font-size:13px;color:var(--text3);cursor:pointer;transition:color 0.15s;}
 .logout:hover{color:var(--red);}
@@ -136,7 +137,7 @@ label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;displa
 /* ── STATS ── */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem;}
 .stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.2rem;transition:all 0.15s ease;cursor:default;position:relative;overflow:hidden;}
-.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--teal),transparent);opacity:0;transition:opacity 0.2s;}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent2),transparent);opacity:0;transition:opacity 0.2s;}
 .stat:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:var(--shadow-teal);}
 .stat:hover::before{opacity:1;}
 .stat-l{font-size:10px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.8px;}
@@ -158,20 +159,20 @@ tr:last-child td{border-bottom:none;}
 .link-row:hover td{background:var(--bg3);}
 
 /* ── BUTTONS ── */
-.btn{width:100%;padding:11px;font-size:14px;border-radius:var(--radius);border:none;background:linear-gradient(135deg,var(--teal),var(--teal2));color:#061520;cursor:pointer;font-weight:700;transition:all 0.15s ease;letter-spacing:0.2px;}
+.btn{width:100%;padding:11px;font-size:14px;border-radius:var(--radius);border:none;background:linear-gradient(135deg,var(--accent2),var(--accent2-2));color:#0e1030;cursor:pointer;font-weight:700;transition:all 0.15s ease;letter-spacing:0.2px;}
 .btn:hover{box-shadow:var(--shadow-teal);filter:brightness(1.05);}
 .btn:active{transform:scale(0.98);}
-.btn-sm{padding:5px 14px;font-size:12px;background:linear-gradient(135deg,var(--teal),var(--teal2));color:#061520;border:none;border-radius:6px;cursor:pointer;font-weight:700;transition:all 0.15s ease;}
-.btn-sm:hover{box-shadow:0 2px 10px rgba(0,196,174,0.3);filter:brightness(1.05);}
+.btn-sm{padding:5px 14px;font-size:12px;background:linear-gradient(135deg,var(--accent2),var(--accent2-2));color:#0e1030;border:none;border-radius:6px;cursor:pointer;font-weight:700;transition:all 0.15s ease;}
+.btn-sm:hover{box-shadow:0 2px 10px rgba(124,136,232,0.35);filter:brightness(1.05);}
 .btn-sm:active{transform:scale(0.97);}
 .btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2);padding:5px 12px;font-size:12px;border-radius:6px;cursor:pointer;transition:all 0.15s ease;}
-.btn-ghost:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-glow);}
+.btn-ghost:hover{border-color:var(--accent2);color:var(--accent2);background:var(--accent2-glow);}
 .btn-danger{background:transparent;border:1px solid rgba(255,95,95,0.3);color:var(--red);padding:5px 10px;font-size:11px;border-radius:6px;cursor:pointer;transition:all 0.15s ease;}
 .btn-danger:hover{background:rgba(255,95,95,0.08);border-color:var(--red);}
 
 /* ── INPUTS ── */
 input,select{width:100%;padding:10px 12px;font-size:15px;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);margin-bottom:14px;outline:none;transition:border-color 0.15s ease,box-shadow 0.15s ease;font-family:inherit;}
-input:focus,select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,196,174,0.1);}
+input:focus,select:focus{border-color:var(--accent2);box-shadow:0 0 0 3px var(--accent2-glow);}
 select option{background:var(--bg2);}
 
 /* ── BADGES ── */
@@ -309,7 +310,7 @@ select option{background:var(--bg2);}
 .screen{display:none;}.screen.active{display:block;}
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;}
 .login-logo{font-size:24px;font-weight:700;color:var(--text);margin-bottom:4px;text-align:center;}
-.login-logo span{color:var(--teal);}
+.login-logo span{color:var(--accent2);}
 .login-sub{font-size:13px;color:var(--text2);text-align:center;margin-bottom:2rem;}
 label{font-size:12px;color:var(--text2);margin-bottom:5px;display:block;}
 select option{background:var(--bg2);}
@@ -318,12 +319,12 @@ select option{background:var(--bg2);}
 .sidebar{width:220px;min-width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1.25rem 0;position:fixed;height:100vh;overflow-y:auto;}
 .sb-top{padding:0 1.25rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:10px;}
 .sb-logo{font-size:18px;font-weight:700;color:var(--text);margin-bottom:10px;}
-.sb-logo span{color:var(--teal);}
+.sb-logo span{color:var(--accent2);}
 .sb-name{font-size:14px;font-weight:600;color:var(--text);}
 .sb-role{font-size:11px;color:var(--text2);margin-top:2px;}
 .nav{padding:10px 1.25rem;font-size:14px;cursor:pointer;color:var(--text2);border-left:2px solid transparent;transition:all 0.15s;}
 .nav:hover{color:var(--text);background:var(--bg3);}
-.nav.active{color:var(--teal);background:var(--bg3);border-left-color:var(--teal);font-weight:600;}
+.nav.active{color:var(--accent2);background:var(--accent2-glow);border-left-color:var(--accent2);font-weight:600;}
 .sb-bottom{margin-top:auto;padding:1.25rem;}
 .logout{font-size:13px;color:var(--text3);cursor:pointer;}
 .logout:hover{color:#ff6b6b;}
@@ -580,8 +581,8 @@ select{
 }
 input:focus, select:focus, textarea:focus{
   outline:none !important;
-  border-color:var(--teal) !important;
-  box-shadow:0 0 0 4px var(--teal-glow) !important;
+  border-color:var(--accent2) !important;
+  box-shadow:0 0 0 4px var(--accent2-glow) !important;
 }
 
 /* Status filter tabs — segmented-control feel */
@@ -673,6 +674,37 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   padding:9px 12px !important;
   border-radius:10px !important;
 }
+
+/* ══════════════════════════════════════════════════════
+   Refined dark direction — tabular monospace for all data
+   numbers (DR, Traffic, $, stat values) so columns line up
+   and figures read at a glance, matching the approved preview.
+   ══════════════════════════════════════════════════════ */
+.stat-v{
+  font-family:var(--font-mono);
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-0.02em;
+}
+#all-tbody td:nth-child(4),#all-tbody td:nth-child(5),
+#pd-tbody td:nth-child(4),#pd-tbody td:nth-child(5),
+#b-tbody td:nth-child(4),#b-tbody td:nth-child(5),
+#dc-tbody td:nth-child(3),#dc-tbody td:nth-child(4),
+#inv-tbody td:nth-child(6){
+  font-family:var(--font-mono);
+  font-variant-numeric:tabular-nums;
+}
+
+/* Dashboard hero stats as compact chips (number+label side by side)
+   instead of full-width equal-column cards — scoped to this one row
+   via .dash-stat-row so the shared .stat/.stat-l/.stat-v classes keep
+   their normal card layout everywhere else in the app. */
+.dash-stat-row{display:flex;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap;}
+.dash-stat-row .dash-chip{
+  display:flex;align-items:center;gap:10px;padding:12px 18px;
+  border-radius:12px;flex:none;
+}
+.dash-stat-row .dash-chip .stat-l{order:2;font-size:13px;font-weight:500;margin:0;}
+.dash-stat-row .dash-chip .stat-v{order:1;font-size:22px;margin:0;}
 
 /* ── MOBILE RESPONSIVE ── */
 .sidebar-toggle{display:none;}
@@ -857,11 +889,12 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
       <button class="btn-sm" onclick="bulkCheckMyLinks(this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">🔗 Check my links</button>
     </div>
   </div>
-  <div class="stats" style="grid-template-columns:repeat(3,1fr);">
-    <div class="stat"><div class="stat-l">This month live</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
-    <div class="stat"><div class="stat-l">This month pending</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
-    <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:#ff6b6b" id="ds-dup">—</div></div>
+  <div class="stats dash-stat-row">
+    <div class="stat dash-chip"><div class="stat-l">Live this month</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
+    <div class="stat dash-chip"><div class="stat-l">Pending this month</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
+    <div class="stat dash-chip" id="ds-attn-chip"><div class="stat-l">Needs attention</div><div class="stat-v" id="ds-attn">—</div></div>
   </div>
+  <div id="ds-dup-banner" style="display:none;margin:-6px 0 1.5rem;padding:10px 16px;border-radius:10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.25);font-size:13px;color:var(--text2);cursor:pointer;" onclick="goToChecker()"></div>
 
   <!-- Builder leaderboard this month -->
   <div class="card adm" id="ds-leaderboard-card">
@@ -870,18 +903,9 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   </div>
 
   <div class="card">
-    <div class="card-head">This month — live <span style="font-size:12px;color:var(--text2)" id="lc"></span></div>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Category</th><th>Anchor</th><th>Project</th><th>Builder</th></tr></thead>
-      <tbody id="dash-live"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
-    </table></div>
+    <div class="card-head">Recent activity <a onclick="goToMyLinksFromDashboard()" style="font-size:12px;color:var(--teal);cursor:pointer;text-decoration:none;">View all →</a></div>
+    <div id="dash-recent"><div class="loading" style="padding:20px;">Loading...</div></div>
   </div>
-  <div class="card">
-    <div class="card-head pend">Pending <span style="font-size:12px;color:#f0a500" id="pc"></span></div>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Category</th><th>Anchor</th><th>Project</th><th>Builder</th></tr></thead>
-      <tbody id="dash-pend"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
-    </table></div>
   </div>
 </div>
 
@@ -992,8 +1016,8 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   </div>
   <div class="card">
     <div class="tbl-wrap"><table>
-      <thead><tr><th><input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="toggleSort('date')">Date <span id="sort-date">↓</span></th><th>Domain</th><th style="cursor:pointer;" onclick="toggleSort('dr')">DR <span id="sort-dr"></span></th><th style="cursor:pointer;" onclick="toggleSort('traffic')">Traffic <span id="sort-traffic"></span></th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th><th>Link check</th><th class="adm"></th></tr></thead>
-      <tbody id="all-tbody"><tr><td colspan="11" class="loading">Loading...</td></tr></tbody>
+      <thead><tr><th><input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="toggleSort('date')">Date <span id="sort-date">↓</span></th><th>Domain</th><th style="cursor:pointer;" onclick="toggleSort('dr')">DR <span id="sort-dr"></span></th><th style="cursor:pointer;" onclick="toggleSort('traffic')">Traffic <span id="sort-traffic"></span></th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th><th>Link check</th><th>Invoice</th><th class="adm"></th></tr></thead>
+      <tbody id="all-tbody"><tr><td colspan="12" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -1173,7 +1197,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
         <button class="btn-ghost" onclick="togglePendingPanel()" style="font-size:11px;padding:3px 8px;">✕ Close</button>
       </div>
       <div class="tbl-wrap"><table>
-        <thead><tr><th></th><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Link check</th><th>Relevancy</th><th>Dup</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Link check</th><th>Relevancy</th><th>Dup</th><th>Invoice</th><th></th></tr></thead>
         <tbody id="pd-pending-tbody"></tbody>
       </table></div>
     </div>
@@ -1181,8 +1205,8 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
 
   <div class="card">
     <div class="tbl-wrap"><table>
-      <thead><tr><th><input type="checkbox" id="pd-select-all" onclick="togglePdSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="togglePdSort('date')">Date <span id="pd-sort-date">↓</span></th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Link check</th><th>Relevancy</th><th>Dup</th><th></th></tr></thead>
-      <tbody id="pd-tbody"><tr><td colspan="14" class="loading">Loading...</td></tr></tbody>
+      <thead><tr><th><input type="checkbox" id="pd-select-all" onclick="togglePdSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="togglePdSort('date')">Date <span id="pd-sort-date">↓</span></th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Link check</th><th>Relevancy</th><th>Dup</th><th>Invoice</th><th></th></tr></thead>
+      <tbody id="pd-tbody"><tr><td colspan="15" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
   <div id="pd-batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
@@ -1783,9 +1807,9 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
         <th style="width:28px;"><input type="checkbox" id="bl-check-all" onchange="toggleAllBuilderChecks(this)" style="width:auto;margin:0;cursor:pointer;"/></th>
         <th style="cursor:pointer;" onclick="toggleBSort()">Date <span id="b-sort-date">↓</span></th>
         <th>Domain</th><th>DR</th><th>Traffic</th><th>Anchor</th><th>Project</th>
-        <th>Status</th><th>Link check</th><th style="width:36px;"></th>
+        <th>Status</th><th>Link check</th><th>Invoice</th><th style="width:36px;"></th>
       </tr></thead>
-      <tbody id="b-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
+      <tbody id="b-tbody"><tr><td colspan="11" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -2268,6 +2292,63 @@ function escAttr(str){
     .replace(/"/g,'&quot;')
     .replace(/</g,'&lt;')
     .replace(/\r?\n/g,'\\n');
+}
+
+// Shared table-cell renderers — project as a bordered tag pill, builder as
+// a colored initial-avatar circle — used across every link table so the
+// same visual language (from the Dashboard recent-activity list) is
+// consistent app-wide instead of plain text per table.
+function projTag(name){
+  if(!name) return '<span style="color:var(--text3);">—</span>';
+  return `<span style="display:inline-block;padding:3px 10px;border-radius:6px;border:1px solid var(--border2);font-size:11px;color:var(--text2);white-space:nowrap;">${escapeHtml(name)}</span>`;
+}
+function builderAvatar(name){
+  if(!name) return '<span style="color:var(--text3);">—</span>';
+  return `<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--accent2-glow);color:var(--accent2);font-size:9px;font-weight:700;flex-shrink:0;">${escapeHtml(name.charAt(0).toUpperCase())}</span>${escapeHtml(name)}</span>`;
+}
+
+// Compact Invoice indicator/button shown in every link row, regardless of
+// status — clicking always jumps straight to the Invoice field in that
+// row's edit panel, so it's not something you only get a chance to fill
+// in once (e.g. right when a link goes live).
+function invoiceBadge(l){
+  const has=!!l.invoice;
+  const paid=!!l.paid;
+  // Three states: no invoice yet (muted), invoice but unpaid (amber —
+  // needs follow-up), invoice and paid (teal — done).
+  let color='var(--text3)',border='var(--border2)',label='＋ Invoice',title='Add invoice';
+  if(has&&paid){color='var(--teal)';border='rgba(45,212,191,0.35)';label='✓ Paid';title='Invoice paid — click to view/edit';}
+  else if(has&&!paid){color='var(--yellow)';border='rgba(240,165,0,0.4)';label='🧾 Unpaid';title='Invoice added, not paid yet — click to view/edit';}
+  const mainBtn=`<button class="btn-ghost" onclick="event.stopPropagation();promptInvoiceEntry('${escAttr(l.id)}')" style="padding:5px 10px;font-size:11px;color:${color};border-color:${border};" title="${title}">${label}</button>`;
+  // Best-effort auto-check against the invoice link itself (PayPal pages
+  // mainly) — only shown once there's actually a link to check.
+  const checkBtn=has?`<button class="btn-ghost" onclick="event.stopPropagation();checkInvoiceStatus('${escAttr(l.id)}',this)" style="padding:5px 7px;font-size:11px;margin-left:4px;" title="Auto-check paid status">🔄</button>`:'';
+  return `<span style="display:inline-flex;align-items:center;white-space:nowrap;">${mainBtn}${checkBtn}</span>`;
+}
+
+// Fetches the saved invoice link and asks /api/check-invoice whether it
+// looks paid — best-effort (PayPal pages are JS-rendered and sometimes
+// bot-blocked, so an inconclusive result just says so instead of guessing).
+async function checkInvoiceStatus(id, btn){
+  const link=allLinks.find(l=>l.id===id);
+  if(!link||!link.invoice){showToast('No invoice link set');return;}
+  const orig=btn.textContent;
+  btn.disabled=true;btn.textContent='⏳';
+  try{
+    const resp=await fetch('/api/check-invoice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({invoiceUrl:link.invoice})});
+    const data=await resp.json();
+    if(data.paid===true){
+      await db.collection('links').doc(id).update({paid:true});
+      showToast('✅ Marked as paid');
+    } else if(data.paid===false){
+      showToast('⏳ Invoice not paid yet');
+    } else {
+      showToast(data.result||'Could not determine status — verify manually');
+    }
+  }catch(e){
+    showToast('Error: '+e.message.slice(0,60));
+  }
+  btn.disabled=false;btn.textContent=orig;
 }
 
 // ─── AUTH ─────────────────────────────────────────────────
@@ -2847,8 +2928,8 @@ function renderCheckerResults(){
       <td style="color:var(--text3);font-size:11px;">${escapeHtml(l.date||'—')}</td>
       <td class="domain-teal">${escapeHtml(l.domain||'—')}</td>
       <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;color:${l._issues.includes('shifted')?'var(--yellow)':'var(--text2)'};" title="${escapeHtml(l.anchor||'')}">${escapeHtml(ancPreview)}</td>
-      <td>${escapeHtml(l.project||'—')}</td>
-      <td>${escapeHtml(l.builder||'—')}</td>
+      <td>${projTag(l.project)}</td>
+      <td>${builderAvatar(l.builder)}</td>
       <td><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button></td>
     </tr>`;
   }).join('');
@@ -2983,7 +3064,7 @@ function renderDetailLinks(){
     </div>`;
 
   const tb=document.getElementById('pd-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="14" class="loading">No links</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="15" class="loading">No links</td></tr>';return;}
 
   const pdRowFn=(l)=>{
     const lid=l.id;
@@ -2995,15 +3076,16 @@ function renderDetailLinks(){
       <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${escapeHtml(lid)}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td>${escapeHtml(l.date||'')}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
-      <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${escapeHtml(l.builder||'—')}</td>
+      <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${builderAvatar(l.builder)}</td>
       <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal(\'${escAttr(lid)}\')">↗</button></td>
       <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancyRow('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
       <td>${dupB(l,domainCount)}</td>
+      <td onclick="event.stopPropagation()">${invoiceBadge(l)}</td>
       <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button></td>
     </tr>
     <tr id="edit-${escapeHtml(lid)}" style="display:none;background:var(--bg3);">
-      <td colspan="14" style="padding:14px 16px;">
+      <td colspan="15" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
           ${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
           ${l.linkto?`<a href="${escAttr(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
@@ -3043,13 +3125,13 @@ function renderDetailLinks(){
     if(s && !(l.domain||'').toLowerCase().includes(s) && !(l.anchor||'').toLowerCase().includes(s)) return false;
     return true;
   });
-  tb.innerHTML = flLiveOnly.length ? renderRowsGrouped(flLiveOnly, pdRowFn, 14) : `<tr><td colspan="14" class="loading">No live links</td></tr>`;
+  tb.innerHTML = flLiveOnly.length ? renderRowsGrouped(flLiveOnly, pdRowFn, 15) : `<tr><td colspan="15" class="loading">No live links</td></tr>`;
 
   // Render pending panel (hidden by default)
   const pp = document.getElementById('pd-pending-panel');
   if(pp){
     const ppTb = document.getElementById('pd-pending-tbody');
-    if(ppTb) ppTb.innerHTML = flPendOnly.length ? renderRowsGrouped(flPendOnly, pdRowFn, 14) : `<tr><td colspan="14" class="loading">No pending links</td></tr>`;
+    if(ppTb) ppTb.innerHTML = flPendOnly.length ? renderRowsGrouped(flPendOnly, pdRowFn, 15) : `<tr><td colspan="15" class="loading">No pending links</td></tr>`;
     document.getElementById('pd-pending-count').textContent = flPendOnly.length;
   }
 }
@@ -3130,9 +3212,9 @@ function showPendingApprovals(){
     <tr>
       <td style="font-size:12px;color:var(--text3);">${escapeHtml(l.date||'')}</td>
       <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);">${escapeHtml(l.domain||'')}</a></td>
-      <td>${escapeHtml(l.project||'')}</td>
+      <td>${projTag(l.project)}</td>
       <td style="font-size:12px;">${escapeHtml(l.anchor||'')}</td>
-      <td style="font-size:12px;">${escapeHtml(l.builder||'')}</td>
+      <td style="font-size:12px;">${builderAvatar(l.builder)}</td>
       <td style="font-size:11px;color:var(--yellow);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(l.approvalReason||'')}</td>
       <td style="white-space:nowrap;">
         <button class="btn-sm" onclick="approveLink('${escAttr(l.id)}')" style="width:auto;font-size:12px;padding:6px 14px;">✅ Approve</button>
@@ -4350,9 +4432,39 @@ function renderDashboard(){
   // Stat cards — current month focus
   document.getElementById('ds-total').textContent = thisLive.length;
   document.getElementById('ds-pend').textContent  = thisPend.length;
-  document.getElementById('ds-dup').textContent   = dupCount;
-  document.getElementById('lc').textContent = thisLive.length + ' links';
-  document.getElementById('pc').textContent = pend.length + ' links';
+
+  // "Needs attention" — things that actually require someone to act,
+  // replacing the old permanent Duplicates card (a data-quality metric,
+  // not a daily-glance one — it moved to a conditional banner below).
+  const stalePend = pend.filter(l=>{
+    const ts=parseDate(l.date);
+    return ts && Math.floor((Date.now()-ts)/86400000)>=14;
+  }).length;
+  const pendApprovalsCount = cu.role==='admin' ? allLinks.filter(l=>l.needsApproval&&l.approvalStatus==='pending').length : 0;
+  const unpaidCount = myLinks.filter(l=>(l.invoice||l.price)&&!l.paid).length;
+  const attnTotal = stalePend + pendApprovalsCount + unpaidCount;
+  const attnEl = document.getElementById('ds-attn');
+  const attnChip = document.getElementById('ds-attn-chip');
+  if(attnEl) attnEl.textContent = attnTotal;
+  if(attnChip){
+    attnChip.style.color = attnTotal>0 ? '#ff6b6b' : 'var(--text3)';
+    attnChip.title = attnTotal>0
+      ? [stalePend&&`${stalePend} stale pending (14d+)`, pendApprovalsCount&&`${pendApprovalsCount} awaiting approval`, unpaidCount&&`${unpaidCount} unpaid invoice${unpaidCount!==1?'s':''}`].filter(Boolean).join(' · ')
+      : 'Nothing needs action right now';
+    const v=attnChip.querySelector('.stat-v');
+    if(v) v.style.color = attnTotal>0 ? '#ff6b6b' : 'var(--text3)';
+  }
+
+  // Duplicates — conditional banner instead of a permanent stat card
+  const dupBanner = document.getElementById('ds-dup-banner');
+  if(dupBanner){
+    if(dupCount>0){
+      dupBanner.style.display='block';
+      dupBanner.innerHTML = `⚠️ <b style="color:#ff6b6b;">${dupCount} duplicate domain${dupCount!==1?'s':''}</b> found — review in Data Checker →`;
+    } else {
+      dupBanner.style.display='none';
+    }
+  }
 
   // Month label
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -4383,25 +4495,34 @@ function renderDashboard(){
     }
   }
 
-  const rr=(arr,id)=>{
-    const tb=document.getElementById(id);
-    if(!arr.length){tb.innerHTML='<tr><td colspan="9" class="loading">No links</td></tr>';return;}
-    tb.innerHTML=arr.slice(0,20).map(l=>`<tr>
-      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
-      <td class="domain-teal"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
-      <td>${escapeHtml(l.dr||'—')}</td>
-      <td>${l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||escapeHtml(l.traffic):'—'}</td>
-      <td>${escapeHtml(l.ss||'—')}</td>
-      <td>${catBadge(l.category)}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(l.anchor||'—')}</td>
-      <td>${escapeHtml(l.project||'—')}</td>
-      <td>${escapeHtml(l.builder||'—')}</td>
-    </tr>`).join('');
-  };
-
-  // Always show this month's live links in dashboard table
-  rr(thisLive,'dash-live');
-  rr(pend,'dash-pend');
+  // Recent activity — compact list (domain/project/builder/status),
+  // replacing the old two full 9-column raw tables (live + pending) that
+  // just duplicated what All Links/My Links already shows.
+  const recentEl = document.getElementById('dash-recent');
+  if(recentEl){
+    const recent = [...myLinks].sort((a,b)=>parseDate(b.date)-parseDate(a.date)).slice(0,8);
+    if(!recent.length){
+      recentEl.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px;">No links yet</div>';
+    } else {
+      recentEl.innerHTML = recent.map(l=>{
+        const statusColor = l.status==='live' ? 'var(--teal)' : l.status==='pending' ? '#f0a500' : l.status==='needs-change' ? '#8b8bf0' : 'var(--text3)';
+        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-top:1px solid var(--border);">
+          <span style="width:7px;height:7px;border-radius:50%;background:${statusColor};flex-shrink:0;"></span>
+          <a href="https://${escAttr(l.domain)}" target="_blank" style="color:var(--text);font-weight:600;font-size:13px;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(l.domain||'—')}</a>
+          ${l.project?`<span style="display:inline-block;padding:3px 10px;border-radius:6px;border:1px solid var(--border2);font-size:11px;color:var(--text2);white-space:nowrap;">${escapeHtml(l.project)}</span>`:''}
+          ${cu.role==='admin'&&l.builder?`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--accent2-glow);color:var(--accent2);font-size:9px;font-weight:700;flex-shrink:0;" title="${escapeHtml(l.builder)}">${escapeHtml(l.builder.charAt(0).toUpperCase())}</span>`:''}
+          <span style="font-size:11px;color:var(--text3);white-space:nowrap;font-family:var(--font-mono);">${escapeHtml(l.date||'')}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+function goToChecker(){
+  gotoPage('checker', document.querySelector(`.nav[onclick*="'checker'"]`));
+}
+function goToMyLinksFromDashboard(){
+  if(cu.role==='admin') gotoPage('links', document.querySelector(`.nav[onclick*="'links'"]`));
+  else gotoPage('b-links', document.getElementById('bld-nav-links'));
 }
 
 function renderLinks(){
@@ -4454,7 +4575,7 @@ function renderLinks(){
   });
 
   const tb=document.getElementById('all-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="11" class="loading">No links</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="12" class="loading">No links</td></tr>';return;}
 
   const rowFn=(l)=>{
     const trafficVal=l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||l.traffic:'—';
@@ -4473,14 +4594,15 @@ function renderLinks(){
       <td>${escapeHtml(l.dr||'—')}</td>
       <td>${trafficVal}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
-      <td>${escapeHtml(l.project||'—')}</td>
-      <td>${escapeHtml(l.builder||'—')}</td>
+      <td>${projTag(l.project)}</td>
+      <td>${builderAvatar(l.builder)}</td>
       <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal(\'${escAttr(lid)}\')">↗</button></td>
+      <td onclick="event.stopPropagation()">${invoiceBadge(l)}</td>
       <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button>`:''}</td>
     </tr>
     <tr id="edit-${escapeHtml(lid)}" style="display:none;background:var(--bg3);">
-      <td colspan="11" style="padding:14px 16px;">
+      <td colspan="12" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
           ${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
           ${l.linkto?`<a href="${escAttr(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
@@ -4510,7 +4632,7 @@ function renderLinks(){
       </td>
     </tr>`;
   };
-  tb.innerHTML = fl.length ? renderRowsGrouped(fl, rowFn, 11) : `<tr><td colspan="11" class="loading">No links</td></tr>`;
+  tb.innerHTML = fl.length ? renderRowsGrouped(fl, rowFn, 12) : `<tr><td colspan="12" class="loading">No links</td></tr>`;
 
 }
 
@@ -4650,7 +4772,7 @@ function openBuilderLinks(name){
     <tr>
       <td style="color:var(--text3);font-size:11px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
       <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(l.domain||'')}</a></td>
-      <td>${escapeHtml(l.project||'')}</td>
+      <td>${projTag(l.project)}</td>
       <td style="font-size:12px;">${escapeHtml(l.anchor||'')}</td>
       <td>${(l.status||'').toLowerCase()==='live'?'<span style="color:var(--teal);">✅ live</span>':(l.status||'').toLowerCase()==='pending'?'<span style="color:#f0a500;">⏳ pending</span>':escapeHtml(l.status||'')}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1rem;">No links</td></tr>';
@@ -5130,7 +5252,22 @@ async function updateLinkStatus(id, status){
   if(status==='live'){
     const l=allLinks.find(x=>x.id===id);
     notifySofyaDoubleCheck({domain:l?l.domain:'',project:l?l.project:'',builder:l?l.builder:''});
+    if(l && !l.invoice) promptInvoiceEntry(id);
   }
+}
+
+// Opens the row's edit panel and focuses the Invoice field — surfaced right
+// when a link goes live, since that's the moment the invoice is actually
+// available, instead of leaving it buried in the edit row for later.
+function promptInvoiceEntry(id){
+  const row=document.getElementById('edit-'+id);
+  if(!row)return;
+  document.querySelectorAll('[id^="edit-"]').forEach(r=>r.style.display='none');
+  row.style.display='table-row';
+  setTimeout(()=>{
+    const inv=document.getElementById('ei-invoice-'+id);
+    if(inv){inv.scrollIntoView({behavior:'smooth',block:'center'});inv.focus();}
+  },50);
 }
 
 // ─── EXPORT ───────────────────────────────────────────────
@@ -5231,8 +5368,8 @@ function renderInvoices(){
       <td onclick="event.stopPropagation()"><input type="checkbox" class="inv-cb" data-id="${escapeHtml(lid)}" onchange="onInvSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'—')}</td>
       <td class="domain-teal"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
-      <td>${escapeHtml(l.project||'—')}</td>
-      <td>${escapeHtml(l.builder||'—')}</td>
+      <td>${projTag(l.project)}</td>
+      <td>${builderAvatar(l.builder)}</td>
       <td style="font-weight:600;">${l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—'}</td>
       <td>${l.invoice?`<a href="${escapeHtml(l.invoice)}" target="_blank" style="color:var(--teal);">↗ Invoice</a>`:'<span style="color:var(--text3);">—</span>'}</td>
       <td><button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;background:${l.paid?'linear-gradient(135deg,var(--teal),var(--teal2))':'transparent'};border:${l.paid?'none':'1px solid var(--border2)'};color:${l.paid?'#061520':'var(--text2)'};" onclick="toggleInvoicePaid('${escAttr(lid)}',${!l.paid})">${l.paid?'✅ Paid':'⏳ Unpaid'}</button></td>
@@ -8017,7 +8154,7 @@ function renderBuilderDashboard(){
   if(!recent.length){tb.innerHTML='<tr><td colspan="3" class="loading">No links yet</td></tr>';return;}
   tb.innerHTML=recent.map(l=>`<tr>
     <td class="domain-teal" style="font-size:12px;"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
-    <td style="font-size:12px;color:var(--text2);">${escapeHtml(l.project||'—')}</td>
+    <td style="font-size:12px;">${projTag(l.project)}</td>
     <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'#f0a500'};">${escapeHtml(l.status)}</span></td>
   </tr>`).join('');
 }
@@ -8080,7 +8217,7 @@ function renderBuilderLinks(){
   });
   fl.sort((a,b)=>{const av=parseDate(a.date),bv=parseDate(b.date);return bSortDir==='desc'?bv-av:av-bv;});
   const tb=document.getElementById('b-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="10" class="loading">No links found</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="11" class="loading">No links found</td></tr>';return;}
   const canDelete=true;
   const rowFn=(l)=>{
     const lid=l.id;
@@ -8092,7 +8229,7 @@ function renderBuilderLinks(){
       <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${l.dr||'—'}</td><td>${trafficVal}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
-      <td style="font-size:13px;font-weight:500;">${escapeHtml(l.project||'—')}</td>
+      <td>${projTag(l.project)}</td>
       <td onclick="event.stopPropagation()">
         <select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;">
           <option value="live" ${l.status==='live'?'selected':''}>✅ Live</option>
@@ -8105,10 +8242,11 @@ function renderBuilderLinks(){
       <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
         <button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal('${escAttr(lid)}')">↗</button>
       </td>
+      <td onclick="event.stopPropagation()">${invoiceBadge(l)}</td>
       <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:5px 8px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button>`:''}</td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
-      <td colspan="10" style="padding:14px 16px;">
+      <td colspan="11" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
           ${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
           ${l.linkto?`<a href="${escapeHtml(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
@@ -8138,7 +8276,7 @@ function renderBuilderLinks(){
       </td>
     </tr>`;
   };
-  tb.innerHTML=renderRowsGrouped(fl,rowFn,10);
+  tb.innerHTML=renderRowsGrouped(fl,rowFn,11);
 }
 
 function updateDoubleCheckBadge(){
@@ -8169,8 +8307,8 @@ function renderDoubleCheckQueue(){
       <td class="domain-teal"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
-      <td style="font-size:13px;font-weight:500;">${escapeHtml(l.project||'—')}</td>
-      <td style="font-size:12px;color:var(--text3);">${escapeHtml(l.builder||'—')}</td>
+      <td>${projTag(l.project)}</td>
+      <td>${builderAvatar(l.builder)}</td>
       <td style="white-space:nowrap;">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
         <button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="openLCModal('${escAttr(lid)}')">↗</button>
       </td>
