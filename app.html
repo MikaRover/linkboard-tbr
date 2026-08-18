@@ -2324,23 +2324,26 @@ function invoiceBadge(l){
   else if(has&&!paid){color='var(--yellow)';label='Unpaid';title='Invoice added, not paid yet — click to view/edit';showDot=true;}
   const border=showDot?(has&&paid?'rgba(45,212,191,0.35)':'rgba(240,165,0,0.4)'):'var(--border2)';
   const icon=showDot?statusDot(color):'<span style="font-weight:700;">+</span>';
-  const mainBtn=`<button class="btn-ghost" onclick="event.stopPropagation();promptInvoiceEntry('${escAttr(l.id)}')" style="padding:5px 10px;font-size:11px;color:${color};border-color:${border};display:inline-flex;align-items:center;gap:6px;" title="${title}">${icon}${label}</button>`;
-  // Best-effort auto-check against the invoice link itself (PayPal pages
-  // mainly) — only shown once there's actually a link to check.
-  const checkBtn=has?`<button class="btn-ghost" onclick="event.stopPropagation();checkInvoiceStatus('${escAttr(l.id)}',this)" style="padding:5px 8px;font-size:12px;margin-left:4px;line-height:1;" title="Auto-check paid status">↻</button>`:'';
-  return `<span style="display:inline-flex;align-items:center;white-space:nowrap;">${mainBtn}${checkBtn}</span>`;
+  // One button, not two — the auto-check action lives inside the edit
+  // panel next to the Invoice link field instead of as a second button
+  // in every row; too many small colored controls per row read as
+  // cluttered.
+  return `<button class="btn-ghost" onclick="event.stopPropagation();promptInvoiceEntry('${escAttr(l.id)}')" style="padding:5px 10px;font-size:11px;color:${color};border-color:${border};display:inline-flex;align-items:center;gap:6px;white-space:nowrap;" title="${title}">${icon}${label}</button>`;
 }
 
-// Fetches the saved invoice link and asks /api/check-invoice whether it
-// looks paid — best-effort (PayPal pages are JS-rendered and sometimes
-// bot-blocked, so an inconclusive result just says so instead of guessing).
+// Fetches the invoice link (preferring whatever's currently typed in the
+// edit panel's field over the saved value, same as checkRelevancy) and
+// asks /api/check-invoice whether it looks paid — best-effort (PayPal
+// pages are JS-rendered and sometimes bot-blocked, so an inconclusive
+// result just says so instead of guessing).
 async function checkInvoiceStatus(id, btn){
   const link=allLinks.find(l=>l.id===id);
-  if(!link||!link.invoice){showToast('No invoice link set');return;}
+  const invoiceUrl=(document.getElementById('ei-invoice-'+id)?.value||link?.invoice||'').trim();
+  if(!invoiceUrl){showToast('No invoice link set');return;}
   const orig=btn.textContent;
   btn.disabled=true;btn.textContent='…';
   try{
-    const resp=await fetch('/api/check-invoice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({invoiceUrl:link.invoice})});
+    const resp=await fetch('/api/check-invoice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({invoiceUrl})});
     const data=await resp.json();
     if(data.paid===true){
       await db.collection('links').doc(id).update({paid:true});
@@ -3112,7 +3115,12 @@ function renderDetailLinks(){
             </div>
             <div id="ei-relevancy-reason-${escapeHtml(lid)}" style="font-size:10px;color:var(--text3);margin-top:3px;"></div>
           </div>
-          <div><div class="section-label" style="margin-bottom:4px;">Invoice link</div><input id="ei-invoice-${escapeHtml(lid)}" value="${escapeHtml(l.invoice||'')}" placeholder="optional" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Invoice link</div>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <input id="ei-invoice-${escapeHtml(lid)}" value="${escapeHtml(l.invoice||'')}" placeholder="optional" style="margin:0;font-size:12px;flex:1;"/>
+              <button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="checkInvoiceStatus('${escAttr(lid)}',this)" title="Auto-check paid status">↻</button>
+            </div>
+          </div>
           <div><div class="section-label" style="margin-bottom:4px;">Paid</div><select id="ei-paid-${escapeHtml(lid)}" style="margin:0;font-size:12px;"><option value="no" ${!l.paid?'selected':''}>Not paid</option><option value="yes" ${l.paid?'selected':''}>Paid</option></select></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${escapeHtml(lid)}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
@@ -4629,7 +4637,12 @@ function renderLinks(){
             </div>
             <div id="ei-relevancy-reason-${escapeHtml(lid)}" style="font-size:10px;color:var(--text3);margin-top:3px;"></div>
           </div>
-          <div><div class="section-label" style="margin-bottom:4px;">Invoice link</div><input id="ei-invoice-${escapeHtml(lid)}" value="${escapeHtml(l.invoice||'')}" placeholder="optional" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Invoice link</div>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <input id="ei-invoice-${escapeHtml(lid)}" value="${escapeHtml(l.invoice||'')}" placeholder="optional" style="margin:0;font-size:12px;flex:1;"/>
+              <button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="checkInvoiceStatus('${escAttr(lid)}',this)" title="Auto-check paid status">↻</button>
+            </div>
+          </div>
           <div><div class="section-label" style="margin-bottom:4px;">Paid</div><select id="ei-paid-${escapeHtml(lid)}" style="margin:0;font-size:12px;"><option value="no" ${!l.paid?'selected':''}>Not paid</option><option value="yes" ${l.paid?'selected':''}>Paid</option></select></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${escapeHtml(lid)}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
@@ -4980,12 +4993,17 @@ function statusDot(color){
 }
 function linkCheckBadge(v, linkin, linkto, id){
   if(!v) return '<span style="color:var(--text3);font-size:11px;">—</span>';
-  const text=escapeHtml(stripStatusEmoji(v));
-  let color='var(--text2)';
-  if(v.includes('✅')) color='#00c9b0';
-  else if(v.includes('❌')) color='#ff6b6b';
-  else if(v.includes('⚠️')) color='#f0a500';
-  return`<span style="display:inline-flex;align-items:center;gap:6px;color:${color};font-size:11px;">${statusDot(color)}${text}</span>`;
+  // Short canonical label instead of the full stored sentence ("Blocked
+  // (bot protection) — verify manually" etc.) — the row was reading as
+  // cluttered with every column spelling itself out at full length. Full
+  // detail is still one hover away via the title tooltip.
+  let color='var(--text2)', label='Checked';
+  if(v.includes('✅')){color='#00c9b0';label='OK';}
+  else if(v.includes('❌')){color='#ff6b6b';label='Failed';}
+  else if(v.includes('⚠️')){color='#f0a500';label='Issue';}
+  else if(v.includes('🔒')){color='var(--text2)';label='Blocked';}
+  const full=escapeHtml(stripStatusEmoji(v));
+  return`<span style="display:inline-flex;align-items:center;gap:6px;color:${color};font-size:11px;" title="${full}">${statusDot(color)}${label}</span>`;
 }
 
 function toggleAllBuilderChecks(master){
@@ -8284,7 +8302,12 @@ function renderBuilderLinks(){
             </div>
             <div id="ei-relevancy-reason-${lid}" style="font-size:10px;color:var(--text3);margin-top:3px;"></div>
           </div>
-          <div><div class="section-label" style="margin-bottom:4px;">Invoice link</div><input id="ei-invoice-${lid}" value="${escapeHtml(l.invoice||'')}" placeholder="optional" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Invoice link</div>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <input id="ei-invoice-${lid}" value="${escapeHtml(l.invoice||'')}" placeholder="optional" style="margin:0;font-size:12px;flex:1;"/>
+              <button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="checkInvoiceStatus('${escAttr(lid)}',this)" title="Auto-check paid status">↻</button>
+            </div>
+          </div>
           <div><div class="section-label" style="margin-bottom:4px;">Paid</div><select id="ei-paid-${lid}" style="margin:0;font-size:12px;"><option value="no" ${!l.paid?'selected':''}>Not paid</option><option value="yes" ${l.paid?'selected':''}>Paid</option></select></div>
           <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
         </div>
