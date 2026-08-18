@@ -162,6 +162,16 @@ select option{background:var(--bg2);}
 .filters{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
 .filters input,.filters select{margin-bottom:0;flex:1;min-width:100px;font-size:13px;padding:7px 10px;}
 
+/* ── ROW ACTIONS KEBAB MENU ── */
+.row-menu-wrap{position:relative;display:inline-block;}
+.row-menu-btn{padding:5px 9px !important;font-size:14px !important;line-height:1;}
+.row-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:140px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;box-shadow:var(--shadow);padding:4px;display:none;flex-direction:column;z-index:40;}
+.row-menu.open{display:flex;}
+.row-menu button{background:transparent;border:none;color:var(--text);font-size:12px;text-align:left;padding:7px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;width:100%;}
+.row-menu button:hover{background:var(--bg4);}
+.row-menu button.row-menu-danger{color:var(--red);}
+.row-menu button.row-menu-danger:hover{background:rgba(255,95,95,0.1);}
+
 /* ── COMPAT PILLS ── */
 .compat-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid;cursor:pointer;transition:all 0.15s ease;position:relative;}
 .compat-pill:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,0.2);}
@@ -943,7 +953,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   </div>
   <div class="card">
     <div class="tbl-wrap"><table>
-      <thead><tr><th><input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="toggleSort('date')">Date <span id="sort-date">↓</span></th><th>Domain</th><th style="cursor:pointer;" onclick="toggleSort('dr')">DR <span id="sort-dr"></span></th><th style="cursor:pointer;" onclick="toggleSort('traffic')">Traffic <span id="sort-traffic"></span></th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th><th>Invoice</th><th class="adm"></th></tr></thead>
+      <thead><tr><th><input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="toggleSort('date')">Date <span id="sort-date">↓</span></th><th>Domain</th><th style="cursor:pointer;" onclick="toggleSort('dr')">DR <span id="sort-dr"></span></th><th style="cursor:pointer;" onclick="toggleSort('traffic')">Traffic <span id="sort-traffic"></span></th><th>Anchor</th><th>Project</th><th>Builder</th><th>Health</th><th>Invoice</th><th class="adm">Actions</th></tr></thead>
       <tbody id="all-tbody"><tr><td colspan="11" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
@@ -1124,7 +1134,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
         <button class="btn-ghost" onclick="togglePendingPanel()" style="font-size:11px;padding:3px 8px;">✕ Close</button>
       </div>
       <div class="tbl-wrap"><table>
-        <thead><tr><th></th><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Relevancy</th><th>Dup</th><th>Invoice</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Health</th><th>Relevancy</th><th>Dup</th><th>Invoice</th><th>Actions</th></tr></thead>
         <tbody id="pd-pending-tbody"></tbody>
       </table></div>
     </div>
@@ -1132,7 +1142,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
 
   <div class="card">
     <div class="tbl-wrap"><table>
-      <thead><tr><th><input type="checkbox" id="pd-select-all" onclick="togglePdSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="togglePdSort('date')">Date <span id="pd-sort-date">↓</span></th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Relevancy</th><th>Dup</th><th>Invoice</th><th></th></tr></thead>
+      <thead><tr><th><input type="checkbox" id="pd-select-all" onclick="togglePdSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="togglePdSort('date')">Date <span id="pd-sort-date">↓</span></th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Health</th><th>Relevancy</th><th>Dup</th><th>Invoice</th><th>Actions</th></tr></thead>
       <tbody id="pd-tbody"><tr><td colspan="14" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
@@ -1742,7 +1752,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
         <th style="width:28px;"><input type="checkbox" id="bl-check-all" onchange="toggleAllBuilderChecks(this)" style="width:auto;margin:0;cursor:pointer;"/></th>
         <th style="cursor:pointer;" onclick="toggleBSort()">Date <span id="b-sort-date">↓</span></th>
         <th>Domain</th><th>DR</th><th>Traffic</th><th>Anchor</th><th>Project</th>
-        <th>Status</th><th>Invoice</th><th style="width:36px;"></th>
+        <th>Health</th><th>Invoice</th><th style="width:50px;">Actions</th>
       </tr></thead>
       <tbody id="b-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
     </table></div>
@@ -2242,28 +2252,16 @@ function builderAvatar(name){
   return `<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--accent2-glow);color:var(--accent2);font-size:9px;font-weight:700;flex-shrink:0;">${escapeHtml(name.charAt(0).toUpperCase())}</span>${escapeHtml(name)}</span>`;
 }
 
-// Compact Invoice indicator/button shown in every link row, regardless of
-// status — clicking always jumps straight to the Invoice field in that
-// row's edit panel, so it's not something you only get a chance to fill
-// in once (e.g. right when a link goes live).
-function invoiceBadge(l){
-  const has=!!l.invoice;
+// Compact read-only Paid/Unpaid pill shown in every link row — a status
+// readout, not a button; entering/editing the invoice link is one of the
+// row's kebab actions ("Invoice", see toggleRowMenu) instead of a click
+// target here, so this column only ever needs to answer "paid or not".
+function invoicePill(l){
   const paid=!!l.paid;
-  // Three states: no invoice yet (muted), invoice but unpaid (amber —
-  // needs follow-up), invoice and paid (teal — done). Same colored-dot
-  // language as linkCheckBadge/statusDot, no emoji, so every status-ish
-  // column in the row reads the same way instead of a different icon
-  // style per column.
-  let color='var(--text3)',label='Create Invoice',title='Add invoice',showDot=false;
-  if(has&&paid){color='var(--teal)';label='Paid';title='Invoice paid — click to view/edit';showDot=true;}
-  else if(has&&!paid){color='var(--yellow)';label='Unpaid';title='Invoice added, not paid yet — click to view/edit';showDot=true;}
-  const border=showDot?(has&&paid?'rgba(45,212,191,0.35)':'rgba(240,165,0,0.4)'):'var(--border2)';
-  const icon=showDot?statusDot(color):'<span style="font-weight:700;">+</span>';
-  // One button, not two — the auto-check action lives inside the edit
-  // panel next to the Invoice link field instead of as a second button
-  // in every row; too many small colored controls per row read as
-  // cluttered.
-  return `<button class="btn-ghost" onclick="event.stopPropagation();promptInvoiceEntry('${escAttr(l.id)}')" style="padding:5px 10px;font-size:11px;color:${color};border-color:${border};display:inline-flex;align-items:center;gap:6px;white-space:nowrap;" title="${title}">${icon}${label}</button>`;
+  const color=paid?'var(--teal)':'var(--text3)';
+  const bg=paid?'rgba(45,212,191,0.12)':'var(--bg3)';
+  const label=paid?'Paid':'Unpaid';
+  return `<span style="display:inline-block;padding:4px 12px;border-radius:980px;background:${bg};color:${color};font-size:11px;font-weight:600;white-space:nowrap;">${label}</span>`;
 }
 
 // Fetches the invoice link (preferring whatever's currently typed in the
@@ -2989,22 +2987,16 @@ function renderDetailLinks(){
     const isDup=domainCount[nd(l.domain)]>1;
     const trafficVal=l.traffic&&!isNaN(Number(l.traffic))?Number(l.traffic).toLocaleString():'—';
     const priceVal=l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—';
-    const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
     return`<tr class="link-row" data-lid="${escapeHtml(lid)}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${escapeHtml(lid)}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td>${escapeHtml(l.date||'')}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${builderAvatar(l.builder)}</td>
-      <td onclick="event.stopPropagation()" style="white-space:nowrap;">
-        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start;">
-          <div><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</div>
-          <div style="display:flex;align-items:center;gap:4px;">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:3px 7px;font-size:10px;border-radius:6px;" onclick="event.stopPropagation();openLCModal('${escAttr(lid)}')">↗</button></div>
-        </div>
-      </td>
+      <td style="white-space:nowrap;">${healthCell(l)}${pendingAgeBadge(l)}</td>
       <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancyRow('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
       <td>${dupB(l,domainCount)}</td>
-      <td onclick="event.stopPropagation()">${invoiceBadge(l)}</td>
-      <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button></td>
+      <td onclick="event.stopPropagation()">${invoicePill(l)}</td>
+      <td onclick="event.stopPropagation()">${actionsMenu(l,true)}</td>
     </tr>
     <tr id="edit-${escapeHtml(lid)}" style="display:none;background:var(--bg3);">
       <td colspan="14" style="padding:14px 16px;">
@@ -3020,6 +3012,7 @@ function renderDetailLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${escapeHtml(lid)}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${escapeHtml(lid)}" value="${escapeHtml(String(l.price||'').replace(/^\$+/,''))}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${escapeHtml(lid)}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Status</div><select id="ei-status-${escapeHtml(lid)}" onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="margin:0;font-size:12px;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select></div>
           <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${escapeHtml(lid)}" value="${escapeHtml(l.linkin||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${escapeHtml(lid)}" value="${escapeHtml(l.linkto||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Relevancy</div>
@@ -4507,7 +4500,6 @@ function renderLinks(){
   const rowFn=(l)=>{
     const trafficVal=l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||l.traffic:'—';
     const canDelete=cu.role==='admin';
-    const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
     const lid=l.id;
     const isDup=domainCount[nd(l.domain)+'|'+(l.project||'')]>1;
     const safeLinkin=escapeHtml(l.linkin||'');
@@ -4523,14 +4515,9 @@ function renderLinks(){
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
       <td>${projTag(l.project)}</td>
       <td>${builderAvatar(l.builder)}</td>
-      <td onclick="event.stopPropagation()" style="white-space:nowrap;">
-        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start;">
-          <div><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</div>
-          <div style="display:flex;align-items:center;gap:4px;">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:3px 7px;font-size:10px;border-radius:6px;" onclick="event.stopPropagation();openLCModal(\'${escAttr(lid)}\')">↗</button></div>
-        </div>
-      </td>
-      <td onclick="event.stopPropagation()">${invoiceBadge(l)}</td>
-      <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button>`:''}</td>
+      <td style="white-space:nowrap;">${healthCell(l)}${pendingAgeBadge(l)}</td>
+      <td onclick="event.stopPropagation()">${invoicePill(l)}</td>
+      <td onclick="event.stopPropagation()">${actionsMenu(l,canDelete)}</td>
     </tr>
     <tr id="edit-${escapeHtml(lid)}" style="display:none;background:var(--bg3);">
       <td colspan="11" style="padding:14px 16px;">
@@ -4546,6 +4533,7 @@ function renderLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${escapeHtml(lid)}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${escapeHtml(lid)}" value="${escapeHtml(String(l.price||'').replace(/\$+/g,''))}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${escapeHtml(lid)}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Status</div><select id="ei-status-${escapeHtml(lid)}" onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="margin:0;font-size:12px;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select></div>
           <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${escapeHtml(lid)}" value="${safeLinkin}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${escapeHtml(lid)}" value="${safeLinkto}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Relevancy</div>
@@ -4922,6 +4910,77 @@ function linkCheckBadge(v, linkin, linkto, id){
   else if(v.includes('🔒')){color='var(--text2)';label='Blocked';}
   const full=escapeHtml(stripStatusEmoji(v));
   return`<span style="display:inline-flex;align-items:center;gap:6px;color:${color};font-size:11px;" title="${full}">${statusDot(color)}${label}</span>`;
+}
+
+// Single merged Status+Link-Check indicator — one colored dot plus the
+// most specific available label, replacing two side-by-side columns that
+// could visibly disagree (Status said Live while Link Check said Page
+// gone). Status still drives the color/label since it's the field that
+// actually gates the rest of the app (payouts, filters); the link-check
+// result only refines the label when it adds real detail (the exact
+// failure reason, or a "checked but flagged" state while still Live).
+function healthCell(l){
+  const reason=stripStatusEmoji(l.linkcheck);
+  let color='var(--text2)', label='Pending';
+  if(l.status==='live'){
+    if(String(l.linkcheck||'').includes('⚠️')){color='#f0a500';label='Link Check Issue';}
+    else if(String(l.linkcheck||'').includes('🔒')){color='var(--text2)';label='Blocked';}
+    else{color='#00c9b0';label='Live';}
+  } else if(l.status==='lost'){
+    color='#ff6b6b';
+    label=(String(l.linkcheck||'').includes('❌')&&reason)?reason:'Lost';
+  } else if(l.status==='needs-change'){
+    color='#f0a500';label='Needs change';
+  } else if(l.status==='rejected'){
+    color='var(--text3)';label='Rejected';
+  }
+  const title=reason?escapeHtml(reason):'Not checked yet';
+  return`<span style="display:inline-flex;align-items:center;gap:6px;color:${color};font-size:12px;font-weight:600;white-space:nowrap;" title="${title}">${statusDot(color)}${escapeHtml(label)}</span>`;
+}
+
+// Fire-and-forget single-link check for the row's kebab "Re-check" action
+// — no button-spinner state to manage, just a toast, since it's one menu
+// item among several rather than the row's primary control.
+async function quickRecheckLink(id){
+  const link=allLinks.find(l=>l.id===id);
+  if(!link||!link.linkin||!link.linkto){showToast('Set Link in / Link to first (Edit)');return;}
+  showToast('Checking…');
+  try{
+    const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:link.linkin,linkTo:link.linkto,anchor:link.anchor||''})});
+    const data=await resp.json();
+    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+    showToast(data.result||'Checked');
+  }catch(e){
+    showToast('Error: '+e.message.slice(0,60));
+  }
+}
+
+// Per-row "⋯" actions menu (Edit / Re-check / Invoice / Delete) — closes
+// any other open menu first so only one is ever visible, and a
+// document-level listener (below) closes it again on any outside click
+// or after a menu item's own onclick has already fired.
+function toggleRowMenu(e,id){
+  e.stopPropagation();
+  const menu=document.getElementById('row-menu-'+id);
+  const wasOpen=menu.classList.contains('open');
+  document.querySelectorAll('.row-menu.open').forEach(m=>m.classList.remove('open'));
+  if(!wasOpen)menu.classList.add('open');
+}
+document.addEventListener('click',()=>{
+  document.querySelectorAll('.row-menu.open').forEach(m=>m.classList.remove('open'));
+});
+function actionsMenu(l,canDelete,editFn){
+  const lid=l.id;
+  const ef=editFn||'toggleEditRow';
+  return`<div class="row-menu-wrap">
+    <button class="btn-ghost row-menu-btn" onclick="toggleRowMenu(event,'${escAttr(lid)}')" title="More actions">⋯</button>
+    <div class="row-menu" id="row-menu-${escAttr(lid)}">
+      <button onclick="${ef}('${escAttr(lid)}')">Edit</button>
+      <button onclick="quickRecheckLink('${escAttr(lid)}')">Re-check</button>
+      <button onclick="promptInvoiceEntry('${escAttr(lid)}')">Invoice</button>
+      ${canDelete?`<button class="row-menu-danger" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">Delete</button>`:''}
+    </div>
+  </div>`;
 }
 
 function toggleAllBuilderChecks(master){
@@ -8201,7 +8260,6 @@ function renderBuilderLinks(){
   const rowFn=(l)=>{
     const lid=l.id;
     const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
-    const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="bl-row-check" value="${lid}" onchange="updateBlCheckBtn()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="color:var(--text);font-size:12px;white-space:nowrap;">${l.date||''}</td>
@@ -8209,20 +8267,9 @@ function renderBuilderLinks(){
       <td>${l.dr||'—'}</td><td>${trafficVal}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
       <td>${projTag(l.project)}</td>
-      <td onclick="event.stopPropagation()" style="white-space:nowrap;">
-        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start;">
-          <div><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;">
-            <option value="live" ${l.status==='live'?'selected':''}>Live</option>
-            <option value="pending" ${l.status==='pending'?'selected':''}>Pending</option>
-            <option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option>
-            <option value="lost" ${l.status==='lost'?'selected':''}>Lost</option>
-            <option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option>
-          </select>${pendingAgeBadge(l)}</div>
-          <div style="display:flex;align-items:center;gap:4px;">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:3px 7px;font-size:10px;border-radius:6px;" onclick="event.stopPropagation();openLCModal('${escAttr(lid)}')">↗</button></div>
-        </div>
-      </td>
-      <td onclick="event.stopPropagation()">${invoiceBadge(l)}</td>
-      <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:5px 8px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button>`:''}</td>
+      <td style="white-space:nowrap;">${healthCell(l)}${pendingAgeBadge(l)}</td>
+      <td onclick="event.stopPropagation()">${invoicePill(l)}</td>
+      <td onclick="event.stopPropagation()">${actionsMenu(l,canDelete,'toggleEditRowById')}</td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
       <td colspan="10" style="padding:14px 16px;">
@@ -8238,6 +8285,7 @@ function renderBuilderLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${escapeHtml(String(l.price||'').replace(/^\$+/,''))}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Status</div><select id="ei-status-${lid}" onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="margin:0;font-size:12px;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select></div>
           <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${escapeHtml(l.linkin||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${escapeHtml(l.linkto||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Relevancy</div>
