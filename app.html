@@ -2319,7 +2319,36 @@ function invoiceBadge(l){
   let color='var(--text3)',border='var(--border2)',label='＋ Invoice',title='Add invoice';
   if(has&&paid){color='var(--teal)';border='rgba(45,212,191,0.35)';label='✓ Paid';title='Invoice paid — click to view/edit';}
   else if(has&&!paid){color='var(--yellow)';border='rgba(240,165,0,0.4)';label='🧾 Unpaid';title='Invoice added, not paid yet — click to view/edit';}
-  return `<button class="btn-ghost" onclick="event.stopPropagation();promptInvoiceEntry('${escAttr(l.id)}')" style="padding:5px 10px;font-size:11px;color:${color};border-color:${border};" title="${title}">${label}</button>`;
+  const mainBtn=`<button class="btn-ghost" onclick="event.stopPropagation();promptInvoiceEntry('${escAttr(l.id)}')" style="padding:5px 10px;font-size:11px;color:${color};border-color:${border};" title="${title}">${label}</button>`;
+  // Best-effort auto-check against the invoice link itself (PayPal pages
+  // mainly) — only shown once there's actually a link to check.
+  const checkBtn=has?`<button class="btn-ghost" onclick="event.stopPropagation();checkInvoiceStatus('${escAttr(l.id)}',this)" style="padding:5px 7px;font-size:11px;margin-left:4px;" title="Auto-check paid status">🔄</button>`:'';
+  return `<span style="display:inline-flex;align-items:center;white-space:nowrap;">${mainBtn}${checkBtn}</span>`;
+}
+
+// Fetches the saved invoice link and asks /api/check-invoice whether it
+// looks paid — best-effort (PayPal pages are JS-rendered and sometimes
+// bot-blocked, so an inconclusive result just says so instead of guessing).
+async function checkInvoiceStatus(id, btn){
+  const link=allLinks.find(l=>l.id===id);
+  if(!link||!link.invoice){showToast('No invoice link set');return;}
+  const orig=btn.textContent;
+  btn.disabled=true;btn.textContent='⏳';
+  try{
+    const resp=await fetch('/api/check-invoice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({invoiceUrl:link.invoice})});
+    const data=await resp.json();
+    if(data.paid===true){
+      await db.collection('links').doc(id).update({paid:true});
+      showToast('✅ Marked as paid');
+    } else if(data.paid===false){
+      showToast('⏳ Invoice not paid yet');
+    } else {
+      showToast(data.result||'Could not determine status — verify manually');
+    }
+  }catch(e){
+    showToast('Error: '+e.message.slice(0,60));
+  }
+  btn.disabled=false;btn.textContent=orig;
 }
 
 // ─── AUTH ─────────────────────────────────────────────────
