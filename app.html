@@ -2313,7 +2313,13 @@ function builderAvatar(name){
 // in once (e.g. right when a link goes live).
 function invoiceBadge(l){
   const has=!!l.invoice;
-  return `<button class="btn-ghost" onclick="event.stopPropagation();promptInvoiceEntry('${escAttr(l.id)}')" style="padding:5px 10px;font-size:11px;${has?'color:var(--teal);border-color:rgba(45,212,191,0.35);':''}" title="${has?'View/edit invoice':'Add invoice'}">${has?'🧾 Invoice':'＋ Invoice'}</button>`;
+  const paid=!!l.paid;
+  // Three states: no invoice yet (muted), invoice but unpaid (amber —
+  // needs follow-up), invoice and paid (teal — done).
+  let color='var(--text3)',border='var(--border2)',label='＋ Invoice',title='Add invoice';
+  if(has&&paid){color='var(--teal)';border='rgba(45,212,191,0.35)';label='✓ Paid';title='Invoice paid — click to view/edit';}
+  else if(has&&!paid){color='var(--yellow)';border='rgba(240,165,0,0.4)';label='🧾 Unpaid';title='Invoice added, not paid yet — click to view/edit';}
+  return `<button class="btn-ghost" onclick="event.stopPropagation();promptInvoiceEntry('${escAttr(l.id)}')" style="padding:5px 10px;font-size:11px;color:${color};border-color:${border};" title="${title}">${label}</button>`;
 }
 
 // ─── AUTH ─────────────────────────────────────────────────
