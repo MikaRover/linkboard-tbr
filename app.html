@@ -167,8 +167,11 @@ tr:last-child td{border-bottom:none;}
 .btn-sm:active{transform:scale(0.97);}
 .btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2);padding:5px 12px;font-size:12px;border-radius:6px;cursor:pointer;transition:all 0.15s ease;}
 .btn-ghost:hover{border-color:var(--accent2);color:var(--accent2);background:var(--accent2-glow);}
-.btn-danger{background:transparent;border:1px solid rgba(255,95,95,0.3);color:var(--red);padding:5px 10px;font-size:11px;border-radius:6px;cursor:pointer;transition:all 0.15s ease;}
-.btn-danger:hover{background:rgba(255,95,95,0.08);border-color:var(--red);}
+/* Muted by default — a bright red delete control on every row invites
+   accidental clicks; it only turns red (and only then reads as
+   "dangerous") when you're actually hovering it. */
+.btn-danger{background:transparent;border:1px solid var(--border2);color:var(--text3);padding:5px 10px;font-size:11px;border-radius:6px;cursor:pointer;transition:all 0.15s ease;}
+.btn-danger:hover{background:rgba(255,95,95,0.08);border-color:var(--red);color:var(--red);}
 
 /* ── INPUTS ── */
 input,select{width:100%;padding:10px 12px;font-size:15px;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);margin-bottom:14px;outline:none;transition:border-color 0.15s ease,box-shadow 0.15s ease;font-family:inherit;}
@@ -231,7 +234,7 @@ select option{background:var(--bg2);}
 .section-label{font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
 
 /* ── DOMAIN COLORS ── */
-.domain-teal{color:var(--teal);font-size:12px;font-weight:600;}
+.domain-teal{color:var(--text);font-size:12px;font-weight:600;}
 .domain-dup{color:var(--red);font-size:12px;font-weight:700;}
 
 /* ── PROGRESS ── */
@@ -380,7 +383,7 @@ tr:hover td{background:var(--bg3);}
 .filters{display:flex;gap:10px;margin-bottom:1rem;flex-wrap:wrap;}
 .filters input,.filters select{margin-bottom:0;flex:1;min-width:120px;}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-.domain-teal{color:var(--teal);font-size:13px;}
+.domain-teal{color:var(--text);font-size:13px;}
 .domain-dup{color:#ff6b6b;font-size:13px;font-weight:600;}
 .loading{text-align:center;padding:2rem;color:var(--text2);font-size:13px;}
 .req-bar-bg{height:5px;background:var(--bg3);border-radius:3px;margin-bottom:3px;}
@@ -462,6 +465,7 @@ tr:hover td{background:var(--bg3);}
 .status-tab.active-live{background:rgba(0,196,174,0.12);border-color:rgba(0,196,174,0.4);color:var(--teal);}
 .status-tab.active-pend{background:rgba(240,165,0,0.1);border-color:rgba(240,165,0,0.35);color:var(--yellow);}
 .status-tab.active-needschange{background:rgba(120,150,255,0.12);border-color:rgba(120,150,255,0.4);color:var(--accent2);}
+.status-tab.active-lost{background:rgba(255,107,107,0.12);border-color:rgba(255,107,107,0.4);color:var(--red);}
 .status-tab.active-all{background:var(--bg3);border-color:var(--border2);color:var(--text);}
 .month-sep-row td{background:var(--bg3) !important;padding:6px 10px !important;border-top:2px solid var(--border) !important;}
 
@@ -1016,8 +1020,8 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   </div>
   <div class="card">
     <div class="tbl-wrap"><table>
-      <thead><tr><th><input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="toggleSort('date')">Date <span id="sort-date">↓</span></th><th>Domain</th><th style="cursor:pointer;" onclick="toggleSort('dr')">DR <span id="sort-dr"></span></th><th style="cursor:pointer;" onclick="toggleSort('traffic')">Traffic <span id="sort-traffic"></span></th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th><th>Link check</th><th>Invoice</th><th class="adm"></th></tr></thead>
-      <tbody id="all-tbody"><tr><td colspan="12" class="loading">Loading...</td></tr></tbody>
+      <thead><tr><th><input type="checkbox" id="select-all" onclick="toggleSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="toggleSort('date')">Date <span id="sort-date">↓</span></th><th>Domain</th><th style="cursor:pointer;" onclick="toggleSort('dr')">DR <span id="sort-dr"></span></th><th style="cursor:pointer;" onclick="toggleSort('traffic')">Traffic <span id="sort-traffic"></span></th><th>Anchor</th><th>Project</th><th>Builder</th><th>Status</th><th>Invoice</th><th class="adm"></th></tr></thead>
+      <tbody id="all-tbody"><tr><td colspan="11" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -1197,7 +1201,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
         <button class="btn-ghost" onclick="togglePendingPanel()" style="font-size:11px;padding:3px 8px;">✕ Close</button>
       </div>
       <div class="tbl-wrap"><table>
-        <thead><tr><th></th><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Link check</th><th>Relevancy</th><th>Dup</th><th>Invoice</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Relevancy</th><th>Dup</th><th>Invoice</th><th></th></tr></thead>
         <tbody id="pd-pending-tbody"></tbody>
       </table></div>
     </div>
@@ -1205,8 +1209,8 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
 
   <div class="card">
     <div class="tbl-wrap"><table>
-      <thead><tr><th><input type="checkbox" id="pd-select-all" onclick="togglePdSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="togglePdSort('date')">Date <span id="pd-sort-date">↓</span></th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Link check</th><th>Relevancy</th><th>Dup</th><th>Invoice</th><th></th></tr></thead>
-      <tbody id="pd-tbody"><tr><td colspan="15" class="loading">Loading...</td></tr></tbody>
+      <thead><tr><th><input type="checkbox" id="pd-select-all" onclick="togglePdSelectAll(this)" style="width:auto;margin:0;cursor:pointer;"/></th><th style="cursor:pointer;" onclick="togglePdSort('date')">Date <span id="pd-sort-date">↓</span></th><th>Domain</th><th>DR</th><th>Traffic</th><th>SS</th><th>Price</th><th>Anchor</th><th>Builder</th><th>Status</th><th>Relevancy</th><th>Dup</th><th>Invoice</th><th></th></tr></thead>
+      <tbody id="pd-tbody"><tr><td colspan="14" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
   <div id="pd-batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
@@ -1786,7 +1790,6 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   <div class="page-top">
     <div class="page-title">My Links</div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <button class="btn-ghost" id="bl-check-btn" onclick="checkSelectedBuilderLinks(this)" style="width:auto;white-space:nowrap;display:none;" title="Run link checker on selected links">🔍 Check selected</button>
       <button class="btn-sm" onclick="openAddLinkModal()" style="width:auto;">+ Add link</button>
     </div>
   </div>
@@ -1795,11 +1798,20 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     <div class="status-tab" id="tab-live" onclick="setBTab('live',this)">✅ Live</div>
     <div class="status-tab" id="tab-pend" onclick="setBTab('pend',this)">⏳ Pending</div>
     <div class="status-tab" id="tab-needschange" onclick="setBTab('needschange',this)">✏️ Needs change</div>
+    <div class="status-tab" id="tab-lost" onclick="setBTab('lost',this)">❌ Lost</div>
   </div>
   <div class="filters" style="gap:6px;margin-bottom:8px;">
     <input id="bl-s" placeholder="Search domain, anchor..." oninput="renderBuilderLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
     <select id="bl-month" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;min-width:130px;"><option value="">All time</option></select>
     <select id="bl-p" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All projects</option></select>
+  </div>
+  <div id="bl-batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
+    <span id="bl-batch-count" style="font-size:13px;color:var(--text2);"></span>
+    <button class="btn-sm" onclick="blBatchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
+    <button class="btn-sm" onclick="blBatchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
+    <button class="btn-ghost" id="bl-check-btn" onclick="checkSelectedBuilderLinks(this)" title="Run link checker on selected links">🔍 Check selected</button>
+    <button class="btn-danger" onclick="blBatchDelete()">Delete selected</button>
+    <button class="btn-ghost" onclick="clearBlSelection()" style="margin-left:auto;">Clear</button>
   </div>
   <div class="card">
     <div class="tbl-wrap"><table>
@@ -1807,9 +1819,9 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
         <th style="width:28px;"><input type="checkbox" id="bl-check-all" onchange="toggleAllBuilderChecks(this)" style="width:auto;margin:0;cursor:pointer;"/></th>
         <th style="cursor:pointer;" onclick="toggleBSort()">Date <span id="b-sort-date">↓</span></th>
         <th>Domain</th><th>DR</th><th>Traffic</th><th>Anchor</th><th>Project</th>
-        <th>Status</th><th>Link check</th><th>Invoice</th><th style="width:36px;"></th>
+        <th>Status</th><th>Invoice</th><th style="width:36px;"></th>
       </tr></thead>
-      <tbody id="b-tbody"><tr><td colspan="11" class="loading">Loading...</td></tr></tbody>
+      <tbody id="b-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -2319,7 +2331,7 @@ function invoiceBadge(l){
   // language as linkCheckBadge/statusDot, no emoji, so every status-ish
   // column in the row reads the same way instead of a different icon
   // style per column.
-  let color='var(--text3)',label='Invoice',title='Add invoice',showDot=false;
+  let color='var(--text3)',label='Create Invoice',title='Add invoice',showDot=false;
   if(has&&paid){color='var(--teal)';label='Paid';title='Invoice paid — click to view/edit';showDot=true;}
   else if(has&&!paid){color='var(--yellow)';label='Unpaid';title='Invoice added, not paid yet — click to view/edit';showDot=true;}
   const border=showDot?(has&&paid?'rgba(45,212,191,0.35)':'rgba(240,165,0,0.4)'):'var(--border2)';
@@ -2431,9 +2443,9 @@ function toggleTheme(){
       const sw=document.getElementById('theme-switch');
       const icon=document.getElementById('theme-icon');
       const label=document.getElementById('theme-label');
-      if(sw)sw.classList.remove('on');
-      if(icon)icon.textContent='🌙';
-      if(label)label.textContent='Dark mode';
+      if(sw)sw.classList.add('on');
+      if(icon)icon.textContent='☀️';
+      if(label)label.textContent='Light mode';
     }
   }
 })();
@@ -3072,7 +3084,7 @@ function renderDetailLinks(){
     </div>`;
 
   const tb=document.getElementById('pd-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="15" class="loading">No links</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="14" class="loading">No links</td></tr>';return;}
 
   const pdRowFn=(l)=>{
     const lid=l.id;
@@ -3085,15 +3097,19 @@ function renderDetailLinks(){
       <td>${escapeHtml(l.date||'')}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${builderAvatar(l.builder)}</td>
-      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal(\'${escAttr(lid)}\')">↗</button></td>
+      <td onclick="event.stopPropagation()" style="white-space:nowrap;">
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start;">
+          <div><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</div>
+          <div style="display:flex;align-items:center;gap:4px;">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:3px 7px;font-size:10px;border-radius:6px;" onclick="event.stopPropagation();openLCModal('${escAttr(lid)}')">↗</button></div>
+        </div>
+      </td>
       <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancyRow('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
       <td>${dupB(l,domainCount)}</td>
       <td onclick="event.stopPropagation()">${invoiceBadge(l)}</td>
       <td onclick="event.stopPropagation()"><button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button></td>
     </tr>
     <tr id="edit-${escapeHtml(lid)}" style="display:none;background:var(--bg3);">
-      <td colspan="15" style="padding:14px 16px;">
+      <td colspan="14" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
           ${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
           ${l.linkto?`<a href="${escAttr(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
@@ -3138,13 +3154,13 @@ function renderDetailLinks(){
     if(s && !(l.domain||'').toLowerCase().includes(s) && !(l.anchor||'').toLowerCase().includes(s)) return false;
     return true;
   });
-  tb.innerHTML = flLiveOnly.length ? renderRowsGrouped(flLiveOnly, pdRowFn, 15) : `<tr><td colspan="15" class="loading">No live links</td></tr>`;
+  tb.innerHTML = flLiveOnly.length ? renderRowsGrouped(flLiveOnly, pdRowFn, 14) : `<tr><td colspan="14" class="loading">No live links</td></tr>`;
 
   // Render pending panel (hidden by default)
   const pp = document.getElementById('pd-pending-panel');
   if(pp){
     const ppTb = document.getElementById('pd-pending-tbody');
-    if(ppTb) ppTb.innerHTML = flPendOnly.length ? renderRowsGrouped(flPendOnly, pdRowFn, 15) : `<tr><td colspan="15" class="loading">No pending links</td></tr>`;
+    if(ppTb) ppTb.innerHTML = flPendOnly.length ? renderRowsGrouped(flPendOnly, pdRowFn, 14) : `<tr><td colspan="14" class="loading">No pending links</td></tr>`;
     document.getElementById('pd-pending-count').textContent = flPendOnly.length;
   }
 }
@@ -3189,7 +3205,7 @@ async function pdBatchCheck(btn){
   for(const id of ids){
     const l=allLinks.find(x=>x.id===id);
     if(!l?.linkin||!l?.linkto){await db.collection('links').doc(id).update({linkcheck:'⚠️ Link in/out missing'});done++;btn.textContent=`⏳ ${done}/${ids.length}`;continue;}
-    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(id).update({linkcheck:data.result||'⚠️ No response'});}
+    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));}
     catch(e){await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});}
     done++;btn.textContent=`⏳ ${done}/${ids.length}`;
   }
@@ -3204,7 +3220,7 @@ async function checkDetailProjectLinks(btn){
   const orig=btn.textContent;btn.disabled=true;let done=0;
   for(const l of toCheck){
     btn.textContent=`⏳ ${done}/${toCheck.length}`;
-    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(l.id).update({linkcheck:data.result||'⚠️ No response'});}
+    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data));}
     catch(e){await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});}
     done++;
   }
@@ -4588,7 +4604,7 @@ function renderLinks(){
   });
 
   const tb=document.getElementById('all-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="12" class="loading">No links</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="11" class="loading">No links</td></tr>';return;}
 
   const rowFn=(l)=>{
     const trafficVal=l.traffic?Number(String(l.traffic).replace(/,/g,'')).toLocaleString()||l.traffic:'—';
@@ -4609,13 +4625,17 @@ function renderLinks(){
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
       <td>${projTag(l.project)}</td>
       <td>${builderAvatar(l.builder)}</td>
-      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal(\'${escAttr(lid)}\')">↗</button></td>
+      <td onclick="event.stopPropagation()" style="white-space:nowrap;">
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start;">
+          <div><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</div>
+          <div style="display:flex;align-items:center;gap:4px;">${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:3px 7px;font-size:10px;border-radius:6px;" onclick="event.stopPropagation();openLCModal(\'${escAttr(lid)}\')">↗</button></div>
+        </div>
+      </td>
       <td onclick="event.stopPropagation()">${invoiceBadge(l)}</td>
       <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:2px 6px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button>`:''}</td>
     </tr>
     <tr id="edit-${escapeHtml(lid)}" style="display:none;background:var(--bg3);">
-      <td colspan="12" style="padding:14px 16px;">
+      <td colspan="11" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
           ${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
           ${l.linkto?`<a href="${escAttr(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
@@ -4650,7 +4670,7 @@ function renderLinks(){
       </td>
     </tr>`;
   };
-  tb.innerHTML = fl.length ? renderRowsGrouped(fl, rowFn, 12) : `<tr><td colspan="12" class="loading">No links</td></tr>`;
+  tb.innerHTML = fl.length ? renderRowsGrouped(fl, rowFn, 11) : `<tr><td colspan="11" class="loading">No links</td></tr>`;
 
 }
 
@@ -5012,11 +5032,29 @@ function toggleAllBuilderChecks(master){
 }
 function updateBlCheckBtn(){
   const n = document.querySelectorAll('.bl-row-check:checked').length;
+  const bar = document.getElementById('bl-batch-bar');
+  if(bar) bar.style.display = n>0 ? 'flex' : 'none';
+  const count = document.getElementById('bl-batch-count');
+  if(count) count.textContent = n>0 ? n+' selected' : '';
   const btn = document.getElementById('bl-check-btn');
-  if(btn){
-    btn.style.display = n>0 ? 'inline-block' : 'none';
-    btn.textContent = n>0 ? `🔍 Check selected (${n})` : '🔍 Check selected';
-  }
+  if(btn) btn.textContent = n>0 ? `🔍 Check selected (${n})` : '🔍 Check selected';
+}
+function clearBlSelection(){
+  document.querySelectorAll('.bl-row-check, #bl-check-all').forEach(cb=>cb.checked=false);
+  updateBlCheckBtn();
+}
+async function blBatchSetStatus(status){
+  const ids = Array.from(document.querySelectorAll('.bl-row-check:checked')).map(c=>c.value);
+  if(!ids.length) return;
+  for(const id of ids) await db.collection('links').doc(id).update({status});
+  clearBlSelection();
+}
+async function blBatchDelete(){
+  const ids = Array.from(document.querySelectorAll('.bl-row-check:checked')).map(c=>c.value);
+  if(!ids.length) return;
+  if(!confirm(`Delete ${ids.length} link${ids.length>1?'s':''}?`)) return;
+  for(const id of ids) await db.collection('links').doc(id).delete();
+  clearBlSelection();
 }
 async function checkSelectedBuilderLinks(btn){
   const ids = Array.from(document.querySelectorAll('.bl-row-check:checked')).map(c=>c.value);
@@ -5038,14 +5076,7 @@ async function checkSelectedBuilderLinks(btn){
         body: JSON.stringify({linkIn:l.linkin, linkTo:l.linkto, anchor:l.anchor||''})
       });
       const data = await resp.json();
-      const updateObj = {linkcheck: data.result||'⚠️ No response'};
-      // Auto-update status based on check result
-      if(data.ok===true && (data.result||'').includes('Live')){
-        updateObj.status = 'live';
-      } else if(data.ok===false && ((data.result||'').includes('Page gone')||(data.result||'').includes('not found'))){
-        updateObj.status = 'lost';
-      }
-      await db.collection('links').doc(id).update(updateObj);
+      await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
     }catch(e){
       await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'}).catch(()=>{});
     }
@@ -5058,6 +5089,22 @@ async function checkSelectedBuilderLinks(btn){
   showToast(`✅ Checked ${ids.length} link${ids.length>1?'s':''}`);
 }
 
+// Central place to build a Firestore update payload for a link-check
+// result — keeps a link's own Status in sync when the result is
+// unambiguous (confirmed Live, or confirmed gone/removed), so Status
+// and Link Check never visibly contradict each other in the table.
+// Inconclusive results (blocked, error, unreachable) never touch
+// status — better to leave it alone than guess.
+function linkCheckUpdatePayload(data){
+  const result=(data&&data.result)||'⚠️ No response';
+  const payload={linkcheck:result};
+  if(data&&data.ok===true&&result.includes('Live')){
+    payload.status='live';
+  } else if(data&&data.ok===false&&(result.includes('Page gone')||result.includes('not found'))){
+    payload.status='lost';
+  }
+  return payload;
+}
 async function checkSingleLink(id, _li, _lt, _anc, btn){
   // Always read fresh data from allLinks or Firebase
   const link=allLinks.find(l=>l.id===id);
@@ -5077,8 +5124,7 @@ async function checkSingleLink(id, _li, _lt, _anc, btn){
       body:JSON.stringify({linkIn,linkTo,anchor})
     });
     const data=await resp.json();
-    const result=data.result||'⚠️ No response';
-    await db.collection('links').doc(id).update({linkcheck:result});
+    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
   }catch(e){
     await db.collection('links').doc(id).update({linkcheck:'⚠️ Error: '+e.message.slice(0,40)});
   }
@@ -5102,7 +5148,7 @@ async function checkProjectLinks(){
     try{
       const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
       const data=await resp.json();
-      await db.collection('links').doc(l.id).update({linkcheck:data.result||'⚠️ No response'});
+      await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data));
     }catch(e){
       await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});
     }
@@ -5156,7 +5202,7 @@ async function batchCheck(btn){
     try{
       const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
       const data=await resp.json();
-      await db.collection('links').doc(id).update({linkcheck:data.result||'⚠️ No response'});
+      await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
     }catch(e){
       await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});
     }
@@ -7529,7 +7575,7 @@ async function checkLCModal(btn){
     });
     const data = await resp.json();
     const result = data.result || '⚠️ No response';
-    await db.collection('links').doc(lcCurrentId).update({linkcheck:result, linkin, linkto, anchor});
+    await db.collection('links').doc(lcCurrentId).update({...linkCheckUpdatePayload(data), linkin, linkto, anchor});
     document.getElementById('lc-status').innerHTML = `<span style="font-size:14px;font-weight:600;">${result}</span>`;
   }catch(e){
     document.getElementById('lc-status').innerHTML = '<span style="color:#ff6b6b;">⚠️ Error: '+e.message.slice(0,50)+'</span>';
@@ -8244,6 +8290,7 @@ function renderBuilderLinks(){
     if(bStatusFilter==='live'&&l.status!=='live')return false;
     if(bStatusFilter==='pend'&&l.status!=='pending')return false;
     if(bStatusFilter==='needschange'&&l.status!=='needs-change')return false;
+    if(bStatusFilter==='lost'&&l.status!=='lost')return false;
     if(p&&l.project!==p)return false;
     if(blMonth&&l.date){const mk=getMonthKey(l.date);if(mk!==blMonth)return false;}
     if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s))return false;
@@ -8251,7 +8298,7 @@ function renderBuilderLinks(){
   });
   fl.sort((a,b)=>{const av=parseDate(a.date),bv=parseDate(b.date);return bSortDir==='desc'?bv-av:av-bv;});
   const tb=document.getElementById('b-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="11" class="loading">No links found</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="10" class="loading">No links found</td></tr>';return;}
   const canDelete=true;
   const rowFn=(l)=>{
     const lid=l.id;
@@ -8264,23 +8311,23 @@ function renderBuilderLinks(){
       <td>${l.dr||'—'}</td><td>${trafficVal}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
       <td>${projTag(l.project)}</td>
-      <td onclick="event.stopPropagation()">
-        <select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;">
-          <option value="live" ${l.status==='live'?'selected':''}>✅ Live</option>
-          <option value="pending" ${l.status==='pending'?'selected':''}>⏳ Pending</option>
-          <option value="needs-change" ${l.status==='needs-change'?'selected':''}>✏️ Needs change</option>
-          <option value="lost" ${l.status==='lost'?'selected':''}>❌ Lost</option>
-          <option value="rejected" ${l.status==='rejected'?'selected':''}>🚫 Rejected</option>
-        </select>${pendingAgeBadge(l)}
-      </td>
-      <td style="white-space:nowrap;" onclick="event.stopPropagation()">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
-        <button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="event.stopPropagation();openLCModal('${escAttr(lid)}')">↗</button>
+      <td onclick="event.stopPropagation()" style="white-space:nowrap;">
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start;">
+          <div><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;">
+            <option value="live" ${l.status==='live'?'selected':''}>Live</option>
+            <option value="pending" ${l.status==='pending'?'selected':''}>Pending</option>
+            <option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option>
+            <option value="lost" ${l.status==='lost'?'selected':''}>Lost</option>
+            <option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option>
+          </select>${pendingAgeBadge(l)}</div>
+          <div style="display:flex;align-items:center;gap:4px;">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}<button class="btn-ghost" style="padding:3px 7px;font-size:10px;border-radius:6px;" onclick="event.stopPropagation();openLCModal('${escAttr(lid)}')">↗</button></div>
+        </div>
       </td>
       <td onclick="event.stopPropagation()">${invoiceBadge(l)}</td>
       <td onclick="event.stopPropagation()">${canDelete?`<button class="btn-danger" style="padding:5px 8px;font-size:11px;" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">✕</button>`:''}</td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
-      <td colspan="11" style="padding:14px 16px;">
+      <td colspan="10" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
           ${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
           ${l.linkto?`<a href="${escapeHtml(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
@@ -8315,7 +8362,7 @@ function renderBuilderLinks(){
       </td>
     </tr>`;
   };
-  tb.innerHTML=renderRowsGrouped(fl,rowFn,11);
+  tb.innerHTML=renderRowsGrouped(fl,rowFn,10);
 }
 
 function updateDoubleCheckBadge(){
