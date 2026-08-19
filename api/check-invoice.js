@@ -95,5 +95,16 @@ module.exports = async function handler(req, res){
   const d = detectPaidStatus(html);
   if(d.paid===true) return res.json({ result:'✅ Paid', paid:true });
   if(d.paid===false) return res.json({ result:'⏳ Not paid yet', paid:false });
+
+  // A plain fetch usually just gets PayPal's JS app shell — no visible
+  // payment-status text yet, not blocked, just not rendered. Retry through
+  // the same reader-proxy bypass used for blocked responses, since that
+  // actually executes the page's JS before handing back text.
+  const bypassText = await fetchViaFreeBypass(url);
+  if(bypassText){
+    const d2 = detectPaidStatus(bypassText);
+    if(d2.paid===true) return res.json({ result:'✅ Paid (checked via bot-bypass)', paid:true, viaBypass:true });
+    if(d2.paid===false) return res.json({ result:'⏳ Not paid yet (checked via bot-bypass)', paid:false, viaBypass:true });
+  }
   return res.json({ result:'⚠️ Could not determine status — verify manually', paid:null });
 };
