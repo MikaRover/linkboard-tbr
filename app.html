@@ -1750,10 +1750,10 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
       <thead><tr>
         <th style="width:28px;"><input type="checkbox" id="bl-check-all" onchange="toggleAllBuilderChecks(this)" style="width:auto;margin:0;cursor:pointer;"/></th>
         <th style="cursor:pointer;" onclick="toggleBSort()">Date <span id="b-sort-date">↓</span></th>
-        <th>Domain</th><th>DR</th><th>Traffic</th><th>Anchor</th><th>Project</th>
-        <th>Health</th><th>Invoice</th><th style="width:50px;">Actions</th>
+        <th>Domain</th><th>DR</th><th>Traffic</th><th>Price</th><th>SS</th><th>Relevancy</th>
+        <th>Status</th><th>Invoice link</th><th>Invoice status</th><th style="width:50px;">Actions</th>
       </tr></thead>
-      <tbody id="b-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
+      <tbody id="b-tbody"><tr><td colspan="12" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -8254,24 +8254,25 @@ function renderBuilderLinks(){
   });
   fl.sort((a,b)=>{const av=parseDate(a.date),bv=parseDate(b.date);return bSortDir==='desc'?bv-av:av-bv;});
   const tb=document.getElementById('b-tbody');
-  if(!fl.length){tb.innerHTML='<tr><td colspan="10" class="loading">No links found</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="12" class="loading">No links found</td></tr>';return;}
   const canDelete=true;
   const rowFn=(l)=>{
     const lid=l.id;
     const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
+    const priceVal=l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—';
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="bl-row-check" value="${lid}" onchange="updateBlCheckBtn()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="color:var(--text);font-size:12px;white-space:nowrap;">${l.date||''}</td>
       <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
-      <td>${l.dr||'—'}</td><td>${trafficVal}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
-      <td>${projTag(l.project)}</td>
-      <td style="white-space:nowrap;">${healthCell(l)}${pendingAgeBadge(l)}</td>
+      <td>${l.dr||'—'}</td><td>${trafficVal}</td><td>${priceVal}</td><td>${escapeHtml(l.ss||'—')}</td>
+      <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancy('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
+      <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
+      <td onclick="event.stopPropagation()">${l.invoice?`<a href="${escAttr(l.invoice)}" target="_blank" class="btn-ghost" style="padding:4px 9px;font-size:11px;">↗ Invoice</a>`:'<span style="color:var(--text3);font-size:11px;">—</span>'}</td>
       <td onclick="event.stopPropagation()">${invoicePill(l)}</td>
       <td onclick="event.stopPropagation()">${actionsMenu(l,canDelete,'toggleEditRowById')}</td>
     </tr>
     <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
-      <td colspan="10" style="padding:14px 16px;">
+      <td colspan="12" style="padding:14px 16px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
           ${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
           ${l.linkto?`<a href="${escapeHtml(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
@@ -8307,7 +8308,7 @@ function renderBuilderLinks(){
       </td>
     </tr>`;
   };
-  tb.innerHTML=renderRowsGrouped(fl,rowFn,10);
+  tb.innerHTML=renderRowsGrouped(fl,rowFn,12);
 }
 
 function updateDoubleCheckBadge(){
