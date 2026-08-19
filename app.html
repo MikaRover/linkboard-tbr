@@ -717,6 +717,40 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
 .dash-stat-row .dash-chip .stat-l{order:2;font-size:13px;font-weight:500;margin:0;}
 .dash-stat-row .dash-chip .stat-v{order:1;font-size:22px;margin:0;}
 
+/* ── DASHBOARD hero stats + activity — same design system as the rest
+   of the app (var(--bg2)/--border/etc, not a separate visual language),
+   just with richer, more structured cards than the plain number+label
+   chips this replaces. ── */
+#p-dashboard .mac-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:1.5rem;}
+#p-dashboard .mac-stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;display:flex;flex-direction:column;gap:14px;}
+#p-dashboard .mac-stat-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+#p-dashboard .mac-stat-label{font-size:12px;font-weight:600;color:var(--text2);}
+#p-dashboard .mac-stat-sub{font-size:12px;color:var(--text3);}
+#p-dashboard .mac-stat-btn{align-self:flex-start;border:none;border-radius:980px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;}
+#p-dashboard .mac-stat-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;}
+#p-dashboard .mac-ring-wrap{position:relative;width:36px;height:36px;flex-shrink:0;}
+#p-dashboard .mac-ring-wrap svg{transform:rotate(-90deg);}
+#p-dashboard .mac-ring-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text);}
+#p-dashboard .mac-stat-num{font-size:28px;font-weight:700;color:var(--text);letter-spacing:-0.02em;font-family:var(--font-mono);}
+
+#p-dashboard .mac-builder-card{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 16px;min-width:170px;cursor:pointer;transition:background 0.15s ease;}
+#p-dashboard .mac-builder-card:hover{background:var(--bg4);}
+#p-dashboard .mac-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
+#p-dashboard .mac-builder-name{font-size:13px;font-weight:700;color:var(--text);}
+#p-dashboard .mac-builder-meta{font-size:11px;color:var(--teal);font-weight:600;margin-top:1px;}
+
+#p-dashboard .mac-table{width:100%;border-collapse:collapse;}
+#p-dashboard .mac-table th{text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;padding:9px 1.25rem;border-bottom:1px solid var(--border);}
+#p-dashboard .mac-table td{padding:11px 1.25rem;font-size:13px;color:var(--text);border-top:1px solid var(--border);vertical-align:middle;}
+#p-dashboard .mac-table tr.mac-row{transition:background 0.12s ease;}
+#p-dashboard .mac-table tr.mac-row:hover{background:var(--bg3);}
+#p-dashboard .mac-table tr.mac-row:hover .mac-row-actions{opacity:1;}
+#p-dashboard .mac-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:980px;font-size:11px;font-weight:600;}
+#p-dashboard .mac-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+#p-dashboard .mac-row-actions{opacity:0;transition:opacity 0.15s ease;display:flex;gap:6px;justify-content:flex-end;}
+#p-dashboard .mac-row-actions button{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:3px 5px;border-radius:6px;}
+#p-dashboard .mac-row-actions button:hover{background:var(--bg4);color:var(--text);}
+
 /* ── MOBILE RESPONSIVE ── */
 .sidebar-toggle{display:none;}
 .sidebar-backdrop{display:none;}
@@ -900,10 +934,39 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
       <button class="btn-sm" onclick="bulkCheckMyLinks(this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">🔗 Check my links</button>
     </div>
   </div>
-  <div class="stats dash-stat-row">
-    <div class="stat dash-chip"><div class="stat-l">Live this month</div><div class="stat-v" style="color:var(--teal)" id="ds-total">—</div></div>
-    <div class="stat dash-chip"><div class="stat-l">Pending this month</div><div class="stat-v" style="color:#f0a500" id="ds-pend">—</div></div>
-    <div class="stat dash-chip" id="ds-attn-chip"><div class="stat-l">Needs attention</div><div class="stat-v" id="ds-attn">—</div></div>
+  <div class="mac-stats">
+    <div class="mac-stat-card">
+      <div class="mac-stat-top">
+        <div class="mac-stat-label">Live this month</div>
+        <div class="mac-ring-wrap">
+          <svg width="36" height="36" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border2)" stroke-width="4"/>
+            <circle id="ds-ring" cx="18" cy="18" r="15" fill="none" stroke="var(--teal)" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2"/>
+          </svg>
+          <div class="mac-ring-val" id="ds-ring-val">—</div>
+        </div>
+      </div>
+      <div class="mac-stat-num" style="color:var(--teal);" id="ds-total">—</div>
+      <div class="mac-stat-sub" id="ds-total-sub">vs last month</div>
+    </div>
+
+    <div class="mac-stat-card">
+      <div class="mac-stat-top">
+        <div class="mac-stat-label">Pending this month</div>
+        <div class="mac-stat-icon" style="background:rgba(240,165,0,0.12);color:var(--yellow);">⏳</div>
+      </div>
+      <div class="mac-stat-num" style="color:var(--yellow);" id="ds-pend">—</div>
+      <button class="mac-stat-btn" style="background:rgba(240,165,0,0.14);color:var(--yellow);" onclick="goToMyLinksFromDashboard('pending')">Review Items</button>
+    </div>
+
+    <div class="mac-stat-card" id="ds-attn-chip">
+      <div class="mac-stat-top">
+        <div class="mac-stat-label">Needs attention</div>
+        <div class="mac-stat-icon" style="background:rgba(255,95,95,0.12);color:var(--red);">⚠</div>
+      </div>
+      <div class="mac-stat-num" style="color:var(--red);" id="ds-attn">—</div>
+      <button class="mac-stat-btn" style="background:rgba(255,95,95,0.14);color:var(--red);" onclick="goToChecker()">Fix All</button>
+    </div>
   </div>
   <div id="ds-dup-banner" style="display:none;margin:-6px 0 1.5rem;padding:10px 16px;border-radius:10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.25);font-size:13px;color:var(--text2);cursor:pointer;" onclick="goToChecker()"></div>
 
@@ -4447,6 +4510,37 @@ function renderDashboard(){
   document.getElementById('ds-total').textContent = thisLive.length;
   document.getElementById('ds-pend').textContent  = thisPend.length;
 
+  // Live-this-month ring — delivered (live) vs delivered+in-flight (live+pending)
+  // this month, i.e. what share of this month's work has actually landed.
+  const ringTotal = thisLive.length + thisPend.length;
+  const ringPct = ringTotal ? Math.round((thisLive.length/ringTotal)*100) : 0;
+  const ringEl = document.getElementById('ds-ring');
+  const ringValEl = document.getElementById('ds-ring-val');
+  if(ringEl){
+    const circumference = 94.2;
+    ringEl.setAttribute('stroke-dashoffset', String(circumference - (circumference*ringPct/100)));
+  }
+  if(ringValEl) ringValEl.textContent = ringTotal ? ringPct+'%' : '—';
+
+  // vs last month
+  const lastMonthDate=new Date(curYear, now.getMonth()-1, 1);
+  const lastMonthLive=myLinks.filter(l=>{
+    if(!l.date||l.status!=='live')return false;
+    const dp=l.date.split(/[.\-\/]/);
+    if(dp.length!==3)return false;
+    const mi=parseInt(dp[1])-1, yr=parseInt(dp[2].length===2?'20'+dp[2]:dp[2])||0;
+    return mi===lastMonthDate.getMonth() && yr===lastMonthDate.getFullYear();
+  }).length;
+  const subEl=document.getElementById('ds-total-sub');
+  if(subEl){
+    if(lastMonthLive===0){
+      subEl.textContent = thisLive.length>0 ? 'vs 0 last month' : 'No data yet';
+    } else {
+      const diff=Math.round(((thisLive.length-lastMonthLive)/lastMonthLive)*100);
+      subEl.innerHTML = `<span style="color:${diff>=0?'var(--teal)':'var(--red)'};font-weight:600;">${diff>=0?'+':''}${diff}%</span> vs last month`;
+    }
+  }
+
   // "Needs attention" — things that actually require someone to act,
   // replacing the old permanent Duplicates card (a data-quality metric,
   // not a daily-glance one — it moved to a conditional banner below).
@@ -4490,53 +4584,92 @@ function renderDashboard(){
   if(cu.role==='admin'){
     const lb = document.getElementById('ds-leaderboard');
     if(lb){
+      const AVATAR_COLORS=['#ff453a','#ff9f0a','#ffd60a','#30d158','#64d2ff','#007aff','#bf5af2'];
+      const colorFor=(name)=>{let h=0;for(let i=0;i<name.length;i++)h=name.charCodeAt(i)+((h<<5)-h);return AVATAR_COLORS[Math.abs(h)%AVATAR_COLORS.length];};
       const builderMap = {};
       thisMonthLinks.filter(l=>l.status==='live').forEach(l=>{
         const b = l.builder || '—';
-        if(!builderMap[b]) builderMap[b] = 0;
-        builderMap[b]++;
+        if(!builderMap[b]) builderMap[b]={count:0,drSum:0,drN:0};
+        builderMap[b].count++;
+        const dr=Number(l.dr);
+        if(!isNaN(dr)&&dr>0){builderMap[b].drSum+=dr;builderMap[b].drN++;}
       });
-      const sorted = Object.entries(builderMap).sort((a,b)=>b[1]-a[1]);
+      const sorted = Object.entries(builderMap).sort((a,b)=>b[1].count-a[1].count);
       const medals = ['🥇','🥈','🥉'];
-      lb.innerHTML = sorted.length ? sorted.map(([name, count], i)=>`
-        <div onclick="openBuilderModal('${escAttr(name)}')" style="display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:10px;padding:10px 18px;min-width:140px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'">
-          <span style="font-size:16px;">${medals[i]||'·'}</span>
+      lb.innerHTML = sorted.length ? sorted.map(([name, d], i)=>{
+        const avgDr = d.drN ? Math.round(d.drSum/d.drN) : null;
+        return `<div class="mac-builder-card" onclick="openBuilderModal('${escAttr(name)}')">
+          <div class="mac-avatar" style="background:${colorFor(name)};">${escapeHtml(name.charAt(0).toUpperCase())}</div>
           <div>
-            <div style="font-size:13px;font-weight:700;color:var(--text);">${escapeHtml(name)}</div>
-            <div style="font-size:11px;color:var(--teal);font-weight:600;">${count} live link${count!==1?'s':''}</div>
+            <div class="mac-builder-name">${medals[i]||''} ${escapeHtml(name)}</div>
+            <div class="mac-builder-meta">${d.count} live${avgDr?' · Avg DR '+avgDr:''}</div>
           </div>
-        </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:4px 0;">No live links this month yet</div>';
+        </div>`;
+      }).join('') : '<div style="color:var(--text3);font-size:13px;padding:4px 0;">No live links this month yet</div>';
     }
   }
 
-  // Recent activity — compact list (domain/project/builder/status),
-  // replacing the old two full 9-column raw tables (live + pending) that
-  // just duplicated what All Links/My Links already shows.
+  // Recent activity — macOS-style data table (domain/project/builder/DR-traffic/status/date/actions)
   const recentEl = document.getElementById('dash-recent');
   if(recentEl){
     const recent = [...myLinks].sort((a,b)=>parseDate(b.date)-parseDate(a.date)).slice(0,8);
     if(!recent.length){
       recentEl.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px;">No links yet</div>';
     } else {
-      recentEl.innerHTML = recent.map(l=>{
-        const statusColor = l.status==='live' ? 'var(--teal)' : l.status==='pending' ? '#f0a500' : l.status==='needs-change' ? '#8b8bf0' : 'var(--text3)';
-        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-top:1px solid var(--border);">
-          <span style="width:7px;height:7px;border-radius:50%;background:${statusColor};flex-shrink:0;"></span>
-          <a href="https://${escAttr(l.domain)}" target="_blank" style="color:var(--text);font-weight:600;font-size:13px;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(l.domain||'—')}</a>
-          ${l.project?`<span style="display:inline-block;padding:3px 10px;border-radius:6px;border:1px solid var(--border2);font-size:11px;color:var(--text2);white-space:nowrap;">${escapeHtml(l.project)}</span>`:''}
-          ${cu.role==='admin'&&l.builder?`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--accent2-glow);color:var(--accent2);font-size:9px;font-weight:700;flex-shrink:0;" title="${escapeHtml(l.builder)}">${escapeHtml(l.builder.charAt(0).toUpperCase())}</span>`:''}
-          <span style="font-size:11px;color:var(--text3);white-space:nowrap;font-family:var(--font-mono);">${escapeHtml(l.date||'')}</span>
-        </div>`;
-      }).join('');
+      const statusPill=(status)=>{
+        const map={live:['#2dd4bf','Live'],pending:['#f2b73e','Pending'],'needs-change':['#8b8bf0','Needs change'],lost:['#f4795b','Lost'],rejected:['#8a8f98','Rejected']};
+        const [color,label]=map[status]||['#8a8f98',status||'—'];
+        return `<span class="mac-pill" style="background:${color}22;color:${color};"><span class="dot"></span>${label}</span>`;
+      };
+      recentEl.innerHTML = `<div style="overflow-x:auto;"><table class="mac-table"><thead><tr>
+        <th>Domain</th><th>Project</th>${cu.role==='admin'?'<th>Builder</th>':''}<th>DR / Traffic</th><th>Status</th><th>Date</th><th></th>
+      </tr></thead><tbody>${recent.map(l=>{
+        const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
+        return `<tr class="mac-row">
+          <td><a href="https://${escAttr(l.domain)}" target="_blank" style="color:var(--text);font-weight:600;text-decoration:none;">${escapeHtml(l.domain||'—')}</a></td>
+          <td style="color:var(--text2);">${l.project?escapeHtml(l.project):'—'}</td>
+          ${cu.role==='admin'?`<td style="color:var(--text2);">${l.builder?escapeHtml(l.builder):'—'}</td>`:''}
+          <td style="color:var(--text2);font-family:var(--font-mono);">${escapeHtml(l.dr||'—')} / ${trafficVal}</td>
+          <td>${statusPill(l.status)}</td>
+          <td style="color:var(--text2);font-family:var(--font-mono);">${escapeHtml(l.date||'')}</td>
+          <td><div class="mac-row-actions">
+            <button onclick="event.stopPropagation();navigator.clipboard.writeText('https://${escAttr(l.domain)}');this.textContent='✓';setTimeout(()=>this.textContent='⧉',1200);" title="Copy URL">⧉</button>
+            <button onclick="event.stopPropagation();checkSingleLinkFromDash('${escAttr(l.id)}',this)" title="Re-check index">↻</button>
+            <button onclick="event.stopPropagation();goToMyLinksFromDashboard();" title="Edit">✎</button>
+          </div></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
     }
   }
+}
+async function checkSingleLinkFromDash(id, btn){
+  const link=allLinks.find(l=>l.id===id);
+  if(!link||!link.linkin||!link.linkto){showToast('Set Link in / Link to first (Edit)');return;}
+  const orig=btn.textContent;
+  btn.textContent='⏳';btn.disabled=true;
+  try{
+    const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:link.linkin,linkTo:link.linkto,anchor:link.anchor||''})});
+    const data=await resp.json();
+    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+    showToast(data.result||'Checked');
+  }catch(e){
+    showToast('Error: '+e.message.slice(0,60));
+  }
+  btn.textContent=orig;btn.disabled=false;
 }
 function goToChecker(){
   gotoPage('checker', document.querySelector(`.nav[onclick*="'checker'"]`));
 }
-function goToMyLinksFromDashboard(){
-  if(cu.role==='admin') gotoPage('links', document.querySelector(`.nav[onclick*="'links'"]`));
-  else gotoPage('b-links', document.getElementById('bld-nav-links'));
+function goToMyLinksFromDashboard(filter){
+  if(cu.role==='admin'){
+    gotoPage('links', document.querySelector(`.nav[onclick*="'links'"]`));
+  } else {
+    gotoPage('b-links', document.getElementById('bld-nav-links'));
+    if(filter==='pending'){
+      const tab=document.getElementById('tab-pend');
+      if(tab) setBTab('pend', tab);
+    }
+  }
 }
 
 function renderLinks(){
