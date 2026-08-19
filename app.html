@@ -3151,7 +3151,7 @@ function renderDetailLinks(){
       <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${escapeHtml(lid)}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td>${escapeHtml(l.date||'')}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
-      <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${builderAvatar(l.builder)}</td>
+      <td>${drBadge(l.dr)}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${builderAvatar(l.builder)}</td>
       <td style="white-space:nowrap;">${healthCell(l)}${pendingAgeBadge(l)}</td>
       <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancyRow('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
       <td>${dupB(l,domainCount)}</td>
@@ -4741,7 +4741,7 @@ function renderLinks(){
       <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${escapeHtml(lid)}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
-      <td>${escapeHtml(l.dr||'—')}</td>
+      <td>${drBadge(l.dr)}</td>
       <td>${trafficVal}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
       <td>${projTag(l.project)}</td>
@@ -5150,6 +5150,22 @@ function linkCheckBadge(v, linkin, linkto, id){
 // actually gates the rest of the app (payouts, filters); the link-check
 // result only refines the label when it adds real detail (the exact
 // failure reason, or a "checked but flagged" state while still Live).
+// Colored DR-tier badge (like a publisher-quality chip) instead of a
+// plain number — same DR value, but a glance at the color band tells
+// you the tier without reading the number. A dedicated palette, not
+// reused from status colors, so a high-DR domain never accidentally
+// reads as "problem" (red) or "live" (teal).
+function drBadge(dr){
+  const n=Number(dr);
+  if(!dr||isNaN(n)||n<=0) return '<span style="color:var(--text3);">—</span>';
+  let color,bg,label;
+  if(n>=50){color='#8b5cf6';bg='rgba(139,92,246,0.12)';label='Elite';}
+  else if(n>=40){color='#0a8577';bg='rgba(10,133,119,0.12)';label='Strong';}
+  else if(n>=30){color='#d97706';bg='rgba(217,119,6,0.12)';label='Good';}
+  else if(n>=20){color='#64748b';bg='rgba(100,116,139,0.14)';label='Fair';}
+  else {color='var(--text3)';bg='var(--bg3)';label='Low';}
+  return `<span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:980px;background:${bg};color:${color};font-size:11px;font-weight:700;white-space:nowrap;" title="${label} · DR ${n}">${n}<span style="opacity:0.75;font-weight:600;">${label}</span></span>`;
+}
 function healthCell(l){
   const reason=stripStatusEmoji(l.linkcheck);
   let color='var(--text2)', label='Pending';
@@ -8496,7 +8512,7 @@ function renderBuilderLinks(){
       <td onclick="event.stopPropagation()"><input type="checkbox" class="bl-row-check" value="${lid}" onchange="updateBlCheckBtn()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="color:var(--text);font-size:12px;white-space:nowrap;">${l.date||''}</td>
       <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
-      <td>${l.dr||'—'}</td><td>${trafficVal}</td><td>${priceVal}</td><td>${escapeHtml(l.ss||'—')}</td>
+      <td>${drBadge(l.dr)}</td><td>${trafficVal}</td><td>${priceVal}</td><td>${escapeHtml(l.ss||'—')}</td>
       <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancy('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
       <td onclick="event.stopPropagation()"><select onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);border-radius:980px;padding:7px 14px;font-size:13px;color:var(--text);width:auto;margin:0;cursor:pointer;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select>${pendingAgeBadge(l)}</td>
       <td onclick="event.stopPropagation()">${l.invoice?`<a href="${escAttr(l.invoice)}" target="_blank" class="btn-ghost" style="padding:4px 9px;font-size:11px;">↗ Invoice</a>`:'<span style="color:var(--text3);font-size:11px;">—</span>'}</td>
