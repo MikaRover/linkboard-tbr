@@ -717,43 +717,39 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
 .dash-stat-row .dash-chip .stat-l{order:2;font-size:13px;font-weight:500;margin:0;}
 .dash-stat-row .dash-chip .stat-v{order:1;font-size:22px;margin:0;}
 
-/* ── DASHBOARD: macOS / glass redesign (scoped to #p-dashboard only) ── */
-#p-dashboard{background:#000;margin:-2rem;padding:2rem;min-height:calc(100vh - 0px);}
-#p-dashboard .page-title{color:#fff;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',sans-serif;}
-#p-dashboard .btn-sm{background:#007aff;border-radius:980px;font-weight:600;}
-#p-dashboard .btn-sm.adm,#p-dashboard .btn-sm[style*="transparent"]{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#a1a1a6;}
-#p-dashboard .mac-glass{background:rgba(255,255,255,0.05);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border:1px solid rgba(255,255,255,0.1);border-radius:16px;}
-#p-dashboard .card{background:rgba(255,255,255,0.05);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border:1px solid rgba(255,255,255,0.1);border-radius:16px;box-shadow:none;}
-#p-dashboard .card-head{color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;border-bottom-color:rgba(255,255,255,0.08);}
-
+/* ── DASHBOARD hero stats + activity — same design system as the rest
+   of the app (var(--bg2)/--border/etc, not a separate visual language),
+   just with richer, more structured cards than the plain number+label
+   chips this replaces. ── */
 #p-dashboard .mac-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:1.5rem;}
-#p-dashboard .mac-stat-card{padding:20px;display:flex;flex-direction:column;gap:12px;}
-#p-dashboard .mac-stat-top{display:flex;align-items:center;justify-content:space-between;}
-#p-dashboard .mac-stat-label{font-size:13px;font-weight:600;color:#8e8e93;font-family:-apple-system,BlinkMacSystemFont,sans-serif;}
-#p-dashboard .mac-stat-sub{font-size:12px;color:#8e8e93;}
-#p-dashboard .mac-stat-btn{align-self:flex-start;border:none;border-radius:980px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,sans-serif;}
-#p-dashboard .mac-ring-wrap{position:relative;width:56px;height:56px;flex-shrink:0;}
+#p-dashboard .mac-stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;display:flex;flex-direction:column;gap:14px;}
+#p-dashboard .mac-stat-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+#p-dashboard .mac-stat-label{font-size:12px;font-weight:600;color:var(--text2);}
+#p-dashboard .mac-stat-sub{font-size:12px;color:var(--text3);}
+#p-dashboard .mac-stat-btn{align-self:flex-start;border:none;border-radius:980px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;}
+#p-dashboard .mac-stat-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;}
+#p-dashboard .mac-ring-wrap{position:relative;width:36px;height:36px;flex-shrink:0;}
 #p-dashboard .mac-ring-wrap svg{transform:rotate(-90deg);}
-#p-dashboard .mac-ring-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;}
-#p-dashboard .mac-stat-num{font-size:30px;font-weight:700;color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:-0.02em;}
+#p-dashboard .mac-ring-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text);}
+#p-dashboard .mac-stat-num{font-size:28px;font-weight:700;color:var(--text);letter-spacing:-0.02em;font-family:var(--font-mono);}
 
-#p-dashboard .mac-builder-card{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.05);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px 16px;min-width:170px;cursor:pointer;transition:background 0.15s ease;}
-#p-dashboard .mac-builder-card:hover{background:rgba(255,255,255,0.09);}
-#p-dashboard .mac-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
-#p-dashboard .mac-builder-name{font-size:13px;font-weight:600;color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;}
-#p-dashboard .mac-builder-meta{font-size:11px;color:#8e8e93;margin-top:1px;}
+#p-dashboard .mac-builder-card{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 16px;min-width:170px;cursor:pointer;transition:background 0.15s ease;}
+#p-dashboard .mac-builder-card:hover{background:var(--bg4);}
+#p-dashboard .mac-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
+#p-dashboard .mac-builder-name{font-size:13px;font-weight:700;color:var(--text);}
+#p-dashboard .mac-builder-meta{font-size:11px;color:var(--teal);font-weight:600;margin-top:1px;}
 
 #p-dashboard .mac-table{width:100%;border-collapse:collapse;}
-#p-dashboard .mac-table th{text-align:left;font-size:11px;font-weight:600;color:#8e8e93;text-transform:none;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.08);font-family:-apple-system,BlinkMacSystemFont,sans-serif;}
-#p-dashboard .mac-table td{padding:11px 20px;font-size:13px;color:#fff;border-top:1px solid rgba(255,255,255,0.06);vertical-align:middle;}
+#p-dashboard .mac-table th{text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;padding:9px 1.25rem;border-bottom:1px solid var(--border);}
+#p-dashboard .mac-table td{padding:11px 1.25rem;font-size:13px;color:var(--text);border-top:1px solid var(--border);vertical-align:middle;}
 #p-dashboard .mac-table tr.mac-row{transition:background 0.12s ease;}
-#p-dashboard .mac-table tr.mac-row:hover{background:rgba(255,255,255,0.04);}
+#p-dashboard .mac-table tr.mac-row:hover{background:var(--bg3);}
 #p-dashboard .mac-table tr.mac-row:hover .mac-row-actions{opacity:1;}
 #p-dashboard .mac-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:980px;font-size:11px;font-weight:600;}
-#p-dashboard .mac-pill .dot{width:6px;height:6px;border-radius:50%;box-shadow:0 0 6px currentColor;background:currentColor;}
+#p-dashboard .mac-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
 #p-dashboard .mac-row-actions{opacity:0;transition:opacity 0.15s ease;display:flex;gap:6px;justify-content:flex-end;}
-#p-dashboard .mac-row-actions button{background:transparent;border:none;color:#8e8e93;cursor:pointer;font-size:13px;padding:3px 5px;border-radius:6px;}
-#p-dashboard .mac-row-actions button:hover{background:rgba(255,255,255,0.08);color:#fff;}
+#p-dashboard .mac-row-actions button{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:3px 5px;border-radius:6px;}
+#p-dashboard .mac-row-actions button:hover{background:var(--bg4);color:var(--text);}
 
 /* ── MOBILE RESPONSIVE ── */
 .sidebar-toggle{display:none;}
@@ -939,33 +935,37 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     </div>
   </div>
   <div class="mac-stats">
-    <div class="mac-stat-card mac-glass" style="border-color:rgba(48,209,88,0.25);">
+    <div class="mac-stat-card">
       <div class="mac-stat-top">
-        <div>
-          <div class="mac-stat-label">Live this month</div>
-          <div class="mac-stat-num" id="ds-total">—</div>
-        </div>
+        <div class="mac-stat-label">Live this month</div>
         <div class="mac-ring-wrap">
-          <svg width="56" height="56" viewBox="0 0 56 56">
-            <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="5"/>
-            <circle id="ds-ring" cx="28" cy="28" r="24" fill="none" stroke="#30d158" stroke-width="5" stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="150.8"/>
+          <svg width="36" height="36" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border2)" stroke-width="4"/>
+            <circle id="ds-ring" cx="18" cy="18" r="15" fill="none" stroke="var(--teal)" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2"/>
           </svg>
           <div class="mac-ring-val" id="ds-ring-val">—</div>
         </div>
       </div>
+      <div class="mac-stat-num" style="color:var(--teal);" id="ds-total">—</div>
       <div class="mac-stat-sub" id="ds-total-sub">vs last month</div>
     </div>
 
-    <div class="mac-stat-card mac-glass" style="border-color:rgba(255,214,10,0.25);">
-      <div class="mac-stat-label">Pending this month</div>
-      <div class="mac-stat-num" style="color:#ffd60a;" id="ds-pend">—</div>
-      <button class="mac-stat-btn" style="background:rgba(255,214,10,0.15);color:#ffd60a;" onclick="goToMyLinksFromDashboard('pending')">Review Items</button>
+    <div class="mac-stat-card">
+      <div class="mac-stat-top">
+        <div class="mac-stat-label">Pending this month</div>
+        <div class="mac-stat-icon" style="background:rgba(240,165,0,0.12);color:var(--yellow);">⏳</div>
+      </div>
+      <div class="mac-stat-num" style="color:var(--yellow);" id="ds-pend">—</div>
+      <button class="mac-stat-btn" style="background:rgba(240,165,0,0.14);color:var(--yellow);" onclick="goToMyLinksFromDashboard('pending')">Review Items</button>
     </div>
 
-    <div class="mac-stat-card mac-glass" id="ds-attn-chip" style="border-color:rgba(255,69,58,0.25);">
-      <div class="mac-stat-label">Needs attention</div>
-      <div class="mac-stat-num" style="color:#ff453a;" id="ds-attn">—</div>
-      <button class="mac-stat-btn" style="background:rgba(255,69,58,0.15);color:#ff453a;" onclick="goToChecker()">Fix All</button>
+    <div class="mac-stat-card" id="ds-attn-chip">
+      <div class="mac-stat-top">
+        <div class="mac-stat-label">Needs attention</div>
+        <div class="mac-stat-icon" style="background:rgba(255,95,95,0.12);color:var(--red);">⚠</div>
+      </div>
+      <div class="mac-stat-num" style="color:var(--red);" id="ds-attn">—</div>
+      <button class="mac-stat-btn" style="background:rgba(255,95,95,0.14);color:var(--red);" onclick="goToChecker()">Fix All</button>
     </div>
   </div>
   <div id="ds-dup-banner" style="display:none;margin:-6px 0 1.5rem;padding:10px 16px;border-radius:10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.25);font-size:13px;color:var(--text2);cursor:pointer;" onclick="goToChecker()"></div>
@@ -4517,7 +4517,7 @@ function renderDashboard(){
   const ringEl = document.getElementById('ds-ring');
   const ringValEl = document.getElementById('ds-ring-val');
   if(ringEl){
-    const circumference = 150.8;
+    const circumference = 94.2;
     ringEl.setAttribute('stroke-dashoffset', String(circumference - (circumference*ringPct/100)));
   }
   if(ringValEl) ringValEl.textContent = ringTotal ? ringPct+'%' : '—';
@@ -4537,7 +4537,7 @@ function renderDashboard(){
       subEl.textContent = thisLive.length>0 ? 'vs 0 last month' : 'No data yet';
     } else {
       const diff=Math.round(((thisLive.length-lastMonthLive)/lastMonthLive)*100);
-      subEl.innerHTML = `<span style="color:${diff>=0?'#30d158':'#ff453a'};font-weight:600;">${diff>=0?'+':''}${diff}%</span> vs last month`;
+      subEl.innerHTML = `<span style="color:${diff>=0?'var(--teal)':'var(--red)'};font-weight:600;">${diff>=0?'+':''}${diff}%</span> vs last month`;
     }
   }
 
@@ -4605,7 +4605,7 @@ function renderDashboard(){
             <div class="mac-builder-meta">${d.count} live${avgDr?' · Avg DR '+avgDr:''}</div>
           </div>
         </div>`;
-      }).join('') : '<div style="color:#8e8e93;font-size:13px;padding:4px 0;">No live links this month yet</div>';
+      }).join('') : '<div style="color:var(--text3);font-size:13px;padding:4px 0;">No live links this month yet</div>';
     }
   }
 
@@ -4614,11 +4614,11 @@ function renderDashboard(){
   if(recentEl){
     const recent = [...myLinks].sort((a,b)=>parseDate(b.date)-parseDate(a.date)).slice(0,8);
     if(!recent.length){
-      recentEl.innerHTML = '<div style="padding:20px;color:#8e8e93;font-size:13px;">No links yet</div>';
+      recentEl.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px;">No links yet</div>';
     } else {
       const statusPill=(status)=>{
-        const map={live:['#30d158','Live'],pending:['#ffd60a','Indexing'],'needs-change':['#ff9f0a','Needs change'],lost:['#ff453a','Broken'],rejected:['#8e8e93','Rejected']};
-        const [color,label]=map[status]||['#8e8e93',status||'—'];
+        const map={live:['#2dd4bf','Live'],pending:['#f2b73e','Pending'],'needs-change':['#8b8bf0','Needs change'],lost:['#f4795b','Lost'],rejected:['#8a8f98','Rejected']};
+        const [color,label]=map[status]||['#8a8f98',status||'—'];
         return `<span class="mac-pill" style="background:${color}22;color:${color};"><span class="dot"></span>${label}</span>`;
       };
       recentEl.innerHTML = `<div style="overflow-x:auto;"><table class="mac-table"><thead><tr>
@@ -4626,12 +4626,12 @@ function renderDashboard(){
       </tr></thead><tbody>${recent.map(l=>{
         const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
         return `<tr class="mac-row">
-          <td><a href="https://${escAttr(l.domain)}" target="_blank" style="color:#fff;font-weight:600;text-decoration:none;">${escapeHtml(l.domain||'—')}</a></td>
-          <td style="color:#8e8e93;">${l.project?escapeHtml(l.project):'—'}</td>
-          ${cu.role==='admin'?`<td style="color:#8e8e93;">${l.builder?escapeHtml(l.builder):'—'}</td>`:''}
-          <td style="color:#8e8e93;font-family:var(--font-mono);">${escapeHtml(l.dr||'—')} / ${trafficVal}</td>
+          <td><a href="https://${escAttr(l.domain)}" target="_blank" style="color:var(--text);font-weight:600;text-decoration:none;">${escapeHtml(l.domain||'—')}</a></td>
+          <td style="color:var(--text2);">${l.project?escapeHtml(l.project):'—'}</td>
+          ${cu.role==='admin'?`<td style="color:var(--text2);">${l.builder?escapeHtml(l.builder):'—'}</td>`:''}
+          <td style="color:var(--text2);font-family:var(--font-mono);">${escapeHtml(l.dr||'—')} / ${trafficVal}</td>
           <td>${statusPill(l.status)}</td>
-          <td style="color:#8e8e93;font-family:var(--font-mono);">${escapeHtml(l.date||'')}</td>
+          <td style="color:var(--text2);font-family:var(--font-mono);">${escapeHtml(l.date||'')}</td>
           <td><div class="mac-row-actions">
             <button onclick="event.stopPropagation();navigator.clipboard.writeText('https://${escAttr(l.domain)}');this.textContent='✓';setTimeout(()=>this.textContent='⧉',1200);" title="Copy URL">⧉</button>
             <button onclick="event.stopPropagation();checkSingleLinkFromDash('${escAttr(l.id)}',this)" title="Re-check index">↻</button>
