@@ -722,33 +722,36 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
    just with richer, more structured cards than the plain number+label
    chips this replaces. ── */
 #p-dashboard .mac-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:1.5rem;}
-#p-dashboard .mac-stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;display:flex;flex-direction:column;gap:14px;}
+#p-dashboard .mac-stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;display:flex;flex-direction:column;gap:14px;cursor:pointer;transition:transform 0.15s ease,border-color 0.15s ease,box-shadow 0.15s ease;}
+#p-dashboard .mac-stat-card:hover{transform:translateY(-2px);border-color:var(--border2);box-shadow:var(--shadow);}
 #p-dashboard .mac-stat-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
-#p-dashboard .mac-stat-label{font-size:12px;font-weight:600;color:var(--text2);}
+#p-dashboard .mac-stat-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;}
 #p-dashboard .mac-stat-sub{font-size:12px;color:var(--text3);}
-#p-dashboard .mac-stat-btn{align-self:flex-start;border:none;border-radius:980px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;}
+#p-dashboard .mac-stat-btn{align-self:flex-start;border:none;border-radius:980px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:filter 0.15s ease;}
+#p-dashboard .mac-stat-btn:hover{filter:brightness(1.15);}
 #p-dashboard .mac-stat-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;}
 #p-dashboard .mac-ring-wrap{position:relative;width:36px;height:36px;flex-shrink:0;}
 #p-dashboard .mac-ring-wrap svg{transform:rotate(-90deg);}
+#p-dashboard .mac-ring-wrap circle{transition:stroke-dashoffset 0.6s cubic-bezier(0.22,1,0.36,1);}
 #p-dashboard .mac-ring-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text);}
-#p-dashboard .mac-stat-num{font-size:28px;font-weight:700;color:var(--text);letter-spacing:-0.02em;font-family:var(--font-mono);}
+#p-dashboard .mac-stat-num{font-size:32px;font-weight:700;color:var(--text);letter-spacing:-0.03em;font-family:var(--font-mono);line-height:1;}
 
-#p-dashboard .mac-builder-card{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 16px;min-width:170px;cursor:pointer;transition:background 0.15s ease;}
-#p-dashboard .mac-builder-card:hover{background:var(--bg4);}
+#p-dashboard .mac-builder-card{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 16px;min-width:170px;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+#p-dashboard .mac-builder-card:hover{background:var(--bg4);transform:translateY(-1px);}
 #p-dashboard .mac-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
 #p-dashboard .mac-builder-name{font-size:13px;font-weight:700;color:var(--text);}
 #p-dashboard .mac-builder-meta{font-size:11px;color:var(--teal);font-weight:600;margin-top:1px;}
 
 #p-dashboard .mac-table{width:100%;border-collapse:collapse;}
 #p-dashboard .mac-table th{text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;padding:9px 1.25rem;border-bottom:1px solid var(--border);}
-#p-dashboard .mac-table td{padding:11px 1.25rem;font-size:13px;color:var(--text);border-top:1px solid var(--border);vertical-align:middle;}
-#p-dashboard .mac-table tr.mac-row{transition:background 0.12s ease;}
+#p-dashboard .mac-table td{padding:12px 1.25rem;font-size:13px;color:var(--text);border-top:1px solid var(--border);vertical-align:middle;}
+#p-dashboard .mac-table tr.mac-row{transition:background 0.12s ease;cursor:pointer;}
 #p-dashboard .mac-table tr.mac-row:hover{background:var(--bg3);}
 #p-dashboard .mac-table tr.mac-row:hover .mac-row-actions{opacity:1;}
 #p-dashboard .mac-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:980px;font-size:11px;font-weight:600;}
 #p-dashboard .mac-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
 #p-dashboard .mac-row-actions{opacity:0;transition:opacity 0.15s ease;display:flex;gap:6px;justify-content:flex-end;}
-#p-dashboard .mac-row-actions button{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:3px 5px;border-radius:6px;}
+#p-dashboard .mac-row-actions button{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:6px;transition:background 0.12s ease,color 0.12s ease;}
 #p-dashboard .mac-row-actions button:hover{background:var(--bg4);color:var(--text);}
 
 /* ── MOBILE RESPONSIVE ── */
@@ -935,7 +938,7 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
     </div>
   </div>
   <div class="mac-stats">
-    <div class="mac-stat-card">
+    <div class="mac-stat-card" onclick="goToMyLinksFromDashboard('live')">
       <div class="mac-stat-top">
         <div class="mac-stat-label">Live this month</div>
         <div class="mac-ring-wrap">
@@ -950,22 +953,22 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
       <div class="mac-stat-sub" id="ds-total-sub">vs last month</div>
     </div>
 
-    <div class="mac-stat-card">
+    <div class="mac-stat-card" onclick="goToMyLinksFromDashboard('pending')">
       <div class="mac-stat-top">
         <div class="mac-stat-label">Pending this month</div>
         <div class="mac-stat-icon" style="background:rgba(240,165,0,0.12);color:var(--yellow);">⏳</div>
       </div>
       <div class="mac-stat-num" style="color:var(--yellow);" id="ds-pend">—</div>
-      <button class="mac-stat-btn" style="background:rgba(240,165,0,0.14);color:var(--yellow);" onclick="goToMyLinksFromDashboard('pending')">Review Items</button>
+      <button class="mac-stat-btn" style="background:rgba(240,165,0,0.14);color:var(--yellow);" onclick="event.stopPropagation();goToMyLinksFromDashboard('pending')">Review Items</button>
     </div>
 
-    <div class="mac-stat-card" id="ds-attn-chip">
+    <div class="mac-stat-card" id="ds-attn-chip" onclick="goToChecker()">
       <div class="mac-stat-top">
         <div class="mac-stat-label">Needs attention</div>
         <div class="mac-stat-icon" style="background:rgba(255,95,95,0.12);color:var(--red);">⚠</div>
       </div>
       <div class="mac-stat-num" style="color:var(--red);" id="ds-attn">—</div>
-      <button class="mac-stat-btn" style="background:rgba(255,95,95,0.14);color:var(--red);" onclick="goToChecker()">Fix All</button>
+      <button class="mac-stat-btn" style="background:rgba(255,95,95,0.14);color:var(--red);" onclick="event.stopPropagation();goToChecker()">Fix All</button>
     </div>
   </div>
   <div id="ds-dup-banner" style="display:none;margin:-6px 0 1.5rem;padding:10px 16px;border-radius:10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.25);font-size:13px;color:var(--text2);cursor:pointer;" onclick="goToChecker()"></div>
@@ -4625,8 +4628,8 @@ function renderDashboard(){
         <th>Domain</th><th>Project</th>${cu.role==='admin'?'<th>Builder</th>':''}<th>DR / Traffic</th><th>Status</th><th>Date</th><th></th>
       </tr></thead><tbody>${recent.map(l=>{
         const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
-        return `<tr class="mac-row">
-          <td><a href="https://${escAttr(l.domain)}" target="_blank" style="color:var(--text);font-weight:600;text-decoration:none;">${escapeHtml(l.domain||'—')}</a></td>
+        return `<tr class="mac-row" onclick="goToMyLinksFromDashboard()">
+          <td><a href="https://${escAttr(l.domain)}" target="_blank" onclick="event.stopPropagation()" style="color:var(--text);font-weight:600;text-decoration:none;">${escapeHtml(l.domain||'—')}</a></td>
           <td style="color:var(--text2);">${l.project?escapeHtml(l.project):'—'}</td>
           ${cu.role==='admin'?`<td style="color:var(--text2);">${l.builder?escapeHtml(l.builder):'—'}</td>`:''}
           <td style="color:var(--text2);font-family:var(--font-mono);">${escapeHtml(l.dr||'—')} / ${trafficVal}</td>
@@ -4665,9 +4668,10 @@ function goToMyLinksFromDashboard(filter){
     gotoPage('links', document.querySelector(`.nav[onclick*="'links'"]`));
   } else {
     gotoPage('b-links', document.getElementById('bld-nav-links'));
-    if(filter==='pending'){
-      const tab=document.getElementById('tab-pend');
-      if(tab) setBTab('pend', tab);
+    const tabId = filter==='pending' ? 'tab-pend' : filter==='live' ? 'tab-live' : null;
+    if(tabId){
+      const tab=document.getElementById(tabId);
+      if(tab) setBTab(tabId.replace('tab-',''), tab);
     }
   }
 }
