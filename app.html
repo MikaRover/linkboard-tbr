@@ -127,7 +127,7 @@ label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;displa
 .content{flex:1;margin-left:220px;background:var(--bg);}
 
 /* ── PAGES ── */
-.page{display:none;padding:2rem;animation:fadeSlideIn 0.2s ease both;}
+.page{display:none;padding:1.5rem;animation:fadeSlideIn 0.2s ease both;}
 .page.active{display:block;}
 .page-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;}
 .page-title{font-size:25px;font-weight:800;letter-spacing:-0.5px;}
@@ -149,7 +149,7 @@ label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;displa
 
 /* ── TABLE ── */
 .tbl-wrap{overflow-x:auto;}
-table{width:100%;border-collapse:collapse;font-size:14px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
 th{text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:0.5px;}
 td{padding:7px 10px;border-bottom:1px solid rgba(26,48,72,0.5);vertical-align:middle;white-space:nowrap;}
 tr:last-child td{border-bottom:none;}
@@ -339,7 +339,7 @@ select option{background:var(--bg2);}
 .logout{font-size:13px;color:var(--text3);cursor:pointer;}
 .logout:hover{color:#ff6b6b;}
 .content{flex:1;margin-left:220px;background:var(--bg);}
-.page{display:none;padding:2rem;}
+.page{display:none;padding:1.5rem;}
 .page.active{display:block;}
 .page-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;}
 .page-title{font-size:25px;font-weight:700;letter-spacing:-0.5px;}
@@ -352,7 +352,7 @@ select option{background:var(--bg2);}
 .card-head.pend{background:rgba(240,165,0,0.06);}
 .card-body{padding:1.25rem;}
 .tbl-wrap{overflow-x:auto;}
-table{width:100%;border-collapse:collapse;font-size:14px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
 th{text-align:left;font-size:11px;font-weight:500;color:var(--text2);padding:6px 6px;border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:0.3px;}
 td{padding:6px 6px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap;}
 tr:last-child td{border-bottom:none;}
@@ -3152,7 +3152,7 @@ function renderDetailLinks(){
       <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${escapeHtml(lid)}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td>${escapeHtml(l.date||'')}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
-      <td>${drBadge(l.dr)}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td>${escapeHtml(l.anchor||'—')}</td><td>${builderAvatar(l.builder)}</td>
+      <td>${drBadge(l.dr)}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td><td>${builderAvatar(l.builder)}</td>
       <td style="white-space:nowrap;">${healthCell(l)}${pendingAgeBadge(l)}</td>
       <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancyRow('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
       <td>${dupB(l,domainCount)}</td>
@@ -4744,7 +4744,7 @@ function renderLinks(){
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
       <td>${drBadge(l.dr)}</td>
       <td>${trafficVal}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td>
       <td>${projTag(l.project)}</td>
       <td>${builderAvatar(l.builder)}</td>
       <td style="white-space:nowrap;">${healthCell(l)}${pendingAgeBadge(l)}</td>
@@ -8587,7 +8587,7 @@ function renderDoubleCheckQueue(){
       <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
       <td class="domain-teal"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">${escapeHtml(l.anchor||'—')}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td>
       <td>${projTag(l.project)}</td>
       <td>${builderAvatar(l.builder)}</td>
       <td style="white-space:nowrap;">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
