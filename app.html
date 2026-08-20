@@ -124,7 +124,7 @@ label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;displa
 .sb-bottom{margin-top:auto;padding:1.25rem;}
 .logout{font-size:13px;color:var(--text3);cursor:pointer;transition:color 0.15s;}
 .logout:hover{color:var(--red);}
-.content{flex:1;margin-left:220px;background:var(--bg);}
+.content{flex:1;min-width:0;margin-left:220px;background:var(--bg);}
 
 /* ── PAGES ── */
 .page{display:none;padding:1.5rem;animation:fadeSlideIn 0.2s ease both;}
@@ -338,7 +338,7 @@ select option{background:var(--bg2);}
 .sb-bottom{margin-top:auto;padding:1.25rem;}
 .logout{font-size:13px;color:var(--text3);cursor:pointer;}
 .logout:hover{color:#ff6b6b;}
-.content{flex:1;margin-left:220px;background:var(--bg);}
+.content{flex:1;min-width:0;margin-left:220px;background:var(--bg);}
 .page{display:none;padding:1.5rem;}
 .page.active{display:block;}
 .page-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;}
@@ -781,12 +781,12 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     cursor:pointer;
   }
   .sidebar{
-    transform:translateX(-100%);
+    transform:translateX(-100%) !important;
     transition:transform 0.25s ease;
     z-index:55;
     box-shadow:0 0 40px rgba(0,0,0,0.5);
   }
-  .sidebar.mobile-open{transform:translateX(0);}
+  .sidebar.mobile-open{transform:translateX(0) !important;}
   .sidebar-backdrop.mobile-open{
     display:block;position:fixed;inset:0;z-index:50;
     background:rgba(0,0,0,0.5);
