@@ -3150,7 +3150,7 @@ function renderDetailLinks(){
     const priceVal=l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—';
     return`<tr class="link-row" data-lid="${escapeHtml(lid)}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${escapeHtml(lid)}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td>${escapeHtml(l.date||'')}</td>
+      <td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
       <td>${drBadge(l.dr)}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td><td>${builderAvatar(l.builder)}</td>
       <td style="white-space:nowrap;">${healthCell(l)}${pendingAgeBadge(l)}</td>
@@ -3291,7 +3291,7 @@ function showPendingApprovals(){
   }
   const rows = pending.map(l=>`
     <tr>
-      <td style="font-size:12px;color:var(--text3);">${escapeHtml(l.date||'')}</td>
+      <td style="font-size:12px;color:var(--text3);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
       <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);">${escapeHtml(l.domain||'')}</a></td>
       <td>${projTag(l.project)}</td>
       <td style="font-size:12px;">${escapeHtml(l.anchor||'')}</td>
@@ -4635,7 +4635,7 @@ function renderDashboard(){
           ${cu.role==='admin'?`<td style="color:var(--text2);">${l.builder?escapeHtml(l.builder):'—'}</td>`:''}
           <td style="color:var(--text2);font-family:var(--font-mono);">${escapeHtml(l.dr||'—')} / ${trafficVal}</td>
           <td>${statusPill(l.status)}</td>
-          <td style="color:var(--text2);font-family:var(--font-mono);">${escapeHtml(l.date||'')}</td>
+          <td style="color:var(--text2);font-family:var(--font-mono);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
           <td><div class="mac-row-actions">
             <button onclick="event.stopPropagation();navigator.clipboard.writeText('https://${escAttr(l.domain)}');this.textContent='✓';setTimeout(()=>this.textContent='⧉',1200);" title="Copy URL">⧉</button>
             <button onclick="event.stopPropagation();checkSingleLinkFromDash('${escAttr(l.id)}',this)" title="Re-check index">↻</button>
@@ -4740,7 +4740,7 @@ function renderLinks(){
     const ssVal=l.ss?escapeHtml(String(l.ss).replace(/%/g,'')+'%'):'';
     return`<tr class="link-row" data-lid="${escapeHtml(lid)}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${escapeHtml(lid)}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
+      <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
       <td>${drBadge(l.dr)}</td>
       <td>${trafficVal}</td>
@@ -4926,7 +4926,7 @@ function openBuilderLinks(name){
 
   const rows = bl.map(l=>`
     <tr>
-      <td style="color:var(--text3);font-size:11px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
+      <td style="color:var(--text3);font-size:11px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
       <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(l.domain||'')}</a></td>
       <td>${projTag(l.project)}</td>
       <td style="font-size:12px;">${escapeHtml(l.anchor||'')}</td>
@@ -8511,7 +8511,7 @@ function renderBuilderLinks(){
     const priceVal=l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—';
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="bl-row-check" value="${lid}" onchange="updateBlCheckBtn()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${l.date||''}</td>
+      <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
       <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${drBadge(l.dr)}</td><td>${trafficVal}</td><td>${priceVal}</td><td>${escapeHtml(l.ss||'—')}</td>
       <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancy('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
@@ -8584,7 +8584,7 @@ function renderDoubleCheckQueue(){
     const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
     const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
     return`<tr id="dc-row-${lid}">
-      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'')}</td>
+      <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
       <td class="domain-teal"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td>
       <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td>
