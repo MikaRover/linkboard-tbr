@@ -62,6 +62,14 @@ module.exports = async function handler(req, res){
   const pageUrl = normUrl(linkIn);
   const targetDomain = domainOf(linkTo);
   const targetPath = normUrl(linkTo).replace(/^https?:\/\/(www\.)?/i,'');
+  const needle1 = targetPath.toLowerCase();
+  const needle2 = targetDomain.toLowerCase();
+  // A root-domain target (e.g. linkTo="https://client.com") has no path beyond
+  // the domain itself, so requiring the domain in the match is precise enough.
+  // A target with a real path must match that fuller path, not just the domain —
+  // otherwise any mention of the domain (analytics scripts, footers, unrelated
+  // text) would count, which was producing false "live" results.
+  const requireFullPath = needle1.length > needle2.length+1;
 
   let response;
   try {
@@ -77,7 +85,7 @@ module.exports = async function handler(req, res){
     const bypassText = await fetchViaFreeBypass(pageUrl);
     if(bypassText){
       const bLower = bypassText.toLowerCase();
-      const bFound = bLower.includes(targetPath.toLowerCase()) || (targetPath.length<=targetDomain.length+1 && bLower.includes(targetDomain.toLowerCase()));
+      const bFound = requireFullPath ? bLower.includes(needle1) : bLower.includes(needle2);
       if(bFound){
         return res.json({ result: '✅ Live (checked via bot-bypass) — rel/anchor unknown', ok:true, http:status, viaBypass:true });
       }
@@ -98,26 +106,19 @@ module.exports = async function handler(req, res){
   let html;
   try { html = await response.text(); } catch(e){ return res.json({result:'⚠️ Could not read page', ok:null}); }
 
-  // Look for the target link in the HTML (match by domain+path, tolerant of http/https/www)
-  const hLower = html.toLowerCase();
-  const needle1 = targetPath.toLowerCase();
-  const needle2 = targetDomain.toLowerCase();
-
-  const found = hLower.includes(needle1) || (needle1.length<=needle2.length+1 && hLower.includes(needle2));
-
-  if(!found){
-    return res.json({ result: '⚠️ Link not found on page', ok:false, http:status });
-  }
-
-  // Found — inspect the <a> tag for rel attributes & anchor text
-  let rel = '', foundAnchor = '';
+  // Only an actual <a href> pointing at the target counts as "found" — a bare
+  // substring match anywhere in the page (analytics scripts, footers, unrelated
+  // mentions of the domain) is not a placed backlink and was producing false
+  // "live" results on links that were never actually placed.
+  let rel = '', foundAnchor = '', found = false;
   try {
-    // Find an anchor tag whose href contains the target
     const aRegex = /<a\b[^>]*href\s*=\s*["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
     let m;
     while((m = aRegex.exec(html)) !== null){
       const href = (m[1]||'').toLowerCase();
-      if(href.includes(needle2)){
+      const matches = requireFullPath ? href.includes(needle1) : href.includes(needle2);
+      if(matches){
+        found = true;
         const tag = m[0].toLowerCase();
         const relMatch = tag.match(/rel\s*=\s*["']([^"']*)["']/);
         rel = relMatch ? relMatch[1] : '';
@@ -126,6 +127,10 @@ module.exports = async function handler(req, res){
       }
     }
   } catch(e){}
+
+  if(!found){
+    return res.json({ result: '⚠️ Link not found on page', ok:false, http:status });
+  }
 
   const isNofollow = /nofollow/i.test(rel);
   const isSponsored = /sponsored/i.test(rel);
