@@ -8444,12 +8444,28 @@ function renderBuilderDashboard(){
   const recent=myLinks.filter(l=>l.status==='pending').sort((a,b)=>parseDate(b.date)-parseDate(a.date)).slice(0,10);
   const tb=document.getElementById('b-recent');
   if(!recent.length){tb.innerHTML='<tr><td colspan="4" class="loading">No pending links 🎉</td></tr>';return;}
-  tb.innerHTML=recent.map(l=>`<tr>
+  tb.innerHTML=recent.map(l=>{
+    const hasUrls=l.linkin&&l.linkto;
+    const btnHtml=hasUrls
+      ?`<button class="btn-ghost" style="padding:4px 9px;font-size:11px;" onclick="checkSingleLinkFromDash('${escAttr(l.id)}',this)" title="Re-check status">↻ Check</button>`
+      :`<button class="btn-ghost" style="padding:4px 9px;font-size:11px;" onclick="fixPendingFromDash('${escAttr(l.id)}')" title="Add Link in / Link to before it can be checked">✎ Add info</button>`;
+    return`<tr>
     <td class="domain-teal" style="font-size:12px;"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
     <td style="font-size:12px;">${projTag(l.project)}</td>
     <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'#f0a500'};">${escapeHtml(l.status)}</span></td>
-    <td><button class="btn-ghost" style="padding:4px 9px;font-size:11px;" onclick="checkSingleLinkFromDash('${escAttr(l.id)}',this)" title="Re-check status">↻ Check</button></td>
-  </tr>`).join('');
+    <td>${btnHtml}</td>
+  </tr>`;
+  }).join('');
+}
+function fixPendingFromDash(id){
+  gotoPage('b-links', document.getElementById('bld-nav-links'));
+  const tab=document.getElementById('tab-pend');
+  if(tab) setBTab('pend', tab);
+  setTimeout(()=>{
+    toggleEditRowById(id);
+    const row=document.getElementById('edit-'+id);
+    if(row) row.scrollIntoView({behavior:'smooth',block:'center'});
+  },80);
 }
 
 function setBTab(tab,el){
