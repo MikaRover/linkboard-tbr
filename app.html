@@ -8446,6 +8446,10 @@ function renderBuilderDashboard(){
   if(!recent.length){tb.innerHTML='<tr><td colspan="4" class="loading">No pending links 🎉</td></tr>';return;}
   tb.innerHTML=recent.map(l=>{
     const hasUrls=l.linkin&&l.linkto;
+    const linksHtml=hasUrls
+      ?`<a href="${escAttr(l.linkin)}" target="_blank" class="btn-ghost" style="padding:4px 9px;font-size:11px;" title="Open Link in (where the backlink was placed)">↗ Link in</a>
+        <a href="${escAttr(l.linkto)}" target="_blank" class="btn-ghost" style="padding:4px 9px;font-size:11px;" title="Open Link to (the target page)">↗ Link to</a>`
+      :'';
     const btnHtml=hasUrls
       ?`<button class="btn-ghost" style="padding:4px 9px;font-size:11px;" onclick="checkSingleLinkFromDash('${escAttr(l.id)}',this)" title="Re-check status">↻ Check</button>`
       :`<button class="btn-ghost" style="padding:4px 9px;font-size:11px;" onclick="fixPendingFromDash('${escAttr(l.id)}')" title="Add Link in / Link to before it can be checked">✎ Add info</button>`;
@@ -8453,7 +8457,7 @@ function renderBuilderDashboard(){
     <td class="domain-teal" style="font-size:12px;"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
     <td style="font-size:12px;">${projTag(l.project)}</td>
     <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'#f0a500'};">${escapeHtml(l.status)}</span></td>
-    <td>${btnHtml}</td>
+    <td style="white-space:nowrap;"><div style="display:flex;gap:4px;">${linksHtml}${btnHtml}</div></td>
   </tr>`;
   }).join('');
 }
