@@ -1835,7 +1835,10 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
     <!-- Under "Live": pending links, with a quick re-check action -->
     <div>
-      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">Pending links</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text);">Pending links</div>
+        <button class="btn-ghost" id="b-check-all-btn" style="padding:5px 12px;font-size:11px;" onclick="checkAllPendingFromDash(this)">↻ Check all</button>
+      </div>
       <div class="card" style="overflow:hidden;">
         <div class="tbl-wrap"><table>
           <thead><tr><th>Domain</th><th>Project</th><th>Status</th><th>Check</th></tr></thead>
@@ -4667,6 +4670,30 @@ async function checkSingleLinkFromDash(id, btn){
     showToast('Error: '+e.message.slice(0,60));
   }
   btn.textContent=orig;btn.disabled=false;
+}
+async function checkAllPendingFromDash(btn){
+  const myName=cu.name||cu.email||'';
+  const _mn=(myName||'').trim().toLowerCase(),_cn=(cu.name||'').trim().toLowerCase(),_ce=(cu.email||'').trim().toLowerCase();
+  const myLinks=allLinks.filter(l=>{const lb=(l.builder||'').trim().toLowerCase();return lb===_mn||lb===_cn||lb===_ce;});
+  const targets=myLinks.filter(l=>l.status==='pending'&&l.linkin&&l.linkto);
+  if(!targets.length){showToast('No pending links with Link in / Link to set yet');return;}
+  const orig=btn.textContent;
+  btn.disabled=true;
+  let done=0;
+  for(const l of targets){
+    done++;
+    btn.textContent=`⏳ ${done}/${targets.length}`;
+    try{
+      const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
+      const data=await resp.json();
+      await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data));
+    }catch(e){
+      await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'}).catch(()=>{});
+    }
+  }
+  btn.disabled=false;
+  btn.textContent=orig;
+  showToast(`Checked ${targets.length} pending link${targets.length>1?'s':''}`);
 }
 function goToChecker(){
   gotoPage('checker', document.querySelector(`.nav[onclick*="'checker'"]`));
