@@ -8444,22 +8444,51 @@ function renderBuilderDashboard(){
   const recent=myLinks.filter(l=>l.status==='pending').sort((a,b)=>parseDate(b.date)-parseDate(a.date)).slice(0,10);
   const tb=document.getElementById('b-recent');
   if(!recent.length){tb.innerHTML='<tr><td colspan="4" class="loading">No pending links 🎉</td></tr>';return;}
-  tb.innerHTML=recent.map(l=>`<tr class="link-row" data-lid="${escAttr(l.id)}" style="cursor:pointer;" onclick="fixPendingFromDash('${escAttr(l.id)}')">
+  tb.innerHTML=recent.map(l=>{
+    const lid=l.id;
+    return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;" onclick="toggleEditRowById('${escAttr(lid)}')">
     <td class="domain-teal" style="font-size:12px;"><a href="https://${escapeHtml(l.domain)}" target="_blank" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
     <td style="font-size:12px;">${projTag(l.project)}</td>
     <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'#f0a500'};">${escapeHtml(l.status)}</span></td>
-    <td><button class="btn-ghost" style="padding:4px 9px;font-size:11px;" onclick="event.stopPropagation();fixPendingFromDash('${escAttr(l.id)}')">Open →</button></td>
-  </tr>`).join('');
-}
-function fixPendingFromDash(id){
-  gotoPage('b-links', document.getElementById('bld-nav-links'));
-  const tab=document.getElementById('tab-pend');
-  if(tab) setBTab('pend', tab);
-  setTimeout(()=>{
-    toggleEditRowById(id);
-    const row=document.getElementById('edit-'+id);
-    if(row) row.scrollIntoView({behavior:'smooth',block:'center'});
-  },80);
+    <td><button class="btn-ghost" style="padding:4px 9px;font-size:11px;" onclick="event.stopPropagation();toggleEditRowById('${escAttr(lid)}')">Open →</button></td>
+  </tr>
+  <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
+    <td colspan="4" style="padding:14px 16px;">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+        ${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
+        ${l.linkto?`<a href="${escapeHtml(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
+        <span style="font-size:11px;color:var(--text3);">${l.ss?'SS: '+l.ss:''}${l.category?' · '+l.category:''}${l.price?' · $'+String(l.price).replace(/^\$+/,''):''}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${escapeHtml(l.date||'')}" style="margin:0;font-size:12px;"/></div>
+        <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" style="margin:0;font-size:12px;"/></div>
+        <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" style="margin:0;font-size:12px;"/></div>
+        <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" style="margin:0;font-size:12px;"/></div>
+        <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${escapeHtml(String(l.price||'').replace(/^\$+/,''))}" style="margin:0;font-size:12px;"/></div>
+        <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
+        <div><div class="section-label" style="margin-bottom:4px;">Status</div><select id="ei-status-${lid}" onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="margin:0;font-size:12px;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select></div>
+        <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${escapeHtml(l.linkin||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+        <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${escapeHtml(l.linkto||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
+        <div><div class="section-label" style="margin-bottom:4px;">Relevancy</div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <select id="ei-relevancy-${lid}" style="margin:0;font-size:12px;flex:1;"><option value="" ${!l.relevancy?'selected':''}>—</option><option value="Relevant" ${l.relevancy==='Relevant'?'selected':''}>Relevant</option><option value="Weak" ${l.relevancy==='Weak'?'selected':''}>Weak</option></select>
+            <button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="checkRelevancy('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button>
+          </div>
+          <div id="ei-relevancy-reason-${lid}" style="font-size:10px;color:var(--text3);margin-top:3px;"></div>
+        </div>
+        <div><div class="section-label" style="margin-bottom:4px;">Invoice link</div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input id="ei-invoice-${lid}" value="${escapeHtml(l.invoice||'')}" placeholder="optional" style="margin:0;font-size:12px;flex:1;"/>
+            <button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="checkInvoiceStatus('${escAttr(lid)}',this)" title="Auto-check paid status">↻</button>
+          </div>
+        </div>
+        <div><div class="section-label" style="margin-bottom:4px;">Paid</div><select id="ei-paid-${lid}" style="margin:0;font-size:12px;"><option value="no" ${!l.paid?'selected':''}>Not paid</option><option value="yes" ${l.paid?'selected':''}>Paid</option></select></div>
+        <div style="grid-column:span 3;"><div class="section-label" style="margin-bottom:4px;">Comments</div><input id="ei-comments-${lid}" value="${escapeHtml(l.comments||'')}" placeholder="—" style="margin:0;font-size:12px;"/></div>
+      </div>
+      <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="saveEditRow('${escAttr(lid)}')" style="width:auto;padding:7px 18px;">Save →</button><button class="btn-ghost" onclick="toggleEditRowById('${escAttr(lid)}',true)">Cancel</button><span id="ei-saved-${lid}" style="font-size:12px;color:var(--teal);display:none;align-self:center;">✓ Saved</span></div>
+    </td>
+  </tr>`;
+  }).join('');
 }
 
 function setBTab(tab,el){
