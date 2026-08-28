@@ -8657,8 +8657,22 @@ function renderDoubleCheckQueue(){
     const lid=l.id;
     const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
     const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
-    const reasonHtml=l.approvalReason
-      ?`<span style="color:var(--yellow);font-size:11px;" title="${escapeHtml(l.approvalReason)}">⚠ ${escapeHtml(l.approvalReason)}</span>`
+    // Re-checked against the project's OWN quality requirements (same
+    // DR/Traffic/Spam-Score thresholds used when the link was first added),
+    // not an arbitrary fixed number — so this stays in sync if requirements change.
+    const qr=allQualityReqs.find(r=>r.project===l.project);
+    const liveFailures=[];
+    if(qr){
+      const dr=l.dr!==''&&l.dr!=null?Number(l.dr):null;
+      const traffic=l.traffic!==''&&l.traffic!=null?Number(String(l.traffic).replace(/,/g,'')):null;
+      const ss=l.ss!==''&&l.ss!=null?Number(String(l.ss).replace(/%/g,'')):null;
+      if(qr.minDR&&dr!==null&&dr<qr.minDR) liveFailures.push(`DR ${dr} below min ${qr.minDR}`);
+      if(qr.minTraffic&&traffic!==null&&traffic<qr.minTraffic) liveFailures.push(`Traffic ${traffic.toLocaleString()} below min ${Number(qr.minTraffic).toLocaleString()}`);
+      if(qr.maxSS!=null&&qr.maxSS!==''&&ss!==null&&ss>qr.maxSS) liveFailures.push(`Spam Score ${ss}% over max ${qr.maxSS}%`);
+    }
+    const reasonText=liveFailures.length ? liveFailures.join(' · ') : (l.approvalReason||'');
+    const reasonHtml=reasonText
+      ?`<span style="color:var(--yellow);font-size:11px;" title="${escapeHtml(reasonText)}">⚠ ${escapeHtml(reasonText)}</span>`
       :`<span style="color:var(--text3);font-size:11px;">Routine live check</span>`;
     return`<tr id="dc-row-${lid}">
       <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
@@ -8667,7 +8681,9 @@ function renderDoubleCheckQueue(){
       <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td>
       <td>${projTag(l.project)}</td>
       <td>${builderAvatar(l.builder)}</td>
-      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${reasonHtml}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${reasonHtml}
+        <button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="refreshDcMetrics('${escAttr(lid)}',this)" title="Re-check DR/Traffic">↻</button>
+      </td>
       <td style="white-space:nowrap;">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
         <button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="openLCModal('${escAttr(lid)}')">↗</button>
       </td>
@@ -8676,6 +8692,24 @@ function renderDoubleCheckQueue(){
   }).join('');
 }
 
+async function refreshDcMetrics(id,btn){
+  const l=allLinks.find(x=>x.id===id);
+  if(!l)return;
+  const orig=btn.textContent;
+  btn.textContent='⏳';btn.disabled=true;
+  try{
+    const r=await fetch('/api/ahrefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:l.domain})});
+    const d=await r.json();
+    const upd={};
+    if(d.dr!==null&&d.dr!==undefined)upd.dr=String(d.dr);
+    if(d.traffic!==null&&d.traffic!==undefined&&d.traffic!==0)upd.traffic=String(d.traffic);
+    if(Object.keys(upd).length) await db.collection('links').doc(id).update(upd);
+    else showToast('No fresh DR/Traffic data available');
+  }catch(e){
+    showToast('Error: '+e.message.slice(0,60));
+  }
+  btn.textContent=orig;btn.disabled=false;
+}
 async function markDoubleChecked(id,btn){
   if(btn){btn.disabled=true;btn.textContent='...';}
   const l=allLinks.find(x=>x.id===id);
