@@ -1919,9 +1919,9 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div class="card">
     <div class="tbl-wrap"><table>
       <thead><tr>
-        <th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>Anchor</th><th>Project</th><th>Builder</th><th>Link check</th><th></th>
+        <th>Date</th><th>Domain</th><th>DR</th><th>Traffic</th><th>Anchor</th><th>Project</th><th>Builder</th><th>Flag reason</th><th>Link check</th><th></th>
       </tr></thead>
-      <tbody id="dc-tbody"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
+      <tbody id="dc-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -8652,11 +8652,14 @@ function renderDoubleCheckQueue(){
     return true;
   });
   fl.sort((a,b)=>parseDate(b.date)-parseDate(a.date));
-  if(!fl.length){tb.innerHTML='<tr><td colspan="9" class="loading">Ամեն ինչ ստուգված է ✅</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="10" class="loading">Ամեն ինչ ստուգված է ✅</td></tr>';return;}
   tb.innerHTML=fl.map(l=>{
     const lid=l.id;
     const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
     const lcDisplay=linkCheckBadge(l.linkcheck,l.linkin,l.linkto,l.id);
+    const reasonHtml=l.approvalReason
+      ?`<span style="color:var(--yellow);font-size:11px;" title="${escapeHtml(l.approvalReason)}">⚠ ${escapeHtml(l.approvalReason)}</span>`
+      :`<span style="color:var(--text3);font-size:11px;">Routine live check</span>`;
     return`<tr id="dc-row-${lid}">
       <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
       <td class="domain-teal"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
@@ -8664,6 +8667,7 @@ function renderDoubleCheckQueue(){
       <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td>
       <td>${projTag(l.project)}</td>
       <td>${builderAvatar(l.builder)}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${reasonHtml}</td>
       <td style="white-space:nowrap;">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
         <button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="openLCModal('${escAttr(lid)}')">↗</button>
       </td>
