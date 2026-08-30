@@ -33,10 +33,14 @@ async function fetchPage(url, attempt=0){
 
 // Negative phrases checked first — "not paid" contains "paid" as a
 // substring, so a naive positive-only search would misread it.
+// "payment due" and "due on receipt" were removed from this list — they're
+// standard invoice-terms boilerplate that prints on paid and unpaid invoices
+// alike, so they were producing false "unpaid" reads on invoices that were
+// actually already paid (e.g. "Status: Paid. Terms: Payment due upon receipt.").
 const UNPAID_PHRASES = [
-  'not been paid','not paid','unpaid','payment due','awaiting payment',
+  'not been paid','not paid','unpaid','awaiting payment',
   'outstanding balance','past due','pending payment','payment pending',
-  'due on receipt','balance due'
+  'balance due'
 ];
 const PAID_PHRASES = [
   'paid in full','you paid','payment completed','invoice paid',

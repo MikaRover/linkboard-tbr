@@ -3,7 +3,7 @@
 // Google Apps Script Engine, adapted for Vercel serverless (fetch).
 // ══════════════════════════════════════════════════════════════
 
-const { browserHeaders } = require('./_lib/security');
+const { browserHeaders, isSafeHost } = require('./_lib/security');
 
 const SNOV_CLIENT_ID = process.env.SNOV_CLIENT_ID;
 const SNOV_CLIENT_SECRET = process.env.SNOV_CLIENT_SECRET;
@@ -353,6 +353,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === 'scrape') {
+      if (!isSafeHost(cleanDomain)) return res.status(400).json({error:'Invalid or disallowed domain'});
       const rows = await deepFetchEmails(cleanDomain, token);
       // Shape for renderScrapedEmails: {email, smtp}
       const emails = rows
