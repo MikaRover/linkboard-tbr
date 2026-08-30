@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { domain } = req.body || {};
-  if (!domain) return res.status(400).json({ error: 'domain required' });
+  if (!domain || typeof domain !== 'string') return res.status(400).json({ error: 'domain required' });
 
   const cleanDomain = domain
     .replace(/^https?:\/\//i, '')

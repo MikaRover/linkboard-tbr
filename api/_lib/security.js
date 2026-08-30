@@ -16,12 +16,28 @@ function cleanHost(rawDomain) {
     .toLowerCase();
 }
 
+// The WHATWG URL parser (used internally by fetch()) normalizes numeric IPv4
+// hosts written in hex/octal/decimal-integer/mixed form — e.g. "0xa9.0xfe.0xa9.0xfe"
+// or "2852039166" — into canonical dotted-decimal notation before connecting.
+// PRIVATE_HOST_RE only matches that canonical decimal-dotted form, so an
+// encoded private IP sails past it as a raw string. Parsing the host the same
+// way fetch() will and checking THAT output closes the bypass.
+function canonicalHost(host) {
+  try {
+    return new URL('http://' + host).hostname;
+  } catch (e) {
+    return host;
+  }
+}
+
 function isSafeHost(rawDomain) {
   const host = cleanHost(rawDomain);
   if (!host) return false;
   if (host === '::1' || host === 'metadata.google.internal') return false;
   if (PRIVATE_HOST_RE.test(host)) return false;
   if (!HOSTNAME_RE.test(host)) return false;
+  const canon = canonicalHost(host);
+  if (canon !== host && (PRIVATE_HOST_RE.test(canon) || canon === '::1')) return false;
   return true;
 }
 

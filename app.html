@@ -2907,13 +2907,23 @@ function toggleSort(field){
   renderLinks();
 }
 
+// Shared by parseDate/getMonthKey — handles both dd.mm.yyyy(-yy) and ISO
+// yyyy-mm-dd, since both split into exactly 3 parts and were previously
+// always assumed to be dd.mm.yyyy, silently corrupting whichever one wasn't.
+function parseDateParts(str){
+  const p=String(str||'').split(/[.\-\/]/);
+  if(p.length!==3) return null;
+  if(p[0].length===4){
+    // ISO: yyyy-mm-dd
+    return {day:p[2], month:p[1], year:p[0]};
+  }
+  // dd.mm.yyyy or dd.mm.yy
+  return {day:p[0], month:p[1], year:p[2].length===2?'20'+p[2]:p[2]};
+}
 function parseDate(str){
   if(!str)return 0;
-  const p=str.split(/[.\-\/]/);
-  if(p.length===3){
-    // dd.mm.yyyy
-    return new Date(p[2],p[1]-1,p[0]).getTime()||0;
-  }
+  const parts=parseDateParts(str);
+  if(parts) return new Date(parts.year,parts.month-1,parts.day).getTime()||0;
   return new Date(str).getTime()||0;
 }
 
@@ -3304,7 +3314,7 @@ function showPendingApprovals(){
       <td style="font-size:12px;color:var(--text3);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
       <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);">${escapeHtml(l.domain||'')}</a></td>
       <td>${projTag(l.project)}</td>
-      <td style="font-size:12px;">${escapeHtml(l.anchor||'')}</td>
+      <td style="font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'')}</td>
       <td style="font-size:12px;">${builderAvatar(l.builder)}</td>
       <td style="font-size:11px;color:var(--yellow);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(l.approvalReason||'')}</td>
       <td style="white-space:nowrap;">
@@ -3350,16 +3360,17 @@ async function rejectLink(id){
 
 function goToMyLinks(filter){
   gotoPage('b-links', document.getElementById('bld-nav-links'));
+  // Status values ('pending','live',...) don't match the tabs' own short
+  // filter keys ('pend','live',...) used in setBTab's onclick — map explicitly
+  // instead of substring-matching the two different vocabularies against
+  // each other (that silently matched nothing and left links unfiltered).
+  const tabIdByFilter = {pending:'tab-pend', live:'tab-live', 'needs-change':'tab-needschange', lost:'tab-lost'};
   setTimeout(()=>{
-    // Find the matching tab button and click it (setBTab needs the element for highlighting)
-    const tabs = document.querySelectorAll('.status-tab');
-    const target = filter || 'all';
-    for(const t of tabs){
-      const oc = t.getAttribute('onclick')||'';
-      if(oc.includes("'"+target+"'")){ t.click(); return; }
-    }
+    const tabId = tabIdByFilter[filter];
+    const tab = tabId && document.getElementById(tabId);
+    if(tab){ tab.click(); return; }
     // Fallback — set filter directly
-    bStatusFilter = target;
+    bStatusFilter = filter || 'all';
     renderBuilderLinks();
   },50);
 }
@@ -3568,6 +3579,13 @@ function gotoPage(name,el){
   if(window.innerWidth<=860)toggleSidebar(false);
   window.scrollTo(0,0);
   window.currentPage = name;
+  // Project Detail keeps re-rendering (and re-creating its edit-<id> rows)
+  // on every links snapshot as long as currentDetailProject is set — once
+  // set, it never cleared on navigating away, so its hidden table kept
+  // producing duplicate edit-<id>/ei-*-<id> DOM ids alongside whatever page
+  // the same link also appears on, and getElementById would silently
+  // resolve to the wrong (stale, hidden) one. Clear it on every other page.
+  if(name!=='project-detail') currentDetailProject='';
   if(name==='dashboard')renderDashboard();
   if(name==='links'||name==='all-links')renderLinks();
   if(name==='projects')renderProjectsPage();
@@ -3768,8 +3786,10 @@ function renderCompatCards(){
 
   if(!allProjects.length){compatSection.style.display='none';return;}
 
-  const dr=parseFloat(document.getElementById('f-dr').value)||null;
-  const traffic=parseFloat(cleanNum(document.getElementById('f-traffic').value))||null;
+  const drRaw=parseFloat(document.getElementById('f-dr').value);
+  const dr=isNaN(drRaw)?null:drRaw;
+  const trafficRaw=parseFloat(cleanNum(document.getElementById('f-traffic').value));
+  const traffic=isNaN(trafficRaw)?null:trafficRaw;
   const ss=parseFloat(document.getElementById('f-ss').value);
   const ssVal=isNaN(ss)?null:ss;
   const category=document.getElementById('f-category').value||currentDetectedCategory||'';
@@ -3933,8 +3953,10 @@ async function addLink(){
   const domain=document.getElementById('f-domain').value.trim();
   const anchor=document.getElementById('f-anchor').value.trim();
   const proj=document.getElementById('f-proj').value;
-  const dr=parseFloat(document.getElementById('f-dr').value)||null;
-  const traffic=parseFloat(cleanNum(document.getElementById('f-traffic').value))||null;
+  const drRaw=parseFloat(document.getElementById('f-dr').value);
+  const dr=isNaN(drRaw)?null:drRaw;
+  const trafficRaw=parseFloat(cleanNum(document.getElementById('f-traffic').value));
+  const traffic=isNaN(trafficRaw)?null:trafficRaw;
   const ssVal=document.getElementById('f-ss').value;
   const ss=ssVal!==''?parseFloat(ssVal):null;
   const category=document.getElementById('f-category').value||'';
@@ -4302,12 +4324,11 @@ async function addReq(){
 
 function getMonthKey(dateStr){
   if(!dateStr)return'Unknown';
-  const p=dateStr.split(/[.\-\/]/);
-  if(p.length===3){
+  const parts=parseDateParts(dateStr);
+  if(parts){
     const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
-    const month=months[parseInt(p[1])-1]||'Unknown';
-    const year=p[2].length===2?'20'+p[2]:p[2];
-    return`${month} ${year}`;
+    const month=months[parseInt(parts.month)-1]||'Unknown';
+    return`${month} ${parts.year}`;
   }
   return dateStr.slice(0,7)||'Unknown';
 }
@@ -4963,7 +4984,7 @@ function openBuilderLinks(name){
       <td style="color:var(--text3);font-size:11px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
       <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(l.domain||'')}</a></td>
       <td>${projTag(l.project)}</td>
-      <td style="font-size:12px;">${escapeHtml(l.anchor||'')}</td>
+      <td style="font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'')}</td>
       <td>${(l.status||'').toLowerCase()==='live'?'<span style="color:var(--teal);">✅ live</span>':(l.status||'').toLowerCase()==='pending'?'<span style="color:#f0a500;">⏳ pending</span>':escapeHtml(l.status||'')}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1rem;">No links</td></tr>';
 
@@ -5339,6 +5360,11 @@ function linkCheckUpdatePayload(data){
   const payload={linkcheck:result};
   if(data&&data.ok===true&&result.includes('Live')){
     payload.status='live';
+    // Every other path that sets status='live' (updateLinkStatus) flags this
+    // for Sofya's double-check queue — an automated check confirming a link
+    // went live is exactly as reviewable as a manual status change, and was
+    // silently skipping the queue before this.
+    payload.needsDoubleCheck=true;
   } else if(data&&data.ok===false&&(result.includes('Page gone')||result.includes('not found'))){
     payload.status='lost';
   }
@@ -5353,9 +5379,12 @@ async function checkSingleLink(id, _li, _lt, _anc, btn){
 
   // Only ever called from the bulk-check loop — never alert() here, that
   // would block with a popup per skipped row instead of just moving on.
+  // btn is optional: bulkCheckMyLinks doesn't have a per-row button to
+  // update (its own progress counter is a separate element), so it passes
+  // null rather than one.
   if(!linkIn||!linkTo)return;
-  const orig=btn.textContent;
-  btn.textContent='⏳';btn.disabled=true;
+  const orig=btn?btn.textContent:null;
+  if(btn){btn.textContent='⏳';btn.disabled=true;}
   try{
     const resp=await fetch('/api/check-link',{
       method:'POST',
@@ -5367,7 +5396,7 @@ async function checkSingleLink(id, _li, _lt, _anc, btn){
   }catch(e){
     await db.collection('links').doc(id).update({linkcheck:'⚠️ Error: '+e.message.slice(0,40)});
   }
-  btn.textContent=orig;btn.disabled=false;
+  if(btn){btn.textContent=orig;btn.disabled=false;}
 }
 
 async function checkProjectLinks(){
@@ -5831,19 +5860,31 @@ async function startImport(){
   const log=document.getElementById('imp-log');
   progWrap.style.display='block';log.innerHTML='';
   let created=0,updated=0,errors=0;const BATCH=400,total=csvRows.length;
+  // allLinks only refreshes once the live listener's snapshot comes back, which
+  // hasn't happened yet for rows this same import just created — without this,
+  // two CSV rows for the same domain+project (even across chunks) both read
+  // "not found" against the stale allLinks and both get created as duplicates.
+  const seenInThisImport=new Map();
 
   for(let i=0;i<total;i+=BATCH){
     const chunk=csvRows.slice(i,i+BATCH);
     const batch=db.batch();
     chunk.forEach(row=>{
+      const key=nd(row.domain)+'|'+proj;
       // Try to find existing link by domain+project
       const existingLink=allLinks.find(l=>nd(l.domain)===nd(row.domain)&&l.project===proj);
+      const seenRef=seenInThisImport.get(key);
       if(existingLink){
         // Update existing — preserve createdAt, update all fields including status
         batch.update(db.collection('links').doc(existingLink.id),{...row,project:proj,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
         updated++;
+      } else if(seenRef){
+        batch.update(seenRef,{...row,project:proj,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+        updated++;
       } else {
-        batch.set(db.collection('links').doc(),{...row,project:proj,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+        const newRef=db.collection('links').doc();
+        batch.set(newRef,{...row,project:proj,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+        seenInThisImport.set(key,newRef);
         created++;
       }
     });
@@ -8473,7 +8514,7 @@ function renderBuilderDashboard(){
   if(!recent.length){tb.innerHTML='<tr><td colspan="4" class="loading">No pending links 🎉</td></tr>';return;}
   tb.innerHTML=recent.map(l=>{
     const lid=l.id;
-    return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;" onclick="toggleEditRowById('${escAttr(lid)}')">
+    return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;" onclick="toggleEditRowById('${escAttr(lid)}',false,event)">
     <td class="domain-teal" style="font-size:12px;"><a href="https://${escapeHtml(l.domain)}" target="_blank" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
     <td style="font-size:12px;">${projTag(l.project)}</td>
     <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'#f0a500'};">${escapeHtml(l.status)}</span></td>
@@ -8753,7 +8794,15 @@ function renderDCHistory(){
   }).join('');
 }
 
-function toggleEditRowById(id,forceClose){
+function toggleEditRowById(id,forceClose,event){
+  // Same guard as toggleEditRow: a click that bubbled up from an interactive
+  // child (button/select/input/link) shouldn't also toggle the row itself.
+  // Optional and appended last so every existing (id) / (id,true) call site
+  // that doesn't pass an event is unaffected.
+  if(event&&event.target){
+    const tag=event.target.tagName;
+    if(tag==='BUTTON'||tag==='SELECT'||tag==='INPUT'||tag==='A')return;
+  }
   const row=document.getElementById('edit-'+id);
   if(!row)return;
   const isOpen=row.style.display==='table-row';

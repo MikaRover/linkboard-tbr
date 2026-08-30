@@ -13,6 +13,17 @@ function domainOf(u){
   return String(u||'').replace(/^https?:\/\//i,'').replace(/^www\./i,'').split('/')[0].toLowerCase().trim();
 }
 
+// A plain substring match on a path has no path-boundary awareness — needle
+// "client.com/tools" would match inside the unrelated "client.com/tools-directory/".
+// Require the character right after the match to end the path segment (end of
+// string, or / ? #) so a prefix of a different real path doesn't count as a match.
+function pathBoundaryMatch(href, needle){
+  const idx = href.indexOf(needle);
+  if(idx === -1) return false;
+  const after = href.charAt(idx + needle.length);
+  return after === '' || after === '/' || after === '?' || after === '#';
+}
+
 // Free fallback for bot-protected pages: r.jina.ai is a public reader
 // service that fetches + renders the page on its own infrastructure (no
 // API key, no cost) and returns cleaned text — often gets through basic
@@ -116,7 +127,7 @@ module.exports = async function handler(req, res){
     let m;
     while((m = aRegex.exec(html)) !== null){
       const href = (m[1]||'').toLowerCase();
-      const matches = requireFullPath ? href.includes(needle1) : href.includes(needle2);
+      const matches = requireFullPath ? pathBoundaryMatch(href, needle1) : href.includes(needle2);
       if(matches){
         found = true;
         const tag = m[0].toLowerCase();
