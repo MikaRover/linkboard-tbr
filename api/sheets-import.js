@@ -16,6 +16,21 @@ function getDb() {
   return admin.firestore();
 }
 
+// Matches the app's own nd() domain-normalization helper (app.html) — links
+// are stored with whatever casing/format they were typed/imported in, so an
+// exact Firestore string match on the raw domain misses "Example.com" vs
+// "www.example.com" vs "example.com" as the same domain and lets the sync
+// create a duplicate on every run instead of updating the existing row.
+function normalizeDomain(d) {
+  return String(d || '')
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/+$/, '')
+    .split('/')[0]
+    .trim();
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -39,17 +54,19 @@ module.exports = async function handler(req, res) {
   try {
     const db = getDb();
 
-    // If this exact domain+project pair already exists, don't create a
-    // duplicate — but do sync the paid flag, since re-running the sheet
-    // sync is also how a payment (marked by a green cell in the sheet)
-    // gets reflected here after the fact.
-    const dup = await db.collection('links')
-      .where('domain', '==', String(domain).trim())
-      .where('project', '==', String(project).trim())
-      .limit(1)
+    // If this domain+project pair already exists, don't create a duplicate —
+    // but do sync the paid flag, since re-running the sheet sync is also how
+    // a payment (marked by a green cell in the sheet) gets reflected here
+    // after the fact. Firestore can't do a case/format-insensitive `where`,
+    // so this fetches the project's links and normalizes in code instead of
+    // exact-matching the raw domain string.
+    const projectTrim = String(project).trim();
+    const domainNorm = normalizeDomain(domain);
+    const projectLinks = await db.collection('links')
+      .where('project', '==', projectTrim)
       .get();
-    if (!dup.empty) {
-      const existing = dup.docs[0];
+    const existing = projectLinks.docs.find(d => normalizeDomain(d.data().domain) === domainNorm);
+    if (existing) {
       if (typeof paid === 'boolean' && existing.data().paid !== paid) {
         await existing.ref.update({ paid });
       }
@@ -59,7 +76,7 @@ module.exports = async function handler(req, res) {
     const docRef = await db.collection('links').add({
       domain: String(domain).trim(),
       anchor: String(anchor || '').trim(),
-      project: String(project).trim(),
+      project: projectTrim,
       dr: dr || '',
       traffic: traffic || '',
       ss: ss || '',
