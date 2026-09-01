@@ -4172,15 +4172,18 @@ function playNotifSound(){
     const ctx=_notifAudioCtx;
     if(ctx.state==='suspended')ctx.resume();
     const t=ctx.currentTime;
-    const o=ctx.createOscillator(), g=ctx.createGain();
-    o.type='sine';
-    o.frequency.setValueAtTime(880,t);
-    o.frequency.setValueAtTime(1108,t+0.12);
-    g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.28,t+0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);
-    o.connect(g);g.connect(ctx.destination);
-    o.start(t);o.stop(t+0.4);
+    // Soft two-note chime (major third, C6 → E6) — gentler than the old
+    // sharp two-tone beep, closer to a Slack/iOS-style notification pop.
+    [[1046.5,0,0.22],[1318.5,0.09,0.28]].forEach(([freq,delay,dur])=>{
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.type='sine';
+      o.frequency.setValueAtTime(freq,t+delay);
+      g.gain.setValueAtTime(0.0001,t+delay);
+      g.gain.exponentialRampToValueAtTime(0.22,t+delay+0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+delay+dur);
+      o.connect(g);g.connect(ctx.destination);
+      o.start(t+delay);o.stop(t+delay+dur+0.02);
+    });
   }catch(e){}
 }
 function notifyAdminAnywayAdd(info){
