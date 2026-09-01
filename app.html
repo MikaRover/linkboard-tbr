@@ -4161,11 +4161,21 @@ function renderActivePageForLinks(){
   if(currentDetailProject) renderDetailLinks();
 }
 
+  // A bulk operation (CSV import, sync, batch-check) can fire this snapshot
+  // dozens of times in a few seconds — without debouncing, each one forced a
+  // full re-render of the active page, compounding into serious visible lag
+  // exactly when the app is already busy. allLinks itself still updates
+  // synchronously on every snapshot (so any code reading it directly gets
+  // fresh data immediately); only the render pass coalesces.
+  let _linksRenderTimer=null;
   db.collection('links').orderBy('createdAt','desc').onSnapshot(snap=>{
     allLinks=snap.docs.map(d=>({id:d.id,...d.data()}));
-    populateBLMonths();
-    updateDoubleCheckBadge();
-    renderActivePageForLinks();
+    clearTimeout(_linksRenderTimer);
+    _linksRenderTimer=setTimeout(()=>{
+      populateBLMonths();
+      updateDoubleCheckBadge();
+      renderActivePageForLinks();
+    },120);
   });
 }
 
@@ -5474,16 +5484,20 @@ async function checkProjectLinks(){
   const btn=document.getElementById('check-all-btn');
   btn.disabled=true;
   let done=0;
-  for(const l of toCheck){
-    btn.textContent=`⏳ ${done}/${toCheck.length}`;
-    try{
-      const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
-      const data=await resp.json();
-      await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data));
-    }catch(e){
-      await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});
-    }
-    done++;
+  const CONCUR=4;
+  for(let i=0;i<toCheck.length;i+=CONCUR){
+    const batch=toCheck.slice(i,i+CONCUR);
+    await Promise.all(batch.map(async l=>{
+      try{
+        const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
+        const data=await resp.json();
+        await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data));
+      }catch(e){
+        await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});
+      }
+      done++;
+      btn.textContent=`⏳ ${done}/${toCheck.length}`;
+    }));
   }
   btn.textContent='✅ Done';
   setTimeout(()=>{btn.textContent='▶ Check links';btn.disabled=false;},2500);
@@ -6576,13 +6590,14 @@ async function runBulkFreeSearch(){
       all.forEach(e=>{
         allOutreachData.push({domain, firstName:'',lastName:'',position:e.guessed?'Pattern guess':'Scraped',email:e.email,smtp:e.smtp||'unknown',score:0,type:'free'});
       });
-      // Render row
+      // Render row — insertAdjacentHTML appends without re-parsing/rebuilding
+      // every row already in the table, unlike innerHTML += (which becomes
+      // O(n²) as results accumulate across many domains).
       const tb = document.getElementById('ot-bulk-tbody');
       if(!all.length){
-        tb.innerHTML += `<tr><td style="color:var(--teal);font-weight:600;">${escapeHtml(domain)}</td><td colspan="5" style="color:var(--text3);font-size:12px;">No emails found</td><td></td></tr>`;
+        tb.insertAdjacentHTML('beforeend', `<tr><td style="color:var(--teal);font-weight:600;">${escapeHtml(domain)}</td><td colspan="5" style="color:var(--text3);font-size:12px;">No emails found</td><td></td></tr>`);
       } else {
-        all.forEach(e=>{
-          tb.innerHTML += `<tr>
+        const rowsHtml = all.map(e=>`<tr>
             <td style="color:var(--teal);font-weight:600;font-size:12px;">${escapeHtml(domain)}</td>
             <td colspan="2" style="font-size:11px;color:${e.guessed?'var(--yellow)':'var(--text)'};">${e.guessed?'🎲 Guess':'✅ Found'}</td>
             <td style="font-weight:600;color:var(--teal);font-size:12px;">${escapeHtml(e.email)}</td>
@@ -6591,11 +6606,11 @@ async function runBulkFreeSearch(){
             <td style="white-space:nowrap;">
               <button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>
               <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'',lastName:'',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾</button>
-            </td></tr>`;
-        });
+            </td></tr>`).join('');
+        tb.insertAdjacentHTML('beforeend', rowsHtml);
       }
     } catch(err){
-      document.getElementById('ot-bulk-tbody').innerHTML += `<tr><td style="color:var(--teal);">${escapeHtml(domain)}</td><td colspan="6" style="color:var(--red);font-size:11px;">⚠️ ${escapeHtml(err.message.slice(0,50))}</td></tr>`;
+      document.getElementById('ot-bulk-tbody').insertAdjacentHTML('beforeend', `<tr><td style="color:var(--teal);">${escapeHtml(domain)}</td><td colspan="6" style="color:var(--red);font-size:11px;">⚠️ ${escapeHtml(err.message.slice(0,50))}</td></tr>`);
     }
   }
 
@@ -6684,15 +6699,15 @@ function renderBulkRow(domain, data, action){
   if(action==='prospects'){
     const prospects = (data.prospects||[]).filter(p=>p.email||p.first_name);
     if(!prospects.length){
-      tb.innerHTML += `<tr style="background:rgba(255,95,95,0.03);">
+      tb.insertAdjacentHTML('beforeend', `<tr style="background:rgba(255,95,95,0.03);">
         <td style="color:var(--teal);font-weight:600;">${escapeHtml(domain)}</td>
         <td colspan="5" style="color:var(--text3);font-size:12px;">No contacts found</td>
-        <td></td></tr>`;
+        <td></td></tr>`);
       return;
     }
-    prospects.forEach(p=>{
+    const rowsHtml = prospects.map(p=>{
       const rs = roleScoreInfo(p.position);
-      tb.innerHTML += `<tr>
+      return `<tr>
         <td style="color:var(--teal);font-weight:600;font-size:12px;">${escapeHtml(domain)}</td>
         <td style="font-weight:600;">${escapeHtml(p.first_name||'')} ${escapeHtml(p.last_name||'')}</td>
         <td style="font-size:11px;color:${rs.color};">${escapeHtml(p.position||'—')}</td>
@@ -6705,24 +6720,24 @@ function renderBulkRow(domain, data, action){
           <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(p.email||'')}',smtp:'${escAttr(p.smtp||'unknown')}',firstName:'${escAttr(p.first_name||'')}',lastName:'${escAttr(p.last_name||'')}',position:'${escAttr(p.position||'')}'});"
             class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾</button>
         </td></tr>`;
-    });
+    }).join('');
+    tb.insertAdjacentHTML('beforeend', rowsHtml);
   } else {
-    (data.emails||[]).forEach(e=>{
-      tb.innerHTML += `<tr>
+    const rowsHtml = (data.emails||[]).map(e=>`<tr>
         <td style="color:var(--teal);font-weight:600;font-size:12px;">${escapeHtml(domain)}</td>
         <td colspan="2" style="color:var(--text3);font-size:11px;">Scraped</td>
         <td style="font-weight:600;color:var(--teal);font-size:12px;">${escapeHtml(e.email)}</td>
         <td>${smtpBadge(e.smtp||'unknown')}</td>
         <td>—</td>
         <td><button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button></td>
-      </tr>`;
-    });
+      </tr>`).join('');
+    tb.insertAdjacentHTML('beforeend', rowsHtml);
   }
 }
 
 function appendBulkError(domain, msg){
-  document.getElementById('ot-bulk-tbody').innerHTML +=
-    `<tr><td style="color:var(--teal);">${escapeHtml(domain)}</td><td colspan="6" style="color:var(--red);font-size:11px;">⚠️ ${escapeHtml(String(msg).slice(0,60))}</td></tr>`;
+  document.getElementById('ot-bulk-tbody').insertAdjacentHTML('beforeend',
+    `<tr><td style="color:var(--teal);">${escapeHtml(domain)}</td><td colspan="6" style="color:var(--red);font-size:11px;">⚠️ ${escapeHtml(String(msg).slice(0,60))}</td></tr>`);
 }
 
 function roleScoreInfo(pos){
