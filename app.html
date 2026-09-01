@@ -4597,9 +4597,12 @@ function renderDashboard(){
   myLinks.forEach(l=>{const key=nd(l.domain)+'|'+(l.project||'');domainCnt[key]=(domainCnt[key]||0)+1;});
   const dupCount=myLinks.filter(l=>domainCnt[nd(l.domain)+'|'+(l.project||'')]>1).length;
 
-  // Stat cards — current month focus
+  // Stat cards — Live is a "this month" achievement metric, but Pending is
+  // current backlog: a link added last month that's still pending doesn't
+  // stop needing attention just because the calendar rolled over, so it
+  // uses the unscoped `pend` (all outstanding pending), not thisPend.
   document.getElementById('ds-total').textContent = thisLive.length;
-  document.getElementById('ds-pend').textContent  = thisPend.length;
+  document.getElementById('ds-pend').textContent  = pend.length;
 
   // Live-this-month ring — delivered (live) vs delivered+in-flight (live+pending)
   // this month, i.e. what share of this month's work has actually landed.
@@ -8516,7 +8519,10 @@ function renderBuilderDashboard(){
   const tmPct=thisMonthLinks.length>0?Math.round(tmLive/thisMonthLinks.length*100):0;
   document.getElementById('b-total').textContent=thisMonthLinks.length;
   document.getElementById('b-live').textContent=tmLive;
-  document.getElementById('b-pend').textContent=thisMonthLinks.filter(l=>l.status==='pending').length;
+  // Unscoped by month on purpose — a link added last month that's still
+  // pending is still outstanding work, it shouldn't vanish from the count
+  // just because the calendar rolled over into a new month.
+  document.getElementById('b-pend').textContent=myLinks.filter(l=>l.status==='pending').length;
   const pctEl=document.getElementById('b-live-pct');
   if(pctEl){pctEl.textContent=tmPct+'%';pctEl.style.color=tmPct>=80?'var(--teal)':tmPct>=50?'var(--yellow)':'var(--red)';}
   document.getElementById('b-quota-month').textContent=`${curMonth} ${curYear}`;
