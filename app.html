@@ -344,7 +344,9 @@ body:not(.light) .content{
     radial-gradient(1900px 1100px at 50% -10%, rgba(124,136,232,0.34), transparent 68%),
     radial-gradient(1700px 1050px at 65% 55%, rgba(45,212,191,0.22), transparent 72%),
     var(--bg);
-  background-attachment:fixed;
+  /* background-attachment:fixed removed — it forced the browser to
+     repaint this large gradient on every scroll frame, causing severe
+     stutter on any long scrollable table. Scrolls with the page instead. */
 }
 .page{display:none;padding:1.5rem;}
 .page.active{display:block;}
