@@ -3435,9 +3435,14 @@ function bdQaOnDomainInput(){
   const d=nd(raw);
   const mEl=document.getElementById('bd-qa-metrics');
   const cEl=document.getElementById('bd-qa-compat');
-  if(!d){mEl.style.display='none';cEl.style.display='none';bdQaMetrics={dr:'',traffic:'',ss:''};return;}
+  const dupEl=document.getElementById('bd-qa-dup');
+  if(!d){mEl.style.display='none';cEl.style.display='none';dupEl.style.display='none';bdQaMetrics={dr:'',traffic:'',ss:''};return;}
   mEl.style.display='block';mEl.textContent='⏳ Looking up metrics…';
   cEl.style.display='none';
+  // Independent of any project's quality requirements — a domain can already
+  // be used in a project that has no active requirement configured this
+  // month, and that duplicate still needs to show.
+  bdQaRenderDup(d);
   clearTimeout(bdQaTimer);
   bdQaTimer=setTimeout(async()=>{
     try{
@@ -3460,6 +3465,25 @@ function bdQaOnDomainInput(){
       bdQaRenderCompat(d);
     }catch(e){ mEl.textContent='Could not load metrics'; }
   },500);
+}
+
+// "Already used in" — every project the domain already has a link in,
+// regardless of whether that project has a quality requirement configured
+// for the current month (bdQaRenderCompat's pills are scoped to that, which
+// silently hid real duplicates in projects without an active requirement).
+// Reuses the pre-existing #bd-qa-dup .alert.a-dup element — it was already
+// wired to be cleared on submit but nothing ever populated or showed it.
+function bdQaRenderDup(cleanDomain){
+  const dupEl=document.getElementById('bd-qa-dup');
+  const dupLinks=allLinks.filter(l=>nd(l.domain)===cleanDomain);
+  const dupProjects=[...new Set(dupLinks.map(l=>l.project).filter(Boolean))];
+  if(!dupProjects.length){dupEl.style.display='none';return;}
+  dupEl.style.display='block';
+  dupEl.innerHTML='<b>Already used in:</b> '
+    +dupProjects.map(p=>{
+      const links=dupLinks.filter(l=>l.project===p);
+      return links.map(link=>`${escapeHtml(p)} (${escapeHtml(link.status)} · ${escapeHtml(link.builder||'—')})`).join(', ');
+    }).join(', ');
 }
 
 // Which of this month's active projects can this domain be used for, given its metrics?
@@ -3572,6 +3596,7 @@ async function bdQaSubmit(){
     ['bd-qa-domain','bd-qa-anchor','bd-qa-linkin','bd-qa-linkto'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('bd-qa-proj').value='';
     document.getElementById('bd-qa-metrics').style.display='none';
+    document.getElementById('bd-qa-dup').style.display='none';
     bdQaMetrics={dr:'',traffic:'',ss:''};
   }catch(e){alert('Error: '+e.message);}
   if(btn){btn.textContent='+ Add link';btn.disabled=false;}
