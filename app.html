@@ -7500,10 +7500,17 @@ function renderKPI(){
     if(t.traffic>0){ score += Math.min(100, (avgTraffic/t.traffic)*100) * 0.2; criteria++; }
     if(t.live>0){ score += Math.min(100, (livePct/t.live)*100) * 0.15; criteria++; }
 
-    // No KPI targets configured yet (Links/DR/Traffic/Live all unset) — fall
-    // back to actual live rate instead of a flat placeholder, so builders
-    // with very different real performance don't all show the same score.
-    if(!criteria) score = livePct;
+    // No KPI targets configured (Links/DR/Traffic/Live all unset globally).
+    // DR/Traffic aren't fair global targets anyway — they depend on which
+    // sites a builder manages to place on, not raw effort — so instead of
+    // asking for arbitrary target numbers, self-calibrate from what's
+    // already tracked per builder: their own assigned Load quota (delivery)
+    // and their live rate (execution quality), falling back to live rate
+    // alone when no quota has been assigned this month.
+    if(!criteria){
+      const quotaPct = loadTarget>0 ? Math.min(100,(bl.length/loadTarget)*100) : null;
+      score = quotaPct!==null ? (quotaPct*0.6 + livePct*0.4) : livePct;
+    }
     score = Math.round(Math.min(100, score));
 
     return { name:b, links:bl.length, loadTarget, live, livePct, avgDR, avgTraffic, score,
