@@ -7500,7 +7500,10 @@ function renderKPI(){
     if(t.traffic>0){ score += Math.min(100, (avgTraffic/t.traffic)*100) * 0.2; criteria++; }
     if(t.live>0){ score += Math.min(100, (livePct/t.live)*100) * 0.15; criteria++; }
 
-    if(!criteria) score = (bl.length>0)?75:0;
+    // No KPI targets configured yet (Links/DR/Traffic/Live all unset) — fall
+    // back to actual live rate instead of a flat placeholder, so builders
+    // with very different real performance don't all show the same score.
+    if(!criteria) score = livePct;
     score = Math.round(Math.min(100, score));
 
     return { name:b, links:bl.length, loadTarget, live, livePct, avgDR, avgTraffic, score,
