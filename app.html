@@ -3233,13 +3233,19 @@ function renderDetailLinks(){
     if(s && !(l.domain||'').toLowerCase().includes(s) && !(l.anchor||'').toLowerCase().includes(s)) return false;
     return true;
   });
+  const _pdOpenLive=getOpenEditIds(tb);
   tb.innerHTML = flLiveOnly.length ? renderRowsGrouped(flLiveOnly, pdRowFn, 14) : `<tr><td colspan="14" class="loading">No live links</td></tr>`;
+  restoreOpenEditIds(tb,_pdOpenLive);
 
   // Render pending panel (hidden by default)
   const pp = document.getElementById('pd-pending-panel');
   if(pp){
     const ppTb = document.getElementById('pd-pending-tbody');
-    if(ppTb) ppTb.innerHTML = flPendOnly.length ? renderRowsGrouped(flPendOnly, pdRowFn, 14) : `<tr><td colspan="14" class="loading">No pending links</td></tr>`;
+    if(ppTb){
+      const _pdOpenPend=getOpenEditIds(ppTb);
+      ppTb.innerHTML = flPendOnly.length ? renderRowsGrouped(flPendOnly, pdRowFn, 14) : `<tr><td colspan="14" class="loading">No pending links</td></tr>`;
+      restoreOpenEditIds(ppTb,_pdOpenPend);
+    }
     document.getElementById('pd-pending-count').textContent = flPendOnly.length;
   }
 }
@@ -3646,6 +3652,21 @@ function gotoPage(name,el){
   }
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
+
+// The live links listener re-renders a whole table's innerHTML on ANY
+// change to ANY link, not just the one being viewed — which silently
+// snapped shut an edit panel someone had open, since the fresh HTML
+// always starts collapsed. Call getOpenEditIds() before reassigning
+// innerHTML and restoreOpenEditIds() after, so an in-progress edit
+// survives an unrelated row changing elsewhere.
+function getOpenEditIds(tbody){
+  if(!tbody)return[];
+  return[...tbody.querySelectorAll('[id^="edit-"]')].filter(r=>r.style.display==='table-row').map(r=>r.id.slice(5));
+}
+function restoreOpenEditIds(tbody,ids){
+  if(!tbody||!ids||!ids.length)return;
+  ids.forEach(id=>{const r=document.getElementById('edit-'+id);if(r)r.style.display='table-row';});
+}
 
 // ─── CATEGORY DETECTION ───────────────────────────────────
 function renderCatButtons(selected){
@@ -4878,7 +4899,9 @@ function renderLinks(){
       </td>
     </tr>`;
   };
+  const _allOpen=getOpenEditIds(tb);
   tb.innerHTML = fl.length ? renderRowsGrouped(fl, rowFn, 11) : `<tr><td colspan="11" class="loading">No links</td></tr>`;
+  restoreOpenEditIds(tb,_allOpen);
 
 }
 
@@ -8707,7 +8730,9 @@ function renderBuilderLinks(){
       </td>
     </tr>`;
   };
+  const _blOpen=getOpenEditIds(tb);
   tb.innerHTML=renderRowsGrouped(fl,rowFn,12);
+  restoreOpenEditIds(tb,_blOpen);
 }
 
 function updateDoubleCheckBadge(){
