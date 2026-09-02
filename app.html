@@ -1820,10 +1820,9 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
   <!-- Stats row — 4 cards -->
   <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.5rem;">
-    <div class="stat" onclick="goToMyLinks('all')" style="cursor:pointer;" title="Total links added this month, any status"><div class="stat-l">Added this month</div><div class="stat-v" style="color:var(--teal)" id="b-total">—</div></div>
-    <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="View live links"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)" id="b-live">—</div></div>
+    <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="View live links"><div class="stat-l">Live this month</div><div class="stat-v" style="color:var(--teal)" id="b-live">—</div></div>
     <div class="stat" onclick="goToMyLinks('pending')" style="cursor:pointer;" title="View pending links"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500" id="b-pend">—</div></div>
-    <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="View live links"><div class="stat-l">Live %</div><div class="stat-v" id="b-live-pct" style="color:var(--teal)">—</div></div>
+    <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="Live links vs your assigned monthly quota"><div class="stat-l">Live / Quota</div><div class="stat-v" id="b-live-pct" style="color:var(--teal)">—</div></div>
   </div>
 
   <!-- Content row — aligned under the 4 stat cards above: This month | Live | Pending+Live% -->
@@ -8546,15 +8545,11 @@ function renderBuilderDashboard(){
   // This month only
   const thisMonthLinks=myLinks.filter(l=>l.date&&getMonthKey(l.date)===`${curMonth} ${curYear}`);
   const tmLive=thisMonthLinks.filter(l=>l.status==='live').length;
-  const tmPct=thisMonthLinks.length>0?Math.round(tmLive/thisMonthLinks.length*100):0;
-  document.getElementById('b-total').textContent=thisMonthLinks.length;
   document.getElementById('b-live').textContent=tmLive;
   // Unscoped by month on purpose — a link added last month that's still
   // pending is still outstanding work, it shouldn't vanish from the count
   // just because the calendar rolled over into a new month.
   document.getElementById('b-pend').textContent=myLinks.filter(l=>l.status==='pending').length;
-  const pctEl=document.getElementById('b-live-pct');
-  if(pctEl){pctEl.textContent=tmPct+'%';pctEl.style.color=tmPct>=80?'var(--teal)':tmPct>=50?'var(--yellow)':'var(--red)';}
   document.getElementById('b-quota-month').textContent=`${curMonth} ${curYear}`;
 
   const quotaGrid=document.getElementById('b-quota-grid');
@@ -8565,6 +8560,15 @@ function renderBuilderDashboard(){
 
   // Overall monthly total — so the builder knows how many links they must build this month
   const totalTarget = myLoads.reduce((s,l)=>s+(l.count||0),0);
+  // Live-vs-quota ratio — how much of the assigned monthly load has actually
+  // landed live, not just live-vs-links-added (which said nothing about
+  // whether they're keeping pace with what they were assigned).
+  const pctEl=document.getElementById('b-live-pct');
+  if(pctEl){
+    const quotaPct = totalTarget>0 ? Math.round(tmLive/totalTarget*100) : 0;
+    pctEl.textContent = totalTarget>0 ? `${tmLive}/${totalTarget}` : `${tmLive}`;
+    pctEl.style.color = quotaPct>=80?'var(--teal)':quotaPct>=50?'var(--yellow)':'var(--red)';
+  }
   const totalDone = myLoads.reduce((s,l)=>{
     return s + myLinks.filter(x=>x.project===l.project&&x.date&&getMonthKey(x.date)===`${curMonth} ${curYear}`).length;
   },0);
