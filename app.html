@@ -1533,8 +1533,10 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     </div>
   </div>
 
-  <!-- Distribution table -->
-  <div class="card" style="max-width:900px;">
+  <!-- Distribution table — full width, not capped like the selection card
+       above: with 13+ builder columns this needed the whole page width to
+       avoid horizontal scrolling. -->
+  <div class="card">
     <div class="card-head">
       Link distribution
       <span style="font-size:11px;color:var(--text3);">Enter total per project → auto-splits equally</span>
