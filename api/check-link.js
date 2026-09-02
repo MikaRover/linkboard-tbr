@@ -129,11 +129,22 @@ module.exports = async function handler(req, res){
       const href = (m[1]||'').toLowerCase();
       const matches = requireFullPath ? pathBoundaryMatch(href, needle1) : href.includes(needle2);
       if(matches){
+        const candidateAnchor = (m[2]||'').replace(/<[^>]*>/g,'').trim().slice(0,60);
+        // A root-domain target has no path to anchor the match to, so a bare
+        // href match is weak on its own — a nav/footer/social/"back to
+        // homepage" link to the same domain would also match, which is what
+        // was producing false "Live" results. When an expected anchor text
+        // was supplied, require it to actually appear in THIS link's own
+        // text before accepting it — otherwise keep scanning for a better
+        // candidate instead of taking the first (possibly wrong) match.
+        if(!requireFullPath && anchor && !candidateAnchor.toLowerCase().includes(String(anchor).toLowerCase().trim())){
+          continue;
+        }
         found = true;
         const tag = m[0].toLowerCase();
         const relMatch = tag.match(/rel\s*=\s*["']([^"']*)["']/);
         rel = relMatch ? relMatch[1] : '';
-        foundAnchor = (m[2]||'').replace(/<[^>]*>/g,'').trim().slice(0,60);
+        foundAnchor = candidateAnchor;
         break;
       }
     }
