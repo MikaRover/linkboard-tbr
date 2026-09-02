@@ -8829,7 +8829,10 @@ function renderDoubleCheckQueue(){
       <td style="white-space:nowrap;">${l.linkin?`<a href="${escapeHtml(l.linkin)}" target="_blank" style="text-decoration:none;">${lcDisplay}</a>`:lcDisplay}
         <button class="btn-ghost" style="padding:7px 13px;font-size:13px;margin-left:4px;border-radius:8px;" onclick="openLCModal('${escAttr(lid)}')">↗</button>
       </td>
-      <td><button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;" onclick="markDoubleChecked('${escAttr(lid)}',this)">✓ Checked</button></td>
+      <td style="white-space:nowrap;">
+        <button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;" onclick="markDoubleChecked('${escAttr(lid)}',this)">✓ Checked</button>
+        <button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;background:transparent;color:#ff6b6b;border:1px solid #ff6b6b;" onclick="rejectDoubleCheck('${escAttr(lid)}',this)">✕ Reject</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -8867,6 +8870,30 @@ async function markDoubleChecked(id,btn){
     });
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='✓ Checked';}
+    showToast('Չհաջողվեց պահպանել');
+  }
+}
+// Double-check reveals the link doesn't actually hold up (not really live,
+// wrong page, quality issue) — rejects it (status:'rejected') instead of
+// just clearing the review flag, and logs it the same way as a normal check
+// so it still shows in the double-check history.
+async function rejectDoubleCheck(id,btn){
+  const l=allLinks.find(x=>x.id===id);
+  if(!confirm(`Reject "${l?l.domain:id}"? This sets its status to Rejected.`))return;
+  if(btn){btn.disabled=true;btn.textContent='...';}
+  try{
+    await db.collection('links').doc(id).update({needsDoubleCheck:false,status:'rejected'});
+    await db.collection('doubleCheckLog').add({
+      linkId:id,
+      domain:l?l.domain:'',
+      project:l?l.project:'',
+      builder:l?l.builder:'',
+      checkedBy:cu.name||cu.email||'',
+      result:'rejected',
+      checkedAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='✕ Reject';}
     showToast('Չհաջողվեց պահպանել');
   }
 }
