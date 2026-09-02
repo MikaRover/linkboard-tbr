@@ -8172,9 +8172,10 @@ function initLoadPage(){
       ${b}
     </label>`).join('');
 
-  // Project checkboxes
+  // Project checkboxes — hidden projects excluded, same as everywhere else
+  // hidden projects are already filtered out (Requirements, project selects)
   const pwrap = document.getElementById('load-project-checks');
-  if(pwrap) pwrap.innerHTML = allProjects.map(p => `
+  if(pwrap) pwrap.innerHTML = allProjects.filter(p=>!p.hidden).map(p => `
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;transition:all 0.15s;"
       onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
       <input type="checkbox" value="${escapeHtml(p.name)}" onchange="onLoadFilterChange()" style="width:auto;margin:0;cursor:pointer;" ${loadUncheckedProjects.has(p.name)?'':'checked'}/>
