@@ -1898,6 +1898,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <button class="btn-sm" onclick="blBatchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
     <button class="btn-sm" onclick="blBatchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
     <button class="btn-ghost" id="bl-check-btn" onclick="checkSelectedBuilderLinks(this)" title="Run link checker on selected links">🔍 Check selected</button>
+    <button class="btn-ghost" id="bl-metrics-btn" onclick="checkSelectedBuilderLinksMetrics(this)" title="Fetch DR, Traffic and Spam Score for selected links">📊 Check DR/Traffic</button>
     <button class="btn-danger" onclick="blBatchDelete()">Delete selected</button>
     <button class="btn-ghost" onclick="clearBlSelection()" style="margin-left:auto;">Clear</button>
   </div>
@@ -5444,6 +5445,47 @@ async function checkSelectedBuilderLinks(btn){
   document.querySelectorAll('.bl-row-check, #bl-check-all').forEach(cb=>cb.checked=false);
   updateBlCheckBtn();
   showToast(`✅ Checked ${ids.length} link${ids.length>1?'s':''}`);
+}
+
+// Refetch DR, Traffic (api/ahrefs) and Spam Score (api/dapa) for the selected
+// rows — the same lookup Quick Add and the admin Add Link form run on domain
+// entry, but here re-runnable on demand for links already saved (a domain's
+// metrics can move, or the original add-time lookup can have failed).
+async function checkSelectedBuilderLinksMetrics(btn){
+  const ids = Array.from(document.querySelectorAll('.bl-row-check:checked')).map(c=>c.value);
+  if(!ids.length){ return; }
+  const orig = btn.textContent;
+  btn.disabled = true;
+  let done = 0, failed = 0;
+  const CONCUR = 3;
+  for(let i=0;i<ids.length;i+=CONCUR){
+    const batch = ids.slice(i,i+CONCUR);
+    await Promise.all(batch.map(async id=>{
+      const l = allLinks.find(x=>x.id===id);
+      if(!l || !l.domain){ done++; failed++; return; }
+      try{
+        const [mResp,dResp]=await Promise.all([
+          fetch('/api/ahrefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:l.domain})}),
+          fetch('/api/dapa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:l.domain})})
+        ]);
+        const mData=await mResp.json().catch(()=>({}));
+        const dData=await dResp.json().catch(()=>({}));
+        const upd={};
+        if(mData.dr!=null) upd.dr=String(mData.dr);
+        if(mData.traffic!=null && mData.traffic!==0) upd.traffic=String(mData.traffic);
+        if(dData.spam_score!=null) upd.ss=String(dData.spam_score);
+        if(Object.keys(upd).length) await db.collection('links').doc(id).update(upd);
+        else failed++;
+      }catch(e){ failed++; }
+      done++;
+      btn.textContent = `⏳ ${done}/${ids.length}`;
+    }));
+  }
+  btn.disabled = false;
+  btn.textContent = orig;
+  document.querySelectorAll('.bl-row-check, #bl-check-all').forEach(cb=>cb.checked=false);
+  updateBlCheckBtn();
+  showToast(failed ? `✅ Updated ${ids.length-failed}/${ids.length} — ${failed} had no new data` : `✅ DR/Traffic/SS updated for ${ids.length} link${ids.length>1?'s':''}`);
 }
 
 // Central place to build a Firestore update payload for a link-check
