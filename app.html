@@ -3382,6 +3382,22 @@ function goToMyLinks(filter){
   // each other (that silently matched nothing and left links unfiltered).
   const tabIdByFilter = {pending:'tab-pend', live:'tab-live', 'needs-change':'tab-needschange', lost:'tab-lost'};
   setTimeout(()=>{
+    // The dashboard's "Live this month" / "Live / Quota" cards are both
+    // month-scoped (see renderBuilderDashboard's tmLive) — clicking through
+    // should land on that same current-month slice, not every live link the
+    // builder has ever had, which is what the plain Live tab shows on its own.
+    const monthSel=document.getElementById('bl-month');
+    if(monthSel){
+      if(filter==='live'){
+        const curMonthKey=`${currentMonthName()} ${new Date().getFullYear()}`;
+        monthSel.value=[...monthSel.options].some(o=>o.value===curMonthKey) ? curMonthKey : '';
+      }else{
+        // Other cards (Pending, etc.) are deliberately month-independent — reset
+        // the dropdown so a month picked by an earlier "Live" click doesn't
+        // silently carry over and hide older links here.
+        monthSel.value='';
+      }
+    }
     const tabId = tabIdByFilter[filter];
     const tab = tabId && document.getElementById(tabId);
     if(tab){ tab.click(); return; }
