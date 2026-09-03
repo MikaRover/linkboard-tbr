@@ -3486,6 +3486,13 @@ function bdQaOnDomainInput(){
       if(bdQaMetrics.dr)parts.push('DR '+bdQaMetrics.dr);
       if(bdQaMetrics.traffic)parts.push('Traffic '+Number(bdQaMetrics.traffic).toLocaleString());
       if(bdQaMetrics.ss)parts.push('SS '+bdQaMetrics.ss+'%');
+      // api/ahrefs.js catches its own upstream failures (Ahrefs API timeout/error)
+      // and still responds 200 with dr/traffic:null + an `error` field, so a real
+      // transient failure and a domain that genuinely has no DR/Traffic on Ahrefs
+      // looked identical here — the only visible sign it was worth just retrying
+      // was silence. Surface the distinction instead of guessing.
+      const mFailed=!bdQaMetrics.dr && !bdQaMetrics.traffic && mData.error;
+      if(mFailed) parts.push('⚠️ DR/Traffic lookup failed — retype domain to retry');
       mEl.textContent=parts.length?parts.join(' · '):'No metrics found';
       bdQaRenderCompat(d);
     }catch(e){ mEl.textContent='Could not load metrics'; }
