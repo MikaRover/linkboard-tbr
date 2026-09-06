@@ -23,6 +23,7 @@
   --shadow:0 1px 2px rgba(0,0,0,0.24),0 10px 28px rgba(0,0,0,0.3);
   --shadow-teal:0 4px 24px rgba(45,212,191,0.16);
   --font-mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,monospace;
+  --glass-bg:rgba(20,21,24,0.62);
 }
 /* ── SPLASH SCREEN ── */
 #app-splash{position:fixed;inset:0;background:#08090a;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;}
@@ -64,6 +65,7 @@ body.light{
   --red:#d70015;--yellow:#b25000;
   --shadow:0 1px 2px rgba(0,0,0,0.04),0 6px 24px rgba(0,0,0,0.06);
   --shadow-teal:0 0 0 4px rgba(10,133,119,0.10);
+  --glass-bg:rgba(255,255,255,0.78);
 }
 body.light input,body.light select,body.light textarea{background:#fff;color:var(--text);border-color:var(--border);box-shadow:0 1px 2px rgba(0,0,0,0.04);}
 body.light select option{background:#fff;color:var(--text);}
@@ -82,7 +84,7 @@ body.light .nav.active{background:var(--accent2-glow);color:var(--accent2);}
 body.light .page-title{color:var(--text);}
 body.light .sb-logo span{color:var(--accent2);}
 body.light .login-box{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.10);}
-body.light .row-menu{background:#fff;border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,0.10);}
+body.light .row-menu{border-color:var(--border2);box-shadow:0 4px 16px rgba(0,0,0,0.10);}
 body.light .row-menu button:hover{background:var(--bg3);}
 body.light .link-row:hover{background:rgba(0,0,0,0.02);}
 body.light .status-tab{background:var(--bg3);border-color:var(--border2);color:var(--text2);}
@@ -234,7 +236,7 @@ select option{background:var(--bg2);}
 /* ── ROW ACTIONS KEBAB MENU ── */
 .row-menu-wrap{position:relative;display:inline-block;}
 .row-menu-btn{padding:5px 9px !important;font-size:14px !important;line-height:1;}
-.row-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:140px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;box-shadow:var(--shadow);padding:4px;display:flex;flex-direction:column;z-index:40;transform-origin:top right;opacity:0;transform:scale(0.94) translateY(-4px);pointer-events:none;transition:opacity 140ms ease,transform 180ms cubic-bezier(.2,.8,.2,1);}
+.row-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:140px;background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border:1px solid var(--border2);border-radius:10px;box-shadow:var(--shadow);padding:4px;display:flex;flex-direction:column;z-index:40;transform-origin:top right;opacity:0;transform:scale(0.94) translateY(-4px);pointer-events:none;transition:opacity 140ms ease,transform 180ms cubic-bezier(.2,.8,.2,1);}
 .row-menu.open{opacity:1;transform:scale(1) translateY(0);pointer-events:auto;}
 /* Shared show/hide transition for the floating "N selected" batch-action bars
    (All Links, Project Detail, Invoices, Data Checker, My Links) — see
@@ -242,7 +244,7 @@ select option{background:var(--bg2);}
    transition can actually run; the transition-delay on visibility keeps a
    hidden bar's buttons out of tab order/screen readers without cutting the
    fade-out short. */
-.batch-bar{display:flex;opacity:0;transform:translateY(16px);visibility:hidden;transition:opacity 200ms ease,transform 200ms cubic-bezier(.2,.8,.2,1),visibility 0s linear 200ms;}
+.batch-bar{display:flex;opacity:0;transform:translateY(16px);visibility:hidden;transition:opacity 200ms ease,transform 200ms cubic-bezier(.2,.8,.2,1),visibility 0s linear 200ms;background:var(--glass-bg) !important;backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);}
 .batch-bar.bb-show{opacity:1;transform:translateY(0);visibility:visible;transition:opacity 200ms ease,transform 200ms cubic-bezier(.2,.8,.2,1),visibility 0s linear 0s;}
 /* Shared materialize transition for the 3 full-screen modals (Builder profile,
    Link Check, Domain). Modals aren't trigger-anchored, so — unlike .row-menu —
@@ -342,7 +344,7 @@ label{font-size:12px;color:var(--text2);margin-bottom:5px;display:block;}
 select option{background:var(--bg2);}
 .err{font-size:12px;color:#ff6b6b;margin-bottom:12px;display:none;padding:8px 12px;background:rgba(255,107,107,0.1);border-radius:6px;animation:slideDown 0.2s ease;}
 .app{display:flex;min-height:100vh;}
-.sidebar{width:220px;min-width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1.25rem 0;position:fixed;height:100vh;overflow-y:auto;}
+.sidebar{width:220px;min-width:220px;background:var(--glass-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1.25rem 0;position:fixed;height:100vh;overflow-y:auto;}
 .sb-top{padding:0 1.25rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:10px;}
 .sb-logo{font-size:18px;font-weight:700;color:var(--text);margin-bottom:10px;}
 .sb-logo span{color:var(--accent2);}
@@ -562,11 +564,15 @@ button, .nav, .card, .stat, input, select, .proj-card, .status-tab, a{
 /* Headings: tight Apple tracking */
 .page-title, h1, h2{ letter-spacing:-0.02em !important; font-weight:700 !important; }
 
-/* Cards — softer, rounded, subtle depth */
-.card, .stat, .proj-card{
+/* Cards — softer, rounded, subtle depth, and glass — same translucent-blur
+   treatment as the sidebar, extended to every panel in the app. */
+.card, .stat, .proj-card, .quota-card{
   border-radius: var(--radius-lg) !important;
   box-shadow: var(--shadow) !important;
   border:1px solid var(--border) !important;
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
 }
 .card:hover, .proj-card:hover{ box-shadow:0 2px 6px rgba(0,0,0,0.06),0 12px 40px rgba(0,0,0,0.10) !important; }
 .stat[onclick]:hover{ transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.08),0 16px 48px rgba(0,0,0,0.12) !important; }
@@ -1984,7 +1990,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
 <!-- ══ BUILDER PROFILE MODAL ══ -->
 <div id="builder-modal-overlay" class="modal-overlay-anim" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:500;align-items:center;justify-content:center;" onclick="closeBuilderModal(event)">
-  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:680px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:1.5rem;position:relative;">
+  <div style="background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border:1px solid var(--border2);border-radius:16px;width:680px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:1.5rem;position:relative;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
       <div>
         <div id="bm-name" style="font-size:20px;font-weight:800;letter-spacing:-0.5px;"></div>
@@ -2002,7 +2008,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
 <!-- ══ LINK CHECK MODAL ══ -->
 <div id="lc-modal-overlay" class="modal-overlay-anim" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:600;align-items:center;justify-content:center;" onclick="if(event.target===this)closeLCModal()">
-  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:500px;max-width:95vw;padding:1.25rem;position:relative;">
+  <div style="background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border:1px solid var(--border2);border-radius:14px;width:500px;max-width:95vw;padding:1.25rem;position:relative;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
       <div style="font-size:14px;font-weight:700;color:var(--text);">Link Check</div>
       <button onclick="closeLCModal()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 10px;color:var(--text2);cursor:pointer;">✕</button>
@@ -2208,7 +2214,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
 <!-- ══ DOMAIN MODAL ══ -->
 <div id="dom-modal-overlay" class="modal-overlay-anim" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:600;align-items:center;justify-content:center;" onclick="if(event.target===this)closeDomainModal()">
-  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:560px;max-width:96vw;max-height:90vh;overflow-y:auto;padding:1.5rem;">
+  <div style="background:var(--glass-bg);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border:1px solid var(--border2);border-radius:16px;width:560px;max-width:96vw;max-height:90vh;overflow-y:auto;padding:1.5rem;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
       <div style="font-size:16px;font-weight:800;color:var(--text);" id="dom-modal-title">Add domain</div>
       <button onclick="closeDomainModal()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text2);cursor:pointer;">✕</button>
