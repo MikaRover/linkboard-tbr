@@ -244,6 +244,13 @@ select option{background:var(--bg2);}
    fade-out short. */
 .batch-bar{display:flex;opacity:0;transform:translateY(16px);visibility:hidden;transition:opacity 200ms ease,transform 200ms cubic-bezier(.2,.8,.2,1),visibility 0s linear 200ms;}
 .batch-bar.bb-show{opacity:1;transform:translateY(0);visibility:visible;transition:opacity 200ms ease,transform 200ms cubic-bezier(.2,.8,.2,1),visibility 0s linear 0s;}
+/* Shared materialize transition for the 3 full-screen modals (Builder profile,
+   Link Check, Domain). Modals aren't trigger-anchored, so — unlike .row-menu —
+   the card scales from center, never from a corner. See toggleModal(). */
+.modal-overlay-anim{display:flex;opacity:0;visibility:hidden;transition:opacity 200ms ease,visibility 0s linear 200ms;}
+.modal-overlay-anim.mo-show{opacity:1;visibility:visible;transition:opacity 200ms ease,visibility 0s linear 0s;}
+.modal-overlay-anim>div{transform:scale(0.95);transition:transform 200ms cubic-bezier(.2,.8,.2,1);}
+.modal-overlay-anim.mo-show>div{transform:scale(1);}
 .row-menu button{background:transparent;border:none;color:var(--text);font-size:12px;text-align:left;padding:7px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;width:100%;}
 .row-menu button:hover{background:var(--bg4);}
 .row-menu button.row-menu-danger{color:var(--red);}
@@ -422,7 +429,7 @@ tr:hover td{background:var(--bg3);}
 .dc-input{background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;width:100%;text-align:center;font-size:15px;font-weight:700;color:var(--text);padding:4px;margin:0;outline:none;}
 .cat-suggest{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;}
 .cat-suggest-label{font-size:12px;color:var(--text2);}
-.cat-badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2);transition:all 0.15s;}
+.cat-badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2);transition:background .22s ease,border-color .22s ease,color .18s ease;}
 .cat-badge.selected{border-color:var(--teal);color:var(--teal);background:rgba(0,180,160,0.1);}
 .import-drop{border:2px dashed var(--border);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:1rem;}
 .import-drop:hover{border-color:var(--teal);}
@@ -439,7 +446,7 @@ tr:hover td{background:var(--bg3);}
 .proj-count{font-size:11px;color:var(--text2);}
 
 /* ── PROJECT COMPATIBILITY PILLS ── */
-.compat-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid;cursor:pointer;transition:all 0.15s;position:relative;}
+.compat-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid;cursor:pointer;transition:background .22s ease,border-color .22s ease,color .18s ease,box-shadow .25s ease,transform .18s cubic-bezier(.2,.8,.2,1);position:relative;}
 .compat-pill.ok{background:rgba(0,180,160,0.1);border-color:rgba(0,180,160,0.4);color:#00c9b0;}
 .compat-pill.ok:hover{background:rgba(0,180,160,0.18);}
 .compat-pill.fail{background:rgba(255,107,107,0.08);border-color:rgba(255,107,107,0.3);color:#ff6b6b;}
@@ -850,6 +857,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   .row-menu.open{transform:none !important;}
   .batch-bar{transform:none !important;}
   .batch-bar.bb-show{transform:none !important;}
+  .modal-overlay-anim>div{transform:none !important;}
+  .modal-overlay-anim.mo-show>div{transform:none !important;}
 }
 </style>
 </head>
@@ -1974,14 +1983,14 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
 
 <!-- ══ BUILDER PROFILE MODAL ══ -->
-<div id="builder-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:500;align-items:center;justify-content:center;" onclick="closeBuilderModal(event)">
-  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:680px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:1.5rem;position:relative;animation:fadeSlideIn 0.25s ease;">
+<div id="builder-modal-overlay" class="modal-overlay-anim" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:500;align-items:center;justify-content:center;" onclick="closeBuilderModal(event)">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:680px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:1.5rem;position:relative;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
       <div>
         <div id="bm-name" style="font-size:20px;font-weight:800;letter-spacing:-0.5px;"></div>
         <div id="bm-role" style="font-size:11px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:0.5px;">Link Builder</div>
       </div>
-      <button onclick="document.getElementById('builder-modal-overlay').style.display='none'" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--text2);cursor:pointer;font-size:13px;">✕ Close</button>
+      <button onclick="toggleModal('builder-modal-overlay',false)" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--text2);cursor:pointer;font-size:13px;">✕ Close</button>
     </div>
     <!-- Stats row -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem;" id="bm-stats"></div>
@@ -1992,7 +2001,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
 
 <!-- ══ LINK CHECK MODAL ══ -->
-<div id="lc-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:600;align-items:center;justify-content:center;" onclick="if(event.target===this)closeLCModal()">
+<div id="lc-modal-overlay" class="modal-overlay-anim" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:600;align-items:center;justify-content:center;" onclick="if(event.target===this)closeLCModal()">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:500px;max-width:95vw;padding:1.25rem;position:relative;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
       <div style="font-size:14px;font-weight:700;color:var(--text);">Link Check</div>
@@ -2198,7 +2207,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 </div>
 
 <!-- ══ DOMAIN MODAL ══ -->
-<div id="dom-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:600;align-items:center;justify-content:center;" onclick="if(event.target===this)closeDomainModal()">
+<div id="dom-modal-overlay" class="modal-overlay-anim" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:600;align-items:center;justify-content:center;" onclick="if(event.target===this)closeDomainModal()">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:560px;max-width:96vw;max-height:90vh;overflow-y:auto;padding:1.5rem;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
       <div style="font-size:16px;font-weight:800;color:var(--text);" id="dom-modal-title">Add domain</div>
@@ -5388,6 +5397,13 @@ function toggleBatchBar(id, show){
   const bar=document.getElementById(id);
   if(bar) bar.classList.toggle('bb-show', !!show);
 }
+// Shows/hides one of the 3 full-screen modal overlays (Builder profile, Link
+// Check, Domain) with a fade+scale transition instead of an instant display
+// swap. Same mechanism as toggleBatchBar — see .modal-overlay-anim above.
+function toggleModal(id, show){
+  const el=document.getElementById(id);
+  if(el) el.classList.toggle('mo-show', !!show);
+}
 function toggleRowMenu(e,id){
   e.stopPropagation();
   const menu=document.getElementById('row-menu-'+id);
@@ -8001,12 +8017,13 @@ function openLCModal(id){
     // Move to a direct child of <body> so no ancestor (transform/filter/
     // backdrop-filter/overflow) can ever break its position:fixed centering.
     if(overlay.parentElement!==document.body) document.body.appendChild(overlay);
-    overlay.style.cssText='display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:99999;align-items:center;justify-content:center;';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:99999;align-items:center;justify-content:center;';
+    toggleModal('lc-modal-overlay', true);
   } else console.error('openLCModal: #lc-modal-overlay not found in DOM');
 }
 
 function closeLCModal(){
-  document.getElementById('lc-modal-overlay').style.display = 'none';
+  toggleModal('lc-modal-overlay', false);
   lcCurrentId = null;
 }
 
@@ -8057,7 +8074,7 @@ async function checkLCModal(btn){
 // ─── BUILDER PROFILE MODAL ────────────────────────────────
 function closeBuilderModal(e){
   if(e.target === document.getElementById('builder-modal-overlay')){
-    document.getElementById('builder-modal-overlay').style.display='none';
+    toggleModal('builder-modal-overlay', false);
   }
 }
 
@@ -8129,10 +8146,10 @@ function openBuilderModal(builderName){
         <span style="font-size:11px;font-weight:700;color:${pc};white-space:nowrap;">${projLinks.length}/${load.count}</span>
       </div>`;
     }).join('') : links.slice(0,5).map(l=>`
-      <div onclick="document.getElementById('builder-modal-overlay').style.display='none';openBuilderLinks('${escAttr(builderName)}')" style="font-size:11px;color:var(--text3);padding:2px 0;cursor:pointer;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'">${escapeHtml(l.domain)} — ${escapeHtml(l.project)} — <span style="color:${l.status==='live'?'var(--teal)':'var(--yellow)'};">${escapeHtml(l.status)}</span></div>`).join('');
+      <div onclick="toggleModal('builder-modal-overlay',false);openBuilderLinks('${escAttr(builderName)}')" style="font-size:11px;color:var(--text3);padding:2px 0;cursor:pointer;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'">${escapeHtml(l.domain)} — ${escapeHtml(l.project)} — <span style="color:${l.status==='live'?'var(--teal)':'var(--yellow)'};">${escapeHtml(l.status)}</span></div>`).join('');
 
     return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;">
-      <div onclick="document.getElementById('builder-modal-overlay').style.display='none';openBuilderLinks('${escAttr(builderName)}')" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;cursor:pointer;" title="See full list">
+      <div onclick="toggleModal('builder-modal-overlay',false);openBuilderLinks('${escAttr(builderName)}')" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;cursor:pointer;" title="See full list">
         <span style="font-size:13px;font-weight:700;color:var(--teal);">${month} →</span>
         <div style="display:flex;gap:10px;align-items:center;">
           ${totalTarget>0?`<span style="font-size:11px;color:${color2};">${links.length}/${totalTarget} links</span>`:''}
@@ -8150,7 +8167,7 @@ function openBuilderModal(builderName){
   document.getElementById('bm-months').innerHTML = monthsHtml || '<div style="color:var(--text3);font-size:13px;">No links yet</div>';
 
   if(overlay.parentElement!==document.body)document.body.appendChild(overlay);
-  overlay.style.display='flex';
+  toggleModal('builder-modal-overlay', true);
 }
 
 // ─── CAPACITY ─────────────────────────────────────────────
@@ -9168,11 +9185,11 @@ function openDomainModal(id){
   if(d?.project)ps.value=d.project;
   const _domModal=document.getElementById('dom-modal-overlay');
   if(_domModal.parentElement!==document.body)document.body.appendChild(_domModal);
-  _domModal.style.display='flex';
+  toggleModal('dom-modal-overlay', true);
 }
 
 function closeDomainModal(){
-  document.getElementById('dom-modal-overlay').style.display='none';
+  toggleModal('dom-modal-overlay', false);
 }
 
 async function saveDomain(){
