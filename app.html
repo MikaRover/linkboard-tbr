@@ -94,6 +94,7 @@ body,body *{transition:background-color 0.18s ease,color 0.15s ease,border-color
 
 /* ── KEYFRAMES ── */
 @keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeSlideOut{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(8px);}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(-3px);}to{opacity:1;transform:translateY(0);}}
 @keyframes slideDown{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
 @keyframes expandIn{from{opacity:0;max-height:0;}to{opacity:1;max-height:400px;}}
@@ -233,8 +234,16 @@ select option{background:var(--bg2);}
 /* ── ROW ACTIONS KEBAB MENU ── */
 .row-menu-wrap{position:relative;display:inline-block;}
 .row-menu-btn{padding:5px 9px !important;font-size:14px !important;line-height:1;}
-.row-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:140px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;box-shadow:var(--shadow);padding:4px;display:none;flex-direction:column;z-index:40;}
-.row-menu.open{display:flex;}
+.row-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:140px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;box-shadow:var(--shadow);padding:4px;display:flex;flex-direction:column;z-index:40;transform-origin:top right;opacity:0;transform:scale(0.94) translateY(-4px);pointer-events:none;transition:opacity 140ms ease,transform 180ms cubic-bezier(.2,.8,.2,1);}
+.row-menu.open{opacity:1;transform:scale(1) translateY(0);pointer-events:auto;}
+/* Shared show/hide transition for the floating "N selected" batch-action bars
+   (All Links, Project Detail, Invoices, Data Checker, My Links) — see
+   toggleBatchBar(). visibility (not display) does the hiding so the CSS
+   transition can actually run; the transition-delay on visibility keeps a
+   hidden bar's buttons out of tab order/screen readers without cutting the
+   fade-out short. */
+.batch-bar{display:flex;opacity:0;transform:translateY(16px);visibility:hidden;transition:opacity 200ms ease,transform 200ms cubic-bezier(.2,.8,.2,1),visibility 0s linear 200ms;}
+.batch-bar.bb-show{opacity:1;transform:translateY(0);visibility:visible;transition:opacity 200ms ease,transform 200ms cubic-bezier(.2,.8,.2,1),visibility 0s linear 0s;}
 .row-menu button{background:transparent;border:none;color:var(--text);font-size:12px;text-align:left;padding:7px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;width:100%;}
 .row-menu button:hover{background:var(--bg4);}
 .row-menu button.row-menu-danger{color:var(--red);}
@@ -828,6 +837,20 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   color:var(--text2);cursor:pointer;z-index:1;
 }
 .page.as-modal .qa-close:hover{color:var(--text);border-color:var(--border2);}
+
+@media (prefers-reduced-motion: reduce){
+  #app-splash.hide{animation:none;opacity:0;transition:opacity 0.3s ease;}
+  .splash-logo-txt{animation:none;opacity:1;transform:none;}
+  .splash-bar{animation:none;width:100%;}
+  .page{animation:none;}
+  #app-toast{animation:none !important;transition:opacity 180ms ease !important;transform:none !important;}
+  .err,.alert{animation:none;}
+  .stat[onclick]:hover,.btn-sm:hover,.compat-pill:hover{transform:none !important;}
+  .row-menu{transform:none !important;}
+  .row-menu.open{transform:none !important;}
+  .batch-bar{transform:none !important;}
+  .batch-bar.bb-show{transform:none !important;}
+}
 </style>
 </head>
 <body>
@@ -1094,7 +1117,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <select id="ls-cat" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All categories</option><option>SaaS</option><option>Service</option><option>Blog/Magazine</option><option>News</option><option>Agency</option><option>Other</option></select>
     <select id="ls-dup" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All</option><option value="dup">Duplicates only</option></select>
   </div>
-  <div id="batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
+  <div id="batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-sm" onclick="batchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
     <button class="btn-sm" onclick="batchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
@@ -1297,7 +1320,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <tbody id="pd-tbody"><tr><td colspan="14" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
-  <div id="pd-batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
+  <div id="pd-batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="pd-batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-sm" onclick="pdBatchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
     <button class="btn-sm" onclick="pdBatchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
@@ -1383,7 +1406,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <div id="inv-builder-breakdown" style="display:flex;flex-wrap:wrap;gap:10px;padding:12px 20px 16px;"></div>
   </div>
 
-  <div id="inv-batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
+  <div id="inv-batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="inv-batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-sm" onclick="invBatchMarkPaid(true)" style="width:auto;padding:6px 14px;">✅ Mark paid</button>
     <button class="btn-ghost" onclick="invBatchMarkPaid(false)">Mark unpaid</button>
@@ -1470,7 +1493,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <option value="dup">Duplicate domain</option>
     </select>
   </div>
-  <div id="chk-batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
+  <div id="chk-batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="chk-batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-danger" onclick="chkBatchDelete()">🗑 Delete selected</button>
     <button class="btn-ghost" onclick="clearChkSelection()" style="margin-left:auto;">Clear</button>
@@ -1893,7 +1916,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <select id="bl-month" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;min-width:130px;"><option value="">All time</option></select>
     <select id="bl-p" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All projects</option></select>
   </div>
-  <div id="bl-batch-bar" style="display:none;position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
+  <div id="bl-batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="bl-batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-sm" onclick="blBatchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
     <button class="btn-sm" onclick="blBatchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
@@ -3045,12 +3068,11 @@ function renderCheckerResults(){
 
 function onChkSelect(){
   const ids=Array.from(document.querySelectorAll('.chk-cb:checked')).map(c=>c.dataset.id);
-  const bar=document.getElementById('chk-batch-bar');
-  if(ids.length){bar.style.display='flex';document.getElementById('chk-batch-count').textContent=ids.length+' selected';}
-  else bar.style.display='none';
+  toggleBatchBar('chk-batch-bar', ids.length>0);
+  if(ids.length) document.getElementById('chk-batch-count').textContent=ids.length+' selected';
 }
 function toggleChkSelectAll(el){document.querySelectorAll('.chk-cb').forEach(c=>c.checked=el.checked);onChkSelect();}
-function clearChkSelection(){document.querySelectorAll('.chk-cb').forEach(c=>c.checked=false);const el=document.getElementById('chk-select-all');if(el)el.checked=false;document.getElementById('chk-batch-bar').style.display='none';}
+function clearChkSelection(){document.querySelectorAll('.chk-cb').forEach(c=>c.checked=false);const el=document.getElementById('chk-select-all');if(el)el.checked=false;toggleBatchBar('chk-batch-bar', false);}
 async function chkBatchDelete(){
   const ids=Array.from(document.querySelectorAll('.chk-cb:checked')).map(c=>c.dataset.id);
   if(!ids.length)return;
@@ -3269,12 +3291,11 @@ function togglePdSort(field){
 
 function onPdRowSelect(){
   const ids=Array.from(document.querySelectorAll('.pd-cb:checked')).map(cb=>cb.dataset.id);
-  const bar=document.getElementById('pd-batch-bar');
-  if(ids.length>0){bar.style.display='flex';document.getElementById('pd-batch-count').textContent=ids.length+' selected';}
-  else bar.style.display='none';
+  toggleBatchBar('pd-batch-bar', ids.length>0);
+  if(ids.length>0) document.getElementById('pd-batch-count').textContent=ids.length+' selected';
 }
 function togglePdSelectAll(el){document.querySelectorAll('.pd-cb').forEach(cb=>cb.checked=el.checked);onPdRowSelect();}
-function clearPdSelection(){document.querySelectorAll('.pd-cb').forEach(cb=>cb.checked=false);if(document.getElementById('pd-select-all'))document.getElementById('pd-select-all').checked=false;document.getElementById('pd-batch-bar').style.display='none';}
+function clearPdSelection(){document.querySelectorAll('.pd-cb').forEach(cb=>cb.checked=false);if(document.getElementById('pd-select-all'))document.getElementById('pd-select-all').checked=false;toggleBatchBar('pd-batch-bar', false);}
 function getPdSelectedIds(){return Array.from(document.querySelectorAll('.pd-cb:checked')).map(cb=>cb.dataset.id);}
 
 async function pdBatchSetStatus(status){
@@ -5360,6 +5381,13 @@ async function quickRecheckLink(id){
 // any other open menu first so only one is ever visible, and a
 // document-level listener (below) closes it again on any outside click
 // or after a menu item's own onclick has already fired.
+// Shows/hides one of the floating "N selected" batch-action bars with a
+// slide+fade transition instead of an instant display swap. Used by all 5
+// selection toolbars (All Links, Project Detail, Invoices, Data Checker, My Links).
+function toggleBatchBar(id, show){
+  const bar=document.getElementById(id);
+  if(bar) bar.classList.toggle('bb-show', !!show);
+}
 function toggleRowMenu(e,id){
   e.stopPropagation();
   const menu=document.getElementById('row-menu-'+id);
@@ -5390,8 +5418,7 @@ function toggleAllBuilderChecks(master){
 }
 function updateBlCheckBtn(){
   const n = document.querySelectorAll('.bl-row-check:checked').length;
-  const bar = document.getElementById('bl-batch-bar');
-  if(bar) bar.style.display = n>0 ? 'flex' : 'none';
+  toggleBatchBar('bl-batch-bar', n>0);
   const count = document.getElementById('bl-batch-count');
   if(count) count.textContent = n>0 ? n+' selected' : '';
   const btn = document.getElementById('bl-check-btn');
@@ -5576,9 +5603,8 @@ function getSelectedIds(){
 }
 function onRowSelect(){
   const ids=getSelectedIds();
-  const bar=document.getElementById('batch-bar');
-  if(ids.length>0){bar.style.display='flex';document.getElementById('batch-count').textContent=ids.length+' selected';}
-  else bar.style.display='none';
+  toggleBatchBar('batch-bar', ids.length>0);
+  if(ids.length>0) document.getElementById('batch-count').textContent=ids.length+' selected';
   const all=document.getElementById('select-all');
   const total=document.querySelectorAll('.row-cb').length;
   if(all)all.checked=ids.length===total&&total>0;
@@ -5591,7 +5617,7 @@ function clearSelection(){
   document.querySelectorAll('.row-cb').forEach(cb=>cb.checked=false);
   const all=document.getElementById('select-all');
   if(all)all.checked=false;
-  document.getElementById('batch-bar').style.display='none';
+  toggleBatchBar('batch-bar', false);
 }
 async function batchSetStatus(status){
   const ids=getSelectedIds();if(!ids.length)return;
@@ -5873,12 +5899,11 @@ async function toggleInvoicePaid(id,paid){
 function getInvSelectedIds(){return Array.from(document.querySelectorAll('.inv-cb:checked')).map(c=>c.dataset.id);}
 function onInvSelect(){
   const ids=getInvSelectedIds();
-  const bar=document.getElementById('inv-batch-bar');
-  if(ids.length){bar.style.display='flex';document.getElementById('inv-batch-count').textContent=ids.length+' selected';}
-  else bar.style.display='none';
+  toggleBatchBar('inv-batch-bar', ids.length>0);
+  if(ids.length) document.getElementById('inv-batch-count').textContent=ids.length+' selected';
 }
 function toggleInvSelectAll(el){document.querySelectorAll('.inv-cb').forEach(c=>c.checked=el.checked);onInvSelect();}
-function clearInvSelection(){document.querySelectorAll('.inv-cb').forEach(c=>c.checked=false);const el=document.getElementById('inv-select-all');if(el)el.checked=false;document.getElementById('inv-batch-bar').style.display='none';}
+function clearInvSelection(){document.querySelectorAll('.inv-cb').forEach(c=>c.checked=false);const el=document.getElementById('inv-select-all');if(el)el.checked=false;toggleBatchBar('inv-batch-bar', false);}
 async function invBatchMarkPaid(paid){
   const ids=getInvSelectedIds();if(!ids.length)return;
   for(let i=0;i<ids.length;i+=400){
@@ -6543,7 +6568,15 @@ async function saveContactToDB(data){
 
 function showToast(msg, type='ok'){
   const existing = document.getElementById('app-toast');
-  if(existing) existing.remove();
+  if(existing){
+    // A still-visible toast getting interrupted by a new one should fade out
+    // like it does at the end of its normal life, not get yanked instantly.
+    // Clearing its id lets its own pending removal timeout (below) recognize
+    // it's already been replaced and skip re-removing it.
+    existing.id = '';
+    existing.style.animation = 'fadeSlideOut 180ms ease forwards';
+    setTimeout(()=>existing.remove(), 180);
+  }
   const t = document.createElement('div');
   t.id = 'app-toast';
   t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;animation:fadeSlideIn 0.2s ease;box-shadow:0 4px 20px rgba(0,0,0,0.3);
@@ -6552,7 +6585,11 @@ function showToast(msg, type='ok'){
     color:${type==='ok'?'var(--teal)':type==='warn'?'var(--yellow)':'var(--red)'};`;
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(()=>t.remove(), 3000);
+  setTimeout(()=>{
+    if(t.id!=='app-toast')return;
+    t.style.animation = 'fadeSlideOut 180ms ease forwards';
+    setTimeout(()=>t.remove(), 180);
+  }, 3000);
 }
 
 
