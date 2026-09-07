@@ -8942,8 +8942,14 @@ function toggleBlCompact(checked){
   if(table) table.classList.toggle('compact', checked);
 }
 function applyBlCompactPref(){
-  let on=false;
-  try{ on = localStorage.getItem('bl-compact')==='1'; }catch(e){}
+  // Default ON now, matching the simplified-table look — but a builder who
+  // explicitly switched it off before keeps seeing it off, same for anyone
+  // who's explicitly turned it on. Only a first-ever visit gets the new default.
+  let on=true;
+  try{
+    const stored=localStorage.getItem('bl-compact');
+    if(stored!==null) on=stored==='1';
+  }catch(e){}
   const cb=document.getElementById('bl-compact-toggle');
   if(cb) cb.checked=on;
   const table=document.getElementById('bl-table');
