@@ -411,6 +411,24 @@ tr:hover td{background:var(--bg3);}
 .b-service{background:rgba(0,180,160,0.15);color:var(--teal);}
 .b-blog{background:rgba(240,165,0,0.12);color:#f0a500;}
 .b-general{background:rgba(142,142,147,0.16);color:var(--text2);}
+/* My Links "Compact view" — hides the columns least needed at a glance
+   (Price/SS/Relevancy/Invoice); everything hidden here is already one
+   click away in the row's existing edit panel, so nothing is lost, only
+   decluttered. Group-header rows use a single full-width colspan cell
+   and the edit-<id> row does too, so neither is affected by hiding
+   specific nth-child columns — only real data rows (.link-row) are. */
+#bl-table.compact thead th:nth-child(7),
+#bl-table.compact thead th:nth-child(8),
+#bl-table.compact thead th:nth-child(9),
+#bl-table.compact thead th:nth-child(11),
+#bl-table.compact thead th:nth-child(12),
+#bl-table.compact tbody tr.link-row>td:nth-child(7),
+#bl-table.compact tbody tr.link-row>td:nth-child(8),
+#bl-table.compact tbody tr.link-row>td:nth-child(9),
+#bl-table.compact tbody tr.link-row>td:nth-child(11),
+#bl-table.compact tbody tr.link-row>td:nth-child(12){
+  display:none;
+}
 .b-other{background:rgba(244,121,91,0.14);color:var(--red);}
 .alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;}
 .a-dup{background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3);}
@@ -1933,6 +1951,10 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <input id="bl-s" placeholder="Search domain, anchor..." oninput="renderBuilderLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
     <select id="bl-month" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;min-width:130px;"><option value="">All time</option></select>
     <select id="bl-p" onchange="renderBuilderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All projects</option></select>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;" title="Hide Price/SS/Relevancy/Invoice columns — click a row to see or edit them">
+      <input type="checkbox" id="bl-compact-toggle" onchange="toggleBlCompact(this.checked)" style="width:auto;margin:0;"/>
+      Compact view
+    </label>
   </div>
   <div id="bl-batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="bl-batch-count" style="font-size:13px;color:var(--text2);"></span>
@@ -1944,7 +1966,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <button class="btn-ghost" onclick="clearBlSelection()" style="margin-left:auto;">Clear</button>
   </div>
   <div class="card">
-    <div class="tbl-wrap"><table>
+    <div class="tbl-wrap"><table id="bl-table">
       <thead><tr>
         <th style="width:28px;"><input type="checkbox" id="bl-check-all" onchange="toggleAllBuilderChecks(this)" style="width:auto;margin:0;cursor:pointer;"/></th>
         <th style="cursor:pointer;" onclick="toggleBSort()">Date <span id="b-sort-date">↓</span></th>
@@ -3760,6 +3782,7 @@ function gotoPage(name,el){
   if(name==='b-links'){
     populateBLMonths();
     renderBuilderLinks();
+    applyBlCompactPref();
   }
   if(name==='doublecheck')renderDoubleCheckQueue();
   if(name==='dc-history')renderDCHistory();
@@ -8873,6 +8896,24 @@ function toggleBSort(){
   const el=document.getElementById('b-sort-date');
   if(el)el.textContent=bSortDir==='desc'?'↓':'↑';
   renderBuilderLinks();
+}
+
+// My Links "Compact view" — a per-browser preference (not per-user data,
+// just a display convenience), so it's fine to keep in localStorage rather
+// than Firestore. Nothing is deleted or hidden from Firestore — the hidden
+// columns are still one click away via the row's own edit panel.
+function toggleBlCompact(checked){
+  try{ localStorage.setItem('bl-compact', checked?'1':'0'); }catch(e){}
+  const table=document.getElementById('bl-table');
+  if(table) table.classList.toggle('compact', checked);
+}
+function applyBlCompactPref(){
+  let on=false;
+  try{ on = localStorage.getItem('bl-compact')==='1'; }catch(e){}
+  const cb=document.getElementById('bl-compact-toggle');
+  if(cb) cb.checked=on;
+  const table=document.getElementById('bl-table');
+  if(table) table.classList.toggle('compact', on);
 }
 
 function populateBLMonths(){
