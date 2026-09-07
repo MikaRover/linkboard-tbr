@@ -366,6 +366,17 @@ body:not(.light) .content{
      repaint this large gradient on every scroll frame, causing severe
      stutter on any long scrollable table. Scrolls with the page instead. */
 }
+/* Light mode had no ambient background at all, so the translucent "glass"
+   cards (--glass-bg) had nothing behind them to actually blur — they just
+   read as plain flat white boxes. Same two-tone wash as dark mode, at a
+   much lower alpha appropriate for a light canvas, so the glass effect is
+   visible without tinting the page. */
+body.light .content{
+  background:
+    radial-gradient(1900px 1100px at 50% -10%, rgba(10,132,255,0.07), transparent 68%),
+    radial-gradient(1700px 1050px at 65% 55%, rgba(45,212,191,0.06), transparent 72%),
+    var(--bg);
+}
 .page{display:none;padding:1.5rem;}
 .page.active{display:block;}
 .page-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;}
