@@ -6724,15 +6724,16 @@ function renderFreeResults(data, domain){
     <div class="card">
       <div class="card-head">📧 Found emails <span style="font-size:11px;color:var(--text3);font-weight:400;">(🆓 no credits used)</span></div>
       <div class="tbl-wrap"><table>
-        <thead><tr><th>Email</th><th>Source</th><th>Status</th><th>Type</th><th></th></tr></thead>
+        <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Status</th><th>Type</th><th></th></tr></thead>
         <tbody>${all.map(e=>`<tr>
           <td style="font-weight:600;color:${e.guessed?'var(--yellow)':'var(--teal)'};">${escapeHtml(e.email)}</td>
+          <td style="font-size:12px;color:var(--text);">${(e.firstName||e.lastName)?escapeHtml(((e.firstName||'')+' '+(e.lastName||'')).trim()):'<span style="color:var(--text3);">—</span>'}</td>
           <td style="font-size:11px;color:var(--text3);">${escapeHtml(e.source||'scraped')}</td>
           <td>${smtpBadge(e.smtp||'unknown')}</td>
           <td><span style="font-size:10px;padding:2px 7px;border-radius:20px;background:${e.guessed?'rgba(240,165,0,0.1)':'rgba(0,196,174,0.1)'};color:${e.guessed?'var(--yellow)':'var(--teal)'};">${e.guessed?'🎲 Guess':'✅ Found'}</span></td>
           <td style="white-space:nowrap;">
             <button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>
-            <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'',lastName:'',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾 Save</button>
+            <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'${escAttr(e.firstName||'')}',lastName:'${escAttr(e.lastName||'')}',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾 Save</button>
           </td>
         </tr>`).join('')}</tbody>
       </table></div>
@@ -6764,7 +6765,7 @@ async function runBulkFreeSearch(){
       const data = await resp.json();
       const all = [...(data.emails||[]),...(data.guessedEmails||[])];
       all.forEach(e=>{
-        allOutreachData.push({domain, firstName:'',lastName:'',position:e.guessed?'Pattern guess':'Scraped',email:e.email,smtp:e.smtp||'unknown',score:0,type:'free'});
+        allOutreachData.push({domain, firstName:e.firstName||'',lastName:e.lastName||'',position:e.guessed?'Pattern guess':'Scraped',email:e.email,smtp:e.smtp||'unknown',score:0,type:'free'});
       });
       // Render row — insertAdjacentHTML appends without re-parsing/rebuilding
       // every row already in the table, unlike innerHTML += (which becomes
@@ -6775,13 +6776,14 @@ async function runBulkFreeSearch(){
       } else {
         const rowsHtml = all.map(e=>`<tr>
             <td style="color:var(--teal);font-weight:600;font-size:12px;">${escapeHtml(domain)}</td>
-            <td colspan="2" style="font-size:11px;color:${e.guessed?'var(--yellow)':'var(--text)'};">${e.guessed?'🎲 Guess':'✅ Found'}</td>
+            <td style="font-size:12px;color:var(--text);">${(e.firstName||e.lastName)?escapeHtml(((e.firstName||'')+' '+(e.lastName||'')).trim()):'<span style="color:var(--text3);">—</span>'}</td>
+            <td style="font-size:11px;color:${e.guessed?'var(--yellow)':'var(--text2)'};">${e.guessed?'🎲 Pattern guess':'✅ Scraped'}</td>
             <td style="font-weight:600;color:var(--teal);font-size:12px;">${escapeHtml(e.email)}</td>
             <td>${smtpBadge(e.smtp||'unknown')}</td>
-            <td>—</td>
+            <td style="color:var(--text3);">—</td>
             <td style="white-space:nowrap;">
               <button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>
-              <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'',lastName:'',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾</button>
+              <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'${escAttr(e.firstName||'')}',lastName:'${escAttr(e.lastName||'')}',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾</button>
             </td></tr>`).join('');
         tb.insertAdjacentHTML('beforeend', rowsHtml);
       }
