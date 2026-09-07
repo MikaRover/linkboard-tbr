@@ -2342,7 +2342,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div class="page-top">
     <div>
       <div class="page-title">▦ Category Check</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Paste domains to get the Category, in bulk — no DR/Traffic lookup, so it runs faster. Non-SaaS domains also get a free email lookup.</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Paste domains to get the Category, in bulk — no DR/Traffic lookup, so it runs faster. Also gets a free email lookup for every domain — SaaS excluded by default, since it usually isn't the outreach target.</div>
     </div>
     <div style="display:flex;gap:8px;">
       <button class="btn-ghost" onclick="exportCatCheckCSV()" id="catcheck-export-btn" style="display:none;">⬇ Export CSV</button>
@@ -2362,6 +2362,10 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
           Auto-save to Domains DB
         </label>
         <select id="catcheck-folder" onchange="handleFolderSelectChange(this)" style="margin:0;padding:5px 8px;font-size:12px;min-width:140px;"><option value="">— no folder —</option></select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;" title="Off by default — SaaS companies usually aren't the outreach target">
+          <input type="checkbox" id="catcheck-include-saas" style="width:auto;margin:0;"/>
+          Also find email for SaaS
+        </label>
         <span id="catcheck-progress" style="font-size:12px;color:var(--text3);"></span>
       </div>
     </div>
@@ -9681,6 +9685,7 @@ async function runCatCheckBatch(btn){
   const results = document.getElementById('catcheck-results');
   const saveDB = document.getElementById('catcheck-save-db').checked;
   const targetFolder = document.getElementById('catcheck-folder')?.value||'';
+  const includeSaas = document.getElementById('catcheck-include-saas')?.checked||false;
 
   results.style.display = 'none';
   tbody.innerHTML = '';
@@ -9720,10 +9725,10 @@ async function runCatCheckBatch(btn){
         category = normalizeCategory(cData.category||'');
       }catch(e){ category = '—'; status = '⚠️ Error'; }
 
-      // Non-SaaS domains (Service/Magazine/General/Other) get a free
-      // email lookup too — a SaaS company isn't the outreach target here,
-      // so skip the extra scrape for it.
-      const wantsEmail = category && category!=='—' && category!=='SaaS';
+      // Non-SaaS domains (Service/Magazine/General/Other) get a free email
+      // lookup too — a SaaS company isn't usually the outreach target, so
+      // it's skipped by default unless "Also find email for SaaS" is on.
+      const wantsEmail = category && category!=='—' && (includeSaas || category!=='SaaS');
       if(wantsEmail){
         if(row) row.querySelector('td:last-child').innerHTML = '<span style="font-size:11px;color:var(--accent2);">📧 Finding email...</span>';
         try{
@@ -9779,7 +9784,7 @@ async function runCatCheckBatch(btn){
         const catBadgeHtml = category&&category!=='—' ? catBadge(category) : '<span style="color:var(--text3);">—</span>';
         let emailsHtml;
         if(!category||category==='—') emailsHtml = '<span style="color:var(--text3);">—</span>';
-        else if(category==='SaaS') emailsHtml = '<span style="color:var(--text3);font-size:11px;" title="Skipped — category is SaaS">— (SaaS)</span>';
+        else if(category==='SaaS' && !includeSaas) emailsHtml = '<span style="color:var(--text3);font-size:11px;" title="Skipped — category is SaaS">— (SaaS)</span>';
         else if(emails.length) emailsHtml = emails.map(e=>`<div style="font-size:12px;color:var(--teal);display:flex;align-items:center;gap:5px;">${escapeHtml(e.email)}<button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.innerHTML=COPY_ICON,1500);" title="Copy" style="background:none;border:none;cursor:pointer;padding:0;line-height:1;">${COPY_ICON}</button></div>`).join('');
         else emailsHtml = '<span style="color:var(--text3);font-size:11px;">No email found</span>';
         row.innerHTML = `
