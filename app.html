@@ -759,6 +759,12 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
   font-variant-numeric:tabular-nums;
   letter-spacing:-0.02em;
 }
+/* Tiny trend sparkline under a stat value — bars scaled relative to the
+   busiest day in the window, most-recent day fully opaque so it reads as
+   "today" at a glance. */
+.spark{display:flex;align-items:flex-end;gap:3px;height:22px;margin-top:12px;}
+.spark i{flex:1;background:var(--accent2);opacity:0.5;border-radius:2px 2px 0 0;min-height:2px;font-style:normal;}
+.spark i:last-child{opacity:1;}
 #all-tbody td:nth-child(4),#all-tbody td:nth-child(5),
 #pd-tbody td:nth-child(4),#pd-tbody td:nth-child(5),
 #b-tbody td:nth-child(4),#b-tbody td:nth-child(5),
@@ -1888,9 +1894,9 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <button class="btn-sm" onclick="openAddLinkModal()" style="width:auto;">+ Add link</button>
   </div>
 
-  <!-- Stats row — 4 cards -->
-  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.5rem;">
-    <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="View live links"><div class="stat-l">Live this month</div><div class="stat-v" style="color:var(--teal)" id="b-live">—</div></div>
+  <!-- Stats row — 3 cards -->
+  <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem;">
+    <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="View live links"><div class="stat-l">Live this month</div><div class="stat-v" style="color:var(--teal)" id="b-live">—</div><div class="spark" id="b-live-spark"></div></div>
     <div class="stat" onclick="goToMyLinks('pending')" style="cursor:pointer;" title="View pending links"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500" id="b-pend">—</div></div>
     <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="Live links vs your assigned monthly quota"><div class="stat-l">Live / Quota</div><div class="stat-v" id="b-live-pct" style="color:var(--teal)">—</div></div>
   </div>
@@ -8784,6 +8790,23 @@ function renderBuilderDashboard(){
   const thisMonthLinks=myLinks.filter(l=>l.date&&getMonthKey(l.date)===`${curMonth} ${curYear}`);
   const tmLive=thisMonthLinks.filter(l=>l.status==='live').length;
   document.getElementById('b-live').textContent=tmLive;
+  // Last-7-days trend sparkline — bar heights scaled to the busiest day in
+  // the window (never 0, so a quiet day still shows a visible baseline bar);
+  // the last bar (today) is the only fully-opaque one via the .spark i:last-child rule.
+  const sparkEl=document.getElementById('b-live-spark');
+  if(sparkEl){
+    const liveLinks=myLinks.filter(l=>l.status==='live'&&l.date);
+    const days=[];
+    for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d);}
+    const counts=days.map(day=>liveLinks.filter(l=>{
+      const t=parseDate(l.date);
+      if(!t)return false;
+      const ld=new Date(t);
+      return ld.getFullYear()===day.getFullYear()&&ld.getMonth()===day.getMonth()&&ld.getDate()===day.getDate();
+    }).length);
+    const max=Math.max(1,...counts);
+    sparkEl.innerHTML=counts.map((c,i)=>`<i style="height:${Math.max(8,Math.round(c/max*100))}%;" title="${days[i].toLocaleDateString('en-GB',{day:'numeric',month:'short'})}: ${c} live"></i>`).join('');
+  }
   // Unscoped by month on purpose — a link added last month that's still
   // pending is still outstanding work, it shouldn't vanish from the count
   // just because the calendar rolled over into a new month.
