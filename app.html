@@ -2190,6 +2190,9 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <select id="dom-filter-proj" onchange="renderDomainsPage()" style="margin-bottom:0;font-size:12px;padding:7px 10px;">
       <option value="">All projects</option>
     </select>
+    <select id="dom-filter-folder" onchange="renderDomainsPage()" style="margin-bottom:0;font-size:12px;padding:7px 10px;">
+      <option value="">All folders</option>
+    </select>
   </div>
 
   <!-- Stats -->
@@ -2207,10 +2210,11 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
         <th>Contact name</th>
         <th>Position</th>
         <th>Project</th>
+        <th>Folder</th>
         <th>Notes</th>
         <th></th>
       </tr></thead>
-      <tbody id="dom-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
+      <tbody id="dom-tbody"><tr><td colspan="11" class="loading">Loading...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -2233,6 +2237,10 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <div>
         <div class="section-label">Project</div>
         <select id="dom-f-proj" style="margin-bottom:12px;"><option value="">— none —</option></select>
+      </div>
+      <div>
+        <div class="section-label">Folder</div>
+        <select id="dom-f-folder" onchange="handleFolderSelectChange(this)" style="margin-bottom:12px;"><option value="">— none —</option></select>
       </div>
       <div>
         <div class="section-label">DR</div>
@@ -2353,6 +2361,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
           <input type="checkbox" id="catcheck-save-db" style="width:auto;margin:0;" checked/>
           Auto-save to Domains DB
         </label>
+        <select id="catcheck-folder" onchange="handleFolderSelectChange(this)" style="margin:0;padding:5px 8px;font-size:12px;min-width:140px;"><option value="">— no folder —</option></select>
         <span id="catcheck-progress" style="font-size:12px;color:var(--text3);"></span>
       </div>
     </div>
@@ -2457,7 +2466,7 @@ const db = firebase.firestore();
 let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik']; // fallback, updated from Firestore
 const CATEGORIES=['SaaS','Service','Magazine','General','Other'];
 
-let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[], allLoads=[], allDomains=[], allNotifs=[], allDCLog=[];
+let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[], allLoads=[], allDomains=[], allNotifs=[], allDCLog=[], allDomainFolders=[];
 window.currentPage = 'dashboard';
 let catDetectTimer=null, currentDetectedCategory='', catDetectAbort=false;
 
@@ -2822,7 +2831,7 @@ function startApp(){
   const findAnchBtn = document.getElementById('find-anchors-btn');
   if(findAnchBtn) findAnchBtn.style.display = isAdmin?'':'none';
 
-  listenBuilders();listenCapacities();listenLoads();listenKPITargets();listenProjects();listenLinks();listenReqs();listenQualityReqs();listenDomains();
+  listenBuilders();listenCapacities();listenLoads();listenKPITargets();listenProjects();listenLinks();listenReqs();listenQualityReqs();listenDomains();listenDomainFolders();
   listenNotifications();
   if(isAdmin)listenDCHistory();
   renderCatButtons('');
@@ -3747,6 +3756,7 @@ function gotoPage(name,el){
   if(name==='doublecheck')renderDoubleCheckQueue();
   if(name==='dc-history')renderDCHistory();
   if(name==='team')renderTeam();
+  if(name==='catcheck'){const cf=document.getElementById('catcheck-folder');if(cf)populateFolderSelect(cf,cf.value,false);}
   if(name==='invoices')initInvoicesPage();
   if(name==='load')initLoadPage();
   if(name==='analytics')initAnalytics();
@@ -9131,6 +9141,53 @@ function listenReqs(){
 // ─── DOMAINS DATABASE ─────────────────────────────────────
 let domSortField = 'domain', domSortDir = 'asc';
 
+// Folders are a page-local organization tool for the Domains DB — deliberately
+// a separate Firestore collection from the app's real link-building Projects
+// (allProjects), which "project" on a domain doc already refers to. Every
+// team member sees and can create from the same shared folder list.
+function listenDomainFolders(){
+  db.collection('domainFolders').orderBy('name').onSnapshot(snap=>{
+    allDomainFolders = snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(document.getElementById('p-domains')?.classList.contains('active')) renderDomainsPage();
+  });
+}
+
+// Fills a <select> with the shared folder list plus a "+ New folder…" entry.
+// Reused by the Domains DB filter bar, the domain edit modal, and Category
+// Check's "save results into" picker.
+function populateFolderSelect(selectEl, currentValue, isFilter){
+  if(!selectEl) return;
+  const opts = isFilter ? '<option value="">All folders</option>' : '<option value="">— none —</option>';
+  // The filter dropdown only ever narrows an existing list — creating a
+  // folder belongs in the assignment selects (modal, Category Check).
+  selectEl.innerHTML = opts
+    + allDomainFolders.map(f=>`<option value="${escAttr(f.name)}">${escapeHtml(f.name)}</option>`).join('')
+    + (isFilter ? '' : '<option value="__new__">+ New folder…</option>');
+  if(currentValue) selectEl.value = currentValue;
+}
+
+// Wired to a folder <select>'s onchange — creating a new folder inline
+// instead of making the user leave the page to set one up first.
+async function handleFolderSelectChange(selectEl){
+  if(selectEl.value !== '__new__') return;
+  const name = (prompt('New folder name:')||'').trim();
+  if(!name){ selectEl.value=''; return; }
+  const existing = allDomainFolders.find(f=>f.name.toLowerCase()===name.toLowerCase());
+  if(existing){ selectEl.value = existing.name; return; }
+  try{
+    await db.collection('domainFolders').add({
+      name, createdBy: cu?.name||cu?.email||'',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // Reflect immediately rather than waiting on the snapshot round-trip.
+    allDomainFolders.push({name});
+    allDomainFolders.sort((a,b)=>a.name.localeCompare(b.name));
+    // This handler is only ever wired to assignment selects (modal, Category
+    // Check), never the filter dropdown — always repopulate as one of those.
+    populateFolderSelect(selectEl, name, false);
+  }catch(e){ selectEl.value=''; }
+}
+
 function listenDomains(){
   // Load all domains - filter client-side by addedBy or notes
   db.collection('domains').orderBy('createdAt','desc').onSnapshot(snap=>{
@@ -9147,6 +9204,8 @@ function initDomainsPage(){
     allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;pf.appendChild(o);});
     if(cur)pf.value=cur;
   }
+  const ff = document.getElementById('dom-filter-folder');
+  if(ff) populateFolderSelect(ff, ff.value, true);
   renderDomainsPage();
 }
 
@@ -9164,6 +9223,7 @@ function renderDomainsPage(){
   const s=(document.getElementById('dom-search')?.value||'').toLowerCase();
   const st=document.getElementById('dom-filter-status')?.value||'';
   const proj=document.getElementById('dom-filter-proj')?.value||'';
+  const folder=document.getElementById('dom-filter-folder')?.value||'';
 
   const isAdminD = cu?.role==='admin';
   const myName = cu?.name||cu?.email||'';
@@ -9171,6 +9231,7 @@ function renderDomainsPage(){
     if(s&&!(d.domain||'').toLowerCase().includes(s)&&!(d.email||'').toLowerCase().includes(s)&&
       !(d.firstName||'').toLowerCase().includes(s)&&!(d.lastName||'').toLowerCase().includes(s))return false;
     if(proj&&d.project!==proj)return false;
+    if(folder&&(d.folder||'')!==folder)return false;
     if(st==='no-email'&&d.email)return false;
     if(st&&st!=='no-email'&&d.smtp!==st)return false;
     return true;
@@ -9199,7 +9260,7 @@ function renderDomainsPage(){
 
   const tb=document.getElementById('dom-tbody');
   if(!tb)return;
-  if(!fl.length){tb.innerHTML='<tr><td colspan="10" class="loading">No domains yet. Click "+ Add domain" or save from Outreach.</td></tr>';return;}
+  if(!fl.length){tb.innerHTML='<tr><td colspan="11" class="loading">No domains yet. Click "+ Add domain" or save from Outreach.</td></tr>';return;}
 
   const isAdm=cu?.role==='admin';
   tb.innerHTML=fl.map(d=>{
@@ -9216,6 +9277,7 @@ function renderDomainsPage(){
       <td style="font-size:13px;">${escapeHtml([d.firstName,d.lastName].filter(Boolean).join(' ')||'—')}</td>
       <td style="font-size:13px;color:var(--text2);">${escapeHtml(d.position||'—')}</td>
       <td style="font-size:13px;">${escapeHtml(d.project||'—')}</td>
+      <td style="font-size:13px;">${d.folder?`<span class="badge b-general">${escapeHtml(d.folder)}</span>`:'<span style="color:var(--text3);">—</span>'}</td>
       <td style="font-size:13px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(d.addedBy||'—')}</td>
       <td style="white-space:nowrap;">
         ${isAdm?`<button class="btn-ghost" style="font-size:11px;padding:2px 8px;margin-right:4px;" onclick="openDomainModal('${escAttr(d.id)}')">Edit</button>
@@ -9243,6 +9305,7 @@ function openDomainModal(id){
   ps.innerHTML='<option value="">— none —</option>';
   allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;ps.appendChild(o);});
   if(d?.project)ps.value=d.project;
+  populateFolderSelect(document.getElementById('dom-f-folder'), d?.folder||'', false);
   const _domModal=document.getElementById('dom-modal-overlay');
   if(_domModal.parentElement!==document.body)document.body.appendChild(_domModal);
   toggleModal('dom-modal-overlay', true);
@@ -9266,6 +9329,7 @@ async function saveDomain(){
     lastName:document.getElementById('dom-f-lname').value.trim()||'',
     position:document.getElementById('dom-f-position').value.trim()||'',
     project:document.getElementById('dom-f-proj').value||'',
+    folder:document.getElementById('dom-f-folder').value||'',
     notes:document.getElementById('dom-f-notes').value.trim()||'',
     addedBy:cu?.name||cu?.email||'',
     updatedAt:firebase.firestore.FieldValue.serverTimestamp()
@@ -9282,8 +9346,8 @@ async function deleteDomain(id,domain){
 }
 
 function exportDomainsCSV(){
-  const h=['Domain','DR','Traffic','Email','Email Status','First Name','Last Name','Position','Project','Added By','Notes'];
-  const rows=allDomains.map(d=>[d.domain,d.dr,d.traffic,d.email,d.smtp,d.firstName,d.lastName,d.position,d.project,d.addedBy,d.notes]
+  const h=['Domain','DR','Traffic','Email','Email Status','First Name','Last Name','Position','Project','Folder','Added By','Notes'];
+  const rows=allDomains.map(d=>[d.domain,d.dr,d.traffic,d.email,d.smtp,d.firstName,d.lastName,d.position,d.project,d.folder,d.addedBy,d.notes]
     .map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
@@ -9612,6 +9676,7 @@ async function runCatCheckBatch(btn){
   const progress = document.getElementById('catcheck-progress');
   const results = document.getElementById('catcheck-results');
   const saveDB = document.getElementById('catcheck-save-db').checked;
+  const targetFolder = document.getElementById('catcheck-folder')?.value||'';
 
   results.style.display = 'none';
   tbody.innerHTML = '';
@@ -9673,6 +9738,11 @@ async function runCatCheckBatch(btn){
       if(saveDB && category && category!=='—'){
         const top = emails[0];
         const emailFields = top ? {email:top.email, smtp:top.smtp||'unknown', firstName:top.firstName||'', lastName:top.lastName||''} : {};
+        // A folder was explicitly picked for this run — unlike dr/traffic/
+        // email (never clobbered without new data), filing into it is the
+        // whole point of choosing one, so it applies whether the domain is
+        // new or already on file.
+        const folderFields = targetFolder ? {folder: targetFolder} : {};
         try{
           if(existingDom){
             // Leave dr/traffic untouched on an existing domain doc — this
@@ -9682,11 +9752,11 @@ async function runCatCheckBatch(btn){
             await db.collection('domains').doc(existingDom.id).update({
               category, addedBy: cu?.name||cu?.email||'',
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              ...emailFields
+              ...emailFields, ...folderFields
             });
           } else {
             await db.collection('domains').add({
-              domain, category, dr:'', traffic:'',
+              domain, category, dr:'', traffic:'', folder: targetFolder,
               addedBy: cu?.name||cu?.email||'',
               createdAt: firebase.firestore.FieldValue.serverTimestamp(),
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
