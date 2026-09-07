@@ -2465,6 +2465,10 @@ const db = firebase.firestore();
 
 let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik']; // fallback, updated from Firestore
 const CATEGORIES=['SaaS','Service','Magazine','General','Other'];
+// Shared "copy to clipboard" icon — a plain SVG line-icon (matching the
+// sidebar's own icon style) instead of the 📋 emoji, which read as an
+// out-of-place cartoon glyph next to the rest of the app's restrained UI.
+const COPY_ICON='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M6 8V5a1 1 0 0 1 1-1h7l4 4v11a1 1 0 0 1-1 1h-2" opacity="0.55"/><path d="M4 9h7l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1z"/><path d="M11 9v4h4"/></svg>';
 
 let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[], allLoads=[], allDomains=[], allNotifs=[], allDCLog=[], allDomainFolders=[];
 window.currentPage = 'dashboard';
@@ -9271,7 +9275,7 @@ function renderDomainsPage(){
       <td style="text-align:center;">${d.dr||'—'}</td>
       <td style="text-align:right;">${trafficV}</td>
       <td style="font-size:13px;">${d.email?escapeHtml(d.email):'<span style="color:var(--text3);">—</span>'}
-        ${d.email?`<button onclick="navigator.clipboard.writeText('${escAttr(d.email)}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1500);" style="background:none;border:none;cursor:pointer;font-size:12px;margin-left:4px;">📋</button>`:''}
+        ${d.email?`<button onclick="navigator.clipboard.writeText('${escAttr(d.email)}');this.textContent='✅';setTimeout(()=>this.innerHTML=COPY_ICON,1500);" style="background:none;border:none;cursor:pointer;font-size:12px;margin-left:4px;">${COPY_ICON}</button>`:''}
       </td>
       <td>${smtpHtml}</td>
       <td style="font-size:13px;">${escapeHtml([d.firstName,d.lastName].filter(Boolean).join(' ')||'—')}</td>
@@ -9489,7 +9493,7 @@ function renderProspectorCards(suggestions, domain, proj, linkTo){
           ${full?'❌ Full':'✅ Use this →'}
         </button>
         <a href="${escapeHtml(s.articleUrl)}" target="_blank" class="btn-ghost" style="padding:6px 12px;font-size:12px;text-decoration:none;white-space:nowrap;">↗ Article</a>
-        <button onclick="navigator.clipboard.writeText('${copyText}');this.textContent='✅ Copied';setTimeout(()=>this.textContent='📋 Copy',2000);" class="btn-ghost" style="padding:6px 12px;font-size:12px;white-space:nowrap;">📋 Copy</button>
+        <button onclick="navigator.clipboard.writeText('${copyText}');this.textContent='✅ Copied';setTimeout(()=>this.innerHTML=COPY_ICON+' Copy',2000);" class="btn-ghost" style="padding:6px 12px;font-size:12px;white-space:nowrap;">${COPY_ICON} Copy</button>
       </div>
     </div>`;
   }).join('');
@@ -9776,7 +9780,7 @@ async function runCatCheckBatch(btn){
         let emailsHtml;
         if(!category||category==='—') emailsHtml = '<span style="color:var(--text3);">—</span>';
         else if(category==='SaaS') emailsHtml = '<span style="color:var(--text3);font-size:11px;" title="Skipped — category is SaaS">— (SaaS)</span>';
-        else if(emails.length) emailsHtml = emails.map(e=>`<div style="font-size:12px;color:var(--teal);display:flex;align-items:center;gap:5px;">${escapeHtml(e.email)}<button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1500);" title="Copy" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0;line-height:1;">📋</button></div>`).join('');
+        else if(emails.length) emailsHtml = emails.map(e=>`<div style="font-size:12px;color:var(--teal);display:flex;align-items:center;gap:5px;">${escapeHtml(e.email)}<button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.innerHTML=COPY_ICON,1500);" title="Copy" style="background:none;border:none;cursor:pointer;padding:0;line-height:1;">${COPY_ICON}</button></div>`).join('');
         else emailsHtml = '<span style="color:var(--text3);font-size:11px;">No email found</span>';
         row.innerHTML = `
           <td style="color:var(--teal);font-weight:600;"><a href="https://${escapeHtml(domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(domain)}</a></td>
