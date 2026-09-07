@@ -5022,6 +5022,7 @@ function renderLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${escapeHtml(lid)}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${escapeHtml(lid)}" value="${escapeHtml(String(l.price||'').replace(/\$+/g,''))}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${escapeHtml(lid)}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Project</div><select id="ei-project-${escapeHtml(lid)}" style="margin:0;font-size:12px;">${allProjects.map(p=>`<option value="${escAttr(p.name)}" ${l.project===p.name?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>
           <div><div class="section-label" style="margin-bottom:4px;">Status</div><select id="ei-status-${escapeHtml(lid)}" onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="margin:0;font-size:12px;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select></div>
           <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${escapeHtml(lid)}" value="${safeLinkin}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${escapeHtml(lid)}" value="${safeLinkto}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
@@ -5842,7 +5843,13 @@ async function saveEditRow(id){
   const relevancy=(document.getElementById('ei-relevancy-'+id)?.value||'').trim();
   const invoice=(document.getElementById('ei-invoice-'+id)?.value||'').trim();
   const paid=(document.getElementById('ei-paid-'+id)?.value||'no')==='yes';
-  await db.collection('links').doc(id).update({date,linkin,linkto,dr,traffic,ss,anchor,price,comments,relevancy,invoice,paid});
+  const update={date,linkin,linkto,dr,traffic,ss,anchor,price,comments,relevancy,invoice,paid};
+  // Not every edit panel has a Project field (Project Detail's is already
+  // scoped to one project) — only touch it where the field actually exists,
+  // so this shared save function can't blank it out elsewhere.
+  const projectEl=document.getElementById('ei-project-'+id);
+  if(projectEl) update.project=projectEl.value;
+  await db.collection('links').doc(id).update(update);
 
   const saved=document.getElementById('ei-saved-'+id);
   if(saved){saved.style.display='inline';setTimeout(()=>saved.style.display='none',2000);}
@@ -8946,6 +8953,7 @@ function renderBuilderLinks(){
           <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${escapeHtml(String(l.price||'').replace(/^\$+/,''))}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Project</div><select id="ei-project-${lid}" style="margin:0;font-size:12px;">${allProjects.map(p=>`<option value="${escAttr(p.name)}" ${l.project===p.name?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>
           <div><div class="section-label" style="margin-bottom:4px;">Status</div><select id="ei-status-${lid}" onchange="updateLinkStatus('${escAttr(lid)}',this.value)" style="margin:0;font-size:12px;"><option value="live" ${l.status==='live'?'selected':''}>Live</option><option value="pending" ${l.status==='pending'?'selected':''}>Pending</option><option value="needs-change" ${l.status==='needs-change'?'selected':''}>Needs change</option><option value="lost" ${l.status==='lost'?'selected':''}>Lost</option><option value="rejected" ${l.status==='rejected'?'selected':''}>Rejected</option></select></div>
           <div style="grid-column:span 2;"><div class="section-label" style="margin-bottom:4px;">Link in</div><input id="ei-linkin-${lid}" value="${escapeHtml(l.linkin||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Link to</div><input id="ei-linkto-${lid}" value="${escapeHtml(l.linkto||'')}" placeholder="https://..." style="margin:0;font-size:12px;"/></div>
