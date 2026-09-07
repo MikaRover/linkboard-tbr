@@ -410,6 +410,8 @@ tr:hover td{background:var(--bg3);}
 .b-saas{background:rgba(120,150,255,0.15);color:var(--accent2);}
 .b-service{background:rgba(0,180,160,0.15);color:var(--teal);}
 .b-blog{background:rgba(240,165,0,0.12);color:#f0a500;}
+.b-general{background:rgba(142,142,147,0.16);color:var(--text2);}
+.b-other{background:rgba(244,121,91,0.14);color:var(--red);}
 .alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;}
 .a-dup{background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3);}
 .a-ok{background:rgba(0,180,160,0.1);color:var(--teal);border:1px solid rgba(0,180,160,0.3);}
@@ -1129,7 +1131,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <select id="ls-p" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;">><option value="">All projects</option></select>
     <select id="ls-st" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All statuses</option><option value="live">Live</option><option value="pending">Pending</option><option value="needs-change">Needs change</option><option value="lost">Lost</option><option value="rejected">Rejected</option></select>
     <select id="ls-b" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All builders</option></select>
-    <select id="ls-cat" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All categories</option><option>SaaS</option><option>Service</option><option>Blog/Magazine</option><option>News</option><option>Agency</option><option>Other</option></select>
+    <select id="ls-cat" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All categories</option><option>SaaS</option><option>Service</option><option>Magazine</option><option>General</option><option>Other</option></select>
     <select id="ls-dup" onchange="renderLinks()" style="padding:7px 8px;font-size:12px;margin-bottom:0;"><option value="">All</option><option value="dup">Duplicates only</option></select>
   </div>
   <div id="batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
@@ -1192,9 +1194,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
           <div class="cat-checkboxes" id="rq-cats">
             <label class="cat-check-item"><input type="checkbox" value="SaaS"/> SaaS</label>
             <label class="cat-check-item"><input type="checkbox" value="Service"/> Service</label>
-            <label class="cat-check-item"><input type="checkbox" value="Blog/Magazine"/> Blog/Magazine</label>
-            <label class="cat-check-item"><input type="checkbox" value="News"/> News</label>
-            <label class="cat-check-item"><input type="checkbox" value="Agency"/> Agency</label>
+            <label class="cat-check-item"><input type="checkbox" value="Magazine"/> Magazine</label>
+            <label class="cat-check-item"><input type="checkbox" value="General"/> General</label>
             <label class="cat-check-item"><input type="checkbox" value="Other"/> Other</label>
           </div>
         </div>
@@ -2406,7 +2407,7 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik']; // fallback, updated from Firestore
-const CATEGORIES=['SaaS','Service','Blog/Magazine','News','Agency','Other'];
+const CATEGORIES=['SaaS','Service','Magazine','General','Other'];
 
 let cu=null, allLinks=[], allReqs=[], allQualityReqs=[], allProjects=[], csvRows=[], allLoads=[], allDomains=[], allNotifs=[], allDCLog=[];
 window.currentPage = 'dashboard';
@@ -3748,17 +3749,18 @@ function heuristicClassify(text){
   const t=(text||'').toLowerCase();
   const saasKw=['free trial','start free','sign up','signup','log in','login','book demo','request demo','get started','pricing','pricing plans','product','platform','software','tool','dashboard','workspace','integrations','integration','api','extension','automation','saas','app'];
   const serviceKw=['agency','consulting','consultancy','our services','done for you','done-for-you','managed services','hire us','outsourcing','professional services','service provider'];
-  const blogKw=['latest news','editorial','magazine','newsroom','journal','articles','article archive','stories','press release','press','news','blog post'];
-  let ss=countHits(t,saasKw), sv=countHits(t,serviceKw), bl=countHits(t,blogKw);
+  const magazineKw=['latest news','editorial','magazine','newsroom','journal','articles','article archive','stories','press release','press','news','blog post'];
+  let ss=countHits(t,saasKw), sv=countHits(t,serviceKw), mg=countHits(t,magazineKw);
   if(t.includes('/pricing'))ss+=3;if(t.includes('/login'))ss+=3;if(t.includes('/signup'))ss+=3;
   if(t.includes('/integrations'))ss+=2;if(t.includes('/demo'))ss+=2;
   if(t.includes('our services'))sv+=3;if(t.includes('managed services'))sv+=3;
-  if(t.includes('/blog'))bl+=2;if(t.includes('newsroom'))bl+=2;
+  if(t.includes('/blog'))mg+=2;if(t.includes('newsroom'))mg+=2;
   const strongSaas=['free trial','book demo','sign up','login','integrations','api','dashboard'];
   if(countHits(t,strongSaas)>=3)return'SaaS';
-  if(ss>=sv&&ss>=bl)return'SaaS';
-  if(sv>=ss&&sv>=bl)return'Service';
-  return'Blog/Magazine';
+  if(ss>=sv&&ss>=mg&&ss>=4)return'SaaS';
+  if(sv>=ss&&sv>=mg&&sv>=4)return'Service';
+  if(mg>=ss&&mg>=sv&&mg>=4)return'Magazine';
+  return'General';
 }
 function countHits(text,kws){let s=0;for(const k of kws){if(text.includes(k))s++;}return s;}
 
@@ -3784,13 +3786,15 @@ async function detectCategory(domain){
   }
 }
 
+// Maps both the current 5-category taxonomy and any values already saved
+// under the old 6-category one (Blog/Magazine, News, Agency) so historical
+// data still displays sensibly without a DB migration.
 function normalizeCategory(cat){
   const v=(cat||'').toLowerCase().trim();
   if(v==='saas')return'SaaS';
-  if(v==='service'||v==='services')return'Service';
-  if(v==='blog'||v==='blog/magazine'||v==='magazine')return'Blog/Magazine';
-  if(v==='news')return'News';
-  if(v==='agency')return'Agency';
+  if(v==='service'||v==='services'||v==='agency')return'Service';
+  if(v==='blog'||v==='blog/magazine'||v==='magazine'||v==='news')return'Magazine';
+  if(v==='general')return'General';
   return'Other';
 }
 function stripHtmlClient(html){
@@ -4571,7 +4575,7 @@ function renderQualityReqs(){
 // ─── RENDER HELPERS ───────────────────────────────────────
 function catBadge(c){
   if(!c)return'<span style="color:var(--text3);font-size:11px;">—</span>';
-  const cls=c==='SaaS'?'b-saas':c==='Service'?'b-service':'b-blog';
+  const cls=c==='SaaS'?'b-saas':c==='Service'?'b-service':c==='Magazine'?'b-blog':c==='General'?'b-general':'b-other';
   return`<span class="badge ${cls}">${escapeHtml(c)}</span>`;
 }
 function dupB(l, domainCount){
@@ -4897,7 +4901,7 @@ function renderLinks(){
     if(p&&l.project!==p)return false;
     if(st&&l.status!==st)return false;
     if(b&&l.builder!==b)return false;
-    if(cat&&l.category!==cat)return false;
+    if(cat&&normalizeCategory(l.category)!==cat)return false;
     if(dupFilter==='dup'&&domainCount[nd(l.domain)+'|'+(l.project||'')]<=1)return false;
     if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s)&&!(l.project||'').toLowerCase().includes(s))return false;
     return true;
