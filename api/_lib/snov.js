@@ -13,7 +13,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const isOk = code => code >= 200 && code < 300;
 
 async function getSnovToken() {
-  if (!SNOV_CLIENT_ID || !SNOV_CLIENT_SECRET) return null;
+  if (!SNOV_CLIENT_ID || !SNOV_CLIENT_SECRET) {
+    console.error('[snov] SNOV_CLIENT_ID/SNOV_CLIENT_SECRET not set');
+    return null;
+  }
   try {
     const res = await fetch('https://api.snov.io/v1/oauth/access_token', {
       method: 'POST',
@@ -25,10 +28,13 @@ async function getSnovToken() {
       }),
       signal: AbortSignal.timeout(8000)
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error('[snov] auth failed', res.status, await res.text());
+      return null;
+    }
     const j = await res.json();
     return j.access_token || null;
-  } catch (e) { return null; }
+  } catch (e) { console.error('[snov] auth error', e.message); return null; }
 }
 
 // Snov's smtp_status values are 'valid' | 'not_valid' | 'unknown' — map
