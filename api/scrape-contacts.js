@@ -240,6 +240,9 @@ module.exports = async function handler(req, res) {
   });
 
   const out = { domain: host, emails, guessedEmails: [], linkedinProfiles: [], linkedinSearchUrl };
-  if (debug && emails[0]) out._debug = await debugVerifyOne(emails[0].email, token);
+  if (debug) {
+    const testEmail = (typeof debug === 'string' ? debug : null) || (emails[0] && emails[0].email);
+    if (testEmail) out._debug = await debugVerifyOne(testEmail, token, true);
+  }
   return res.json(out);
 };
