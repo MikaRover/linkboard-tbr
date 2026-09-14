@@ -107,8 +107,8 @@ async function verifyEmailsWithSnov(emails, token) {
 
 // TEMPORARY — raw diagnostic for one email, no error-swallowing, to find
 // where verification is actually failing. Remove once diagnosed.
-async function debugVerifyOne(email, token) {
-  const out = { hasToken: !!token };
+async function debugVerifyOne(email, token, poll) {
+  const out = { hasToken: !!token, email };
   if (!token) return out;
   try {
     const startRes = await fetch('https://api.snov.io/v2/email-verification/start', {
@@ -125,12 +125,19 @@ async function debugVerifyOne(email, token) {
     out.taskHash = taskHash || null;
     if (!taskHash) return out;
 
-    const r = await fetch(
-      `https://api.snov.io/v2/email-verification/result?task_hash=${encodeURIComponent(taskHash)}`,
-      { headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(9000) }
-    );
-    out.resultStatus = r.status;
-    out.resultBody = await r.text();
+    out.polls = [];
+    const rounds = poll ? POLL_ATTEMPTS : 1;
+    for (let i = 0; i < rounds; i++) {
+      if (poll) await sleep(POLL_DELAY_MS);
+      const r = await fetch(
+        `https://api.snov.io/v2/email-verification/result?task_hash=${encodeURIComponent(taskHash)}`,
+        { headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(9000) }
+      );
+      const body = await r.text();
+      out.polls.push({ status: r.status, body });
+      let json; try { json = JSON.parse(body); } catch (e) {}
+      if (json?.data?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
+    }
   } catch (e) { out.error = e.message; }
   return out;
 }
