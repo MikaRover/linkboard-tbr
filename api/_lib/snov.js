@@ -98,48 +98,11 @@ async function verifyEmailsWithSnov(emails, token) {
     if (!results) return;
     results.forEach(entry => {
       const email = (entry?.email || '').toLowerCase();
-      if (email && statuses.has(email)) statuses.set(email, normalizeStatus(entry?.smtp_status));
+      if (email && statuses.has(email)) statuses.set(email, normalizeStatus(entry?.result?.smtp_status));
     });
   }));
 
   return statuses;
 }
 
-// TEMPORARY — raw diagnostic for one email, no error-swallowing, to find
-// where verification is actually failing. Remove once diagnosed.
-async function debugVerifyOne(email, token, poll) {
-  const out = { hasToken: !!token, email };
-  if (!token) return out;
-  try {
-    const startRes = await fetch('https://api.snov.io/v2/email-verification/start', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ 'emails[]': email }),
-      signal: AbortSignal.timeout(9000)
-    });
-    out.startStatus = startRes.status;
-    const startText = await startRes.text();
-    out.startBody = startText;
-    let startJson; try { startJson = JSON.parse(startText); } catch (e) {}
-    const taskHash = startJson?.data?.task_hash || startJson?.task_hash;
-    out.taskHash = taskHash || null;
-    if (!taskHash) return out;
-
-    out.polls = [];
-    const rounds = poll ? POLL_ATTEMPTS : 1;
-    for (let i = 0; i < rounds; i++) {
-      if (poll) await sleep(POLL_DELAY_MS);
-      const r = await fetch(
-        `https://api.snov.io/v2/email-verification/result?task_hash=${encodeURIComponent(taskHash)}`,
-        { headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(9000) }
-      );
-      const body = await r.text();
-      out.polls.push({ status: r.status, body });
-      let json; try { json = JSON.parse(body); } catch (e) {}
-      if (json?.data?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
-    }
-  } catch (e) { out.error = e.message; }
-  return out;
-}
-
-module.exports = { getSnovToken, verifyEmailsWithSnov, debugVerifyOne };
+module.exports = { getSnovToken, verifyEmailsWithSnov };
