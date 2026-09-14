@@ -6,6 +6,7 @@
 // "Contact Finder" library, which does the same crawl against a spreadsheet.
 
 const { isSafeHost, cleanHost, browserHeaders } = require('./_lib/security');
+const { getSnovToken, verifyEmailsWithSnov } = require('./_lib/snov');
 
 const MAX_EMAILS_PER_DOMAIN = 10;
 const MAX_INTERNAL_PAGES = 6;
@@ -226,9 +227,16 @@ module.exports = async function handler(req, res) {
     return aOn - bOn;
   }).slice(0, MAX_EMAILS_PER_DOMAIN);
 
+  // Verify deliverability via Snov before returning — the scrape itself
+  // stays free, this just upgrades 'unknown' to a real valid/invalid/risky
+  // status. Best-effort: if Snov creds are missing or the call fails, every
+  // email just falls back to 'unknown' rather than blocking the response.
+  const token = await getSnovToken();
+  const smtpByEmail = await verifyEmailsWithSnov(sorted.map(([email]) => email), token);
+
   const emails = sorted.map(([email, source]) => {
     const { firstName, lastName } = guessNameFromEmail(email);
-    return { email, smtp: 'unknown', source, firstName, lastName };
+    return { email, smtp: smtpByEmail.get(email) || 'unknown', source, firstName, lastName };
   });
 
   return res.json({ domain: host, emails, guessedEmails: [], linkedinProfiles: [], linkedinSearchUrl });
