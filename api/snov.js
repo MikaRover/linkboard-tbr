@@ -4,6 +4,7 @@
 // ══════════════════════════════════════════════════════════════
 
 const { browserHeaders, isSafeHost } = require('./_lib/security');
+const { verifyEmailsWithSnov } = require('./_lib/snov');
 
 const SNOV_CLIENT_ID = process.env.SNOV_CLIENT_ID;
 const SNOV_CLIENT_SECRET = process.env.SNOV_CLIENT_SECRET;
@@ -239,16 +240,16 @@ async function deepFetchEmails(domain, token) {
     }
   }
 
-  // Verify all found emails (parallel)
+  // Verify all found emails (batched)
   const list = [...foundEmails];
   if (!list.length) {
     return [{ first_name:'N/A', last_name:'', position:'', source_page:'', email:'', smtp_status:'unknown', source:'NOT_FOUND' }];
   }
-  const verified = await Promise.all(list.map(async (email) => {
-    const status = await verifyEmail(email, token);
-    return { first_name:'Deep Scraped', last_name:'Contact', position:'', source_page:'', email, smtp_status:status, source:'DEEP_SCRAPE' };
+  const statuses = await verifyEmailsWithSnov(list, token);
+  return list.map(email => ({
+    first_name:'Deep Scraped', last_name:'Contact', position:'', source_page:'', email,
+    smtp_status: statuses.get(email) || 'unknown', source:'DEEP_SCRAPE'
   }));
-  return verified;
 }
 
 async function scrapePage(url) {
@@ -287,20 +288,6 @@ async function findInternalPages(url) {
     }
     return [...pages].slice(0, 3);
   } catch(e) { return []; }
-}
-
-async function verifyEmail(email, token) {
-  try {
-    const r = await fetch('https://api.snov.io/v1/get-emails-verification', {
-      method:'POST',
-      headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ 'emails[]': email }),
-      signal: AbortSignal.timeout(7000)
-    });
-    if (!isOk(r.status)) return 'unknown';
-    const json = await r.json();
-    return json?.[0]?.smtp_status || json?.[0]?.status || 'unknown';
-  } catch(e) { return 'unknown'; }
 }
 
 // ══════════════════════════════════════════════════════════════
