@@ -6,7 +6,7 @@
 // "Contact Finder" library, which does the same crawl against a spreadsheet.
 
 const { isSafeHost, cleanHost, browserHeaders } = require('./_lib/security');
-const { getSnovToken, verifyEmailsWithSnov } = require('./_lib/snov');
+const { getSnovToken, verifyEmailsWithSnov, debugVerifyOne } = require('./_lib/snov');
 
 const MAX_EMAILS_PER_DOMAIN = 10;
 const MAX_INTERNAL_PAGES = 6;
@@ -185,7 +185,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { domain } = req.body || {};
+  const { domain, debug } = req.body || {};
   if (!domain) return res.status(400).json({ error: 'domain required' });
   if (!isSafeHost(domain)) return res.status(400).json({ error: 'Invalid or disallowed domain' });
 
@@ -239,5 +239,7 @@ module.exports = async function handler(req, res) {
     return { email, smtp: smtpByEmail.get(email) || 'unknown', source, firstName, lastName };
   });
 
-  return res.json({ domain: host, emails, guessedEmails: [], linkedinProfiles: [], linkedinSearchUrl });
+  const out = { domain: host, emails, guessedEmails: [], linkedinProfiles: [], linkedinSearchUrl };
+  if (debug && emails[0]) out._debug = await debugVerifyOne(emails[0].email, token);
+  return res.json(out);
 };

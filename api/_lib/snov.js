@@ -105,4 +105,34 @@ async function verifyEmailsWithSnov(emails, token) {
   return statuses;
 }
 
-module.exports = { getSnovToken, verifyEmailsWithSnov };
+// TEMPORARY — raw diagnostic for one email, no error-swallowing, to find
+// where verification is actually failing. Remove once diagnosed.
+async function debugVerifyOne(email, token) {
+  const out = { hasToken: !!token };
+  if (!token) return out;
+  try {
+    const startRes = await fetch('https://api.snov.io/v2/email-verification/start', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ 'emails[]': email }),
+      signal: AbortSignal.timeout(9000)
+    });
+    out.startStatus = startRes.status;
+    const startText = await startRes.text();
+    out.startBody = startText;
+    let startJson; try { startJson = JSON.parse(startText); } catch (e) {}
+    const taskHash = startJson?.data?.task_hash || startJson?.task_hash;
+    out.taskHash = taskHash || null;
+    if (!taskHash) return out;
+
+    const r = await fetch(
+      `https://api.snov.io/v2/email-verification/result?task_hash=${encodeURIComponent(taskHash)}`,
+      { headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(9000) }
+    );
+    out.resultStatus = r.status;
+    out.resultBody = await r.text();
+  } catch (e) { out.error = e.message; }
+  return out;
+}
+
+module.exports = { getSnovToken, verifyEmailsWithSnov, debugVerifyOne };
