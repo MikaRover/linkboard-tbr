@@ -338,6 +338,31 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    if (action === 'debug-search-email') {
+      const { url } = req.body || {};
+      const headers = { Authorization: 'Bearer ' + token };
+      const out = {};
+      const startRes = await fetch(url, { method:'POST', headers, signal: AbortSignal.timeout(9000) });
+      out.startStatus = startRes.status;
+      const startText = await startRes.text();
+      out.startBody = startText;
+      let startJson; try { startJson = JSON.parse(startText); } catch(e) {}
+      const resultLink = startJson?.links?.result;
+      out.resultLink = resultLink || null;
+      if (resultLink) {
+        out.polls = [];
+        for (let i = 0; i < POLL_ATTEMPTS; i++) {
+          await sleep(POLL_DELAY_MS);
+          const r = await fetch(resultLink, { headers, signal: AbortSignal.timeout(9000) });
+          const body = await r.text();
+          out.polls.push({ status: r.status, body });
+          let json; try { json = JSON.parse(body); } catch(e) {}
+          if (json?.data?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
+        }
+      }
+      return res.json(out);
+    }
+
     if (action === 'debug-prospects-raw') {
       const headers = { Authorization: 'Bearer ' + token };
       const payload = new URLSearchParams({ domain: cleanDomain });
