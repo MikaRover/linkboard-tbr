@@ -57,6 +57,27 @@ function isJunkProspectName(firstName, lastName) {
   return JUNK_NAME_RE.test(full);
 }
 
+// Link-building relevance of a job title — used both to rank/cap results
+// (fetchProspects) and to order the final list for display. A generic
+// "Marketing Manager" exists at nearly every company Snov searches, so
+// without this a domain with few genuine link-building/SEO/PR people gets
+// padded out with marketing noise to fill the results quota.
+const MIN_RELEVANT_SCORE = 4; // Content Marketing Manager or better
+function roleRelevanceScore(position){
+  const pos = (position||'').toLowerCase();
+  let s = 0;
+  if (pos.includes('link build')||pos.includes('backlink')) s+=10;
+  else if (pos.includes('outreach')) s+=9;
+  else if (pos.includes('off-page')||pos.includes('off page')) s+=8;
+  else if (pos.includes('seo')) s+=7;
+  else if (pos.includes('digital pr')||pos.includes(' pr ')) s+=6;
+  else if (pos.includes('content')) s+=4;
+  else if (pos.includes('marketing')) s+=3;
+  if (pos.includes('head ')||pos.includes('director')||pos.includes('vp ')) s+=3;
+  if (pos.includes('senior')||pos.includes('lead')||pos.includes('manager')) s+=2;
+  return s;
+}
+
 // ── Auth ──
 async function getToken() {
   const res = await fetch('https://api.snov.io/v1/oauth/access_token', {
@@ -141,9 +162,19 @@ async function fetchProspects(domain, token, maxPeople = 20) {
     }
   }));
 
-  const ranked = Array.from(byName.values())
-    .sort((a,b) => a.__batchIndex - b.__batchIndex)
-    .slice(0, maxPeople);
+  // Rank by actual role relevance, not which batch happened to find them —
+  // a rare title like "Link Builder" naturally returns far fewer LinkedIn
+  // matches than "Marketing Manager", so ranking wasn't enough on its own:
+  // the old code always padded out to maxPeople, which meant a domain with
+  // only 2-3 genuine link-building/SEO/PR people still returned 20 results,
+  // 17 of them generic marketing noise. Now: keep only genuinely relevant
+  // roles when there are enough of them, and only fall back to including
+  // everyone when relevant matches are too scarce to return a useful list.
+  const scored = Array.from(byName.values()).map(p => Object.assign({}, p, { _relevance: roleRelevanceScore(p.position) }));
+  scored.sort((a,b) => b._relevance - a._relevance || a.__batchIndex - b.__batchIndex);
+  const relevant = scored.filter(p => p._relevance >= MIN_RELEVANT_SCORE);
+  const MIN_RESULTS = 5;
+  const ranked = (relevant.length >= MIN_RESULTS ? relevant : scored).slice(0, maxPeople);
 
   if (!ranked.length) return [];
 
@@ -326,23 +357,8 @@ module.exports = async function handler(req, res) {
 
     if (!action || action === 'prospects') {
       const rows = await fetchProspects(cleanDomain, token, 20);
-      // Score for sorting (link-building relevance)
-      const score = p => {
-        const pos = (p.position||'').toLowerCase();
-        let s = 0;
-        if (pos.includes('link build')||pos.includes('backlink')) s+=10;
-        else if (pos.includes('outreach')) s+=9;
-        else if (pos.includes('off-page')||pos.includes('off page')) s+=8;
-        else if (pos.includes('seo')) s+=7;
-        else if (pos.includes('digital pr')||pos.includes(' pr ')) s+=6;
-        else if (pos.includes('content')) s+=4;
-        else if (pos.includes('marketing')) s+=3;
-        if (pos.includes('head ')||pos.includes('director')||pos.includes('vp ')) s+=3;
-        if (pos.includes('senior')||pos.includes('lead')||pos.includes('manager')) s+=2;
-        return s;
-      };
       const prospects = rows
-        .map(p => ({ ...p, smtp: p.smtp_status, _score: score(p) }))
+        .map(p => ({ ...p, smtp: p.smtp_status, _score: roleRelevanceScore(p.position) }))
         .sort((a,b) => b._score - a._score);
 
       return res.json({
