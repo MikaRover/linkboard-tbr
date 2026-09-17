@@ -393,7 +393,8 @@ module.exports = async function handler(req, res) {
       const startText = await startRes.text();
       const out = { startStatus: startRes.status, startBody: startText };
       let startJson; try { startJson = JSON.parse(startText); } catch(e) {}
-      const link = startJson?.links?.result;
+      const taskHash = startJson?.data?.task_hash;
+      const link = startJson?.links?.result || (taskHash ? `https://api.snov.io/v2/li-profiles-by-urls/result/${taskHash}` : null);
       out.resultLink = link || null;
       if (link) {
         out.polls = [];
