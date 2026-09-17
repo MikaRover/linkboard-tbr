@@ -394,7 +394,7 @@ module.exports = async function handler(req, res) {
       const out = { startStatus: startRes.status, startBody: startText };
       let startJson; try { startJson = JSON.parse(startText); } catch(e) {}
       const taskHash = startJson?.data?.task_hash;
-      const link = startJson?.links?.result || (taskHash ? `https://api.snov.io/v2/li-profiles-by-urls/result/${taskHash}` : null);
+      const link = startJson?.links?.result || (taskHash ? `https://api.snov.io/v2/li-profiles-by-urls/result?task_hash=${taskHash}` : null);
       out.resultLink = link || null;
       if (link) {
         out.polls = [];
