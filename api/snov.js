@@ -208,7 +208,7 @@ async function fetchDatabaseSearchSupplement(domain, token, excludeNames) {
     }));
 
     return revealed.filter(Boolean);
-  } catch(e) { return []; }
+  } catch(e) { return [{ __debug_error: e.message }]; }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -602,8 +602,11 @@ module.exports = async function handler(req, res) {
 
     if (action === 'debug-supplement') {
       const existingNames = new Set();
-      const supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, existingNames);
-      return res.json({ companyName: deriveCompanyName(cleanDomain), supplement });
+      let supplement, errorMsg;
+      try {
+        supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, existingNames);
+      } catch(e) { errorMsg = e.message; }
+      return res.json({ companyName: deriveCompanyName(cleanDomain), supplement, errorMsg });
     }
 
     if (action === 'enrich-linkedin') {
