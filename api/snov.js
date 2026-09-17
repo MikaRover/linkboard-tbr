@@ -601,18 +601,9 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === 'debug-supplement') {
-      const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
-      const companyName = deriveCompanyName(cleanDomain);
-      const startRes = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
-        method: 'POST', headers,
-        body: JSON.stringify({ filters: {
-          prospect: { job_titles: { include: SAFE_DB_SEARCH_TITLES } },
-          company: { name: { include: [companyName] } }
-        } }),
-        signal: AbortSignal.timeout(9000)
-      });
-      const startText = await startRes.text();
-      return res.json({ companyName, startStatus: startRes.status, startBody: startText });
+      const existingNames = new Set();
+      const supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, existingNames);
+      return res.json({ companyName: deriveCompanyName(cleanDomain), supplement });
     }
 
     if (action === 'enrich-linkedin') {
