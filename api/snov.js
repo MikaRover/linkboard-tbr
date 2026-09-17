@@ -166,16 +166,15 @@ async function fetchProspects(domain, token, maxPeople = 20) {
       }
 
       chunk.forEach((p, idx) => {
-        let match = results[idx];
-        if (match?.first_name && match?.last_name &&
-            (match.first_name.toLowerCase() !== p.first_name.toLowerCase() ||
-             match.last_name.toLowerCase()  !== p.last_name.toLowerCase())) {
-          match = results.find(r =>
-            r?.first_name?.toLowerCase() === p.first_name.toLowerCase() &&
-            r?.last_name?.toLowerCase()  === p.last_name.toLowerCase()
-          ) || match;
-        }
-        const emailObj = match?.result?.[0];
+        // Snov preserves row order in its response (its own "people" field is
+        // just a display string, not something to re-match on), so map back
+        // to the request positionally.
+        const match = results[idx];
+        const candidates = match?.result || [];
+        // A name can resolve to emails at more than one company (a past
+        // employer, a namesake) — prefer whichever candidate is actually
+        // @domain over just taking Snov's first guess.
+        const emailObj = candidates.find(c => c?.email?.toLowerCase().endsWith('@' + domain.toLowerCase())) || candidates[0];
         const email = emailObj?.email || '';
         const smtp  = emailObj?.smtp_status || 'unknown';
         output.push(rowFrom(p, email, smtp, email ? 'SNOV_DB' : 'NO_EMAIL'));
@@ -337,35 +336,6 @@ module.exports = async function handler(req, res) {
         withEmail: prospects.filter(p=>p.email && p.smtp_status!=='invalid').length,
         verified:  prospects.filter(p=>p.smtp_status==='valid').length
       });
-    }
-
-    if (action === 'debug-email') {
-      const { firstName, lastName, names } = req.body || {};
-      const headers = { Authorization: 'Bearer ' + token };
-      const rows = names
-        ? names.map(n => ({ first_name: n.firstName, last_name: n.lastName, domain: cleanDomain }))
-        : [{ first_name:firstName, last_name:lastName, domain: cleanDomain }];
-      const startRes = await fetch('https://api.snov.io/v2/emails-by-domain-by-name/start', {
-        method:'POST', headers:{ ...headers, 'Content-Type':'application/json' },
-        body: JSON.stringify({ rows }),
-        signal: AbortSignal.timeout(9000)
-      });
-      const out = { startStatus: startRes.status, startBody: await startRes.text() };
-      let startJson; try { startJson = JSON.parse(out.startBody); } catch(e) {}
-      const taskHash = startJson?.data?.task_hash;
-      out.taskHash = taskHash || null;
-      if (taskHash) {
-        out.polls = [];
-        for (let i = 0; i < POLL_ATTEMPTS; i++) {
-          await sleep(POLL_DELAY_MS);
-          const r = await fetch(`https://api.snov.io/v2/emails-by-domain-by-name/result?task_hash=${taskHash}`, { headers, signal: AbortSignal.timeout(9000) });
-          const body = await r.text();
-          out.polls.push({ status: r.status, body });
-          let json; try { json = JSON.parse(body); } catch(e) {}
-          if (json?.data?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
-        }
-      }
-      return res.json(out);
     }
 
     if (action === 'scrape') {
