@@ -2122,6 +2122,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div style="display:flex;gap:8px;margin-bottom:1.25rem;">
     <button id="ot-tab-single" onclick="setOtTab('single')" class="status-tab active-all" style="font-size:12px;">Single domain</button>
     <button id="ot-tab-bulk" onclick="setOtTab('bulk')" class="status-tab" style="font-size:12px;">Bulk domains</button>
+    <button id="ot-tab-linkedin" onclick="setOtTab('linkedin')" class="status-tab" style="font-size:12px;">🔗 From LinkedIn URLs</button>
   </div>
 
   <!-- Single domain -->
@@ -2172,6 +2173,32 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
             <th>Domain</th><th>Name</th><th>Position</th><th>Email</th><th>Status</th><th>Score</th><th></th>
           </tr></thead>
           <tbody id="ot-bulk-tbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- From LinkedIn URLs — for people Snov's automated search misses (non-
+       standard job titles) but you found by browsing LinkedIn manually. -->
+  <div id="ot-linkedin-panel" style="display:none;">
+    <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
+      <div class="card-body">
+        <div class="section-label">LinkedIn profile URLs (one per line)</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">For people Snov's automated search misses — paste profiles you found by browsing LinkedIn yourself, and we'll resolve + verify their work email.</div>
+        <textarea id="ot-li-input" placeholder="https://www.linkedin.com/in/jane-doe&#10;https://www.linkedin.com/in/john-smith"
+          style="width:100%;height:120px;padding:10px 12px;font-size:13px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:12px;outline:none;"
+          onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
+        <button class="btn-sm" onclick="runLinkedInEnrich()" style="width:auto;padding:10px 18px;">🔍 Resolve contacts</button>
+        <div id="ot-li-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
+      </div>
+    </div>
+
+    <div id="ot-li-results" style="display:none;">
+      <div class="card">
+        <div class="card-head">👥 Resolved contacts</div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Email</th><th>Status</th><th></th></tr></thead>
+          <tbody id="ot-li-tbody"></tbody>
         </table></div>
       </div>
     </div>
@@ -6924,11 +6951,69 @@ let allOutreachData = []; // accumulated results for export
 function setOtTab(tab){
   document.getElementById('ot-single-panel').style.display = tab==='single'?'block':'none';
   document.getElementById('ot-bulk-panel').style.display = tab==='bulk'?'block':'none';
+  document.getElementById('ot-linkedin-panel').style.display = tab==='linkedin'?'block':'none';
   document.getElementById('ot-results').style.display = 'none';
   document.getElementById('ot-bulk-results').style.display = 'none';
+  document.getElementById('ot-li-results').style.display = 'none';
   document.getElementById('ot-tab-single').className = tab==='single'?'status-tab active-all':'status-tab';
   document.getElementById('ot-tab-bulk').className = tab==='bulk'?'status-tab active-all':'status-tab';
+  document.getElementById('ot-tab-linkedin').className = tab==='linkedin'?'status-tab active-all':'status-tab';
   document.getElementById('ot-export-btn').style.display = 'none';
+}
+
+async function runLinkedInEnrich(){
+  const raw = document.getElementById('ot-li-input').value.trim();
+  const errEl = document.getElementById('ot-li-error');
+  errEl.style.display = 'none';
+  const urls = raw.split(/\n+/).map(u=>u.trim()).filter(Boolean);
+  if(!urls.length){ errEl.style.display='block'; errEl.textContent='Paste at least one LinkedIn profile URL'; return; }
+
+  document.getElementById('ot-loading').style.display='block';
+  document.getElementById('ot-loading-text').textContent = `🔍 Resolving ${urls.length} profile${urls.length>1?'s':''} via Snov...`;
+  document.getElementById('ot-li-results').style.display='none';
+
+  try{
+    const resp = await fetch('/api/snov',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'enrich-linkedin', urls })
+    });
+    const data = await resp.json();
+    document.getElementById('ot-loading').style.display='none';
+    if(data.error){ errEl.style.display='block'; errEl.textContent='⚠️ '+data.error; return; }
+    renderLinkedInResults(data.contacts||[]);
+  }catch(e){
+    document.getElementById('ot-loading').style.display='none';
+    errEl.style.display='block'; errEl.textContent='⚠️ Error: '+e.message;
+  }
+}
+
+function renderLinkedInResults(contacts){
+  document.getElementById('ot-li-results').style.display='block';
+  if(!contacts.length){
+    document.getElementById('ot-li-tbody').innerHTML = '<tr><td colspan="6" style="color:var(--text3);">No profiles resolved.</td></tr>';
+    return;
+  }
+  document.getElementById('ot-li-tbody').innerHTML = contacts.map(c=>{
+    if(!c.found){
+      return `<tr>
+        <td colspan="5" style="color:var(--text3);font-size:12px;">Couldn't resolve <a href="${escAttr(c.url)}" target="_blank" style="color:var(--text2);">${escapeHtml(c.url)}</a></td>
+        <td></td>
+      </tr>`;
+    }
+    return `<tr>
+      <td style="font-weight:600;">${escapeHtml(c.name)}</td>
+      <td style="font-size:12px;color:var(--text2);">${escapeHtml(c.title||'—')}</td>
+      <td style="font-size:12px;color:var(--text2);">${escapeHtml(c.company||'—')}</td>
+      <td style="font-size:12px;color:${c.email?'var(--teal)':'var(--text3)'};">${c.email?escapeHtml(c.email):'— (unverified)'}</td>
+      <td>${c.email?smtpBadge(c.smtp||'unknown'):''}</td>
+      <td style="white-space:nowrap;">
+        ${c.email?`<button onclick="navigator.clipboard.writeText('${escAttr(c.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>`:''}
+        <a href="${escAttr(c.url)}" target="_blank" class="btn-ghost" style="font-size:10px;padding:2px 8px;text-decoration:none;">LI</a>
+        ${c.email?`<button onclick="saveContactToDB({domain:'${escAttr(c.domain)}',email:'${escAttr(c.email)}',smtp:'${escAttr(c.smtp||'unknown')}',firstName:'${escAttr(c.firstName)}',lastName:'${escAttr(c.lastName)}',position:'${escAttr(c.title)}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾 Save</button>`:''}
+        ${c.email?composeBtn(c.firstName, c.email, c.domain):''}
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 async function runBulkOutreach(action='prospects'){
