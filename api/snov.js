@@ -497,6 +497,33 @@ module.exports = async function handler(req, res) {
       const emailByUrl = new Map();
       resolvable.forEach((p, i) => { if (resolved[i]) emailByUrl.set(p.url, resolved[i]); });
 
+      // Snov's name+domain database lookup above only surfaces an email it
+      // already has indexed — it can miss someone real. As a fallback, guess
+      // the two most common professional patterns and let Snov's separate
+      // SMTP-probe verification (checks mailbox existence directly, not a
+      // database lookup) confirm whether either one is actually real.
+      const stillUnresolved = resolvable.filter(p => !emailByUrl.has(p.url));
+      if (stillUnresolved.length) {
+        const guessesByUrl = new Map();
+        const allGuesses = [];
+        stillUnresolved.forEach(p => {
+          const f = p.firstName.toLowerCase().replace(/[^a-z]/g,'');
+          const l = p.lastName.toLowerCase().replace(/[^a-z]/g,'');
+          if (!f || !l) return;
+          const guesses = [`${f}.${l}@${p.domain}`, `${f[0]}${l}@${p.domain}`];
+          guessesByUrl.set(p.url, guesses);
+          allGuesses.push(...guesses);
+        });
+        if (allGuesses.length) {
+          const verified = await verifyEmailsWithSnov(allGuesses, token);
+          stillUnresolved.forEach(p => {
+            const guesses = guessesByUrl.get(p.url) || [];
+            const validGuess = guesses.find(g => verified.get(g) === 'valid');
+            if (validGuess) emailByUrl.set(p.url, { email: validGuess, smtp: 'valid' });
+          });
+        }
+      }
+
       const contacts = profiles.map(p => {
         const e = emailByUrl.get(p.url);
         return {
