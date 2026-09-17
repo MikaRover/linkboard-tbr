@@ -339,6 +339,32 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    if (action === 'debug-email') {
+      const { firstName, lastName } = req.body || {};
+      const headers = { Authorization: 'Bearer ' + token };
+      const startRes = await fetch('https://api.snov.io/v2/emails-by-domain-by-name/start', {
+        method:'POST', headers:{ ...headers, 'Content-Type':'application/json' },
+        body: JSON.stringify({ rows: [{ first_name:firstName, last_name:lastName, domain: cleanDomain }] }),
+        signal: AbortSignal.timeout(9000)
+      });
+      const out = { startStatus: startRes.status, startBody: await startRes.text() };
+      let startJson; try { startJson = JSON.parse(out.startBody); } catch(e) {}
+      const taskHash = startJson?.data?.task_hash;
+      out.taskHash = taskHash || null;
+      if (taskHash) {
+        out.polls = [];
+        for (let i = 0; i < POLL_ATTEMPTS; i++) {
+          await sleep(POLL_DELAY_MS);
+          const r = await fetch(`https://api.snov.io/v2/emails-by-domain-by-name/result?task_hash=${taskHash}`, { headers, signal: AbortSignal.timeout(9000) });
+          const body = await r.text();
+          out.polls.push({ status: r.status, body });
+          let json; try { json = JSON.parse(body); } catch(e) {}
+          if (json?.data?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
+        }
+      }
+      return res.json(out);
+    }
+
     if (action === 'scrape') {
       if (!isSafeHost(cleanDomain)) return res.status(400).json({error:'Invalid or disallowed domain'});
       const rows = await deepFetchEmails(cleanDomain, token);
