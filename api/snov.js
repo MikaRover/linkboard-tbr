@@ -183,7 +183,11 @@ async function fetchProspects(domain, token, maxPeople = 20) {
   const scored = Array.from(byName.values()).map(p => Object.assign({}, p, { _tier: roleTier(p.position), _relevance: roleRelevanceScore(p.position) }));
   scored.sort((a,b) => b._relevance - a._relevance || a.__batchIndex - b.__batchIndex);
   const relevant = scored.filter(p => p._tier >= MIN_RELEVANT_TIER);
-  const MIN_RESULTS = 5;
+  // Set low deliberately: "fewer but more relevant" was the explicit choice
+  // here, so even 1-2 genuine link-building/SEO/PR contacts should show on
+  // their own — the padded fallback only exists so a domain search never
+  // comes back completely empty when Snov found literally no one relevant.
+  const MIN_RESULTS = 1;
   const ranked = (relevant.length >= MIN_RESULTS ? relevant : scored).slice(0, maxPeople);
 
   if (!ranked.length) return [];
