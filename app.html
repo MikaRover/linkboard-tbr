@@ -6604,7 +6604,10 @@ function renderProspects(data, domain){
   document.getElementById('ot-contacts').innerHTML = prospects.map(p=>{
     const rs = roleScore(p.position);
     const hasEmail = p.email && p.smtp !== 'invalid';
-    const linkedinUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(p.first_name+' '+p.last_name+' '+domain)}`;
+    // Snov already matched this prospect to a specific LinkedIn profile
+    // (source_page) — link straight to it instead of a generic keyword
+    // search, which often surfaces someone else with the same name.
+    const linkedinUrl = p.source_page || `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(p.first_name+' '+p.last_name+' '+domain)}`;
     return `<div style="background:var(--bg2);border:1px solid ${hasEmail?'rgba(50,215,75,0.2)':'var(--border)'};border-radius:12px;padding:14px;transition:all 0.15s;position:relative;overflow:hidden;">
       ${hasEmail?`<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--teal),transparent);"></div>`:''}
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
@@ -6970,7 +6973,7 @@ function renderBulkRow(domain, data, action){
         <td style="text-align:center;">${rs.stars}</td>
         <td style="white-space:nowrap;">
           ${p.email?`<button onclick="navigator.clipboard.writeText('${escAttr(p.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>`:''}
-          <a href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent((p.first_name||'')+' '+(p.last_name||'')+' '+domain)}" target="_blank" class="btn-ghost" style="font-size:10px;padding:2px 8px;text-decoration:none;">LI</a>
+          <a href="${escAttr(p.source_page || `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent((p.first_name||'')+' '+(p.last_name||'')+' '+domain)}`)}" target="_blank" class="btn-ghost" style="font-size:10px;padding:2px 8px;text-decoration:none;">LI</a>
           <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(p.email||'')}',smtp:'${escAttr(p.smtp||'unknown')}',firstName:'${escAttr(p.first_name||'')}',lastName:'${escAttr(p.last_name||'')}',position:'${escAttr(p.position||'')}'});"
             class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾</button>
           ${p.email?composeBtn(p.first_name, p.email, domain):''}
