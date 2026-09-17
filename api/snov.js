@@ -248,6 +248,108 @@ async function fetchProspects(domain, token, maxPeople = 20) {
   return output;
 }
 
+// ══════════════════════════════════════════════════════════════
+// LINKEDIN PROFILE ENRICHMENT
+// For contacts found by browsing LinkedIn manually (the domain-search
+// prospecting above only matches Snov's own list of standard job titles,
+// so it misses anyone with a non-standard/combined title) — given a
+// specific profile URL, Snov resolves the person's name and current
+// employer, which we then feed into the same name+domain email lookup
+// used above.
+// ══════════════════════════════════════════════════════════════
+const MAX_LINKEDIN_URLS = 20;
+
+async function enrichLinkedInProfiles(urls, token) {
+  const headers = { Authorization: 'Bearer ' + token };
+  try {
+    const startRes = await fetch('https://api.snov.io/v2/li-profiles-by-urls/start', {
+      method:'POST', headers:{ ...headers, 'Content-Type':'application/json' },
+      body: JSON.stringify({ urls }), signal: AbortSignal.timeout(9000)
+    });
+    if (!isOk(startRes.status)) return [];
+    const startJson = await startRes.json();
+    const taskHash = startJson?.data?.task_hash;
+    if (!taskHash) return [];
+
+    let results = [];
+    for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
+      await sleep(POLL_DELAY_MS);
+      try {
+        const r = await fetch(
+          `https://api.snov.io/v2/li-profiles-by-urls/result?task_hash=${taskHash}`,
+          { headers, signal: AbortSignal.timeout(9000) }
+        );
+        if (!isOk(r.status)) continue;
+        const json = await r.json();
+        if (json?.data && json.data.length) { results = json.data; break; }
+        if (json?.status && String(json.status).toLowerCase() !== 'in_progress') { results = json.data || []; break; }
+      } catch(e) { /* keep polling */ }
+    }
+
+    return results.map(entry => {
+      const p = entry?.result;
+      const url = entry?.url || '';
+      if (!p) return { url, firstName:'', lastName:'', title:'', company:'', domain:'', found:false };
+      const current = (p.positions || [])[0];
+      const companyUrl = current?.url || '';
+      const domain = companyUrl.replace(/^https?:\/\//i,'').replace(/^www\./i,'').replace(/\/.*$/,'').trim();
+      return {
+        url, firstName: p.first_name||'', lastName: p.last_name||'',
+        title: current?.title||'', company: current?.name||'', domain, found:true
+      };
+    });
+  } catch(e) { return []; }
+}
+
+// Same emails-by-domain-by-name lookup used in fetchProspects above, but
+// generalized to a per-row domain (each row here) since enriched LinkedIn
+// profiles can each work at a different company, unlike a single-domain
+// prospect search.
+async function resolveEmailsByNameAndDomain(people, token) {
+  const headers = { Authorization: 'Bearer ' + token };
+  const results = new Array(people.length).fill(null);
+  const chunks = [];
+  for (let i = 0; i < people.length; i += EMAIL_BATCH_SIZE) chunks.push({ start:i, items: people.slice(i, i+EMAIL_BATCH_SIZE) });
+
+  await Promise.all(chunks.map(async ({ start, items }) => {
+    try {
+      const payload = { rows: items.map(p => ({ first_name:p.firstName, last_name:p.lastName, domain:p.domain })) };
+      const startRes = await fetch('https://api.snov.io/v2/emails-by-domain-by-name/start', {
+        method:'POST', headers:{ ...headers, 'Content-Type':'application/json' },
+        body: JSON.stringify(payload), signal: AbortSignal.timeout(9000)
+      });
+      if (!isOk(startRes.status)) return;
+      const startJson = await startRes.json();
+      const taskHash = startJson?.data?.task_hash;
+      if (!taskHash) return;
+
+      let matches = [];
+      for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
+        await sleep(POLL_DELAY_MS);
+        try {
+          const r = await fetch(
+            `https://api.snov.io/v2/emails-by-domain-by-name/result?task_hash=${taskHash}`,
+            { headers, signal: AbortSignal.timeout(9000) }
+          );
+          if (!isOk(r.status)) continue;
+          const rd = await r.json();
+          if (rd?.data && rd.data.length) { matches = rd.data; break; }
+          if (rd?.status && String(rd.status).toLowerCase() !== 'in_progress') { matches = rd.data || []; break; }
+        } catch(e) { /* keep polling */ }
+      }
+
+      items.forEach((p, idx) => {
+        const match = matches[idx];
+        const candidates = match?.result || [];
+        const emailObj = candidates.find(c => c?.email?.toLowerCase().endsWith('@' + p.domain.toLowerCase())) || candidates[0];
+        if (emailObj?.email) results[start+idx] = { email: emailObj.email, smtp: emailObj.smtp_status || 'unknown' };
+      });
+    } catch(e) { /* leave as null for this chunk */ }
+  }));
+
+  return results;
+}
+
 function rowFrom(p, email, smtp, source) {
   return {
     first_name: p.first_name || '',
@@ -360,11 +462,11 @@ module.exports = async function handler(req, res) {
   if (req.method==='OPTIONS') return res.status(200).end();
   if (req.method!=='POST') return res.status(405).json({error:'Method not allowed'});
 
-  const { domain, action } = req.body || {};
-  if (!domain) return res.status(400).json({error:'domain required'});
+  const { domain, action, urls } = req.body || {};
+  if (action !== 'enrich-linkedin' && !domain) return res.status(400).json({error:'domain required'});
   if (!SNOV_CLIENT_ID || !SNOV_CLIENT_SECRET) return res.status(500).json({error:'Snov credentials not configured'});
 
-  const cleanDomain = domain.replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*/,'').trim();
+  const cleanDomain = domain ? domain.replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*/,'').trim() : '';
 
   try {
     const token = await getToken();
@@ -384,30 +486,28 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    if (action === 'debug-li-profiles') {
-      const { urls } = req.body || {};
-      const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
-      const startRes = await fetch('https://api.snov.io/v2/li-profiles-by-urls/start', {
-        method:'POST', headers, body: JSON.stringify({ urls: urls || [] }), signal: AbortSignal.timeout(9000)
+    if (action === 'enrich-linkedin') {
+      const list = (Array.isArray(urls) ? urls : []).filter(Boolean).slice(0, MAX_LINKEDIN_URLS);
+      if (!list.length) return res.status(400).json({ error: 'urls required' });
+
+      const profiles = await enrichLinkedInProfiles(list, token);
+
+      const resolvable = profiles.filter(p => p.found && p.firstName && p.lastName && p.domain);
+      const resolved = await resolveEmailsByNameAndDomain(resolvable, token);
+      const emailByUrl = new Map();
+      resolvable.forEach((p, i) => { if (resolved[i]) emailByUrl.set(p.url, resolved[i]); });
+
+      const contacts = profiles.map(p => {
+        const e = emailByUrl.get(p.url);
+        return {
+          url: p.url, firstName: p.firstName, lastName: p.lastName,
+          name: [p.firstName, p.lastName].filter(Boolean).join(' '),
+          title: p.title, company: p.company, domain: p.domain,
+          email: e?.email || '', smtp: e?.smtp || 'unknown', found: p.found
+        };
       });
-      const startText = await startRes.text();
-      const out = { startStatus: startRes.status, startBody: startText };
-      let startJson; try { startJson = JSON.parse(startText); } catch(e) {}
-      const taskHash = startJson?.data?.task_hash;
-      const link = startJson?.links?.result || (taskHash ? `https://api.snov.io/v2/li-profiles-by-urls/result?task_hash=${taskHash}` : null);
-      out.resultLink = link || null;
-      if (link) {
-        out.polls = [];
-        for (let i = 0; i < POLL_ATTEMPTS; i++) {
-          await sleep(POLL_DELAY_MS);
-          const r = await fetch(link, { headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(9000) });
-          const body = await r.text();
-          out.polls.push({ status: r.status, body });
-          let json; try { json = JSON.parse(body); } catch(e) {}
-          if (json?.data?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
-        }
-      }
-      return res.json(out);
+
+      return res.json({ contacts });
     }
 
     if (action === 'scrape') {
