@@ -340,11 +340,14 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === 'debug-email') {
-      const { firstName, lastName } = req.body || {};
+      const { firstName, lastName, names } = req.body || {};
       const headers = { Authorization: 'Bearer ' + token };
+      const rows = names
+        ? names.map(n => ({ first_name: n.firstName, last_name: n.lastName, domain: cleanDomain }))
+        : [{ first_name:firstName, last_name:lastName, domain: cleanDomain }];
       const startRes = await fetch('https://api.snov.io/v2/emails-by-domain-by-name/start', {
         method:'POST', headers:{ ...headers, 'Content-Type':'application/json' },
-        body: JSON.stringify({ rows: [{ first_name:firstName, last_name:lastName, domain: cleanDomain }] }),
+        body: JSON.stringify({ rows }),
         signal: AbortSignal.timeout(9000)
       });
       const out = { startStatus: startRes.status, startBody: await startRes.text() };
