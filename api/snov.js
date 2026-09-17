@@ -385,12 +385,12 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === 'debug-database-search') {
-      const { companyName } = req.body || {};
+      const { companyName, jobTitles } = req.body || {};
       const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
       const payload = {
         filters: {
           prospect: {
-            job_titles: { include: ['Outreach Specialist','Link Builder','SEO Specialist','Digital PR Manager'] }
+            job_titles: { include: jobTitles || ['Outreach Specialist','Link Builder','SEO Specialist'] }
           },
           company: {
             name: { include: [companyName || cleanDomain] }
