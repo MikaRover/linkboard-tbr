@@ -32,7 +32,7 @@ const LINK_KEYWORDS = [
 const CANDIDATE_PATHS = [
   '/contact','/contact-us','/about','/about-us','/team','/our-team',
   '/staff','/write-for-us','/contribute','/guest-post','/advertise',
-  '/press','/authors'
+  '/press','/authors','/leadership','/people','/meet-the-team'
 ];
 
 // Substring matches on the full email — file extensions picked up from
@@ -85,6 +85,91 @@ function guessNameFromEmail(email) {
   if (parts.length < 2) return { firstName: '', lastName: '' };
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
   return { firstName: cap(parts[0]), lastName: cap(parts[parts.length - 1]) };
+}
+
+const MAX_TEAM_MEMBERS = 15;
+
+// Job-title keywords used to gate the heading+text heuristic below — without
+// this, ANY heading immediately followed by a short paragraph (a blog post
+// title + excerpt, a pricing tier name + blurb) would get mistaken for a
+// person + role.
+const TITLE_KEYWORDS = [
+  'specialist','manager','director','lead','head of','officer','founder',
+  'co-founder','ceo','coo','cto','cmo','cfo','president','vp','vice president',
+  'executive','coordinator','associate','analyst','consultant','engineer',
+  'developer','designer','strategist','partnerships','outreach','marketing',
+  'sales','support','success','operations','product','growth','content',
+  'seo','pr','communications','editor','writer','recruiter','talent'
+];
+const TITLE_KEYWORD_RE = new RegExp('\\b(' + TITLE_KEYWORDS.join('|') + ')\\b', 'i');
+
+function looksLikePersonName(text) {
+  const t = text.trim();
+  if (t.length < 4 || t.length > 40) return false;
+  const words = t.split(/\s+/);
+  if (words.length < 2 || words.length > 4) return false;
+  return words.every(w => /^[A-Z][a-zA-ZÀ-ÖØ-öø-ÿ'.-]*$/.test(w));
+}
+
+// Best-effort "Name" + "Job Title" extraction from a team/about page's raw
+// HTML — no DOM parser here (matches this file's existing regex-on-html-string
+// style), so this only catches common layouts: structured schema.org Person
+// markup, or a heading immediately followed by a short role-bearing text
+// block (how most team-grid page templates render a person card). It won't
+// catch every layout, same tradeoff as the email extraction above.
+function extractTeamMembers(html) {
+  const found = new Map(); // name -> title
+
+  const microRe = /itemprop=["']name["'][^>]*>\s*([^<]{3,50})\s*<[\s\S]{0,300}?itemprop=["']jobTitle["'][^>]*>\s*([^<]{3,60})\s*</gi;
+  let m;
+  while ((m = microRe.exec(html)) !== null) {
+    const name = m[1].trim(), title = m[2].trim();
+    if (looksLikePersonName(name) && !found.has(name)) found.set(name, title);
+  }
+
+  const headingRe = /<h[2-5][^>]*>\s*([^<]{4,50}?)\s*<\/h[2-5]>\s*(?:<[^>]*>\s*)*?([^<]{4,80}?)\s*</gi;
+  while ((m = headingRe.exec(html)) !== null) {
+    const name = m[1].trim(), title = m[2].trim();
+    if (found.has(name) || !looksLikePersonName(name) || !TITLE_KEYWORD_RE.test(title)) continue;
+    found.set(name, title);
+  }
+
+  return found;
+}
+
+// Infers this domain's email-naming convention from an email already found
+// on the site that we could confidently attribute to a named person (e.g.
+// "jane.doe@x.com" -> Jane/Doe via guessNameFromEmail) — so a team member's
+// guessed address can follow the SAME pattern instead of trying all of them.
+function detectEmailPattern(emailEntries, host) {
+  for (const [email] of emailEntries) {
+    if (!email.toLowerCase().endsWith('@' + host)) continue;
+    const local = email.split('@')[0].toLowerCase();
+    const { firstName, lastName } = guessNameFromEmail(email);
+    if (!firstName || !lastName) continue;
+    const f = firstName.toLowerCase(), l = lastName.toLowerCase();
+    if (local === `${f}.${l}`) return 'first.last';
+    if (local === `${f[0]}${l}`) return 'flast';
+    if (local === `${f}${l}`) return 'firstlast';
+    if (local === f) return 'first';
+  }
+  return null;
+}
+
+function candidateEmailsForName(firstName, lastName, host, pattern) {
+  const f = firstName.toLowerCase().replace(/[^a-z]/g, '');
+  const l = lastName.toLowerCase().replace(/[^a-z]/g, '');
+  if (!f || !l) return [];
+  const byPattern = {
+    'first.last': `${f}.${l}@${host}`,
+    'flast': `${f[0]}${l}@${host}`,
+    'firstlast': `${f}${l}@${host}`,
+    'first': `${f}@${host}`
+  };
+  if (pattern) return [byPattern[pattern]];
+  // No confirmed pattern for this domain — try the two most common
+  // professional conventions and let Snov verification pick the real one.
+  return [byPattern['first.last'], byPattern['flast']];
 }
 
 // Cloudflare's XOR-based "protected" email obfuscation (data-cfemail="...").
@@ -193,11 +278,12 @@ module.exports = async function handler(req, res) {
   const linkedinSearchUrl = 'https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent(host);
 
   if (classifyWebsiteType(host) === 'Social') {
-    return res.json({ domain: host, emails: [], guessedEmails: [], linkedinProfiles: [], linkedinSearchUrl });
+    return res.json({ domain: host, emails: [], teamMembers: [], guessedEmails: [], linkedinProfiles: [], linkedinSearchUrl });
   }
 
   const baseUrl = 'https://' + host;
   const found = new Map(); // email -> source page
+  const teamByName = new Map(); // name -> title
 
   // 1) Homepage.
   const home = await fetchPage(baseUrl);
@@ -205,18 +291,24 @@ module.exports = async function handler(req, res) {
     extractEmailsFromHtml(home.html, home.url).forEach((page, email) => {
       if (!found.has(email)) found.set(email, page);
     });
+    extractTeamMembers(home.html).forEach((title, name) => {
+      if (!teamByName.has(name)) teamByName.set(name, title);
+    });
   }
 
-  // 2) Still thin? Fan out to contact/about/team/etc. pages in parallel —
-  // no external rate limit to respect here, unlike Ahrefs/Snov.
-  if (found.size < MAX_EMAILS_PER_DOMAIN) {
-    const candidates = findInternalPages(baseUrl, home ? home.html : '', host);
-    const pages = (await Promise.all(candidates.map(fetchPage))).filter(Boolean);
-    for (const page of pages) {
-      extractEmailsFromHtml(page.html, page.url).forEach((src, email) => {
-        if (!found.has(email)) found.set(email, src);
-      });
-    }
+  // 2) Fan out to contact/about/team/etc. pages in parallel — no external
+  // rate limit to respect here, unlike Ahrefs/Snov. Always checked (not
+  // gated on email count) since a team page is worth scraping for names
+  // even when the homepage alone already found enough emails.
+  const candidates = findInternalPages(baseUrl, home ? home.html : '', host);
+  const pages = (await Promise.all(candidates.map(fetchPage))).filter(Boolean);
+  for (const page of pages) {
+    extractEmailsFromHtml(page.html, page.url).forEach((src, email) => {
+      if (!found.has(email)) found.set(email, src);
+    });
+    extractTeamMembers(page.html).forEach((title, name) => {
+      if (!teamByName.has(name)) teamByName.set(name, title);
+    });
   }
 
   // 3) Prioritize on-domain addresses over incidental off-domain ones
@@ -227,17 +319,38 @@ module.exports = async function handler(req, res) {
     return aOn - bOn;
   }).slice(0, MAX_EMAILS_PER_DOMAIN);
 
+  // 4) Team members found on the site itself have a name+title but no
+  // listed email — guess one from this domain's naming convention (learned
+  // from a real email above, or the two most common patterns otherwise)
+  // and let the same Snov verification pass below confirm which guess, if
+  // any, is real.
+  const pattern = detectEmailPattern(sorted, host);
+  const team = Array.from(teamByName.entries()).slice(0, MAX_TEAM_MEMBERS).map(([name, title]) => {
+    const words = name.split(/\s+/);
+    const firstName = words[0], lastName = words[words.length - 1];
+    return { name, firstName, lastName, title, candidates: candidateEmailsForName(firstName, lastName, host, pattern) };
+  });
+
   // Verify deliverability via Snov before returning — the scrape itself
   // stays free, this just upgrades 'unknown' to a real valid/invalid/risky
   // status. Best-effort: if Snov creds are missing or the call fails, every
   // email just falls back to 'unknown' rather than blocking the response.
   const token = await getSnovToken();
-  const smtpByEmail = await verifyEmailsWithSnov(sorted.map(([email]) => email), token);
+  const emailsToVerify = [...sorted.map(([email]) => email), ...team.flatMap(t => t.candidates)];
+  const smtpByEmail = await verifyEmailsWithSnov(emailsToVerify, token);
 
   const emails = sorted.map(([email, source]) => {
     const { firstName, lastName } = guessNameFromEmail(email);
     return { email, smtp: smtpByEmail.get(email) || 'unknown', source, firstName, lastName };
   });
 
-  return res.json({ domain: host, emails, guessedEmails: [], linkedinProfiles: [], linkedinSearchUrl });
+  const teamMembers = team.map(t => {
+    const validCandidate = t.candidates.find(c => smtpByEmail.get(c) === 'valid');
+    return {
+      name: t.name, firstName: t.firstName, lastName: t.lastName, title: t.title,
+      email: validCandidate || '', smtp: validCandidate ? 'valid' : 'unknown', guessed: !!validCandidate
+    };
+  });
+
+  return res.json({ domain: host, emails, teamMembers, guessedEmails: [], linkedinProfiles: [], linkedinSearchUrl });
 };

@@ -6780,6 +6780,8 @@ async function runFreeSearch(){
 function renderFreeResults(data, domain){
   const all = [...(data.emails||[]), ...(data.guessedEmails||[])];
 
+  const team = data.teamMembers||[];
+
   document.getElementById('ot-summary').innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
       <div style="font-size:22px;font-weight:800;color:var(--teal);">${data.emails?.length||0}</div>
@@ -6788,6 +6790,10 @@ function renderFreeResults(data, domain){
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
       <div style="font-size:22px;font-weight:800;color:var(--yellow);">${data.guessedEmails?.length||0}</div>
       <div style="font-size:11px;color:var(--text2);">Pattern guesses</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;font-weight:800;color:var(--accent2);">${team.length}</div>
+      <div style="font-size:11px;color:var(--text2);">Team found on site</div>
     </div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
       <div style="font-size:14px;font-weight:700;color:var(--teal);">${escapeHtml(domain)}</div>
@@ -6824,7 +6830,35 @@ function renderFreeResults(data, domain){
       </table></div>
     </div>` : `<div style="color:var(--text2);font-size:13px;padding:1rem 0;">No emails found on website. Try LinkedIn search above or use Snov.io.</div>`;
 
-  document.getElementById('ot-contacts').innerHTML = liSection + emailsSection;
+  // Team found on the site itself (name+title scraped from a team/about
+  // page) — independent of Snov's prospect search, which can miss people
+  // with non-standard job titles. Email is a best-effort guess from this
+  // domain's naming convention, confirmed (or not) by the same Snov verify
+  // pass as everything else here.
+  const teamSection = team.length ? `
+    <div class="card" style="margin-top:1rem;">
+      <div class="card-head">👥 Team found on site <span style="font-size:11px;color:var(--text3);font-weight:400;">(name/title scraped from the site — email is a verified guess)</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Status</th><th></th></tr></thead>
+        <tbody>${team.map(t=>{
+          const liUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(t.name+' '+domain)}`;
+          return `<tr>
+          <td style="font-weight:600;">${escapeHtml(t.name)}</td>
+          <td style="font-size:12px;color:var(--text2);">${escapeHtml(t.title)}</td>
+          <td style="font-size:12px;color:${t.email?'var(--teal)':'var(--text3)'};">${t.email?escapeHtml(t.email):'— (no verified guess)'}</td>
+          <td>${t.email?smtpBadge(t.smtp||'unknown'):''}</td>
+          <td style="white-space:nowrap;">
+            ${t.email?`<button onclick="navigator.clipboard.writeText('${escAttr(t.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:10px;padding:2px 8px;">Copy</button>`:''}
+            <a href="${escAttr(liUrl)}" target="_blank" class="btn-ghost" style="font-size:10px;padding:2px 8px;text-decoration:none;">LI</a>
+            ${t.email?`<button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(t.email)}',smtp:'${escAttr(t.smtp||'unknown')}',firstName:'${escAttr(t.firstName)}',lastName:'${escAttr(t.lastName)}',position:'${escAttr(t.title)}'})" class="btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--teal);">💾 Save</button>`:''}
+            ${t.email?composeBtn(t.firstName, t.email, domain):''}
+          </td>
+        </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>` : '';
+
+  document.getElementById('ot-contacts').innerHTML = liSection + emailsSection + teamSection;
   document.getElementById('ot-emails-section').style.display='none';
 }
 
