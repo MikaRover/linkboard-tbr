@@ -338,6 +338,30 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    if (action === 'debug-prospects-raw') {
+      const headers = { Authorization: 'Bearer ' + token };
+      const payload = new URLSearchParams({ domain: cleanDomain });
+      ['Outreach Specialist','SEO Specialist','Marketing Manager'].forEach((r,i)=>payload.append(`positions[${i}]`, r));
+      const startRes = await fetch('https://api.snov.io/v2/domain-search/prospects/start', {
+        method:'POST', headers:{ ...headers, 'Content-Type':'application/x-www-form-urlencoded' },
+        body: payload.toString(), signal: AbortSignal.timeout(9000)
+      });
+      const startJson = await startRes.json();
+      const out = { startStatus: startRes.status, startJson };
+      const link = startJson?.links?.result;
+      if (link) {
+        out.polls = [];
+        for (let i = 0; i < POLL_ATTEMPTS; i++) {
+          await sleep(POLL_DELAY_MS);
+          const r = await fetch(link, { headers, signal: AbortSignal.timeout(9000) });
+          const json = await r.json();
+          out.polls.push(json);
+          if (json?.data?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
+        }
+      }
+      return res.json(out);
+    }
+
     if (action === 'scrape') {
       if (!isSafeHost(cleanDomain)) return res.status(400).json({error:'Invalid or disallowed domain'});
       const rows = await deepFetchEmails(cleanDomain, token);
