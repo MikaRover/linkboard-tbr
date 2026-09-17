@@ -28,6 +28,28 @@ const TARGET_ROLES = [
   ...CORE_LINK_BUILDING_ROLES, ...SEO_ROLES, ...PR_COMMUNITY_ROLES, ...MARKETING_ROLES
 ];
 
+// database-search/prospects/start's job_titles.include only accepts exact
+// strings from Snov's own internal vocabulary (confirmed live: "Digital PR
+// Manager" and "PR Specialist" are both rejected with a 422 that aborts the
+// WHOLE request, not just that one title) — so unlike TARGET_ROLES above
+// (used with domain-search, which tolerates any string), this list is
+// restricted to titles individually verified to be accepted.
+const SAFE_DB_SEARCH_TITLES = [
+  "Outreach Specialist","SEO Specialist","Link Building Specialist",
+  "Content Marketing Manager","Marketing Manager","Digital Marketing Manager",
+  "Growth Marketing Manager"
+];
+const MAX_DB_SEARCH_REVEALS = 5; // reveal calls run in parallel but each is its own poll cycle — keep this small so a slow one can't blow the request's total time budget
+
+// Best-effort company display name from a bare domain, for database-search's
+// name-based company filter (it does NOT accept a domain string directly —
+// verified live: passing "mailtrap.io" as the name returns zero results,
+// while "Mailtrap" finds real people there).
+function deriveCompanyName(domain) {
+  const base = domain.split('.')[0] || domain;
+  return base.split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
 const ROLE_BATCH_SIZE  = 10;   // Snov positions[] per start request
 const EMAIL_BATCH_SIZE = 10;   // Snov emails-by-domain-by-name max rows per request
 const POLL_ATTEMPTS    = 6;
@@ -104,6 +126,89 @@ async function getToken() {
   const j = await res.json();
   if (!j.access_token) throw new Error('No access_token returned');
   return j.access_token;
+}
+
+// ══════════════════════════════════════════════════════════════
+// DATABASE SEARCH SUPPLEMENT
+// domain-search/prospects above only matches a person whose LinkedIn title
+// is close to one of TARGET_ROLES's exact strings — it misses real people
+// with a non-standard/combined title (confirmed live: "Outreach & Link
+// Building | Product Partnerships" never matched, even though
+// database-search finds this exact same person under "Outreach Specialist").
+// database-search searches by COMPANY NAME rather than domain, which risks
+// a same-named different company (confirmed live: searching "HubSpot"
+// once returned a person at "Avidly HubSpot Solutions") — so every result
+// here is strictly filtered to company.domain matching the target domain
+// before being trusted at all.
+// ══════════════════════════════════════════════════════════════
+async function fetchDatabaseSearchSupplement(domain, token, excludeNames) {
+  const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+  try {
+    const companyName = deriveCompanyName(domain);
+    const startRes = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
+      method: 'POST', headers,
+      body: JSON.stringify({ filters: {
+        prospect: { job_titles: { include: SAFE_DB_SEARCH_TITLES } },
+        company: { name: { include: [companyName] } }
+      } }),
+      signal: AbortSignal.timeout(9000)
+    });
+    if (!isOk(startRes.status)) return [];
+    const startJson = await startRes.json();
+    const taskHash = startJson?.data?.task_hash;
+    if (!taskHash) return [];
+
+    let prospects = [];
+    for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
+      await sleep(POLL_DELAY_MS);
+      try {
+        const r = await fetch(`https://api.snov.io/v2/database-search/prospects/result/${taskHash}`, { headers, signal: AbortSignal.timeout(9000) });
+        if (!isOk(r.status)) continue;
+        const json = await r.json();
+        if (json?.data?.prospects?.length) { prospects = json.data.prospects; break; }
+        if (json?.status && String(json.status).toLowerCase() !== 'in_progress') { prospects = json?.data?.prospects || []; break; }
+      } catch(e) { /* keep polling */ }
+    }
+
+    const onDomain = prospects.filter(p => (p?.company?.domain || '').toLowerCase() === domain.toLowerCase());
+    const fresh = onDomain.filter(p => !excludeNames.has(`${(p.first_name||'').toLowerCase()}|${(p.last_name||'').toLowerCase().replace(/\*+$/,'')}`));
+    const toReveal = fresh.filter(p => p.email_and_hidden_info_reveal).slice(0, MAX_DB_SEARCH_REVEALS);
+
+    const revealed = await Promise.all(toReveal.map(async (p) => {
+      try {
+        const startRes = await fetch(p.email_and_hidden_info_reveal, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(9000) });
+        if (!isOk(startRes.status)) return null;
+        const startJson = await startRes.json();
+        const link = startJson?.links?.result;
+        if (!link) return null;
+        for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
+          await sleep(POLL_DELAY_MS);
+          try {
+            const r = await fetch(link, { headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(9000) });
+            if (!isOk(r.status)) continue;
+            const json = await r.json();
+            if (json?.data || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) {
+              const d = json.data;
+              if (!d) return null;
+              const emailObj = (d.emails || [])[0];
+              return {
+                first_name: d.first_name || p.first_name || '',
+                last_name: d.last_name || '',
+                position: p.job_title || '',
+                source_page: d.linkedin_url || '',
+                email: emailObj?.email || '',
+                smtp_status: emailObj?.smtp_status || 'unknown',
+                source: 'DATABASE_SEARCH'
+              };
+            }
+          } catch(e) { /* keep polling */ }
+        }
+        return null;
+      } catch(e) { return null; }
+    }));
+
+    return revealed.filter(Boolean);
+  } catch(e) { return []; }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -473,7 +578,16 @@ module.exports = async function handler(req, res) {
 
     if (!action || action === 'prospects') {
       const rows = await fetchProspects(cleanDomain, token, 20);
-      const prospects = rows
+
+      // Supplement with database-search — catches real people domain-search's
+      // title-matching misses (non-standard/combined titles). Every result
+      // is domain-verified before being trusted, and anyone domain-search
+      // already found is excluded so the same person can't appear twice.
+      const existingNames = new Set(rows.map(p => `${(p.first_name||'').toLowerCase()}|${(p.last_name||'').toLowerCase()}`));
+      const supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, existingNames);
+      const allRows = [...rows, ...supplement];
+
+      const prospects = allRows
         .map(p => ({ ...p, smtp: p.smtp_status, _score: roleRelevanceScore(p.position) }))
         .sort((a,b) => b._score - a._score);
 
@@ -535,60 +649,6 @@ module.exports = async function handler(req, res) {
       });
 
       return res.json({ contacts });
-    }
-
-    if (action === 'debug-db-search-v2') {
-      const { companyName, jobTitles } = req.body || {};
-      const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
-      const payload = {
-        filters: {
-          prospect: { job_titles: { include: jobTitles || ['Outreach Specialist'] } },
-          company: { name: { include: [companyName || cleanDomain] } }
-        }
-      };
-      const startRes = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
-        method:'POST', headers, body: JSON.stringify(payload), signal: AbortSignal.timeout(9000)
-      });
-      const startText = await startRes.text();
-      const out = { startStatus: startRes.status, startBody: startText };
-      let startJson; try { startJson = JSON.parse(startText); } catch(e) {}
-      const link = startJson?.links?.result;
-      out.resultLink = link || null;
-      if (link) {
-        out.polls = [];
-        for (let i = 0; i < POLL_ATTEMPTS; i++) {
-          await sleep(POLL_DELAY_MS);
-          const r = await fetch(link, { headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(9000) });
-          const body = await r.text();
-          out.polls.push({ status: r.status, body });
-          let json; try { json = JSON.parse(body); } catch(e) {}
-          if (json?.data?.prospects?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
-        }
-      }
-      return res.json(out);
-    }
-
-    if (action === 'debug-reveal') {
-      const { revealUrl } = req.body || {};
-      const headers = { Authorization: 'Bearer ' + token };
-      const startRes = await fetch(revealUrl, { method:'POST', headers, signal: AbortSignal.timeout(9000) });
-      const startText = await startRes.text();
-      const out = { startStatus: startRes.status, startBody: startText };
-      let startJson; try { startJson = JSON.parse(startText); } catch(e) {}
-      const link = startJson?.links?.result;
-      out.resultLink = link || null;
-      if (link) {
-        out.polls = [];
-        for (let i = 0; i < POLL_ATTEMPTS; i++) {
-          await sleep(POLL_DELAY_MS);
-          const r = await fetch(link, { headers, signal: AbortSignal.timeout(9000) });
-          const body = await r.text();
-          out.polls.push({ status: r.status, body });
-          let json; try { json = JSON.parse(body); } catch(e) {}
-          if (json?.data || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
-        }
-      }
-      return res.json(out);
     }
 
     if (action === 'scrape') {
