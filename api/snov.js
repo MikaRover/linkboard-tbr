@@ -42,6 +42,21 @@ const JUNK_EMAIL_PATTERNS = [
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const isOk = code => code >= 200 && code < 300;
 
+// Snov's domain-search/prospects occasionally returns a business/brand
+// LinkedIn page instead of a person (e.g. "Black wasp Firm") — these are
+// never useful outreach targets, so drop them before they take a ranking
+// slot away from a real person.
+const JUNK_NAME_WORDS = [
+  'llc','inc','ltd','co\\.','corp','company','firm','agency','solutions',
+  'group','studio','consulting','consultants','media','marketing','digital',
+  'services','enterprises','ventures','partners','collective'
+];
+const JUNK_NAME_RE = new RegExp('\\b(' + JUNK_NAME_WORDS.join('|') + ')\\b', 'i');
+function isJunkProspectName(firstName, lastName) {
+  const full = `${firstName} ${lastName}`.trim();
+  return JUNK_NAME_RE.test(full);
+}
+
 // ── Auth ──
 async function getToken() {
   const res = await fetch('https://api.snov.io/v1/oauth/access_token', {
@@ -118,6 +133,7 @@ async function fetchProspects(domain, token, maxPeople = 20) {
   const byName = new Map();
   jobs.forEach(job => (job.data || []).forEach(p => {
     if (!p?.first_name || !p?.last_name) return;
+    if (isJunkProspectName(p.first_name, p.last_name)) return;
     const key = `${p.first_name.trim().toLowerCase()}|${p.last_name.trim().toLowerCase()}`;
     const existing = byName.get(key);
     if (!existing || job.batchIndex < existing.__batchIndex) {
@@ -336,55 +352,6 @@ module.exports = async function handler(req, res) {
         withEmail: prospects.filter(p=>p.email && p.smtp_status!=='invalid').length,
         verified:  prospects.filter(p=>p.smtp_status==='valid').length
       });
-    }
-
-    if (action === 'debug-search-email') {
-      const { url } = req.body || {};
-      const headers = { Authorization: 'Bearer ' + token };
-      const out = {};
-      const startRes = await fetch(url, { method:'POST', headers, signal: AbortSignal.timeout(9000) });
-      out.startStatus = startRes.status;
-      const startText = await startRes.text();
-      out.startBody = startText;
-      let startJson; try { startJson = JSON.parse(startText); } catch(e) {}
-      const resultLink = startJson?.links?.result;
-      out.resultLink = resultLink || null;
-      if (resultLink) {
-        out.polls = [];
-        for (let i = 0; i < POLL_ATTEMPTS; i++) {
-          await sleep(POLL_DELAY_MS);
-          const r = await fetch(resultLink, { headers, signal: AbortSignal.timeout(9000) });
-          const body = await r.text();
-          out.polls.push({ status: r.status, body });
-          let json; try { json = JSON.parse(body); } catch(e) {}
-          if (json?.data?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
-        }
-      }
-      return res.json(out);
-    }
-
-    if (action === 'debug-prospects-raw') {
-      const headers = { Authorization: 'Bearer ' + token };
-      const payload = new URLSearchParams({ domain: cleanDomain });
-      ['Outreach Specialist','SEO Specialist','Marketing Manager'].forEach((r,i)=>payload.append(`positions[${i}]`, r));
-      const startRes = await fetch('https://api.snov.io/v2/domain-search/prospects/start', {
-        method:'POST', headers:{ ...headers, 'Content-Type':'application/x-www-form-urlencoded' },
-        body: payload.toString(), signal: AbortSignal.timeout(9000)
-      });
-      const startJson = await startRes.json();
-      const out = { startStatus: startRes.status, startJson };
-      const link = startJson?.links?.result;
-      if (link) {
-        out.polls = [];
-        for (let i = 0; i < POLL_ATTEMPTS; i++) {
-          await sleep(POLL_DELAY_MS);
-          const r = await fetch(link, { headers, signal: AbortSignal.timeout(9000) });
-          const json = await r.json();
-          out.polls.push(json);
-          if (json?.data?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
-        }
-      }
-      return res.json(out);
     }
 
     if (action === 'scrape') {
