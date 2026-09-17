@@ -600,6 +600,12 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    if (action === 'debug-supplement') {
+      const existingNames = new Set();
+      const supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, existingNames);
+      return res.json({ companyName: deriveCompanyName(cleanDomain), supplement });
+    }
+
     if (action === 'enrich-linkedin') {
       const list = (Array.isArray(urls) ? urls : []).filter(Boolean).slice(0, MAX_LINKEDIN_URLS);
       if (!list.length) return res.status(400).json({ error: 'urls required' });
