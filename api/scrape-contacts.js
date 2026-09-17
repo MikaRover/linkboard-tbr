@@ -34,6 +34,12 @@ const CANDIDATE_PATHS = [
   '/staff','/write-for-us','/contribute','/guest-post','/advertise',
   '/press','/authors','/leadership','/people','/meet-the-team'
 ];
+// Narrower than LINK_KEYWORDS/CANDIDATE_PATHS above — a URL matching this is
+// trustworthy enough to scrape for the company's OWN staff. /contact,
+// /press and /authors are excluded here even though they're fetched for
+// emails, since a "Press" or "Contact" page is just as likely to feature a
+// quoted analyst or a guest author as an actual employee.
+const TEAM_PAGE_RE = /\/(team|our-team|about|about-us|staff|leadership|people|meet-the-team)(\/|$|\?)/i;
 
 // Substring matches on the full email — file extensions picked up from
 // image/font URLs, and known third-party/boilerplate addresses.
@@ -111,6 +117,13 @@ function looksLikePersonName(text) {
   return words.every(w => /^[A-Z][a-zA-ZÀ-ÖØ-öø-ÿ'.-]*$/.test(w));
 }
 
+// A name+title pair sitting inside a testimonial/quote/case-study block is
+// a CUSTOMER (or an external analyst quoted in marketing copy), never this
+// company's own staff — e.g. mailtrap.io's homepage has a Twitter-testimonial
+// slider whose card markup ("single-testimonial__icon", "single-tweeter")
+// otherwise looks exactly like a team-grid card to the heuristic below.
+const TESTIMONIAL_CONTEXT_RE = /testimonial|tweet|review|quote|case-stud|customer-stor|success-stor|client-stor/i;
+
 // Best-effort "Name" + "Job Title" extraction from a team/about page's raw
 // HTML — no DOM parser here (matches this file's existing regex-on-html-string
 // style), so this only catches common layouts: structured schema.org Person
@@ -119,18 +132,25 @@ function looksLikePersonName(text) {
 // catch every layout, same tradeoff as the email extraction above.
 function extractTeamMembers(html) {
   const found = new Map(); // name -> title
+  // A testimonial card's icon/avatar markup before the name+role text can
+  // run to several KB of inline SVG (verified against a real example: ~3KB
+  // between a "single-tweeter" class marker and the name it labels), so the
+  // lookback window has to be generous to reliably catch it.
+  const hasTestimonialContext = (idx) => TESTIMONIAL_CONTEXT_RE.test(html.slice(Math.max(0, idx - 4000), idx));
 
   const microRe = /itemprop=["']name["'][^>]*>\s*([^<]{3,50})\s*<[\s\S]{0,300}?itemprop=["']jobTitle["'][^>]*>\s*([^<]{3,60})\s*</gi;
   let m;
   while ((m = microRe.exec(html)) !== null) {
     const name = m[1].trim(), title = m[2].trim();
-    if (looksLikePersonName(name) && !found.has(name)) found.set(name, title);
+    if (!looksLikePersonName(name) || found.has(name) || hasTestimonialContext(m.index)) continue;
+    found.set(name, title);
   }
 
   const headingRe = /<h[2-5][^>]*>\s*([^<]{4,50}?)\s*<\/h[2-5]>\s*(?:<[^>]*>\s*)*?([^<]{4,80}?)\s*</gi;
   while ((m = headingRe.exec(html)) !== null) {
     const name = m[1].trim(), title = m[2].trim();
     if (found.has(name) || !looksLikePersonName(name) || !TITLE_KEYWORD_RE.test(title)) continue;
+    if (hasTestimonialContext(m.index)) continue;
     found.set(name, title);
   }
 
@@ -285,14 +305,15 @@ module.exports = async function handler(req, res) {
   const found = new Map(); // email -> source page
   const teamByName = new Map(); // name -> title
 
-  // 1) Homepage.
+  // 1) Homepage. Deliberately NOT scanned for team members — homepages very
+  // commonly carry customer-testimonial/press-quote sliders whose card
+  // markup (name + role heading) is indistinguishable from a real team-grid
+  // card to the heuristic below; only dedicated team/about/leadership pages
+  // are trustworthy enough for that.
   const home = await fetchPage(baseUrl);
   if (home) {
     extractEmailsFromHtml(home.html, home.url).forEach((page, email) => {
       if (!found.has(email)) found.set(email, page);
-    });
-    extractTeamMembers(home.html).forEach((title, name) => {
-      if (!teamByName.has(name)) teamByName.set(name, title);
     });
   }
 
@@ -306,9 +327,14 @@ module.exports = async function handler(req, res) {
     extractEmailsFromHtml(page.html, page.url).forEach((src, email) => {
       if (!found.has(email)) found.set(email, src);
     });
-    extractTeamMembers(page.html).forEach((title, name) => {
-      if (!teamByName.has(name)) teamByName.set(name, title);
-    });
+    // Team extraction only on pages that are actually about the company's
+    // own people — not /contact, /press, /authors etc., which are just as
+    // likely to carry a quoted outsider as a real employee.
+    if (TEAM_PAGE_RE.test(page.url)) {
+      extractTeamMembers(page.html).forEach((title, name) => {
+        if (!teamByName.has(name)) teamByName.set(name, title);
+      });
+    }
   }
 
   // 3) Prioritize on-domain addresses over incidental off-domain ones
