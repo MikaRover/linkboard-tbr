@@ -680,6 +680,48 @@ module.exports = async function handler(req, res) {
       return res.json({ domain: cleanDomain, emails });
     }
 
+    if (action === 'debug-titles') {
+      const companyName = deriveCompanyName(cleanDomain);
+      const out = { companyName };
+
+      // Raw domain-search with the exact title the person's LinkedIn shows
+      const dsPayload = new URLSearchParams({ domain: cleanDomain });
+      (req.body.titles || []).forEach((t, i) => dsPayload.append(`positions[${i}]`, t));
+      const dsStart = await fetch('https://api.snov.io/v2/domain-search/prospects/start', {
+        method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/x-www-form-urlencoded' },
+        body: dsPayload.toString(), signal: AbortSignal.timeout(9000)
+      });
+      const dsStartJson = await dsStart.json();
+      out.domainSearchStart = { status: dsStart.status, json: dsStartJson };
+      if (dsStartJson?.links?.result) {
+        for (let a=0;a<POLL_ATTEMPTS;a++){
+          await sleep(POLL_DELAY_MS);
+          const r = await fetch(dsStartJson.links.result, { headers:{Authorization:'Bearer '+token} });
+          const j = await r.json();
+          if (j?.data?.length || (j?.status && String(j.status).toLowerCase()!=='in_progress')) { out.domainSearchResult = j; break; }
+        }
+      }
+
+      // Raw database-search with the same titles, filtered on company name
+      const dbStart = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
+        method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+        body: JSON.stringify({ filters: { prospect: { job_titles: { include: req.body.titles || [] } }, company: { name: { include: [companyName] } } } }),
+        signal: AbortSignal.timeout(9000)
+      });
+      const dbStartJson = await dbStart.json();
+      out.dbSearchStart = { status: dbStart.status, json: dbStartJson };
+      if (dbStartJson?.links?.result) {
+        for (let a=0;a<POLL_ATTEMPTS;a++){
+          await sleep(POLL_DELAY_MS);
+          const r = await fetch(dbStartJson.links.result, { headers:{Authorization:'Bearer '+token} });
+          const j = await r.json();
+          if (j?.data?.prospects?.length || (j?.status && String(j.status).toLowerCase()!=='in_progress')) { out.dbSearchResult = j; break; }
+        }
+      }
+
+      return res.json(out);
+    }
+
     return res.status(400).json({error:'Unknown action'});
 
   } catch(e) {
