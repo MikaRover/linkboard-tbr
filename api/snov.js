@@ -29,16 +29,15 @@ const TARGET_ROLES = [
 ];
 
 // database-search/prospects/start's job_titles.include only accepts exact
-// strings from Snov's own internal vocabulary (confirmed live: "Digital PR
-// Manager" and "PR Specialist" are both rejected with a 422 that aborts the
-// WHOLE request, not just that one title) — so unlike TARGET_ROLES above
-// (used with domain-search, which tolerates any string), this list is
-// restricted to titles individually verified to be accepted.
-const SAFE_DB_SEARCH_TITLES = [
-  "Outreach Specialist","SEO Specialist","Link Building Specialist",
-  "Content Marketing Manager","Marketing Manager","Digital Marketing Manager",
-  "Growth Marketing Manager","SEO Outreach Coordinator"
-];
+// strings from Snov's own internal vocabulary, and even a title that IS
+// accepted often isn't the one a real person is actually indexed under —
+// confirmed live: a genuine link builder at proprofs.com whose LinkedIn
+// headline is "Off-page Link Building Specialist" is indexed by Snov under
+// the generic "search engine optimization specialist", and only turned up
+// once job_titles filtering was dropped entirely in favor of fetching the
+// whole company roster and scoring each person's title ourselves with the
+// same roleTier() used for domain-search results below.
+const MAX_DB_SEARCH_PAGES = 4;   // 50/page — bounds worst-case latency within Vercel's function duration limit
 const MAX_DB_SEARCH_REVEALS = 5; // reveal calls run in parallel but each is its own poll cycle — keep this small so a slow one can't blow the request's total time budget
 
 // Best-effort company display name from a bare domain, for database-search's
@@ -157,41 +156,59 @@ function isAlreadyFound(candidate, existingRows) {
   );
 }
 
-async function fetchDatabaseSearchSupplement(domain, token, existingRows) {
+// Fetches one page of database-search's company roster (no title filter —
+// see the comment on MAX_DB_SEARCH_PAGES above for why). Each page is its
+// own start+poll cycle since Snov ties the task_hash to a specific page.
+async function fetchDatabaseSearchPage(companyName, page, token) {
   const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
   try {
-    const companyName = deriveCompanyName(domain);
     const startRes = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
       method: 'POST', headers,
-      body: JSON.stringify({ filters: {
-        prospect: { job_titles: { include: SAFE_DB_SEARCH_TITLES } },
-        company: { name: { include: [companyName] } }
-      } }),
+      body: JSON.stringify({ filters: { company: { name: { include: [companyName] } } }, page }),
       signal: AbortSignal.timeout(9000)
     });
-    if (!isOk(startRes.status)) return [];
+    if (!isOk(startRes.status)) return { prospects: [], totalPages: 0 };
     const startJson = await startRes.json();
     // Unlike every other Snov v2 endpoint used in this file, database-search
     // puts the poll link straight in `links.result` (task_hash lives under
     // `meta`, not `data`) — verified live: reading data.task_hash here was
     // always undefined, so this call silently returned [] on every request.
     const resultLink = startJson?.links?.result;
-    if (!resultLink) return [];
+    if (!resultLink) return { prospects: [], totalPages: 0 };
 
-    let prospects = [];
     for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
       await sleep(POLL_DELAY_MS);
       try {
         const r = await fetch(resultLink, { headers, signal: AbortSignal.timeout(9000) });
         if (!isOk(r.status)) continue;
         const json = await r.json();
-        if (json?.data?.prospects?.length) { prospects = json.data.prospects; break; }
-        if (json?.status && String(json.status).toLowerCase() !== 'in_progress') { prospects = json?.data?.prospects || []; break; }
+        if (json?.data?.prospects?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) {
+          return { prospects: json?.data?.prospects || [], totalPages: json?.data?.total_pages || 1 };
+        }
       } catch(e) { /* keep polling */ }
     }
+    return { prospects: [], totalPages: 0 };
+  } catch(e) { return { prospects: [], totalPages: 0 }; }
+}
+
+async function fetchDatabaseSearchSupplement(domain, token, existingRows) {
+  try {
+    const companyName = deriveCompanyName(domain);
+
+    const first = await fetchDatabaseSearchPage(companyName, 1, token);
+    const totalPages = Math.min(first.totalPages || 1, MAX_DB_SEARCH_PAGES);
+    const restPages = await Promise.all(
+      Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => fetchDatabaseSearchPage(companyName, i + 2, token))
+    );
+    const prospects = [first, ...restPages].flatMap(pg => pg.prospects);
 
     const onDomain = prospects.filter(p => (p?.company?.domain || '').toLowerCase() === domain.toLowerCase());
-    const fresh = onDomain.filter(p => !isAlreadyFound(p, existingRows));
+    // Same relevance bar as domain-search — a full company roster is mostly
+    // engineers/sales/support, so only bother revealing (a paid-feeling call)
+    // whoever actually looks like a link-building/SEO/PR/marketing contact.
+    const relevant = onDomain.filter(p => roleTier(p.job_title) >= MIN_RELEVANT_TIER);
+    relevant.sort((a, b) => roleTier(b.job_title) - roleTier(a.job_title));
+    const fresh = relevant.filter(p => !isAlreadyFound(p, existingRows));
     const toReveal = fresh.filter(p => p.email_and_hidden_info_reveal).slice(0, MAX_DB_SEARCH_REVEALS);
 
     const revealed = await Promise.all(toReveal.map(async (p) => {
@@ -606,6 +623,34 @@ module.exports = async function handler(req, res) {
       const supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, rows);
       const allRows = [...rows, ...supplement];
 
+      // Snov's name+domain database lookup only surfaces an email it already
+      // has indexed — a real person with no indexed email otherwise shows up
+      // with nothing actionable. Guess the two most common professional
+      // patterns and let Snov's separate SMTP-probe verification (checks
+      // mailbox existence directly, not a database lookup) confirm whether
+      // either is real, same fallback used for LinkedIn-URL enrichment.
+      const noEmailRows = allRows.filter(p => !p.email && p.first_name && p.last_name);
+      if (noEmailRows.length) {
+        const guessesByRow = new Map();
+        const allGuesses = [];
+        noEmailRows.forEach(p => {
+          const f = p.first_name.toLowerCase().replace(/[^a-z]/g,'');
+          const l = p.last_name.toLowerCase().replace(/[^a-z]/g,'');
+          if (!f || !l) return;
+          const guesses = [`${f}.${l}@${cleanDomain}`, `${f[0]}${l}@${cleanDomain}`];
+          guessesByRow.set(p, guesses);
+          allGuesses.push(...guesses);
+        });
+        if (allGuesses.length) {
+          const verified = await verifyEmailsWithSnov(allGuesses, token);
+          noEmailRows.forEach(p => {
+            const guesses = guessesByRow.get(p) || [];
+            const validGuess = guesses.find(g => verified.get(g) === 'valid');
+            if (validGuess) { p.email = validGuess; p.smtp_status = 'valid'; p.source = 'GUESSED'; }
+          });
+        }
+      }
+
       const prospects = allRows
         .map(p => ({ ...p, smtp: p.smtp_status, _score: roleRelevanceScore(p.position) }))
         .sort((a,b) => b._score - a._score);
@@ -678,126 +723,6 @@ module.exports = async function handler(req, res) {
         .filter(r => r.email)
         .map(r => ({ email: r.email, smtp: r.smtp_status }));
       return res.json({ domain: cleanDomain, emails });
-    }
-
-    if (action === 'debug-titles') {
-      const companyName = deriveCompanyName(cleanDomain);
-      const out = { companyName };
-
-      // Raw domain-search with the exact title the person's LinkedIn shows
-      const dsPayload = new URLSearchParams({ domain: cleanDomain });
-      (req.body.titles || []).forEach((t, i) => dsPayload.append(`positions[${i}]`, t));
-      const dsStart = await fetch('https://api.snov.io/v2/domain-search/prospects/start', {
-        method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/x-www-form-urlencoded' },
-        body: dsPayload.toString(), signal: AbortSignal.timeout(9000)
-      });
-      const dsStartJson = await dsStart.json();
-      out.domainSearchStart = { status: dsStart.status, json: dsStartJson };
-      if (dsStartJson?.links?.result) {
-        for (let a=0;a<POLL_ATTEMPTS;a++){
-          await sleep(POLL_DELAY_MS);
-          const r = await fetch(dsStartJson.links.result, { headers:{Authorization:'Bearer '+token} });
-          const j = await r.json();
-          if (j?.data?.length || (j?.status && String(j.status).toLowerCase()!=='in_progress')) { out.domainSearchResult = j; break; }
-        }
-      }
-
-      // Raw database-search with the same titles, filtered on company name
-      const dbStart = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
-        method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
-        body: JSON.stringify({ filters: { prospect: { job_titles: { include: req.body.titles || [] } }, company: { name: { include: [companyName] } } } }),
-        signal: AbortSignal.timeout(9000)
-      });
-      const dbStartJson = await dbStart.json();
-      out.dbSearchStart = { status: dbStart.status, json: dbStartJson };
-      if (dbStartJson?.links?.result) {
-        for (let a=0;a<POLL_ATTEMPTS;a++){
-          await sleep(POLL_DELAY_MS);
-          const r = await fetch(dbStartJson.links.result, { headers:{Authorization:'Bearer '+token} });
-          const j = await r.json();
-          if (j?.data?.prospects?.length || (j?.status && String(j.status).toLowerCase()!=='in_progress')) { out.dbSearchResult = j; break; }
-        }
-      }
-
-      // database-search with NO job_titles filter at all — just company —
-      // to see if it's even possible to list everyone Snov has indexed there
-      // and filter by title ourselves client-side.
-      const dbStart2 = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
-        method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
-        body: JSON.stringify({ filters: { company: { name: { include: [companyName] } } } }),
-        signal: AbortSignal.timeout(9000)
-      });
-      const dbStart2Json = await dbStart2.json();
-      out.dbSearchNoTitleStart = { status: dbStart2.status, json: dbStart2Json };
-      if (dbStart2Json?.links?.result) {
-        for (let a=0;a<POLL_ATTEMPTS;a++){
-          await sleep(POLL_DELAY_MS);
-          const r = await fetch(dbStart2Json.links.result, { headers:{Authorization:'Bearer '+token} });
-          const j = await r.json();
-          if (j?.data?.prospects?.length || (j?.status && String(j.status).toLowerCase()!=='in_progress')) { out.dbSearchNoTitleResult = j; break; }
-        }
-      }
-
-      // Test page 2 — try both a `page` field on the start body and a
-      // `?page=` query param on the poll/result link, to see which one
-      // Snov actually honors for pagination.
-      const page2Attempts = {};
-      try {
-        const p2StartA = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
-          method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
-          body: JSON.stringify({ filters: { company: { name: { include: [companyName] } } }, page: 2 }),
-          signal: AbortSignal.timeout(9000)
-        });
-        const p2StartAJson = await p2StartA.json();
-        page2Attempts.bodyPageStart = { status: p2StartA.status, json: p2StartAJson };
-        if (p2StartAJson?.links?.result) {
-          for (let a=0;a<POLL_ATTEMPTS;a++){
-            await sleep(POLL_DELAY_MS);
-            const r = await fetch(p2StartAJson.links.result, { headers:{Authorization:'Bearer '+token} });
-            const j = await r.json();
-            if (j?.data?.prospects?.length || (j?.status && String(j.status).toLowerCase()!=='in_progress')) { page2Attempts.bodyPageResult = { total: j?.data?.total, page: j?.data?.page, firstNames: (j?.data?.prospects||[]).slice(0,5).map(p=>p.first_name+' '+p.last_name) }; break; }
-          }
-        }
-      } catch(e) { page2Attempts.bodyPageError = e.message; }
-
-      if (dbStart2Json?.links?.result) {
-        try {
-          const queryPageLink = dbStart2Json.links.result + (dbStart2Json.links.result.includes('?') ? '&' : '?') + 'page=2';
-          const r = await fetch(queryPageLink, { headers:{Authorization:'Bearer '+token} });
-          const j = await r.json();
-          page2Attempts.queryPageResult = { status: r.status, total: j?.data?.total, page: j?.data?.page, firstNames: (j?.data?.prospects||[]).slice(0,5).map(p=>p.first_name+' '+p.last_name) };
-        } catch(e) { page2Attempts.queryPageError = e.message; }
-      }
-      out.page2Attempts = page2Attempts;
-
-      // Fetch all pages (page field in the start body is what actually works)
-      // and return every prospect's name+title so we can grep for the target
-      // person and see what title string Snov has indexed for them.
-      const allProspects = [];
-      for (let page = 1; page <= 4; page++) {
-        try {
-          const pStart = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
-            method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
-            body: JSON.stringify({ filters: { company: { name: { include: [companyName] } } }, page }),
-            signal: AbortSignal.timeout(9000)
-          });
-          const pStartJson = await pStart.json();
-          if (!pStartJson?.links?.result) continue;
-          for (let a=0;a<POLL_ATTEMPTS;a++){
-            await sleep(POLL_DELAY_MS);
-            const r = await fetch(pStartJson.links.result, { headers:{Authorization:'Bearer '+token} });
-            const j = await r.json();
-            if (j?.data?.prospects?.length || (j?.status && String(j.status).toLowerCase()!=='in_progress')) {
-              (j?.data?.prospects || []).forEach(p => allProspects.push({ name: (p.first_name||'')+' '+(p.last_name||''), title: p.job_title }));
-              break;
-            }
-          }
-        } catch(e) { /* skip page on error */ }
-      }
-      out.allProspectsCount = allProspects.length;
-      out.allProspects = allProspects;
-
-      return res.json(out);
     }
 
     return res.status(400).json({error:'Unknown action'});
