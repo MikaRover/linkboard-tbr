@@ -157,15 +157,19 @@ async function fetchDatabaseSearchSupplement(domain, token, excludeNames, trace)
     if (trace) trace.push({ step:'after-start-fetch', status: startRes.status });
     if (!isOk(startRes.status)) return [];
     const startJson = await startRes.json();
-    const taskHash = startJson?.data?.task_hash;
-    if (trace) trace.push({ step:'got-task-hash', taskHash });
-    if (!taskHash) return [];
+    // Unlike every other Snov v2 endpoint used in this file, database-search
+    // puts the poll link straight in `links.result` (task_hash lives under
+    // `meta`, not `data`) — verified live: reading data.task_hash here was
+    // always undefined, so this call silently returned [] on every request.
+    const resultLink = startJson?.links?.result;
+    if (trace) trace.push({ step:'got-result-link', resultLink });
+    if (!resultLink) return [];
 
     let prospects = [];
     for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
       await sleep(POLL_DELAY_MS);
       try {
-        const r = await fetch(`https://api.snov.io/v2/database-search/prospects/result/${taskHash}`, { headers, signal: AbortSignal.timeout(9000) });
+        const r = await fetch(resultLink, { headers, signal: AbortSignal.timeout(9000) });
         if (trace) trace.push({ step:'poll', attempt, status: r.status });
         if (!isOk(r.status)) continue;
         const json = await r.json();
