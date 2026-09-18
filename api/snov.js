@@ -141,10 +141,11 @@ async function getToken() {
 // here is strictly filtered to company.domain matching the target domain
 // before being trusted at all.
 // ══════════════════════════════════════════════════════════════
-async function fetchDatabaseSearchSupplement(domain, token, excludeNames) {
+async function fetchDatabaseSearchSupplement(domain, token, excludeNames, trace) {
   const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
   try {
     const companyName = deriveCompanyName(domain);
+    if (trace) trace.push({ step:'before-start-fetch', companyName });
     const startRes = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
       method: 'POST', headers,
       body: JSON.stringify({ filters: {
@@ -153,9 +154,11 @@ async function fetchDatabaseSearchSupplement(domain, token, excludeNames) {
       } }),
       signal: AbortSignal.timeout(9000)
     });
+    if (trace) trace.push({ step:'after-start-fetch', status: startRes.status });
     if (!isOk(startRes.status)) return [];
     const startJson = await startRes.json();
     const taskHash = startJson?.data?.task_hash;
+    if (trace) trace.push({ step:'got-task-hash', taskHash });
     if (!taskHash) return [];
 
     let prospects = [];
@@ -163,16 +166,19 @@ async function fetchDatabaseSearchSupplement(domain, token, excludeNames) {
       await sleep(POLL_DELAY_MS);
       try {
         const r = await fetch(`https://api.snov.io/v2/database-search/prospects/result/${taskHash}`, { headers, signal: AbortSignal.timeout(9000) });
+        if (trace) trace.push({ step:'poll', attempt, status: r.status });
         if (!isOk(r.status)) continue;
         const json = await r.json();
         if (json?.data?.prospects?.length) { prospects = json.data.prospects; break; }
         if (json?.status && String(json.status).toLowerCase() !== 'in_progress') { prospects = json?.data?.prospects || []; break; }
-      } catch(e) { /* keep polling */ }
+      } catch(e) { if (trace) trace.push({ step:'poll-error', attempt, error: e.message }); }
     }
+    if (trace) trace.push({ step:'poll-done', prospectsCount: prospects.length, sample: prospects[0] });
 
     const onDomain = prospects.filter(p => (p?.company?.domain || '').toLowerCase() === domain.toLowerCase());
     const fresh = onDomain.filter(p => !excludeNames.has(`${(p.first_name||'').toLowerCase()}|${(p.last_name||'').toLowerCase().replace(/\*+$/,'')}`));
     const toReveal = fresh.filter(p => p.email_and_hidden_info_reveal).slice(0, MAX_DB_SEARCH_REVEALS);
+    if (trace) trace.push({ step:'filtered', onDomain: onDomain.length, fresh: fresh.length, toReveal: toReveal.length });
 
     const revealed = await Promise.all(toReveal.map(async (p) => {
       try {
@@ -602,11 +608,12 @@ module.exports = async function handler(req, res) {
 
     if (action === 'debug-supplement') {
       const existingNames = new Set();
+      const trace = [];
       let supplement, errorMsg;
       try {
-        supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, existingNames);
+        supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, existingNames, trace);
       } catch(e) { errorMsg = e.message; }
-      return res.json({ companyName: deriveCompanyName(cleanDomain), supplement, errorMsg });
+      return res.json({ companyName: deriveCompanyName(cleanDomain), supplement, errorMsg, trace });
     }
 
     if (action === 'enrich-linkedin') {
