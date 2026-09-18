@@ -770,6 +770,33 @@ module.exports = async function handler(req, res) {
       }
       out.page2Attempts = page2Attempts;
 
+      // Fetch all pages (page field in the start body is what actually works)
+      // and return every prospect's name+title so we can grep for the target
+      // person and see what title string Snov has indexed for them.
+      const allProspects = [];
+      for (let page = 1; page <= 4; page++) {
+        try {
+          const pStart = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
+            method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+            body: JSON.stringify({ filters: { company: { name: { include: [companyName] } } }, page }),
+            signal: AbortSignal.timeout(9000)
+          });
+          const pStartJson = await pStart.json();
+          if (!pStartJson?.links?.result) continue;
+          for (let a=0;a<POLL_ATTEMPTS;a++){
+            await sleep(POLL_DELAY_MS);
+            const r = await fetch(pStartJson.links.result, { headers:{Authorization:'Bearer '+token} });
+            const j = await r.json();
+            if (j?.data?.prospects?.length || (j?.status && String(j.status).toLowerCase()!=='in_progress')) {
+              (j?.data?.prospects || []).forEach(p => allProspects.push({ name: (p.first_name||'')+' '+(p.last_name||''), title: p.job_title }));
+              break;
+            }
+          }
+        } catch(e) { /* skip page on error */ }
+      }
+      out.allProspectsCount = allProspects.length;
+      out.allProspects = allProspects;
+
       return res.json(out);
     }
 
