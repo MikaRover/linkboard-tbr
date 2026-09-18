@@ -670,6 +670,36 @@ module.exports = async function handler(req, res) {
       return res.json({ contacts });
     }
 
+    if (action === 'debug-titles') {
+      const { companyName, jobTitles } = req.body || {};
+      const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+      const startRes = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
+        method:'POST', headers,
+        body: JSON.stringify({ filters: {
+          prospect: { job_titles: { include: jobTitles } },
+          company: { name: { include: [companyName || deriveCompanyName(cleanDomain)] } }
+        } }),
+        signal: AbortSignal.timeout(9000)
+      });
+      const startText = await startRes.text();
+      const out = { startStatus: startRes.status, startBody: startText };
+      let startJson; try { startJson = JSON.parse(startText); } catch(e) {}
+      const link = startJson?.links?.result;
+      out.resultLink = link || null;
+      if (link) {
+        out.polls = [];
+        for (let i = 0; i < POLL_ATTEMPTS; i++) {
+          await sleep(POLL_DELAY_MS);
+          const r = await fetch(link, { headers, signal: AbortSignal.timeout(9000) });
+          const body = await r.text();
+          out.polls.push({ status: r.status, body });
+          let json; try { json = JSON.parse(body); } catch(e) {}
+          if (json?.data?.prospects?.length || (json?.status && String(json.status).toLowerCase() !== 'in_progress')) break;
+        }
+      }
+      return res.json(out);
+    }
+
     if (action === 'scrape') {
       if (!isSafeHost(cleanDomain)) return res.status(400).json({error:'Invalid or disallowed domain'});
       const rows = await deepFetchEmails(cleanDomain, token);
