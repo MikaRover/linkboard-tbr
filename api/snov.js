@@ -11,7 +11,7 @@ const SNOV_CLIENT_SECRET = process.env.SNOV_CLIENT_SECRET;
 
 // ── Target roles (same grouping as Engine) ──
 const CORE_LINK_BUILDING_ROLES = [
-  "Link Builder","Link Building Specialist","Backlink Specialist","Link Acquisition Specialist",
+  "Link Builder","Linkbuilder","Link Building Specialist","Backlink Specialist","Link Acquisition Specialist",
   "SEO Outreach Specialist","Outreach Specialist","Digital Outreach Specialist",
   "Community Outreach Specialist","Content Outreach Manager"
 ];
@@ -89,7 +89,10 @@ function isJunkProspectName(firstName, lastName) {
 const MIN_RELEVANT_TIER = 4; // Content Marketing Manager or better
 function roleTier(position){
   const pos = (position||'').toLowerCase();
-  if (pos.includes('link build')||pos.includes('backlink')) return 10;
+  // "linkbuild..." with no space (confirmed live: snov.io's own Diana
+  // Kozodoi is indexed simply as "Linkbuilder", one word) needs its own
+  // check — "link build" alone never matches it.
+  if (pos.includes('link build')||pos.includes('linkbuild')||pos.includes('backlink')) return 10;
   if (pos.includes('outreach')) return 9;
   if (pos.includes('off-page')||pos.includes('off page')) return 8;
   // database-search's job_title field spells this out in full — never the
