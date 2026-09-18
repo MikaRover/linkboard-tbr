@@ -719,6 +719,25 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      // database-search with NO job_titles filter at all — just company —
+      // to see if it's even possible to list everyone Snov has indexed there
+      // and filter by title ourselves client-side.
+      const dbStart2 = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
+        method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+        body: JSON.stringify({ filters: { company: { name: { include: [companyName] } } } }),
+        signal: AbortSignal.timeout(9000)
+      });
+      const dbStart2Json = await dbStart2.json();
+      out.dbSearchNoTitleStart = { status: dbStart2.status, json: dbStart2Json };
+      if (dbStart2Json?.links?.result) {
+        for (let a=0;a<POLL_ATTEMPTS;a++){
+          await sleep(POLL_DELAY_MS);
+          const r = await fetch(dbStart2Json.links.result, { headers:{Authorization:'Bearer '+token} });
+          const j = await r.json();
+          if (j?.data?.prospects?.length || (j?.status && String(j.status).toLowerCase()!=='in_progress')) { out.dbSearchNoTitleResult = j; break; }
+        }
+      }
+
       return res.json(out);
     }
 
