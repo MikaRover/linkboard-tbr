@@ -141,7 +141,23 @@ async function getToken() {
 // here is strictly filtered to company.domain matching the target domain
 // before being trusted at all.
 // ══════════════════════════════════════════════════════════════
-async function fetchDatabaseSearchSupplement(domain, token, excludeNames) {
+// database-search returns a redacted last name (e.g. "Iv***" — a short
+// real prefix, not a fixed-length mask) until the reveal step, so an exact
+// "firstname|lastname" match against domain-search's already-full names
+// never fires — confirmed live: Daryna and Iryna were both revealed AND
+// returned a second time as duplicates because "iv"/"vy" never equalled
+// "ivanova"/"vylko". Match on first name + last-name-starts-with instead.
+function isAlreadyFound(candidate, existingRows) {
+  const fn = (candidate.first_name || '').toLowerCase();
+  const lnPrefix = (candidate.last_name || '').toLowerCase().replace(/\*+$/, '');
+  if (!fn || !lnPrefix) return false;
+  return existingRows.some(e =>
+    (e.first_name || '').toLowerCase() === fn &&
+    (e.last_name || '').toLowerCase().startsWith(lnPrefix)
+  );
+}
+
+async function fetchDatabaseSearchSupplement(domain, token, existingRows) {
   const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
   try {
     const companyName = deriveCompanyName(domain);
@@ -175,7 +191,7 @@ async function fetchDatabaseSearchSupplement(domain, token, excludeNames) {
     }
 
     const onDomain = prospects.filter(p => (p?.company?.domain || '').toLowerCase() === domain.toLowerCase());
-    const fresh = onDomain.filter(p => !excludeNames.has(`${(p.first_name||'').toLowerCase()}|${(p.last_name||'').toLowerCase().replace(/\*+$/,'')}`));
+    const fresh = onDomain.filter(p => !isAlreadyFound(p, existingRows));
     const toReveal = fresh.filter(p => p.email_and_hidden_info_reveal).slice(0, MAX_DB_SEARCH_REVEALS);
 
     const revealed = await Promise.all(toReveal.map(async (p) => {
@@ -587,8 +603,7 @@ module.exports = async function handler(req, res) {
       // title-matching misses (non-standard/combined titles). Every result
       // is domain-verified before being trusted, and anyone domain-search
       // already found is excluded so the same person can't appear twice.
-      const existingNames = new Set(rows.map(p => `${(p.first_name||'').toLowerCase()}|${(p.last_name||'').toLowerCase()}`));
-      const supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, existingNames);
+      const supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, rows);
       const allRows = [...rows, ...supplement];
 
       const prospects = allRows
