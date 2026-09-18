@@ -141,11 +141,10 @@ async function getToken() {
 // here is strictly filtered to company.domain matching the target domain
 // before being trusted at all.
 // ══════════════════════════════════════════════════════════════
-async function fetchDatabaseSearchSupplement(domain, token, excludeNames, trace) {
+async function fetchDatabaseSearchSupplement(domain, token, excludeNames) {
   const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
   try {
     const companyName = deriveCompanyName(domain);
-    if (trace) trace.push({ step:'before-start-fetch', companyName });
     const startRes = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
       method: 'POST', headers,
       body: JSON.stringify({ filters: {
@@ -154,7 +153,6 @@ async function fetchDatabaseSearchSupplement(domain, token, excludeNames, trace)
       } }),
       signal: AbortSignal.timeout(9000)
     });
-    if (trace) trace.push({ step:'after-start-fetch', status: startRes.status });
     if (!isOk(startRes.status)) return [];
     const startJson = await startRes.json();
     // Unlike every other Snov v2 endpoint used in this file, database-search
@@ -162,7 +160,6 @@ async function fetchDatabaseSearchSupplement(domain, token, excludeNames, trace)
     // `meta`, not `data`) — verified live: reading data.task_hash here was
     // always undefined, so this call silently returned [] on every request.
     const resultLink = startJson?.links?.result;
-    if (trace) trace.push({ step:'got-result-link', resultLink });
     if (!resultLink) return [];
 
     let prospects = [];
@@ -170,19 +167,16 @@ async function fetchDatabaseSearchSupplement(domain, token, excludeNames, trace)
       await sleep(POLL_DELAY_MS);
       try {
         const r = await fetch(resultLink, { headers, signal: AbortSignal.timeout(9000) });
-        if (trace) trace.push({ step:'poll', attempt, status: r.status });
         if (!isOk(r.status)) continue;
         const json = await r.json();
         if (json?.data?.prospects?.length) { prospects = json.data.prospects; break; }
         if (json?.status && String(json.status).toLowerCase() !== 'in_progress') { prospects = json?.data?.prospects || []; break; }
-      } catch(e) { if (trace) trace.push({ step:'poll-error', attempt, error: e.message }); }
+      } catch(e) { /* keep polling */ }
     }
-    if (trace) trace.push({ step:'poll-done', prospectsCount: prospects.length, sample: prospects[0] });
 
     const onDomain = prospects.filter(p => (p?.company?.domain || '').toLowerCase() === domain.toLowerCase());
     const fresh = onDomain.filter(p => !excludeNames.has(`${(p.first_name||'').toLowerCase()}|${(p.last_name||'').toLowerCase().replace(/\*+$/,'')}`));
     const toReveal = fresh.filter(p => p.email_and_hidden_info_reveal).slice(0, MAX_DB_SEARCH_REVEALS);
-    if (trace) trace.push({ step:'filtered', onDomain: onDomain.length, fresh: fresh.length, toReveal: toReveal.length });
 
     const revealed = await Promise.all(toReveal.map(async (p) => {
       try {
@@ -218,7 +212,7 @@ async function fetchDatabaseSearchSupplement(domain, token, excludeNames, trace)
     }));
 
     return revealed.filter(Boolean);
-  } catch(e) { return [{ __debug_error: e.message }]; }
+  } catch(e) { return []; }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -608,16 +602,6 @@ module.exports = async function handler(req, res) {
         withEmail: prospects.filter(p=>p.email && p.smtp_status!=='invalid').length,
         verified:  prospects.filter(p=>p.smtp_status==='valid').length
       });
-    }
-
-    if (action === 'debug-supplement') {
-      const existingNames = new Set();
-      const trace = [];
-      let supplement, errorMsg;
-      try {
-        supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, existingNames, trace);
-      } catch(e) { errorMsg = e.message; }
-      return res.json({ companyName: deriveCompanyName(cleanDomain), supplement, errorMsg, trace });
     }
 
     if (action === 'enrich-linkedin') {
