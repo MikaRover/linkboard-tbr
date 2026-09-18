@@ -92,8 +92,13 @@ function roleTier(position){
   if (pos.includes('link build')||pos.includes('backlink')) return 10;
   if (pos.includes('outreach')) return 9;
   if (pos.includes('off-page')||pos.includes('off page')) return 8;
-  if (pos.includes('seo')) return 7;
-  if (pos.includes('digital pr')||pos.includes(' pr ')) return 6;
+  // database-search's job_title field spells this out in full — never the
+  // "SEO" abbreviation a LinkedIn headline would use (confirmed live:
+  // proprofs.com's Rinky Sharma is indexed as "search engine optimization
+  // specialist", which scored tier 0 and got filtered out entirely until
+  // this check was added).
+  if (pos.includes('seo')||pos.includes('search engine optimization')) return 7;
+  if (pos.includes('digital pr')||pos.includes(' pr ')||pos.includes('public relations')) return 6;
   if (pos.includes('content')) return 4;
   if (pos.includes('marketing')) return 3;
   return 0;
