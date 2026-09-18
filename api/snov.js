@@ -738,6 +738,38 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      // Test page 2 — try both a `page` field on the start body and a
+      // `?page=` query param on the poll/result link, to see which one
+      // Snov actually honors for pagination.
+      const page2Attempts = {};
+      try {
+        const p2StartA = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
+          method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+          body: JSON.stringify({ filters: { company: { name: { include: [companyName] } } }, page: 2 }),
+          signal: AbortSignal.timeout(9000)
+        });
+        const p2StartAJson = await p2StartA.json();
+        page2Attempts.bodyPageStart = { status: p2StartA.status, json: p2StartAJson };
+        if (p2StartAJson?.links?.result) {
+          for (let a=0;a<POLL_ATTEMPTS;a++){
+            await sleep(POLL_DELAY_MS);
+            const r = await fetch(p2StartAJson.links.result, { headers:{Authorization:'Bearer '+token} });
+            const j = await r.json();
+            if (j?.data?.prospects?.length || (j?.status && String(j.status).toLowerCase()!=='in_progress')) { page2Attempts.bodyPageResult = { total: j?.data?.total, page: j?.data?.page, firstNames: (j?.data?.prospects||[]).slice(0,5).map(p=>p.first_name+' '+p.last_name) }; break; }
+          }
+        }
+      } catch(e) { page2Attempts.bodyPageError = e.message; }
+
+      if (dbStart2Json?.links?.result) {
+        try {
+          const queryPageLink = dbStart2Json.links.result + (dbStart2Json.links.result.includes('?') ? '&' : '?') + 'page=2';
+          const r = await fetch(queryPageLink, { headers:{Authorization:'Bearer '+token} });
+          const j = await r.json();
+          page2Attempts.queryPageResult = { status: r.status, total: j?.data?.total, page: j?.data?.page, firstNames: (j?.data?.prospects||[]).slice(0,5).map(p=>p.first_name+' '+p.last_name) };
+        } catch(e) { page2Attempts.queryPageError = e.message; }
+      }
+      out.page2Attempts = page2Attempts;
+
       return res.json(out);
     }
 
