@@ -1817,14 +1817,13 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <!-- By person — click a name to see their hours -->
   <div class="card" style="margin-bottom:1.5rem;">
     <div class="card-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <span>👤 Ում ժամերն ես ուզում տեսնել</span>
+      <span>👤 View hours by person</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setPersonRangePreset('today')">Today</button>
         <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setPersonRangePreset('week')">This week</button>
         <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setPersonRangePreset('month')">This month</button>
-        <label style="font-size:11px;color:var(--text3);margin:0;">From</label>
         <input type="date" id="person-from" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderPersonSummary()"/>
-        <label style="font-size:11px;color:var(--text3);margin:0;">To</label>
+        <span style="color:var(--text3);font-size:12px;">–</span>
         <input type="date" id="person-to" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderPersonSummary()"/>
       </div>
     </div>
