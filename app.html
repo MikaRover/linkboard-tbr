@@ -2887,7 +2887,6 @@ function startApp(){
 
   const isAdmin=cu.role==='admin';
   const isManager=cu.role==='manager';
-  const isSofya=(cu.name||'').trim().toLowerCase()==='sofya';
   // Bigger, clearer UI for builders (team members)
   document.body.classList.toggle('role-builder', !isAdmin);
 
@@ -2903,17 +2902,17 @@ function startApp(){
     });
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='block');
   }
-  // Double-check queue nav — Sofya and admin
+  // Double-check queue nav — admin only
   document.querySelectorAll('.nav-sofya').forEach(el=>{
-    el.style.display=(isAdmin||isSofya)?'block':'none';
+    el.style.display=isAdmin?'block':'none';
   });
   // Import CSV in the builder-nav slot — Admin Secretary only, not plain builders
   // (admin already has their own separate Import CSV item outside nav-bld)
   document.querySelectorAll('.nav-mgr').forEach(el=>{
     el.style.display=isManager?'block':'none';
   });
-  // Notification bell — everyone: admin (approvals, anyway-adds), Sofya
-  // (double-check alerts), any builder (their own approve/reject results)
+  // Notification bell — everyone: admin (approvals, anyway-adds), any
+  // builder (their own approve/reject results)
   const notifBell=document.getElementById('notif-bell-wrap');
   if(notifBell)notifBell.style.display='block';
 
@@ -4321,7 +4320,6 @@ async function addLink(){
     ...(chosenStatus==='live'?{needsDoubleCheck:true}:{}),
     ...(needsApproval ? {needsApproval:true, approvalReason, approvalStatus:'pending'} : {})});
     if(needsApproval)notifyAdminApproval({domain,project:proj,reason:approvalReason});
-    if(chosenStatus==='live')notifySofyaDoubleCheck({domain,project:proj,builder:chosenBuilder});
     if(addLinkModalOpen){
       closeAddLinkModal();
       showToast('✅ Link added!');
@@ -4467,17 +4465,6 @@ function notifyAdminApproval(info){
     project:info.project||'',
     reason:info.reason||'',
     builder:cu.name||cu.email||'',
-    read:false,
-    createdAt:firebase.firestore.FieldValue.serverTimestamp()
-  }).catch(()=>{});
-}
-function notifySofyaDoubleCheck(info){
-  db.collection('notifications').add({
-    type:'double-check',
-    recipient:'sofya',
-    domain:info.domain||'',
-    project:info.project||'',
-    builder:info.builder||'',
     read:false,
     createdAt:firebase.firestore.FieldValue.serverTimestamp()
   }).catch(()=>{});
@@ -5958,12 +5945,11 @@ async function deleteLink(id, domain){
 
 async function updateLinkStatus(id, status){
   const update = {status};
-  // Flag newly-live links for Sofya's double-check queue
+  // Flag newly-live links for the double-check queue
   if(status==='live') update.needsDoubleCheck = true;
   await db.collection('links').doc(id).update(update);
   if(status==='live'){
     const l=allLinks.find(x=>x.id===id);
-    notifySofyaDoubleCheck({domain:l?l.domain:'',project:l?l.project:'',builder:l?l.builder:''});
     if(l && !l.invoice) promptInvoiceEntry(id);
   }
 }
