@@ -733,6 +733,24 @@ module.exports = async function handler(req, res) {
       return res.json({ domain: cleanDomain, emails });
     }
 
+    if (action === 'debug-campaigns') {
+      const headers = { Authorization: 'Bearer ' + token };
+      const out = {};
+      const candidates = [
+        'https://api.snov.io/v1/user/campaigns',
+        'https://api.snov.io/v1/get-user-campaigns',
+        'https://api.snov.io/v1/campaigns'
+      ];
+      for (const url of candidates) {
+        try {
+          const r = await fetch(url, { headers, signal: AbortSignal.timeout(9000) });
+          const text = await r.text();
+          out[url] = { status: r.status, body: text.slice(0, 2000) };
+        } catch(e) { out[url] = { error: e.message }; }
+      }
+      return res.json(out);
+    }
+
     return res.status(400).json({error:'Unknown action'});
 
   } catch(e) {
