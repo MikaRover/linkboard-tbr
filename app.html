@@ -1819,6 +1819,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <div class="card-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <span>👤 View hours by person</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select id="person-select" style="margin:0;padding:6px 10px;font-size:12px;font-weight:700;width:auto;" onchange="onPersonSelectChange()"></select>
         <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setPersonRangePreset('today')">Today</button>
         <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setPersonRangePreset('week')">This week</button>
         <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setPersonRangePreset('month')">This month</button>
@@ -1828,7 +1829,6 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       </div>
     </div>
     <div class="card-body">
-      <div id="person-chips" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:1rem;"></div>
       <div id="person-summary-stats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1rem;"></div>
       <div class="tbl-wrap"><table>
         <thead><tr>
@@ -7183,7 +7183,6 @@ function exportOutreachCSV(){
 // ─── ONLINE TRACKING ──────────────────────────────────────
 let onlineListener = null;
 let currentSessionRef = null;
-let selectedPersonName = null;
 
 // Nobody actually clicks "Logout" — they close the tab, close the laptop,
 // or their browser crashes. A session with no logoutAt used to compute its
@@ -7285,18 +7284,11 @@ function initOnlinePage(){
   document.getElementById('online-date').value = today;
   document.getElementById('online-date-label').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
 
-  // By-person controls — default to the last 7 days, chips built once
-  const personChips = document.getElementById('person-chips');
-  if(personChips && !personChips.dataset.built){
-    if(!selectedPersonName) selectedPersonName = (cu && cu.name && ONLINE_TRACKING_BUILDERS.includes(cu.name)) ? cu.name : ONLINE_TRACKING_BUILDERS[0];
-    personChips.innerHTML = ONLINE_TRACKING_BUILDERS.map(b=>{
-      const color = ONLINE_NEON_COLORS[b]||'var(--teal)';
-      const active = b===selectedPersonName;
-      return `<button onclick="selectPersonChip('${escAttr(b)}')" class="btn-ghost" data-person-chip="${escAttr(b)}"
-        style="flex-shrink:0;font-size:12px;font-weight:700;padding:6px 14px;border-radius:20px;white-space:nowrap;
-        color:${active?'#03080f':color};background:${active?color:'transparent'};border-color:${color};">${escapeHtml(b)}</button>`;
-    }).join('');
-    personChips.dataset.built = '1';
+  // By-person controls — default to the last 7 days, select built once
+  const personSelect = document.getElementById('person-select');
+  if(personSelect && !personSelect.options.length){
+    personSelect.innerHTML = ONLINE_TRACKING_BUILDERS.map(b=>`<option value="${escAttr(b)}">${escapeHtml(b)}</option>`).join('');
+    personSelect.value = (cu && cu.name && ONLINE_TRACKING_BUILDERS.includes(cu.name)) ? cu.name : ONLINE_TRACKING_BUILDERS[0];
   }
   const personFrom = document.getElementById('person-from');
   const personTo = document.getElementById('person-to');
@@ -7428,15 +7420,7 @@ async function renderOnlinePage(){
     `<div style="padding-left:80px;position:relative;">${timelineHtml}</div>${hours}`;
 }
 
-function selectPersonChip(name){
-  selectedPersonName = name;
-  document.querySelectorAll('[data-person-chip]').forEach(btn=>{
-    const b = btn.getAttribute('data-person-chip');
-    const color = ONLINE_NEON_COLORS[b]||'var(--teal)';
-    const active = b===name;
-    btn.style.color = active?'#03080f':color;
-    btn.style.background = active?color:'transparent';
-  });
+function onPersonSelectChange(){
   renderPersonSummary();
 }
 
@@ -7465,7 +7449,7 @@ function setPersonRangePreset(preset){
 // `date` (no `builder` equality alongside it) so this never needs a
 // composite index; the person filter happens client-side instead.
 async function renderPersonSummary(){
-  const person = selectedPersonName;
+  const person = document.getElementById('person-select')?.value;
   const fromVal = document.getElementById('person-from')?.value;
   const toVal = document.getElementById('person-to')?.value;
   if(!person || !fromVal || !toVal) return;
