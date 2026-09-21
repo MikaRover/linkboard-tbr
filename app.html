@@ -1835,6 +1835,33 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <div class="card-head">Session timeline</div>
     <div class="card-body" id="online-timeline"></div>
   </div>
+
+  <!-- By person -->
+  <div class="card" style="margin-top:1rem;">
+    <div class="card-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>👤 By person</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select id="person-select" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderPersonSummary()"></select>
+        <label style="font-size:11px;color:var(--text3);margin:0;">From</label>
+        <input type="date" id="person-from" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderPersonSummary()"/>
+        <label style="font-size:11px;color:var(--text3);margin:0;">To</label>
+        <input type="date" id="person-to" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderPersonSummary()"/>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="person-summary-stats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1rem;"></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>Date</th>
+          <th>First seen</th>
+          <th>Last seen</th>
+          <th>Total time</th>
+          <th>Sessions</th>
+        </tr></thead>
+        <tbody id="person-summary-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
 </div>
 
 <!-- ══ ANALYTICS ══ -->
@@ -7165,6 +7192,24 @@ let currentSessionRef = null;
 // instead of counting up against whatever moment the page happens to be
 // viewed.
 const PRESENCE_STALE_MS = 5 * 60 * 1000; // 5 min — 2x the 2-min heartbeat, plus margin
+const ONLINE_TRACKING_BUILDERS = ['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik','David','Edgar','Edo','Tatev','Vard'];
+const ONLINE_NEON_COLORS={
+  'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
+  'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
+  'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
+  'Rubik':'#ea80fc','Admin':'#2d6a4f'
+};
+
+// Shared by both the daily report and the by-person summary — an abandoned
+// session (no explicit logout) resolves to its last real heartbeat instead
+// of "now", so it stops accumulating time the moment it actually went
+// stale rather than every time either report happens to be viewed.
+function sessionEnd(s){ return s.logoutAt?.toDate?.() || s.lastHeartbeat?.toDate?.() || s.loginAt?.toDate?.() || null; }
+function isSessionLive(s){
+  if(s.logoutAt) return false;
+  const hb = s.lastHeartbeat?.toDate?.() || s.loginAt?.toDate?.();
+  return !!hb && (Date.now()-hb.getTime()) < PRESENCE_STALE_MS;
+}
 
 function trackSession(action){
   if(!cu) return;
@@ -7237,6 +7282,20 @@ function initOnlinePage(){
   document.getElementById('online-date').value = today;
   document.getElementById('online-date-label').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
 
+  // By-person controls — default to the last 7 days
+  const personSelect = document.getElementById('person-select');
+  if(personSelect && !personSelect.options.length){
+    personSelect.innerHTML = ONLINE_TRACKING_BUILDERS.map(b=>`<option value="${escAttr(b)}">${escapeHtml(b)}</option>`).join('');
+    if(cu && cu.name && ONLINE_TRACKING_BUILDERS.includes(cu.name)) personSelect.value = cu.name;
+  }
+  const personFrom = document.getElementById('person-from');
+  const personTo = document.getElementById('person-to');
+  if(personFrom && !personFrom.value){
+    const weekAgo = new Date(Date.now() - 6*86400000).toISOString().slice(0,10);
+    personFrom.value = weekAgo;
+    personTo.value = today;
+  }
+
   // Listen to presence
   if(onlineListener) onlineListener();
   onlineListener = db.collection('presence').onSnapshot(snap=>{
@@ -7251,17 +7310,11 @@ function initOnlinePage(){
       return !seen || (Date.now()-seen.getTime()) < PRESENCE_STALE_MS;
     });
     const onlineNow = document.getElementById('online-now');
-    const NEON_COLORS={
-      'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
-    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
-    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
-    'Rubik':'#ea80fc','Admin':'#2d6a4f'
-    };
     if(!online.length){
       onlineNow.innerHTML='<div style="color:var(--text3);font-size:13px;">No one online right now</div>';
     } else {
       onlineNow.innerHTML = online.map(u=>{
-        const color = NEON_COLORS[u.name]||'var(--teal)';
+        const color = ONLINE_NEON_COLORS[u.name]||'var(--teal)';
         const lastSeen = u.lastSeen?.toDate ? u.lastSeen.toDate().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
         return `<div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid ${color}44;border-radius:10px;padding:8px 14px;">
           <div style="width:8px;height:8px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color};animation:pulse 2s infinite;"></div>
@@ -7273,6 +7326,7 @@ function initOnlinePage(){
   });
 
   renderOnlinePage();
+  renderPersonSummary();
 }
 
 async function renderOnlinePage(){
@@ -7298,29 +7352,8 @@ async function renderOnlinePage(){
     byBuilder[s.builder].push(s);
   });
 
-  const NEON_COLORS={
-    'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
-    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
-    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
-    'Rubik':'#ea80fc','Admin':'#2d6a4f'
-  };
-
-  // A session with no logoutAt (the overwhelming majority — closing the tab
-  // never sets it) used to fall back to `new Date()` as its end time, so
-  // every abandoned session from any past day kept "accumulating" more
-  // hours every time this report was reopened, and its builder stayed
-  // stuck showing Online forever. lastHeartbeat gives a real, bounded end
-  // time instead — it stops moving the moment the tab actually stopped
-  // checking in.
-  const sessionEnd = s => s.logoutAt?.toDate?.() || s.lastHeartbeat?.toDate?.() || s.loginAt?.toDate?.() || null;
-  const isSessionLive = s => {
-    if(s.logoutAt) return false;
-    const hb = s.lastHeartbeat?.toDate?.() || s.loginAt?.toDate?.();
-    return !!hb && (Date.now()-hb.getTime()) < PRESENCE_STALE_MS;
-  };
-
   document.getElementById('online-tbody').innerHTML = Object.entries(byBuilder).map(([builder, bSessions])=>{
-    const color = NEON_COLORS[builder]||'var(--teal)';
+    const color = ONLINE_NEON_COLORS[builder]||'var(--teal)';
     const logins = bSessions.map(s=>s.loginAt?.toDate?.()||null).filter(Boolean).sort((a,b)=>a-b);
     const ends = bSessions.map(sessionEnd).filter(Boolean).sort((a,b)=>a-b);
     const first = logins[0] ? logins[0].toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
@@ -7359,7 +7392,7 @@ async function renderOnlinePage(){
   const dayMs = dayEnd - dayStart;
 
   const timelineHtml = Object.entries(byBuilder).map(([builder, bSessions])=>{
-    const color = NEON_COLORS[builder]||'var(--teal)';
+    const color = ONLINE_NEON_COLORS[builder]||'var(--teal)';
     const bars = bSessions.map(s=>{
       const login = s.loginAt?.toDate?.();
       const logout = sessionEnd(s) || new Date();
@@ -7385,7 +7418,81 @@ async function renderOnlinePage(){
     `<div style="padding-left:80px;position:relative;">${timelineHtml}</div>${hours}`;
 }
 
+// One person, across a date range — a single Firestore range filter on
+// `date` (no `builder` equality alongside it) so this never needs a
+// composite index; the person filter happens client-side instead.
+async function renderPersonSummary(){
+  const person = document.getElementById('person-select')?.value;
+  const fromVal = document.getElementById('person-from')?.value;
+  const toVal = document.getElementById('person-to')?.value;
+  if(!person || !fromVal || !toVal) return;
 
+  const snap = await db.collection('sessions').where('date','>=',fromVal).where('date','<=',toVal).get();
+  const sessions = snap.docs.map(d=>d.data()).filter(s=>s.builder===person);
+
+  const statsEl = document.getElementById('person-summary-stats');
+  const tbodyEl = document.getElementById('person-summary-tbody');
+
+  if(!sessions.length){
+    statsEl.innerHTML = '';
+    tbodyEl.innerHTML = '<tr><td colspan="5" class="loading">No activity in this range</td></tr>';
+    return;
+  }
+
+  // Group by day
+  const byDate = {};
+  sessions.forEach(s=>{
+    if(!byDate[s.date]) byDate[s.date]=[];
+    byDate[s.date].push(s);
+  });
+
+  let grandTotalMs = 0;
+  let grandSessions = 0;
+  const rows = Object.entries(byDate).sort((a,b)=>b[0].localeCompare(a[0])).map(([date, dSessions])=>{
+    const logins = dSessions.map(s=>s.loginAt?.toDate?.()||null).filter(Boolean).sort((a,b)=>a-b);
+    const ends = dSessions.map(sessionEnd).filter(Boolean).sort((a,b)=>a-b);
+    const first = logins[0] ? logins[0].toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
+    const last = ends.length ? ends[ends.length-1].toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
+
+    let totalMs = 0;
+    dSessions.forEach(s=>{
+      const login = s.loginAt?.toDate?.();
+      const end = sessionEnd(s) || new Date();
+      if(login) totalMs += end - login;
+    });
+    grandTotalMs += totalMs;
+    grandSessions += dSessions.length;
+    const hrs = Math.floor(totalMs/3600000);
+    const mins = Math.floor((totalMs%3600000)/60000);
+
+    return `<tr>
+      <td style="font-size:12px;">${new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</td>
+      <td style="font-size:12px;">${first}</td>
+      <td style="font-size:12px;">${last}</td>
+      <td style="font-weight:700;color:var(--teal);">${hrs}h ${mins}m</td>
+      <td style="text-align:center;">${dSessions.length}</td>
+    </tr>`;
+  }).join('');
+
+  tbodyEl.innerHTML = rows;
+
+  const grandHrs = Math.floor(grandTotalMs/3600000);
+  const grandMins = Math.floor((grandTotalMs%3600000)/60000);
+  const color = ONLINE_NEON_COLORS[person]||'var(--teal)';
+  statsEl.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;font-weight:800;color:${color};">${grandHrs}h ${grandMins}m</div>
+      <div style="font-size:11px;color:var(--text2);">Total in range</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;font-weight:800;color:var(--teal);">${Object.keys(byDate).length}</div>
+      <div style="font-size:11px;color:var(--text2);">Days active</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;font-weight:800;color:var(--text);">${grandSessions}</div>
+      <div style="font-size:11px;color:var(--text2);">Sessions</div>
+    </div>`;
+}
 
 // ─── ANCHORS PAGE ─────────────────────────────────────────
 let ancSelectedProj = null;
