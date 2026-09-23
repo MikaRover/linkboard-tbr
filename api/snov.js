@@ -117,6 +117,13 @@ function isJunkProspectName(firstName, lastName) {
   return JUNK_NAME_RE.test(full);
 }
 
+// Snov's source_page is sometimes a company page (e.g.
+// linkedin.com/company/x/people/) rather than the matched person's own
+// profile — only an /in/ URL is safe to re-enrich via li-profiles-by-urls.
+function isPersonalLinkedInUrl(url) {
+  return !!url && /linkedin\.com\/in\//i.test(url);
+}
+
 // Link-building relevance of a job title. Split into a categorical tier
 // (what the role actually IS) and a seniority bonus (how senior it is) —
 // keeping them separate matters because "Marketing Manager" would otherwise
@@ -366,6 +373,25 @@ async function fetchProspects(domain, token, maxPeople = 20) {
       byName.set(key, Object.assign({}, p, { __batchIndex: job.batchIndex }));
     }
   }));
+
+  // Snov's own `position` field for a domain-search match is frequently
+  // generic, stale, or normalized in a way that doesn't match the person's
+  // actual current LinkedIn headline (confirmed live, repeatedly: "Off-page
+  // Link Building Specialist" indexed as "search engine optimization
+  // specialist", "Linkbuilder" needing its own no-space check, etc.) —
+  // patching roleTier() for each new spelling is a losing game. Pulling the
+  // real current title straight from LinkedIn before scoring fixes this at
+  // the root. domain-search already gives each match's profile URL for
+  // free (source_page), so this costs one extra batched call, not one per
+  // person.
+  const candidatesWithProfile = Array.from(byName.values()).filter(p => isPersonalLinkedInUrl(p.source_page));
+  if (candidatesWithProfile.length) {
+    const toEnrich = candidatesWithProfile.slice(0, MAX_LINKEDIN_URLS);
+    const enriched = await enrichLinkedInProfiles(toEnrich.map(p => p.source_page), token);
+    enriched.forEach((e, i) => {
+      if (e.found && e.title) toEnrich[i].position = e.title;
+    });
+  }
 
   // Rank by actual role relevance, not which batch happened to find them —
   // a rare title like "Link Builder" naturally returns far fewer LinkedIn
