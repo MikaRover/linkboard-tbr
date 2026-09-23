@@ -2177,15 +2177,19 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div id="ot-bulk-panel" style="display:none;">
     <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
       <div class="card-body">
-        <div class="section-label">Domains (one per line)</div>
-        <textarea id="ot-bulk-input" placeholder="ahrefs.com&#10;semrush.com&#10;moz.com&#10;whop.com"
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <div class="section-label" style="margin-bottom:0;">Domains (one per line)</div>
+          <span id="ot-bulk-domain-count" style="font-size:11px;color:var(--text3);">0 domains</span>
+        </div>
+        <textarea id="ot-bulk-input" placeholder="ahrefs.com&#10;semrush.com&#10;moz.com&#10;whop.com" oninput="updateBulkDomainCount()"
           style="width:100%;height:140px;padding:10px 12px;font-size:13px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:12px;outline:none;"
           onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
           <button class="btn-sm" onclick="runBulkOutreach('prospects')" style="width:auto;padding:10px 16px;" title="Snov.io + LinkedIn">🔍 Snov.io (all)</button>
           <button class="btn-ghost" onclick="runBulkFreeSearch()" style="white-space:nowrap;padding:10px 14px;" title="Free scraper — no credits">🆓 Free (all)</button>
           <span id="ot-bulk-progress" style="font-size:12px;color:var(--text3);"></span>
         </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;">Snov.io searches for real contacts via LinkedIn · Free scrapes emails straight off each site, no credits used</div>
         <div id="ot-bulk-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
       </div>
     </div>
@@ -6966,6 +6970,7 @@ let allOutreachData = []; // accumulated results for export
 function setOtTab(tab){
   document.getElementById('ot-single-panel').style.display = tab==='single'?'block':'none';
   document.getElementById('ot-bulk-panel').style.display = tab==='bulk'?'block':'none';
+  if(tab==='bulk') updateBulkDomainCount();
   document.getElementById('ot-linkedin-panel').style.display = tab==='linkedin'?'block':'none';
   document.getElementById('ot-results').style.display = 'none';
   document.getElementById('ot-bulk-results').style.display = 'none';
@@ -7029,6 +7034,13 @@ function renderLinkedInResults(contacts){
       </td>
     </tr>`;
   }).join('');
+}
+
+function updateBulkDomainCount(){
+  const el = document.getElementById('ot-bulk-domain-count');
+  if(!el) return;
+  const n = document.getElementById('ot-bulk-input').value.split('\n').map(s=>s.trim()).filter(Boolean).length;
+  el.textContent = n===1 ? '1 domain' : `${n} domains`;
 }
 
 async function runBulkOutreach(action='prospects'){
