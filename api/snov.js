@@ -141,6 +141,10 @@ function roleTier(position){
   // this check was added).
   if (pos.includes('seo')||pos.includes('search engine optimization')) return 7;
   if (pos.includes('digital pr')||pos.includes(' pr ')||pos.includes('public relations')) return 6;
+  // A founder/CEO/owner has no SEO-specific title at all, but is exactly
+  // who can actually approve a backlink or guest-post ask — worth
+  // surfacing even though their title says nothing about SEO or outreach.
+  if (pos.includes('founder')||pos.includes('chief executive')||/\bceo\b/.test(pos)||pos.includes('owner')||pos.includes('president')) return 5;
   if (pos.includes('content')) return 4;
   if (pos.includes('marketing')) return 3;
   return 0;
@@ -424,9 +428,14 @@ async function fetchProspects(domain, token, maxPeople = 20) {
         const match = results[idx];
         const candidates = match?.result || [];
         // A name can resolve to emails at more than one company (a past
-        // employer, a namesake) — prefer whichever candidate is actually
-        // @domain over just taking Snov's first guess.
-        const emailObj = candidates.find(c => c?.email?.toLowerCase().endsWith('@' + domain.toLowerCase())) || candidates[0];
+        // employer, a namesake) — only trust a candidate that's actually
+        // @domain. Falling back to Snov's first guess used to surface a
+        // completely unrelated email (confirmed live: a "Link Builder"
+        // match at goworkwize.com resolved to a @fiverr.com address —
+        // clearly a different company, not this person's real work email)
+        // — better to report no email here and let the guess+verify
+        // fallback in the handler try the right domain instead.
+        const emailObj = candidates.find(c => c?.email?.toLowerCase().endsWith('@' + domain.toLowerCase()));
         const email = emailObj?.email || '';
         const smtp  = emailObj?.smtp_status || 'unknown';
         output.push(rowFrom(p, email, smtp, email ? 'SNOV_DB' : 'NO_EMAIL'));
@@ -532,7 +541,10 @@ async function resolveEmailsByNameAndDomain(people, token) {
       items.forEach((p, idx) => {
         const match = matches[idx];
         const candidates = match?.result || [];
-        const emailObj = candidates.find(c => c?.email?.toLowerCase().endsWith('@' + p.domain.toLowerCase())) || candidates[0];
+        // Only trust a candidate that's actually @p.domain — a namesake or
+        // past employer's email is worse than none, since the guess+verify
+        // fallback below can find the real one at the right domain instead.
+        const emailObj = candidates.find(c => c?.email?.toLowerCase().endsWith('@' + p.domain.toLowerCase()));
         if (emailObj?.email) results[start+idx] = { email: emailObj.email, smtp: emailObj.smtp_status || 'unknown' };
       });
     } catch(e) { /* leave as null for this chunk */ }
