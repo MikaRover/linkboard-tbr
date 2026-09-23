@@ -761,6 +761,18 @@ module.exports = async function handler(req, res) {
       return res.json({ domain: cleanDomain, emails });
     }
 
+    if (action === 'debug-prospects') {
+      const out = { cleanDomain, candidates: deriveCompanyNameCandidates(cleanDomain) };
+      const testNames = req.body.companyNames || out.candidates;
+      out.byCompanyName = {};
+      for (const name of testNames) {
+        const first = await fetchDatabaseSearchPage(name, 1, token);
+        out.byCompanyName[name] = { totalPages: first.totalPages, count: first.prospects.length,
+          sample: first.prospects.slice(0, 30).map(p => ({ name: (p.first_name||'')+' '+(p.last_name||''), title: p.job_title, domain: p?.company?.domain })) };
+      }
+      return res.json(out);
+    }
+
     return res.status(400).json({error:'Unknown action'});
 
   } catch(e) {
