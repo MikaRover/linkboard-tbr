@@ -762,15 +762,17 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === 'debug-prospects') {
-      const out = { cleanDomain, candidates: deriveCompanyNameCandidates(cleanDomain) };
-      const testNames = req.body.companyNames || out.candidates;
-      out.byCompanyName = {};
-      for (const name of testNames) {
-        const first = await fetchDatabaseSearchPage(name, 1, token);
-        out.byCompanyName[name] = { totalPages: first.totalPages, count: first.prospects.length,
-          sample: first.prospects.slice(0, 30).map(p => ({ name: (p.first_name||'')+' '+(p.last_name||''), title: p.job_title, domain: p?.company?.domain })) };
-      }
-      return res.json(out);
+      const name = req.body.companyName || deriveCompanyName(cleanDomain);
+      const first = await fetchDatabaseSearchPage(name, 1, token);
+      const totalPages = Math.min(first.totalPages || 1, 4);
+      const restPages = await Promise.all(
+        Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => fetchDatabaseSearchPage(name, i + 2, token))
+      );
+      const all = [first, ...restPages].flatMap(pg => pg.prospects);
+      return res.json({
+        cleanDomain, companyName: name, totalPages, count: all.length,
+        all: all.map(p => ({ name: (p.first_name||'')+' '+(p.last_name||''), title: p.job_title, domain: p?.company?.domain }))
+      });
     }
 
     return res.status(400).json({error:'Unknown action'});
