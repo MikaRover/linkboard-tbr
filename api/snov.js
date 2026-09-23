@@ -43,10 +43,36 @@ const MAX_DB_SEARCH_REVEALS = 5; // reveal calls run in parallel but each is its
 // Best-effort company display name from a bare domain, for database-search's
 // name-based company filter (it does NOT accept a domain string directly —
 // verified live: passing "mailtrap.io" as the name returns zero results,
-// while "Mailtrap" finds real people there).
+// while "Mailtrap" finds real people there; a company.domain filter was
+// also tried live and Snov rejects it outright with a 422, so a name is
+// the only option).
 function deriveCompanyName(domain) {
   const base = domain.split('.')[0] || domain;
   return base.split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+// A domain that glues two real words together with no separator (e.g.
+// "narrationbox.com" for the real company "Narration Box") can't be split
+// by deriveCompanyName() at all — confirmed live that searching "Narration
+// Box" finds real people there while "Narrationbox" finds none. A full
+// dictionary-based word segmenter is overkill for this; a short list of
+// common startup-name suffixes catches the frequent real-world case
+// (box/hub/labs/app/...) as a second candidate to try.
+const COMPOUND_SUFFIX_WORDS = ['box','hub','labs','lab','app','kit','flow','base','desk','space','works','cloud','tech','soft','wave','loop','stack','sync','grid','core','link','mail','pay','shop','market','media','docs','note','form','chat','board','pilot','scale'];
+function deriveCompanyNameCandidates(domain) {
+  const primary = deriveCompanyName(domain);
+  const candidates = [primary];
+  const base = (domain.split('.')[0] || domain).toLowerCase();
+  for (const suffix of COMPOUND_SUFFIX_WORDS) {
+    if (base.length > suffix.length + 2 && base.endsWith(suffix)) {
+      const prefix = base.slice(0, -suffix.length);
+      const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+      const candidate = cap(prefix) + ' ' + cap(suffix);
+      if (candidate !== primary) candidates.push(candidate);
+      break;
+    }
+  }
+  return candidates;
 }
 
 const ROLE_BATCH_SIZE  = 10;   // Snov positions[] per start request
@@ -201,16 +227,18 @@ async function fetchDatabaseSearchPage(companyName, page, token) {
 
 async function fetchDatabaseSearchSupplement(domain, token, existingRows) {
   try {
-    const companyName = deriveCompanyName(domain);
+    let onDomain = [];
+    for (const companyName of deriveCompanyNameCandidates(domain)) {
+      const first = await fetchDatabaseSearchPage(companyName, 1, token);
+      const totalPages = Math.min(first.totalPages || 1, MAX_DB_SEARCH_PAGES);
+      const restPages = await Promise.all(
+        Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => fetchDatabaseSearchPage(companyName, i + 2, token))
+      );
+      const prospects = [first, ...restPages].flatMap(pg => pg.prospects);
+      onDomain = prospects.filter(p => (p?.company?.domain || '').toLowerCase() === domain.toLowerCase());
+      if (onDomain.length) break; // this spelling of the company name is the one Snov actually indexes
+    }
 
-    const first = await fetchDatabaseSearchPage(companyName, 1, token);
-    const totalPages = Math.min(first.totalPages || 1, MAX_DB_SEARCH_PAGES);
-    const restPages = await Promise.all(
-      Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => fetchDatabaseSearchPage(companyName, i + 2, token))
-    );
-    const prospects = [first, ...restPages].flatMap(pg => pg.prospects);
-
-    const onDomain = prospects.filter(p => (p?.company?.domain || '').toLowerCase() === domain.toLowerCase());
     // Same relevance bar as domain-search — a full company roster is mostly
     // engineers/sales/support, so only bother revealing (a paid-feeling call)
     // whoever actually looks like a link-building/SEO/PR/marketing contact.
@@ -731,43 +759,6 @@ module.exports = async function handler(req, res) {
         .filter(r => r.email)
         .map(r => ({ email: r.email, smtp: r.smtp_status }));
       return res.json({ domain: cleanDomain, emails });
-    }
-
-    if (action === 'debug-prospects') {
-      const out = { cleanDomain, derived: deriveCompanyName(cleanDomain) };
-      const candidateNames = req.body.companyNames || [out.derived];
-      out.byCompanyName = {};
-      for (const name of candidateNames) {
-        const first = await fetchDatabaseSearchPage(name, 1, token);
-        out.byCompanyName[name] = { totalPages: first.totalPages, count: first.prospects.length,
-          sample: first.prospects.slice(0, 20).map(p => ({ name: (p.first_name||'')+' '+(p.last_name||''), title: p.job_title, domain: p?.company?.domain })) };
-      }
-
-      // Test whether database-search can filter by company DOMAIN directly,
-      // sidestepping the whole "guess a display name from the domain" problem.
-      try {
-        const startRes = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
-          method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filters: { company: { domain: { include: [cleanDomain] } } } }),
-          signal: AbortSignal.timeout(9000)
-        });
-        const startJson = await startRes.json();
-        out.byDomainStart = { status: startRes.status, json: startJson };
-        if (startJson?.links?.result) {
-          for (let a = 0; a < POLL_ATTEMPTS; a++) {
-            await sleep(POLL_DELAY_MS);
-            const r = await fetch(startJson.links.result, { headers: { Authorization: 'Bearer ' + token } });
-            const j = await r.json();
-            if (j?.data?.prospects?.length || (j?.status && String(j.status).toLowerCase() !== 'in_progress')) {
-              out.byDomainResult = { count: (j?.data?.prospects || []).length,
-                sample: (j?.data?.prospects || []).slice(0, 20).map(p => ({ name: (p.first_name||'')+' '+(p.last_name||''), title: p.job_title, domain: p?.company?.domain })) };
-              break;
-            }
-          }
-        }
-      } catch(e) { out.byDomainError = e.message; }
-
-      return res.json(out);
     }
 
     return res.status(400).json({error:'Unknown action'});
