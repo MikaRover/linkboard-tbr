@@ -59,16 +59,29 @@ function deriveCompanyName(domain) {
 // common startup-name suffixes catches the frequent real-world case
 // (box/hub/labs/app/...) as a second candidate to try.
 const COMPOUND_SUFFIX_WORDS = ['box','hub','labs','lab','app','kit','flow','base','desk','space','works','cloud','tech','soft','wave','loop','stack','sync','grid','core','link','mail','pay','shop','market','media','docs','note','form','chat','board','pilot','scale'];
+// A domain also often prefixes a real single-word brand name with a
+// generic marketing word (e.g. "goworkwize.com" for the real company
+// "Workwize") — confirmed live: searching "Workwize" finds the real
+// 135-person roster there, "Goworkwize" finds nothing. Any wrong guess
+// here is harmless — it's only tried as a fallback, and gets discarded
+// silently if it returns no on-domain results.
+const COMPOUND_PREFIX_WORDS = ['go','get','try','use','join','hey','the','my','we','so'];
 function deriveCompanyNameCandidates(domain) {
   const primary = deriveCompanyName(domain);
   const candidates = [primary];
   const base = (domain.split('.')[0] || domain).toLowerCase();
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   for (const suffix of COMPOUND_SUFFIX_WORDS) {
     if (base.length > suffix.length + 2 && base.endsWith(suffix)) {
-      const prefix = base.slice(0, -suffix.length);
-      const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-      const candidate = cap(prefix) + ' ' + cap(suffix);
+      const candidate = cap(base.slice(0, -suffix.length)) + ' ' + cap(suffix);
       if (candidate !== primary) candidates.push(candidate);
+      break;
+    }
+  }
+  for (const prefix of COMPOUND_PREFIX_WORDS) {
+    if (base.length > prefix.length + 2 && base.startsWith(prefix)) {
+      const candidate = cap(base.slice(prefix.length));
+      if (candidate !== primary && !candidates.includes(candidate)) candidates.push(candidate);
       break;
     }
   }
@@ -759,20 +772,6 @@ module.exports = async function handler(req, res) {
         .filter(r => r.email)
         .map(r => ({ email: r.email, smtp: r.smtp_status }));
       return res.json({ domain: cleanDomain, emails });
-    }
-
-    if (action === 'debug-prospects') {
-      const name = req.body.companyName || deriveCompanyName(cleanDomain);
-      const first = await fetchDatabaseSearchPage(name, 1, token);
-      const totalPages = Math.min(first.totalPages || 1, 4);
-      const restPages = await Promise.all(
-        Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => fetchDatabaseSearchPage(name, i + 2, token))
-      );
-      const all = [first, ...restPages].flatMap(pg => pg.prospects);
-      return res.json({
-        cleanDomain, companyName: name, totalPages, count: all.length,
-        all: all.map(p => ({ name: (p.first_name||'')+' '+(p.last_name||''), title: p.job_title, domain: p?.company?.domain }))
-      });
     }
 
     return res.status(400).json({error:'Unknown action'});
