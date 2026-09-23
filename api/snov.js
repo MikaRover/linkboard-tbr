@@ -733,21 +733,14 @@ module.exports = async function handler(req, res) {
       return res.json({ domain: cleanDomain, emails });
     }
 
-    if (action === 'debug-campaigns') {
-      const headers = { Authorization: 'Bearer ' + token };
-      const out = {};
-      const candidates = [
-        'https://api.snov.io/v1/user/campaigns',
-        'https://api.snov.io/v1/get-user-campaigns',
-        'https://api.snov.io/v1/campaigns'
-      ];
-      for (const url of candidates) {
-        try {
-          const r = await fetch(url, { headers, signal: AbortSignal.timeout(9000) });
-          const text = await r.text();
-          out[url] = { status: r.status, body: text.slice(0, 2000) };
-        } catch(e) { out[url] = { error: e.message }; }
-      }
+    if (action === 'debug-prospects') {
+      const out = { cleanDomain, companyName: deriveCompanyName(cleanDomain) };
+      out.rawFetchProspects = await fetchProspects(cleanDomain, token, 20);
+
+      const first = await fetchDatabaseSearchPage(out.companyName, 1, token);
+      out.dbSearchPage1 = { totalPages: first.totalPages, count: first.prospects.length,
+        sample: first.prospects.slice(0, 20).map(p => ({ name: (p.first_name||'')+' '+(p.last_name||''), title: p.job_title, domain: p?.company?.domain })) };
+
       return res.json(out);
     }
 
