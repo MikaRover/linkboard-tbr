@@ -533,6 +533,9 @@ tr:hover td{background:var(--bg3);}
 .status-tab.active-needschange{background:rgba(120,150,255,0.12);border-color:rgba(120,150,255,0.4);color:var(--accent2);}
 .status-tab.active-lost{background:rgba(255,107,107,0.12);border-color:rgba(255,107,107,0.4);color:var(--red);}
 .status-tab.active-all{background:var(--bg3);border-color:var(--border2);color:var(--text);}
+.ot-vtab{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);transition:all 0.15s ease;font-family:inherit;}
+.ot-vtab:hover{color:var(--text);}
+.ot-vtab.active{background:var(--bg4);color:var(--teal);font-weight:700;}
 .month-sep-row td{background:var(--bg3) !important;padding:6px 10px !important;border-top:2px solid var(--border) !important;}
 
 /* ── Bigger, clearer UI for builders (team members) ── */
@@ -2131,136 +2134,130 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
 <!-- ══ OUTREACH / CONTACT FINDER ══ -->
 <div id="p-outreach" class="page">
-  <div class="page-top">
-    <div>
-      <div class="page-title">🎯 Outreach Finder</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Find SEO & link building contacts via Snov.io + LinkedIn</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;text-align:right;">
+  <div style="display:flex;align-items:stretch;">
+
+    <!-- LEFT: identity, mode tabs, per-tab controls -->
+    <div style="width:300px;flex-shrink:0;background:var(--bg2);border:1px solid var(--border);border-radius:14px 0 0 14px;padding:28px 22px;display:flex;flex-direction:column;gap:22px;">
+
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--teal);text-transform:uppercase;">Outreach Finder</div>
+        <div style="font-size:19px;font-weight:800;color:var(--text);margin-top:4px;">🎯 Find contacts</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;">Via Snov.io + LinkedIn</div>
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;">
         <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);">Snov.io credits</div>
         <div style="font-size:18px;font-weight:800;color:var(--teal);" id="ot-balance">
           <span style="font-size:12px;color:var(--text3);font-weight:400;">—</span>
         </div>
       </div>
-      <button class="btn-ghost" onclick="exportOutreachCSV()" id="ot-export-btn" style="display:none;">⬇ Export CSV</button>
-    </div>
-  </div>
 
-  <!-- Mode tabs -->
-  <div style="display:flex;gap:8px;margin-bottom:1.25rem;">
-    <button id="ot-tab-single" onclick="setOtTab('single')" class="status-tab active-all" style="font-size:12px;">Single domain</button>
-    <button id="ot-tab-bulk" onclick="setOtTab('bulk')" class="status-tab" style="font-size:12px;">Bulk domains</button>
-    <button id="ot-tab-linkedin" onclick="setOtTab('linkedin')" class="status-tab" style="font-size:12px;">🔗 From LinkedIn URLs</button>
-  </div>
+      <!-- Mode tabs -->
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <button id="ot-tab-single" onclick="setOtTab('single')" class="ot-vtab active">Single domain</button>
+        <button id="ot-tab-bulk" onclick="setOtTab('bulk')" class="ot-vtab">Bulk domains</button>
+        <button id="ot-tab-linkedin" onclick="setOtTab('linkedin')" class="ot-vtab">🔗 From LinkedIn URLs</button>
+      </div>
 
-  <!-- Single domain -->
-  <div id="ot-single-panel">
-    <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
-      <div class="card-body">
-        <div style="display:flex;gap:10px;align-items:flex-end;">
-          <div style="flex:1;">
-            <div class="section-label">Website domain</div>
-            <input id="ot-domain" placeholder="e.g. ahrefs.com" style="margin:0;" onkeydown="if(event.key==='Enter')runOutreach()"/>
-          </div>
-          <div style="display:flex;gap:8px;flex-shrink:0;">
-            <button class="btn-sm" onclick="runOutreach('prospects')" style="width:auto;padding:10px 18px;">🔍 Find contacts</button>
-            <button class="btn-ghost" onclick="runOutreach('scrape')" style="white-space:nowrap;padding:10px 14px;">🌐 Scrape emails</button>
-          </div>
-        </div>
+      <!-- Single domain controls -->
+      <div id="ot-single-panel">
+        <div class="section-label">Website domain</div>
+        <input id="ot-domain" placeholder="e.g. ahrefs.com" style="margin:0 0 10px;width:100%;box-sizing:border-box;" onkeydown="if(event.key==='Enter')runOutreach()"/>
+        <button class="btn-sm" onclick="runOutreach('prospects')" style="width:100%;margin-bottom:8px;">🔍 Find contacts</button>
+        <button class="btn-ghost" onclick="runOutreach('scrape')" style="width:100%;">🌐 Scrape emails</button>
         <div id="ot-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
       </div>
-    </div>
-  </div>
 
-  <!-- Bulk domains -->
-  <div id="ot-bulk-panel" style="display:none;">
-    <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
-      <div class="card-body">
+      <!-- Bulk domains controls -->
+      <div id="ot-bulk-panel" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
           <div class="section-label" style="margin-bottom:0;">Domains (one per line)</div>
           <span id="ot-bulk-domain-count" style="font-size:11px;color:var(--text3);">0 domains</span>
         </div>
         <textarea id="ot-bulk-input" placeholder="ahrefs.com&#10;semrush.com&#10;moz.com&#10;whop.com" oninput="updateBulkDomainCount()"
-          style="width:100%;height:140px;padding:10px 12px;font-size:13px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:12px;outline:none;"
+          style="width:100%;height:110px;padding:10px 12px;font-size:12px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:10px;outline:none;box-sizing:border-box;"
           onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <button class="btn-sm" onclick="runBulkOutreach('prospects')" style="width:auto;padding:10px 16px;" title="Snov.io + LinkedIn">🔍 Snov.io (all)</button>
-          <button class="btn-ghost" onclick="runBulkFreeSearch()" style="white-space:nowrap;padding:10px 14px;" title="Free scraper — no credits">🆓 Free (all)</button>
-          <span id="ot-bulk-progress" style="font-size:12px;color:var(--text3);"></span>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:8px;">Snov.io searches for real contacts via LinkedIn · Free scrapes emails straight off each site, no credits used</div>
+        <button class="btn-sm" onclick="runBulkOutreach('prospects')" style="width:100%;margin-bottom:8px;" title="Snov.io + LinkedIn">🔍 Snov.io (all)</button>
+        <button class="btn-ghost" onclick="runBulkFreeSearch()" style="width:100%;" title="Free scraper — no credits">🆓 Free (all)</button>
+        <div id="ot-bulk-progress" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.4;">Snov.io searches for real contacts via LinkedIn · Free scrapes emails straight off each site, no credits used</div>
         <div id="ot-bulk-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
       </div>
-    </div>
 
-    <!-- Bulk results table -->
-    <div id="ot-bulk-results" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-size:13px;font-weight:700;color:var(--text);" id="ot-bulk-count"></div>
-        <button class="btn-sm" onclick="exportOutreachCSV()" style="width:auto;">⬇ Export CSV</button>
-      </div>
-      <div class="card">
-        <div class="tbl-wrap"><table>
-          <thead><tr>
-            <th>Domain</th><th>Name</th><th>Position</th><th>Email</th><th>Status</th><th>Score</th><th></th>
-          </tr></thead>
-          <tbody id="ot-bulk-tbody"></tbody>
-        </table></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- From LinkedIn URLs — for people Snov's automated search misses (non-
-       standard job titles) but you found by browsing LinkedIn manually. -->
-  <div id="ot-linkedin-panel" style="display:none;">
-    <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
-      <div class="card-body">
+      <!-- From LinkedIn URLs — for people Snov's automated search misses (non-
+           standard job titles) but you found by browsing LinkedIn manually. -->
+      <div id="ot-linkedin-panel" style="display:none;">
         <div class="section-label">LinkedIn profile URLs (one per line)</div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">For people Snov's automated search misses — paste profiles you found by browsing LinkedIn yourself, and we'll resolve + verify their work email.</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px;line-height:1.4;">For people Snov's automated search misses — paste profiles you found by browsing LinkedIn yourself.</div>
         <textarea id="ot-li-input" placeholder="https://www.linkedin.com/in/jane-doe&#10;https://www.linkedin.com/in/john-smith"
-          style="width:100%;height:120px;padding:10px 12px;font-size:13px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:12px;outline:none;"
+          style="width:100%;height:100px;padding:10px 12px;font-size:12px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:10px;outline:none;box-sizing:border-box;"
           onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
-        <button class="btn-sm" onclick="runLinkedInEnrich()" style="width:auto;padding:10px 18px;">🔍 Resolve contacts</button>
+        <button class="btn-sm" onclick="runLinkedInEnrich()" style="width:100%;">🔍 Resolve contacts</button>
         <div id="ot-li-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
       </div>
+
+      <div id="ot-summary" style="display:flex;flex-direction:column;gap:10px;padding-top:16px;border-top:1px solid var(--border);margin-top:auto;"></div>
     </div>
 
-    <div id="ot-li-results" style="display:none;">
-      <div class="card">
-        <div class="card-head">👥 Resolved contacts</div>
-        <div class="tbl-wrap"><table>
-          <thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Email</th><th>Status</th><th></th></tr></thead>
-          <tbody id="ot-li-tbody"></tbody>
-        </table></div>
+    <!-- RIGHT: workspace — loading state + whichever results panel is active -->
+    <div style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-left:none;border-radius:0 14px 14px 0;padding:32px;">
+
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+        <button class="btn-ghost" onclick="exportOutreachCSV()" id="ot-export-btn" style="display:none;">⬇ Export CSV</button>
       </div>
-    </div>
-  </div>
 
-  <!-- Loading state -->
-  <div id="ot-loading" style="display:none;text-align:center;padding:3rem;color:var(--text2);">
-    <div style="font-size:32px;margin-bottom:12px;">🔍</div>
-    <div style="font-size:14px;font-weight:600;" id="ot-loading-text">Searching LinkedIn via Snov.io...</div>
-    <div style="font-size:12px;color:var(--text3);margin-top:6px;">This may take 15-25 seconds per domain</div>
-    <div style="margin-top:16px;display:flex;justify-content:center;gap:6px;">
-      <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out infinite;"></div>
-      <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out 0.2s infinite;"></div>
-      <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out 0.4s infinite;"></div>
-    </div>
-  </div>
-
-  <!-- Single results -->
-  <div id="ot-results" style="display:none;">
-    <div id="ot-summary" style="display:flex;gap:12px;margin-bottom:1rem;flex-wrap:wrap;"></div>
-    <div id="ot-contacts" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;"></div>
-    <div id="ot-emails-section" style="display:none;margin-top:1.5rem;">
-      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">📧 Scraped emails</div>
-      <div class="card">
-        <div class="tbl-wrap"><table>
-          <thead><tr><th>Email</th><th>Status</th><th></th></tr></thead>
-          <tbody id="ot-emails-tbody"></tbody>
-        </table></div>
+      <!-- Loading state -->
+      <div id="ot-loading" style="display:none;text-align:center;padding:3rem;color:var(--text2);">
+        <div style="font-size:32px;margin-bottom:12px;">🔍</div>
+        <div style="font-size:14px;font-weight:600;" id="ot-loading-text">Searching LinkedIn via Snov.io...</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:6px;">This may take 15-25 seconds per domain</div>
+        <div style="margin-top:16px;display:flex;justify-content:center;gap:6px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out infinite;"></div>
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out 0.2s infinite;"></div>
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out 0.4s infinite;"></div>
+        </div>
       </div>
+
+      <!-- Single domain results -->
+      <div id="ot-results" style="display:none;">
+        <div id="ot-contacts" style="display:flex;flex-direction:column;gap:10px;"></div>
+        <div id="ot-emails-section" style="display:none;margin-top:1.5rem;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">📧 Scraped emails</div>
+          <div class="card">
+            <div class="tbl-wrap"><table>
+              <thead><tr><th>Email</th><th>Status</th><th></th></tr></thead>
+              <tbody id="ot-emails-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bulk results table -->
+      <div id="ot-bulk-results" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);" id="ot-bulk-count"></div>
+        </div>
+        <div class="card">
+          <div class="tbl-wrap"><table>
+            <thead><tr>
+              <th>Domain</th><th>Name</th><th>Position</th><th>Email</th><th>Status</th><th>Score</th><th></th>
+            </tr></thead>
+            <tbody id="ot-bulk-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- LinkedIn URL results -->
+      <div id="ot-li-results" style="display:none;">
+        <div class="card">
+          <div class="card-head">👥 Resolved contacts</div>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Email</th><th>Status</th><th></th></tr></thead>
+            <tbody id="ot-li-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -6630,27 +6627,28 @@ function renderProspects(data, domain){
   const withEmail = prospects.filter(p=>p.email&&p.smtp!=='invalid');
   const verified = prospects.filter(p=>p.smtp==='valid');
 
-  // Summary
+  // Summary — stacked rows, not tiles: this now lives in the narrow sidebar
+  // column under the search controls, not a horizontal strip above results.
   document.getElementById('ot-summary').innerHTML = `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
-      <div style="font-size:22px;font-weight:800;color:var(--teal);">${prospects.length}</div>
-      <div style="font-size:11px;color:var(--text2);">Contacts found</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+      <span style="font-size:11px;color:var(--text2);">Contacts found</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--text);">${prospects.length}</span>
     </div>
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
-      <div style="font-size:22px;font-weight:800;color:#32d74b;">${withEmail.length}</div>
-      <div style="font-size:11px;color:var(--text2);">With email</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+      <span style="font-size:11px;color:var(--text2);">With email</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--text);">${withEmail.length}</span>
     </div>
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
-      <div style="font-size:22px;font-weight:800;color:#00e676;">${verified.length}</div>
-      <div style="font-size:11px;color:var(--text2);">Verified ✅</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+      <span style="font-size:11px;color:var(--text2);">Verified</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#00c46a;">${verified.length}</span>
     </div>
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
-      <div style="font-size:14px;font-weight:700;color:var(--teal);">${escapeHtml(domain)}</div>
-      <div style="font-size:11px;color:var(--text2);">searched</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+      <span style="font-size:11px;color:var(--text2);">Searched</span>
+      <span style="font-size:12px;font-weight:700;color:var(--teal);">${escapeHtml(domain)}</span>
     </div>`;
 
   if(!prospects.length){
-    document.getElementById('ot-contacts').innerHTML = '<div style="color:var(--text2);font-size:13px;padding:1rem 0;grid-column:1/-1;">No contacts found. Try "Scrape emails" instead.</div>';
+    document.getElementById('ot-contacts').innerHTML = '<div style="color:var(--text2);font-size:13px;padding:1rem 0;">No contacts found. Try "Scrape emails" instead.</div>';
     return;
   }
 
@@ -6661,32 +6659,33 @@ function renderProspects(data, domain){
     // (source_page) — link straight to it instead of a generic keyword
     // search, which often surfaces someone else with the same name.
     const linkedinUrl = isPersonalLinkedInUrl(p.source_page) ? p.source_page : `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(p.first_name+' '+p.last_name+' '+domain)}`;
-    return `<div style="background:var(--bg2);border:1px solid ${hasEmail?'rgba(50,215,75,0.2)':'var(--border)'};border-radius:12px;padding:14px;transition:all 0.15s;position:relative;overflow:hidden;">
-      ${hasEmail?`<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--teal),transparent);"></div>`:''}
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
-        <div>
-          <div style="font-size:14px;font-weight:800;color:var(--text);">${escapeHtml(p.first_name||'')} ${escapeHtml(p.last_name||'')}</div>
-          <div style="font-size:11px;color:${rs.color};margin-top:2px;font-weight:600;">${escapeHtml(p.position||'—')}</div>
+    const initial = escapeHtml((p.first_name||'?').charAt(0).toUpperCase());
+    return `<div style="background:var(--bg2);border:1px solid ${hasEmail?'rgba(50,215,75,0.2)':'var(--border)'};border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:16px;">
+
+      <div style="flex-shrink:0;width:38px;height:38px;border-radius:10px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:${rs.color};">${initial}</div>
+
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+        <div style="font-size:14px;font-weight:800;color:var(--text);">${escapeHtml(p.first_name||'')} ${escapeHtml(p.last_name||'')}</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="width:6px;height:6px;border-radius:50%;background:${rs.color};box-shadow:0 0 6px ${rs.color};flex-shrink:0;"></span>
+          <span style="font-size:11px;color:${rs.color};font-weight:600;">${escapeHtml(p.position||'—')}</span>
         </div>
-        <div style="font-size:14px;">${rs.rank}</div>
       </div>
 
-      ${hasEmail?`
-      <div style="background:var(--bg3);border:1px solid rgba(50,215,75,0.15);border-radius:8px;padding:8px 10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-size:12px;font-weight:700;color:var(--teal);">${escapeHtml(p.email)}</div>
-          <div style="margin-top:3px;">${smtpBadge(p.smtp)}</div>
-        </div>
-        <button onclick="navigator.clipboard.writeText('${escAttr(p.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);"
-          class="btn-ghost" style="font-size:11px;padding:4px 10px;white-space:nowrap;">Copy</button>
-      </div>`:`
-      <div style="background:var(--bg4);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:var(--text3);">No email found</div>`}
+      <div style="flex-shrink:0;width:200px;display:flex;flex-direction:column;gap:3px;">
+        ${hasEmail?`
+          <div style="font-size:12px;font-weight:700;color:var(--teal);font-family:'JetBrains Mono',monospace;">${escapeHtml(p.email)}</div>
+          <div>${smtpBadge(p.smtp)}</div>
+        `:`<div style="font-size:11px;color:var(--text3);">No email found</div>`}
+      </div>
 
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <a href="${escAttr(linkedinUrl)}" target="_blank" class="btn-ghost" style="flex:1;text-align:center;font-size:11px;padding:6px;text-decoration:none;display:block;min-width:70px;">💼 LinkedIn</a>
-        ${hasEmail?`<button onclick="composeOutreach('${escAttr(p.first_name)}','${escAttr(p.email)}','${escAttr(domain)}')" class="btn-sm" style="flex:1;font-size:11px;padding:6px;min-width:70px;">✉️ Template</button>`:''}
+      <div style="flex-shrink:0;display:flex;gap:6px;">
+        <a href="${escAttr(linkedinUrl)}" target="_blank" class="btn-ghost" style="font-size:11px;padding:6px 10px;text-decoration:none;display:flex;align-items:center;gap:6px;">
+          <span style="width:14px;height:14px;border-radius:3px;background:#0A66C2;color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">in</span>LinkedIn
+        </a>
         <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(p.email||'')}',smtp:'${escAttr(p.smtp||'unknown')}',firstName:'${escAttr(p.first_name||'')}',lastName:'${escAttr(p.last_name||'')}',position:'${escAttr(p.position||'')}'});"
-          class="btn-ghost" style="flex:1;font-size:11px;padding:6px;min-width:70px;color:var(--teal);border-color:rgba(50,215,75,0.3);">💾 Save</button>
+          class="btn-ghost" style="font-size:11px;padding:6px 10px;color:var(--teal);border-color:rgba(50,215,75,0.3);">💾 Save</button>
+        ${hasEmail?`<button onclick="composeOutreach('${escAttr(p.first_name)}','${escAttr(p.email)}','${escAttr(domain)}')" class="btn-sm" style="font-size:11px;padding:6px 10px;">✉️ Template</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -6697,16 +6696,20 @@ function renderProspects(data, domain){
 function renderScrapedEmails(data, domain){
   const emails = data.emails||[];
   document.getElementById('ot-summary').innerHTML = `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
-      <div style="font-size:22px;font-weight:800;color:var(--teal);">${emails.length}</div>
-      <div style="font-size:11px;color:var(--text2);">Emails scraped from ${escapeHtml(domain)}</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+      <span style="font-size:11px;color:var(--text2);">Emails scraped</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--text);">${emails.length}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+      <span style="font-size:11px;color:var(--text2);">From</span>
+      <span style="font-size:12px;font-weight:700;color:var(--teal);">${escapeHtml(domain)}</span>
     </div>`;
 
   document.getElementById('ot-contacts').innerHTML = '';
   document.getElementById('ot-emails-section').style.display = emails.length ? 'block' : 'none';
 
   if(!emails.length){
-    document.getElementById('ot-contacts').innerHTML = '<div style="color:var(--text2);font-size:13px;padding:1rem 0;grid-column:1/-1;">No emails found on website. Try "Find contacts" instead.</div>';
+    document.getElementById('ot-contacts').innerHTML = '<div style="color:var(--text2);font-size:13px;padding:1rem 0;">No emails found on website. Try "Find contacts" instead.</div>';
     return;
   }
 
@@ -6972,12 +6975,17 @@ function setOtTab(tab){
   document.getElementById('ot-bulk-panel').style.display = tab==='bulk'?'block':'none';
   if(tab==='bulk') updateBulkDomainCount();
   document.getElementById('ot-linkedin-panel').style.display = tab==='linkedin'?'block':'none';
+  // ot-summary now lives in the persistent sidebar (not nested inside
+  // ot-results like before), so it no longer gets hidden along with the
+  // results panel on tab switch — clear it explicitly instead, otherwise
+  // the previous tab's stats stay visible under the new tab's controls.
+  document.getElementById('ot-summary').innerHTML = '';
   document.getElementById('ot-results').style.display = 'none';
   document.getElementById('ot-bulk-results').style.display = 'none';
   document.getElementById('ot-li-results').style.display = 'none';
-  document.getElementById('ot-tab-single').className = tab==='single'?'status-tab active-all':'status-tab';
-  document.getElementById('ot-tab-bulk').className = tab==='bulk'?'status-tab active-all':'status-tab';
-  document.getElementById('ot-tab-linkedin').className = tab==='linkedin'?'status-tab active-all':'status-tab';
+  document.getElementById('ot-tab-single').className = tab==='single'?'ot-vtab active':'ot-vtab';
+  document.getElementById('ot-tab-bulk').className = tab==='bulk'?'ot-vtab active':'ot-vtab';
+  document.getElementById('ot-tab-linkedin').className = tab==='linkedin'?'ot-vtab active':'ot-vtab';
   document.getElementById('ot-export-btn').style.display = 'none';
 }
 
