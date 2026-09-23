@@ -742,6 +742,31 @@ module.exports = async function handler(req, res) {
         out.byCompanyName[name] = { totalPages: first.totalPages, count: first.prospects.length,
           sample: first.prospects.slice(0, 20).map(p => ({ name: (p.first_name||'')+' '+(p.last_name||''), title: p.job_title, domain: p?.company?.domain })) };
       }
+
+      // Test whether database-search can filter by company DOMAIN directly,
+      // sidestepping the whole "guess a display name from the domain" problem.
+      try {
+        const startRes = await fetch('https://api.snov.io/v2/database-search/prospects/start', {
+          method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filters: { company: { domain: { include: [cleanDomain] } } } }),
+          signal: AbortSignal.timeout(9000)
+        });
+        const startJson = await startRes.json();
+        out.byDomainStart = { status: startRes.status, json: startJson };
+        if (startJson?.links?.result) {
+          for (let a = 0; a < POLL_ATTEMPTS; a++) {
+            await sleep(POLL_DELAY_MS);
+            const r = await fetch(startJson.links.result, { headers: { Authorization: 'Bearer ' + token } });
+            const j = await r.json();
+            if (j?.data?.prospects?.length || (j?.status && String(j.status).toLowerCase() !== 'in_progress')) {
+              out.byDomainResult = { count: (j?.data?.prospects || []).length,
+                sample: (j?.data?.prospects || []).slice(0, 20).map(p => ({ name: (p.first_name||'')+' '+(p.last_name||''), title: p.job_title, domain: p?.company?.domain })) };
+              break;
+            }
+          }
+        }
+      } catch(e) { out.byDomainError = e.message; }
+
       return res.json(out);
     }
 
