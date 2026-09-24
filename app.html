@@ -6685,7 +6685,9 @@ function renderProspects(data, domain){
         </a>
         <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(p.email||'')}',smtp:'${escAttr(p.smtp||'unknown')}',firstName:'${escAttr(p.first_name||'')}',lastName:'${escAttr(p.last_name||'')}',position:'${escAttr(p.position||'')}'});"
           class="btn-ghost" style="font-size:11px;padding:6px 10px;color:var(--teal);border-color:rgba(50,215,75,0.3);">💾 Save</button>
-        ${hasEmail?`<button onclick="composeOutreach('${escAttr(p.first_name)}','${escAttr(p.email)}','${escAttr(domain)}')" class="btn-sm" style="font-size:11px;padding:6px 10px;">✉️ Template</button>`:''}
+        ${hasEmail?`<button onclick="composeOutreach('${escAttr(p.first_name)}','${escAttr(p.email)}','${escAttr(domain)}')" class="btn-sm" style="font-size:11px;padding:6px 10px;display:flex;align-items:center;gap:6px;">
+          <svg width="14" height="10" viewBox="0 0 24 18" style="flex-shrink:0;"><path d="M2 2h20v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2z" fill="#ffffff"/><path d="M2 2l10 8 10-8" fill="none" stroke="#EA4335" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>Template
+        </button>`:''}
       </div>
     </div>`;
   }).join('');
