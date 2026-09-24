@@ -2197,6 +2197,10 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       </div>
 
       <div id="ot-summary" style="display:flex;flex-direction:column;gap:10px;padding-top:16px;border-top:1px solid var(--border);margin-top:auto;"></div>
+
+      <!-- Recent searches across the whole team — persists across tab
+           switches, unlike ot-summary above which is cleared per search. -->
+      <div id="ot-history"></div>
     </div>
 
     <!-- RIGHT: workspace — loading state + whichever results panel is active -->
@@ -3875,6 +3879,7 @@ function gotoPage(name,el){
   }
   if(name==='outreach'){
     loadSnovBalance();
+    initOutreachHistory();
   }
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
@@ -6581,8 +6586,8 @@ async function runOutreach(action = 'prospects'){
 
     document.getElementById('ot-results').style.display='block';
 
-    if(action==='prospects') renderProspects(data, domain);
-    else renderScrapedEmails(data, domain);
+    if(action==='prospects'){ renderProspects(data, domain); logOutreachSearch(domain, action, (data.prospects||[]).length); }
+    else { renderScrapedEmails(data, domain); logOutreachSearch(domain, action, (data.emails||[]).length); }
 
   } catch(e){
     clearInterval(stepTimer);
@@ -6590,6 +6595,63 @@ async function runOutreach(action = 'prospects'){
     document.getElementById('ot-error').style.display='block';
     document.getElementById('ot-error').textContent='⚠️ Error: '+e.message;
   }
+}
+
+// ─── RECENT SEARCHES (whole team, not just this browser) ──
+let outreachHistoryListener = null;
+
+function logOutreachSearch(domain, action, count){
+  if(!cu || !domain) return;
+  db.collection('outreachHistory').add({
+    domain, action, count: count||0,
+    searchedBy: cu.name||cu.email||'',
+    searchedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(()=>{});
+}
+
+function initOutreachHistory(){
+  if(outreachHistoryListener) return; // one listener for the session is enough
+  outreachHistoryListener = db.collection('outreachHistory').orderBy('searchedAt','desc').limit(25).onSnapshot(snap=>{
+    renderOutreachHistory(snap.docs.map(d=>d.data()));
+  }, ()=>{});
+}
+
+function timeAgo(date){
+  if(!date) return '';
+  const secs = Math.max(0, Math.floor((Date.now()-date.getTime())/1000));
+  if(secs<60) return 'now';
+  const mins = Math.floor(secs/60);
+  if(mins<60) return mins+'m';
+  const hrs = Math.floor(mins/60);
+  if(hrs<24) return hrs+'h';
+  return Math.floor(hrs/24)+'d';
+}
+
+function renderOutreachHistory(rows){
+  const el = document.getElementById('ot-history');
+  if(!el) return;
+  // Same domain searched more than once — keep only the most recent entry.
+  const seen = new Set();
+  const unique = [];
+  for(const r of rows){
+    if(seen.has(r.domain)) continue;
+    seen.add(r.domain);
+    unique.push(r);
+  }
+  if(!unique.length){ el.innerHTML=''; return; }
+  el.innerHTML = `
+    <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;padding-top:14px;border-top:1px solid var(--border);margin-bottom:6px;">Recent searches</div>
+    ${unique.slice(0,8).map(r=>`
+      <button onclick="rerunHistorySearch('${escAttr(r.domain)}')" class="ot-vtab" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.domain)}</span>
+        <span style="font-size:10px;color:var(--text3);flex-shrink:0;">${timeAgo(r.searchedAt?.toDate?.())}</span>
+      </button>`).join('')}`;
+}
+
+function rerunHistorySearch(domain){
+  setOtTab('single');
+  document.getElementById('ot-domain').value = domain;
+  runOutreach('prospects');
 }
 
 function smtpBadge(smtp){
