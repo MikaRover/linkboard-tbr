@@ -9744,25 +9744,44 @@ let domSortField = 'domain', domSortDir = 'asc';
 
 // Folders are a page-local organization tool for the Domains DB — deliberately
 // a separate Firestore collection from the app's real link-building Projects
-// (allProjects), which "project" on a domain doc already refers to. Every
-// team member sees and can create from the same shared folder list.
+// (allProjects), which "project" on a domain doc already refers to. Each
+// folder belongs to whoever created it: builders only see their own, admin
+// sees everyone's. (Client-side only — Firestore rules aren't in this repo.)
+function folderOwner(f){ return f.owner || f.createdBy || ''; }
+function myFolderName(){ return cu?.name||cu?.email||''; }
+function visibleDomainFolders(){
+  if(cu?.role==='admin'){
+    // Two builders may each have a folder with the same name — admin gets one entry per name.
+    const seen = new Set();
+    return allDomainFolders.filter(f=>{ const k=(f.name||'').toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; });
+  }
+  const me = myFolderName();
+  return allDomainFolders.filter(f=>folderOwner(f)===me);
+}
 function listenDomainFolders(){
   db.collection('domainFolders').orderBy('name').onSnapshot(snap=>{
     allDomainFolders = snap.docs.map(d=>({id:d.id,...d.data()}));
-    if(document.getElementById('p-domains')?.classList.contains('active')) renderDomainsPage();
+    if(document.getElementById('p-domains')?.classList.contains('active')) initDomainsPage();
+    const cf = document.getElementById('catcheck-folder');
+    if(cf && document.getElementById('p-catcheck')?.classList.contains('active')) populateFolderSelect(cf, cf.value, false);
   });
 }
 
-// Fills a <select> with the shared folder list plus a "+ New folder…" entry.
+// Fills a <select> with the caller's visible folders plus a "+ New folder…" entry.
 // Reused by the Domains DB filter bar, the domain edit modal, and Category
 // Check's "save results into" picker.
 function populateFolderSelect(selectEl, currentValue, isFilter){
   if(!selectEl) return;
   const opts = isFilter ? '<option value="">All folders</option>' : '<option value="">— none —</option>';
+  const isAdm = cu?.role==='admin', me = myFolderName();
   // The filter dropdown only ever narrows an existing list — creating a
   // folder belongs in the assignment selects (modal, Category Check).
   selectEl.innerHTML = opts
-    + allDomainFolders.map(f=>`<option value="${escAttr(f.name)}">${escapeHtml(f.name)}</option>`).join('')
+    + visibleDomainFolders().map(f=>{
+        const o = folderOwner(f);
+        const label = f.name + (isAdm && o && o!==me ? ' · '+o : '');
+        return `<option value="${escAttr(f.name)}">${escapeHtml(label)}</option>`;
+      }).join('')
     + (isFilter ? '' : '<option value="__new__">+ New folder…</option>');
   if(currentValue) selectEl.value = currentValue;
 }
@@ -9773,15 +9792,16 @@ async function handleFolderSelectChange(selectEl){
   if(selectEl.value !== '__new__') return;
   const name = (prompt('New folder name:')||'').trim();
   if(!name){ selectEl.value=''; return; }
-  const existing = allDomainFolders.find(f=>f.name.toLowerCase()===name.toLowerCase());
+  const existing = visibleDomainFolders().find(f=>f.name.toLowerCase()===name.toLowerCase());
   if(existing){ selectEl.value = existing.name; return; }
   try{
+    const me = myFolderName();
     await db.collection('domainFolders').add({
-      name, createdBy: cu?.name||cu?.email||'',
+      name, owner: me, createdBy: me,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     // Reflect immediately rather than waiting on the snapshot round-trip.
-    allDomainFolders.push({name});
+    allDomainFolders.push({name, owner: me, createdBy: me});
     allDomainFolders.sort((a,b)=>a.name.localeCompare(b.name));
     // This handler is only ever wired to assignment selects (modal, Category
     // Check), never the filter dropdown — always repopulate as one of those.
