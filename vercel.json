@@ -8,6 +8,12 @@
     "api/scrape-contacts.js": { "maxDuration": 30 },
     "api/check-link.js": { "maxDuration": 30 },
     "api/check-relevancy.js": { "maxDuration": 30 },
-    "api/sheets-import.js": { "maxDuration": 15 }
-  }
+    "api/sheets-import.js": { "maxDuration": 60 }
+  },
+  "rewrites": [
+    { "source": "/api/gmail", "destination": "/api/sheets-import?gmail=1" }
+  ],
+  "crons": [
+    { "path": "/api/gmail?action=sync", "schedule": "0 21 * * *" }
+  ]
 }
