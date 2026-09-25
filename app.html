@@ -1072,7 +1072,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   </div>
 
   <div class="card">
-    <div class="card-head">Recent activity <a onclick="goToMyLinksFromDashboard()" style="font-size:12px;color:var(--teal);cursor:pointer;text-decoration:none;">View all →</a></div>
+    <div class="card-head"><span>Recent activity <span id="dash-sel-actions" style="margin-left:12px;font-weight:400;"></span></span> <a onclick="goToMyLinksFromDashboard()" style="font-size:12px;color:var(--teal);cursor:pointer;text-decoration:none;">View all →</a></div>
     <div id="dash-recent"><div class="loading" style="padding:20px;">Loading...</div></div>
   </div>
   </div>
@@ -4939,6 +4939,12 @@ function renderDashboard(){
   const recentEl = document.getElementById('dash-recent');
   if(recentEl){
     const recent = [...myLinks].sort((a,b)=>parseDate(b.date)-parseDate(a.date)).slice(0,8);
+    // Selection is kept in a Set (not just the DOM) because this whole table
+    // is re-rendered on every links snapshot — including the ones a bulk
+    // refresh itself triggers. Drop ids that scrolled out of the top 8 so a
+    // hidden row can never be refreshed by accident.
+    dashVisibleIds = recent.map(l=>l.id);
+    [...dashSelectedIds].forEach(id=>{ if(!dashVisibleIds.includes(id)) dashSelectedIds.delete(id); });
     if(!recent.length){
       recentEl.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px;">No links yet</div>';
     } else {
@@ -4948,10 +4954,12 @@ function renderDashboard(){
         return `<span class="mac-pill" style="background:${color}22;color:${color};"><span class="dot"></span>${label}</span>`;
       };
       recentEl.innerHTML = `<div style="overflow-x:auto;"><table class="mac-table"><thead><tr>
+        <th style="width:34px;padding-right:0;"><input type="checkbox" id="dash-select-all" onchange="dashToggleAll(this.checked)" title="Select all" style="width:auto;margin:0;cursor:pointer;"/></th>
         <th>Domain</th><th>Project</th>${cu.role==='admin'?'<th>Builder</th>':''}<th>DR / Traffic</th><th>Status</th><th>Date</th><th></th>
       </tr></thead><tbody>${recent.map(l=>{
         const trafficVal=l.traffic&&!isNaN(Number(String(l.traffic).replace(/,/g,'')))?Number(String(l.traffic).replace(/,/g,'')).toLocaleString():'—';
         return `<tr class="mac-row" onclick="goToMyLinksFromDashboard()">
+          <td onclick="event.stopPropagation()" style="padding-right:0;"><input type="checkbox" class="dash-row-cb" ${dashSelectedIds.has(l.id)?'checked':''} onchange="dashToggleRow('${escAttr(l.id)}',this.checked)" style="width:auto;margin:0;cursor:pointer;"/></td>
           <td><a href="https://${escAttr(l.domain)}" target="_blank" onclick="event.stopPropagation()" style="color:var(--text);font-weight:600;text-decoration:none;">${escapeHtml(l.domain||'—')}</a></td>
           <td style="color:var(--text2);">${l.project?escapeHtml(l.project):'—'}</td>
           ${cu.role==='admin'?`<td style="color:var(--text2);">${l.builder?escapeHtml(l.builder):'—'}</td>`:''}
@@ -4960,6 +4968,7 @@ function renderDashboard(){
           <td style="color:var(--text2);font-family:var(--font-mono);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
           <td><div class="mac-row-actions">
             <button onclick="event.stopPropagation();navigator.clipboard.writeText('https://${escAttr(l.domain)}');this.textContent='✓';setTimeout(()=>this.textContent='⧉',1200);" title="Copy URL">⧉</button>
+            <button onclick="event.stopPropagation();refreshMetricsFromDash('${escAttr(l.id)}',this)" title="Refresh DR &amp; Traffic (Ahrefs)">DR↻</button>
             <button onclick="event.stopPropagation();checkSingleLinkFromDash('${escAttr(l.id)}',this)" title="Re-check index">↻</button>
             <button onclick="event.stopPropagation();goToMyLinksFromDashboard();" title="Edit">✎</button>
           </div></td>
@@ -4967,7 +4976,94 @@ function renderDashboard(){
       }).join('')}</tbody></table></div>`;
     }
   }
+  updateDashSelection();
 }
+
+// ─── DASHBOARD: SELECT ROWS → REFRESH DR / TRAFFIC ────────
+let dashSelectedIds = new Set();
+let dashVisibleIds = [];
+let dashRefreshing = false;
+
+function updateDashSelection(){
+  // Mid-run the button IS the progress display — don't rebuild it out from
+  // under the running loop (a links snapshot re-renders the table meanwhile).
+  if(!dashRefreshing){
+    const el=document.getElementById('dash-sel-actions');
+    if(el){
+      const n=dashSelectedIds.size;
+      el.innerHTML = n
+        ? `<button class="btn-sm" onclick="refreshSelectedFromDash(this)" style="width:auto;padding:4px 12px;font-size:11px;">↻ Refresh DR/Traffic (${n})</button> <a onclick="dashClearSelection()" style="font-size:11px;color:var(--text3);cursor:pointer;margin-left:6px;">Clear</a>`
+        : '';
+    }
+  }
+  const all=document.getElementById('dash-select-all');
+  if(all){
+    const sel=dashVisibleIds.filter(id=>dashSelectedIds.has(id)).length;
+    all.checked = dashVisibleIds.length>0 && sel===dashVisibleIds.length;
+    all.indeterminate = sel>0 && sel<dashVisibleIds.length;
+  }
+}
+function dashToggleRow(id,on){
+  if(on) dashSelectedIds.add(id); else dashSelectedIds.delete(id);
+  updateDashSelection();
+}
+function dashToggleAll(on){
+  dashVisibleIds.forEach(id=>{ if(on) dashSelectedIds.add(id); else dashSelectedIds.delete(id); });
+  document.querySelectorAll('#dash-recent .dash-row-cb').forEach(cb=>cb.checked=on);
+  updateDashSelection();
+}
+function dashClearSelection(){
+  dashSelectedIds.clear();
+  document.querySelectorAll('#dash-recent .dash-row-cb').forEach(cb=>cb.checked=false);
+  updateDashSelection();
+}
+
+// Same /api/ahrefs lookup as "check website" in Add Link. Unlike the edit
+// form's ↻ there's no Save step on the dashboard, so this persists directly
+// (only fields Ahrefs actually returned — a null/0 never clobbers a value).
+async function refreshLinkMetricsAndSave(l){
+  const r=await fetch('/api/ahrefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:l.domain})});
+  const d=await r.json();
+  const upd={};
+  if(d.dr!==null&&d.dr!==undefined)upd.dr=String(d.dr);
+  if(d.traffic!==null&&d.traffic!==undefined&&d.traffic!==0)upd.traffic=String(d.traffic);
+  if(!Object.keys(upd).length)return false;
+  await db.collection('links').doc(l.id).update(upd);
+  return true;
+}
+async function refreshMetricsFromDash(id,btn){
+  const l=allLinks.find(x=>x.id===id);
+  if(!l||!l.domain)return;
+  const orig=btn.textContent;
+  btn.textContent='⏳';btn.disabled=true;
+  try{
+    showToast(await refreshLinkMetricsAndSave(l)?'DR & Traffic refreshed':'No fresh DR/Traffic data available');
+  }catch(e){
+    showToast('Error: '+e.message.slice(0,60));
+  }
+  btn.textContent=orig;btn.disabled=false;
+}
+async function refreshSelectedFromDash(btn){
+  if(dashRefreshing)return;
+  const targets=[...dashSelectedIds].map(id=>allLinks.find(l=>l.id===id)).filter(l=>l&&l.domain);
+  if(!targets.length)return;
+  dashRefreshing=true;
+  btn.disabled=true;
+  let done=0,updated=0;
+  const CONCUR=3;
+  for(let i=0;i<targets.length;i+=CONCUR){
+    await Promise.all(targets.slice(i,i+CONCUR).map(async l=>{
+      try{ if(await refreshLinkMetricsAndSave(l))updated++; }catch(e){}
+      done++;
+      btn.textContent=`↻ ${done}/${targets.length}`;
+    }));
+  }
+  dashRefreshing=false;
+  dashSelectedIds.clear();
+  updateDashSelection();
+  showToast(`DR & Traffic refreshed for ${updated} of ${targets.length}`);
+}
+
 async function checkSingleLinkFromDash(id, btn){
   const link=allLinks.find(l=>l.id===id);
   if(!link||!link.linkin||!link.linkto){showToast('Set Link in / Link to first (Edit)');return;}
