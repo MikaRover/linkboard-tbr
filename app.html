@@ -3401,8 +3401,8 @@ function renderDetailLinks(){
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
           <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${escapeHtml(lid)}" value="${escapeHtml(l.date||'')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${escapeHtml(lid)}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${escapeHtml(lid)}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-dr-${escapeHtml(lid)}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-traffic-${escapeHtml(lid)}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
           <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${escapeHtml(lid)}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${escapeHtml(lid)}" value="${escapeHtml(String(l.price||'').replace(/^\$+/,''))}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${escapeHtml(lid)}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
@@ -5106,8 +5106,8 @@ function renderLinks(){
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
           <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${escapeHtml(lid)}" value="${escapeHtml(l.date||'')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${escapeHtml(lid)}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${escapeHtml(lid)}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-dr-${escapeHtml(lid)}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-traffic-${escapeHtml(lid)}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
           <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${escapeHtml(lid)}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${escapeHtml(lid)}" value="${escapeHtml(String(l.price||'').replace(/\$+/g,''))}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${escapeHtml(lid)}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
@@ -9273,8 +9273,8 @@ function renderBuilderDashboard(){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
         <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${escapeHtml(l.date||'')}" style="margin:0;font-size:12px;"/></div>
-        <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" style="margin:0;font-size:12px;"/></div>
-        <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" style="margin:0;font-size:12px;"/></div>
+        <div><div class="section-label" style="margin-bottom:4px;">DR</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
+        <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
         <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" style="margin:0;font-size:12px;"/></div>
         <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${escapeHtml(String(l.price||'').replace(/^\$+/,''))}" style="margin:0;font-size:12px;"/></div>
         <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
@@ -9414,8 +9414,8 @@ function renderBuilderLinks(){
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
           <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${lid}" value="${escapeHtml(l.date||'')}" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">DR</div><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" style="margin:0;font-size:12px;"/></div>
-          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">DR</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-dr-${lid}" value="${cleanNum(l.dr)}" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-traffic-${lid}" value="${cleanNum(l.traffic)}" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
           <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${lid}" value="${cleanNum(l.ss)}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Price ($)</div><input id="ei-price-${lid}" value="${escapeHtml(String(l.price||'').replace(/^\$+/,''))}" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">Anchor</div><input id="ei-anchor-${lid}" value="${escapeHtml(l.anchor||'')}" style="margin:0;font-size:12px;"/></div>
@@ -9522,6 +9522,29 @@ async function refreshDcMetrics(id,btn){
     if(d.traffic!==null&&d.traffic!==undefined&&d.traffic!==0)upd.traffic=String(d.traffic);
     if(Object.keys(upd).length) await db.collection('links').doc(id).update(upd);
     else showToast('No fresh DR/Traffic data available');
+  }catch(e){
+    showToast('Error: '+e.message.slice(0,60));
+  }
+  btn.textContent=orig;btn.disabled=false;
+}
+// ↻ next to DR / Traffic in a link's inline edit form: re-runs the same
+// Ahrefs lookup as "check website" in Add Link and fills BOTH fields. It
+// only fills the inputs (no write) — the form's own Save → button decides
+// whether to keep it, same as the relevancy / invoice helper buttons.
+async function refreshEditMetrics(id,btn){
+  const l=allLinks.find(x=>x.id===id);
+  if(!l||!l.domain)return;
+  const orig=btn.textContent;
+  btn.textContent='⏳';btn.disabled=true;
+  try{
+    const r=await fetch('/api/ahrefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:l.domain})});
+    const d=await r.json();
+    const drEl=document.getElementById('ei-dr-'+id);
+    const trEl=document.getElementById('ei-traffic-'+id);
+    let changed=false;
+    if(drEl&&d.dr!==null&&d.dr!==undefined){drEl.value=String(d.dr);changed=true;}
+    if(trEl&&d.traffic!==null&&d.traffic!==undefined&&d.traffic!==0){trEl.value=String(d.traffic);changed=true;}
+    showToast(changed?'DR & Traffic refreshed — press Save to keep':'No fresh DR/Traffic data available');
   }catch(e){
     showToast('Error: '+e.message.slice(0,60));
   }
