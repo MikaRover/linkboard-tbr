@@ -986,6 +986,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div class="nav adm" onclick="gotoPage('kpi',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M12 2L22 12L12 22L2 12Z'/></svg>KPI</div>
   <div class="nav adm" onclick="gotoPage('analytics',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='4' y='13' width='4' height='8' fill='currentColor'/><rect x='10' y='8' width='4' height='13' fill='currentColor'/><rect x='16' y='3' width='4' height='18' fill='currentColor'/></svg>Analytics</div>
   <div class="nav adm" onclick="gotoPage('online',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='12' cy='12' r='7' fill='currentColor'/></svg>Online</div>
+  <div class="nav adm" onclick="gotoPage('emailstats',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='3' y='5' width='18' height='14' rx='2'/><path d='M3 7l9 6 9-6'/></svg>Emails / day</div>
   <div class="nav adm" onclick="gotoPage('dc-history',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M3 12l4 4L14 7M11 16l2.5 2.5L21 9' stroke-linecap='round' stroke-linejoin='round'/></svg>Double-check log</div>
   <div class="nav adm" onclick="gotoPage('domains',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><ellipse cx='12' cy='5' rx='9' ry='3' fill='currentColor'/><path d='M21 12c0 1.66-4 3-9 3s-9-1.34-9-3' stroke-linecap='round'/><path d='M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5' stroke-linecap='round'/></svg>Domains DB</div>
   <div class="nav-section" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding:14px 16px 4px;opacity:0.6;">Tools</div>
@@ -1870,6 +1871,29 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 </div>
 
 <!-- ══ ANALYTICS ══ -->
+<div id="p-emailstats" class="page">
+  <div class="page-top">
+    <div class="page-title">✉️ Outreach emails per day</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setEmailStatsPreset('today')">Today</button>
+      <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setEmailStatsPreset('week')">This week</button>
+      <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setEmailStatsPreset('month')">This month</button>
+      <input type="date" id="es-from" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderEmailStats()"/>
+      <span style="color:var(--text3);font-size:12px;">–</span>
+      <input type="date" id="es-to" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderEmailStats()"/>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);">Daily target
+        <input type="number" id="es-target" min="0" placeholder="0" style="margin:0;padding:6px 8px;font-size:12px;width:70px;" oninput="saveEmailTarget();renderEmailStats()"/>
+      </label>
+    </div>
+  </div>
+  <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.5;">
+    Counts each unique email a builder opened with the <b>✉️ Gmail</b> button in LinkBoard (same person + same address on the same day counts once). LinkBoard can't see whether the message was actually sent from Gmail.
+  </div>
+  <div class="stats" id="es-stats" style="grid-template-columns:repeat(3,1fr);"></div>
+  <div class="card"><div class="tbl-wrap" id="es-table"><div class="loading">Loading...</div></div></div>
+  <div id="es-detail" style="margin-top:1rem;"></div>
+</div>
+
 <div id="p-analytics" class="page">
   <div class="page-top">
     <div class="page-title">📈 Analytics</div>
@@ -3871,6 +3895,7 @@ function gotoPage(name,el){
   if(name==='kpi')initKPI();
   if(name==='anchors')initAnchors();
   if(name==='online')initOnlinePage();
+  if(name==='emailstats')initEmailStats();
   if(name==='capacity'){listenCapacities();renderCapacityList();}
   if(name==='domains')initDomainsPage();
   if(name==='prospector'){
@@ -6893,7 +6918,24 @@ function renderScrapedEmails(data, domain){
 }
 
 // Quick outreach email template modal
+// One doc per (builder, email, UTC day) — re-clicking the same address the
+// same day overwrites instead of double-counting. Fire-and-forget: a failed
+// log must never block opening Gmail.
+function logOutreachEmail(email, domain){
+  try{
+    const builder = cu?.name||cu?.email||'';
+    if(!builder || !email) return;
+    const date = new Date().toISOString().slice(0,10);
+    const id = (date+'_'+builder+'_'+email).toLowerCase().replace(/[^a-z0-9@._-]/g,'_');
+    db.collection('outreachEmails').doc(id).set({
+      builder, email:String(email).toLowerCase(), domain:domain||'', date,
+      ts: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(()=>{});
+  }catch(e){}
+}
+
 function composeOutreach(firstName, email, domain){
+  logOutreachEmail(email, domain);
   const subject = `Link building collaboration — ${domain}`;
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
   const body = `${greeting}\n\nI came across ${domain} and think there's a great opportunity for us to collaborate on some link building.\n\nWould you be open to a quick chat?\n\nBest regards`;
@@ -7365,6 +7407,86 @@ let currentSessionRef = null;
 // instead of counting up against whatever moment the page happens to be
 // viewed.
 const PRESENCE_STALE_MS = 5 * 60 * 1000; // 5 min — 2x the 2-min heartbeat, plus margin
+// ─── OUTREACH EMAILS / DAY (admin) ───────────────────────
+// `date` is UTC (matches Online Tracking's sessions). One range query on
+// `date` only — the per-person grouping happens client-side, so no
+// composite index is needed.
+function saveEmailTarget(){
+  try{ localStorage.setItem('lb_email_target', document.getElementById('es-target').value||''); }catch(e){}
+}
+function initEmailStats(){
+  const t = document.getElementById('es-target');
+  if(t && !t.dataset.init){
+    t.dataset.init='1';
+    try{ t.value = localStorage.getItem('lb_email_target')||''; }catch(e){}
+  }
+  const f = document.getElementById('es-from');
+  if(f && !f.value) setEmailStatsPreset('week'); else renderEmailStats();
+}
+function setEmailStatsPreset(preset){
+  const now = new Date();
+  const toStr = now.toISOString().slice(0,10);
+  let fromStr;
+  if(preset==='today') fromStr = toStr;
+  else if(preset==='week') fromStr = new Date(now.getTime() - now.getUTCDay()*86400000).toISOString().slice(0,10);
+  else fromStr = toStr.slice(0,7)+'-01';
+  document.getElementById('es-from').value = fromStr;
+  document.getElementById('es-to').value = toStr;
+  renderEmailStats();
+}
+let esDetailPerson = '';
+async function renderEmailStats(){
+  const from = document.getElementById('es-from')?.value;
+  const to = document.getElementById('es-to')?.value;
+  const wrap = document.getElementById('es-table');
+  if(!from||!to||!wrap) return;
+  let rows;
+  try{
+    const snap = await db.collection('outreachEmails').where('date','>=',from).where('date','<=',to).get();
+    rows = snap.docs.map(d=>d.data());
+  }catch(e){
+    wrap.innerHTML = '<div class="loading">Could not load — check Firestore rules for the outreachEmails collection.</div>';
+    return;
+  }
+  // Days in range (UTC strings), capped so a huge range can't blow up the table
+  const days = [];
+  for(let t=Date.parse(from+'T00:00:00Z'), end=Date.parse(to+'T00:00:00Z'); t<=end && days.length<62; t+=86400000) days.push(new Date(t).toISOString().slice(0,10));
+  const byPerson = {};
+  (typeof BUILDERS!=='undefined'?BUILDERS:[]).forEach(b=>{ byPerson[b]={}; });
+  rows.forEach(r=>{ const p=r.builder||'?'; (byPerson[p] = byPerson[p]||{})[r.date] = (byPerson[p][r.date]||0)+1; });
+  const target = parseInt(document.getElementById('es-target')?.value)||0;
+  const people = Object.keys(byPerson).map(p=>({p, total:days.reduce((a,d)=>a+(byPerson[p][d]||0),0)})).sort((a,b)=>b.total-a.total||a.p.localeCompare(b.p));
+  const total = people.reduce((a,x)=>a+x.total,0);
+  const active = people.filter(x=>x.total>0).length;
+  document.getElementById('es-stats').innerHTML = `
+    <div class="stat"><div class="stat-l">Emails</div><div class="stat-v" style="color:var(--teal)">${total}</div></div>
+    <div class="stat"><div class="stat-l">People sending</div><div class="stat-v" style="color:var(--teal)">${active}</div></div>
+    <div class="stat"><div class="stat-l">Avg / day (team)</div><div class="stat-v" style="color:var(--text2)">${days.length?Math.round(total/days.length*10)/10:0}</div></div>`;
+  const cellStyle = n => {
+    if(!target) return n?'':'color:var(--text3);';
+    return n>=target?'color:#00e676;font-weight:700;':(n?'color:#f0a500;font-weight:700;':'color:#ff6b6b;');
+  };
+  const short = d => d.slice(5).replace('-','/');
+  wrap.innerHTML = `<table><thead><tr><th>Person</th>${days.map(d=>`<th style="text-align:center;">${short(d)}</th>`).join('')}<th style="text-align:right;">Total</th><th style="text-align:right;">Avg/day</th></tr></thead><tbody>`
+    + people.map(x=>`<tr class="link-row" style="cursor:pointer;" onclick="showEmailDetail('${escAttr(x.p)}')">
+        <td style="font-weight:600;">${escapeHtml(x.p)}</td>
+        ${days.map(d=>{const n=byPerson[x.p][d]||0;return `<td style="text-align:center;${cellStyle(n)}">${n}</td>`;}).join('')}
+        <td style="text-align:right;font-weight:700;color:var(--teal);">${x.total}</td>
+        <td style="text-align:right;color:var(--text2);">${days.length?Math.round(x.total/days.length*10)/10:0}</td></tr>`).join('')
+    + '</tbody></table>';
+  window._esRows = rows;
+  if(esDetailPerson) showEmailDetail(esDetailPerson); else document.getElementById('es-detail').innerHTML='';
+}
+// Who exactly was emailed — click a person's row
+function showEmailDetail(person){
+  esDetailPerson = person;
+  const list = (window._esRows||[]).filter(r=>r.builder===person).sort((a,b)=>(b.date+(b.domain||'')).localeCompare(a.date+(a.domain||'')));
+  document.getElementById('es-detail').innerHTML = `<div class="card"><div class="card-head" style="display:flex;justify-content:space-between;align-items:center;"><span>${escapeHtml(person)} — ${list.length} emails</span><button class="btn-ghost" style="font-size:11px;padding:3px 8px;" onclick="esDetailPerson='';document.getElementById('es-detail').innerHTML=''">✕ Close</button></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Domain</th><th>Email</th></tr></thead><tbody>${
+      list.length ? list.map(r=>`<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.domain||'—')}</td><td>${escapeHtml(r.email)}</td></tr>`).join('') : '<tr><td colspan="3" class="loading">Nothing in this range</td></tr>'
+    }</tbody></table></div></div>`;
+}
+
 const ONLINE_TRACKING_BUILDERS = ['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik','David','Edgar','Edo','Tatev','Vard'];
 const ONLINE_NEON_COLORS={
   'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
