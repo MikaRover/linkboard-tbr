@@ -32,6 +32,12 @@ function normalizeDomain(d) {
 }
 
 module.exports = async function handler(req, res) {
+  // Hobby plan = 12 functions max and all are used, so /api/gmail (rewritten
+  // here in vercel.json) shares this one. Gmail auth is its own (Firebase ID
+  // token / cron secret), so it must dispatch before the webhook-secret check.
+  if ((req.query && req.query.gmail) || /^\/api\/gmail(\?|$)/.test(req.url || '')) {
+    return require('./_lib/gmail')(req, res);
+  }
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Webhook-Secret');

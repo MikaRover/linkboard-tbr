@@ -947,6 +947,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <div class="sb-name" id="sb-name">—</div>
     <div class="sb-role" id="sb-role">—</div>
   </div>
+  <div id="gmail-strip" style="padding:0 1rem 8px;"></div>
   <div id="notif-bell-wrap" style="display:none;position:relative;padding:8px 1rem 10px;">
     <div id="notif-bell" onclick="toggleNotifPanel()" style="display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;padding:14px 16px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);font-size:15px;font-weight:700;color:var(--text);">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -1875,6 +1876,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div class="page-top">
     <div class="page-title">✉️ Outreach emails per day</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <select id="es-source" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderEmailStats()"><option value="gmail">Gmail (actually sent)</option><option value="clicks">LinkBoard ✉️ clicks</option></select>
+      <select id="es-metric" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderEmailStats()"><option value="external">Outreach (external)</option><option value="newThreads">New conversations</option><option value="sent">All sent</option></select>
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setEmailStatsPreset('today')">Today</button>
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setEmailStatsPreset('week')">This week</button>
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setEmailStatsPreset('month')">This month</button>
@@ -1886,9 +1889,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       </label>
     </div>
   </div>
-  <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.5;">
-    Counts each unique email a builder opened with the <b>✉️ Gmail</b> button in LinkBoard (same person + same address on the same day counts once). LinkBoard can't see whether the message was actually sent from Gmail.
-  </div>
+  <div id="es-conns" class="card" style="margin-bottom:12px;"></div>
+  <div id="es-note" style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.5;"></div>
   <div class="stats" id="es-stats" style="grid-template-columns:repeat(3,1fr);"></div>
   <div class="card"><div class="tbl-wrap" id="es-table"><div class="loading">Loading...</div></div></div>
   <div id="es-detail" style="margin-top:1rem;"></div>
@@ -2962,7 +2964,7 @@ function startApp(){
   const findAnchBtn = document.getElementById('find-anchors-btn');
   if(findAnchBtn) findAnchBtn.style.display = isAdmin?'':'none';
 
-  listenBuilders();listenCapacities();listenLoads();listenKPITargets();listenProjects();listenLinks();listenReqs();listenQualityReqs();listenDomains();listenDomainFolders();
+  listenBuilders();listenCapacities();listenLoads();listenKPITargets();listenProjects();listenLinks();listenReqs();listenQualityReqs();listenDomains();listenDomainFolders();listenMyGmail();
   listenNotifications();
   if(isAdmin)listenDCHistory();
   renderCatButtons('');
@@ -7414,7 +7416,45 @@ const PRESENCE_STALE_MS = 5 * 60 * 1000; // 5 min — 2x the 2-min heartbeat, pl
 function saveEmailTarget(){
   try{ localStorage.setItem('lb_email_target', document.getElementById('es-target').value||''); }catch(e){}
 }
+let allGmailConns = [], gmailConnsUnsub = null;
+function listenGmailConns(){
+  if(gmailConnsUnsub || cu?.role!=='admin') return;
+  gmailConnsUnsub = db.collection('gmailConnections').onSnapshot(snap=>{
+    allGmailConns = snap.docs.map(d=>({uid:d.id,...d.data()}));
+    renderGmailConnsPanel();
+  }, ()=>{});
+}
+function renderGmailConnsPanel(){
+  const el = document.getElementById('es-conns');
+  if(!el) return;
+  const names = new Set(allGmailConns.map(c=>c.name));
+  const missing = (typeof BUILDERS!=='undefined'?BUILDERS:[]).filter(b=>!names.has(b));
+  const ago = t => t ? timeAgo(new Date(t))+' ago' : 'never';
+  el.innerHTML = `<div class="card-body" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="font-size:13px;font-weight:700;">Gmail connections — ${allGmailConns.length} connected</div>
+      <button class="btn-sm" id="es-sync-btn" style="width:auto;padding:6px 14px;font-size:12px;" onclick="syncGmailNow(this)">↻ Sync now</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">${allGmailConns.map(c=>`<span title="${escAttr((c.email||'')+' · synced '+ago(c.lastSyncAt))}" style="font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid ${c.lastError?'#ff6b6b':'rgba(0,230,118,0.4)'};color:${c.lastError?'#ff6b6b':'#00e676'};">${escapeHtml(c.name)}${c.lastError?' ⚠ reconnect':''}</span>`).join('')||'<span style="font-size:12px;color:var(--text3);">Nobody has connected yet — each person clicks “Connect Gmail” in the sidebar.</span>'}</div>
+    ${missing.length&&allGmailConns.length?`<div style="font-size:11px;color:var(--text3);">Not connected: ${missing.map(escapeHtml).join(', ')}</div>`:''}
+    <div style="font-size:11px;color:var(--text3);">Synced automatically every night; “Sync now” recounts the last 7 days.</div>
+  </div>`;
+}
+async function syncGmailNow(btn){
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Syncing…';
+  try{
+    const r = await fetch('/api/gmail?action=sync&days=7',{method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken()}});
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error||'Sync failed');
+    const bad = (j.results||[]).filter(x=>x.error);
+    showToast(bad.length ? `Synced with ${bad.length} error(s): ${bad.map(x=>x.name).join(', ')}` : `Synced ${(j.results||[]).length} mailbox(es)`, bad.length?'warn':'ok');
+  }catch(e){ showToast(e.message,'warn'); }
+  btn.disabled = false; btn.textContent = orig;
+  renderEmailStats();
+}
 function initEmailStats(){
+  listenGmailConns();
+  renderGmailConnsPanel();
   const t = document.getElementById('es-target');
   if(t && !t.dataset.init){
     t.dataset.init='1';
@@ -7440,12 +7480,19 @@ async function renderEmailStats(){
   const to = document.getElementById('es-to')?.value;
   const wrap = document.getElementById('es-table');
   if(!from||!to||!wrap) return;
+  const source = document.getElementById('es-source')?.value || 'gmail';
+  const metric = document.getElementById('es-metric')?.value || 'external';
+  const isGmail = source==='gmail';
+  document.getElementById('es-metric').style.display = isGmail ? '' : 'none';
+  document.getElementById('es-note').innerHTML = isGmail
+    ? 'Real numbers from each person’s Gmail <b>Sent</b> folder (counts only — LinkBoard never reads message text). <b>Outreach</b> = sent to anyone outside the company domain; <b>New conversations</b> = outreach that started a new thread (not a reply). Days are UTC.'
+    : 'Counts each unique email a builder opened with the <b>✉️ Gmail</b> button in LinkBoard (same person + same address on the same day counts once). It can’t see whether the message was actually sent.';
   let rows;
   try{
-    const snap = await db.collection('outreachEmails').where('date','>=',from).where('date','<=',to).get();
+    const snap = await db.collection(isGmail?'emailCounts':'outreachEmails').where('date','>=',from).where('date','<=',to).get();
     rows = snap.docs.map(d=>d.data());
   }catch(e){
-    wrap.innerHTML = '<div class="loading">Could not load — check Firestore rules for the outreachEmails collection.</div>';
+    wrap.innerHTML = '<div class="loading">Could not load — check Firestore rules for the '+(isGmail?'emailCounts':'outreachEmails')+' collection.</div>';
     return;
   }
   // Days in range (UTC strings), capped so a huge range can't blow up the table
@@ -7453,7 +7500,11 @@ async function renderEmailStats(){
   for(let t=Date.parse(from+'T00:00:00Z'), end=Date.parse(to+'T00:00:00Z'); t<=end && days.length<62; t+=86400000) days.push(new Date(t).toISOString().slice(0,10));
   const byPerson = {};
   (typeof BUILDERS!=='undefined'?BUILDERS:[]).forEach(b=>{ byPerson[b]={}; });
-  rows.forEach(r=>{ const p=r.builder||'?'; (byPerson[p] = byPerson[p]||{})[r.date] = (byPerson[p][r.date]||0)+1; });
+  rows.forEach(r=>{
+    const p=r.builder||'?';
+    const n = isGmail ? (r[metric]||0) : 1;
+    (byPerson[p] = byPerson[p]||{})[r.date] = (byPerson[p][r.date]||0)+n;
+  });
   const target = parseInt(document.getElementById('es-target')?.value)||0;
   const people = Object.keys(byPerson).map(p=>({p, total:days.reduce((a,d)=>a+(byPerson[p][d]||0),0)})).sort((a,b)=>b.total-a.total||a.p.localeCompare(b.p));
   const total = people.reduce((a,x)=>a+x.total,0);
@@ -7475,16 +7526,75 @@ async function renderEmailStats(){
         <td style="text-align:right;color:var(--text2);">${days.length?Math.round(x.total/days.length*10)/10:0}</td></tr>`).join('')
     + '</tbody></table>';
   window._esRows = rows;
+  window._esGmail = isGmail;
   if(esDetailPerson) showEmailDetail(esDetailPerson); else document.getElementById('es-detail').innerHTML='';
 }
 // Who exactly was emailed — click a person's row
 function showEmailDetail(person){
   esDetailPerson = person;
+  if(window._esGmail){
+    const list = (window._esRows||[]).filter(r=>r.builder===person).sort((a,b)=>b.date.localeCompare(a.date));
+    document.getElementById('es-detail').innerHTML = `<div class="card"><div class="card-head" style="display:flex;justify-content:space-between;align-items:center;"><span>${escapeHtml(person)} — by day</span><button class="btn-ghost" style="font-size:11px;padding:3px 8px;" onclick="esDetailPerson='';document.getElementById('es-detail').innerHTML=''">✕ Close</button></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Date</th><th style="text-align:right;">Outreach</th><th style="text-align:right;">New conversations</th><th style="text-align:right;">All sent</th></tr></thead><tbody>${
+        list.length ? list.map(r=>`<tr><td>${escapeHtml(r.date)}</td><td style="text-align:right;">${r.external||0}</td><td style="text-align:right;">${r.newThreads||0}</td><td style="text-align:right;">${r.sent||0}</td></tr>`).join('') : '<tr><td colspan="4" class="loading">Nothing in this range — not connected, or not synced yet</td></tr>'
+      }</tbody></table></div></div>`;
+    return;
+  }
   const list = (window._esRows||[]).filter(r=>r.builder===person).sort((a,b)=>(b.date+(b.domain||'')).localeCompare(a.date+(a.domain||'')));
   document.getElementById('es-detail').innerHTML = `<div class="card"><div class="card-head" style="display:flex;justify-content:space-between;align-items:center;"><span>${escapeHtml(person)} — ${list.length} emails</span><button class="btn-ghost" style="font-size:11px;padding:3px 8px;" onclick="esDetailPerson='';document.getElementById('es-detail').innerHTML=''">✕ Close</button></div>
     <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Domain</th><th>Email</th></tr></thead><tbody>${
       list.length ? list.map(r=>`<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.domain||'—')}</td><td>${escapeHtml(r.email)}</td></tr>`).join('') : '<tr><td colspan="3" class="loading">Nothing in this range</td></tr>'
     }</tbody></table></div></div>`;
+}
+
+// ─── GMAIL CONNECT (sidebar) ─────────────────────────────
+let gmailConn = null, gmailConnUnsub = null;
+function listenMyGmail(){
+  if(gmailConnUnsub){ gmailConnUnsub(); gmailConnUnsub = null; }
+  if(!cu?.uid) return;
+  gmailConnUnsub = db.collection('gmailConnections').doc(cu.uid).onSnapshot(s=>{
+    gmailConn = s.exists ? s.data() : null;
+    renderGmailStrip();
+  }, ()=>{});
+  renderGmailStrip();
+  // Back from Google's consent screen
+  try{
+    const p = new URLSearchParams(location.search);
+    const g = p.get('gmail');
+    if(g){
+      showToast(g==='connected'?'Gmail connected ✓ — first counts are loading':(g==='denied'?'Gmail connection cancelled':'Could not connect Gmail — try again'), g==='connected'?'ok':'warn');
+      p.delete('gmail');
+      history.replaceState(null,'',location.pathname+(p.toString()?'?'+p:'')+location.hash);
+    }
+  }catch(e){}
+}
+function renderGmailStrip(){
+  const el = document.getElementById('gmail-strip');
+  if(!el) return;
+  if(!cu){ el.innerHTML=''; return; }
+  const base = 'width:100%;text-align:left;font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer;';
+  if(gmailConn && !gmailConn.lastError){
+    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:#00e676;padding:4px 2px;" title="${escAttr(gmailConn.email||'')}">✉️ Gmail connected<button onclick="disconnectGmail()" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;">disconnect</button></div>`;
+  } else {
+    el.innerHTML = `<button onclick="connectGmail()" style="${base}background:var(--bg2);border:1px solid ${gmailConn?'#ff6b6b':'var(--border2)'};color:${gmailConn?'#ff6b6b':'var(--text)'};">✉️ ${gmailConn?'Reconnect Gmail':'Connect Gmail'}</button>`;
+  }
+}
+async function connectGmail(){
+  if(!confirm('Connect your Gmail so LinkBoard can count how many emails you send per day?\n\nOnly counts and recipient domains are read (Google’s “metadata” permission) — never the text of your emails. You can disconnect any time.')) return;
+  try{
+    const r = await fetch('/api/gmail?action=connect&ret='+encodeURIComponent(location.pathname),{headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken()}});
+    const j = await r.json();
+    if(!r.ok||!j.url) throw new Error(j.error||'Could not start Gmail connection');
+    location.href = j.url;
+  }catch(e){ showToast(e.message,'warn'); }
+}
+async function disconnectGmail(){
+  if(!confirm('Disconnect Gmail? Your past counts stay, new emails stop being counted.')) return;
+  try{
+    const r = await fetch('/api/gmail?action=disconnect',{method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken()}});
+    if(!r.ok) throw new Error((await r.json()).error||'Failed');
+    showToast('Gmail disconnected');
+  }catch(e){ showToast(e.message,'warn'); }
 }
 
 const ONLINE_TRACKING_BUILDERS = ['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik','David','Edgar','Edo','Tatev','Vard'];
