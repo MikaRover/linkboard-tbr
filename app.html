@@ -7562,7 +7562,14 @@ function showEmailDetail(person){
 
   if(window._esGmail){
     const rows = (window._esRows||[]).filter(r=>r.builder===person);
-    const list = [...rows].sort((a,b)=>b.date.localeCompare(a.date));
+    // One row per mailbox per day — sum across mailboxes so the by-day table
+    // below shows one line per date, not a repeated line per mailbox.
+    const byDate = {};
+    rows.forEach(r=>{
+      const d = byDate[r.date] = byDate[r.date] || {sent:0, external:0, newThreads:0};
+      d.sent += r.sent||0; d.external += r.external||0; d.newThreads += r.newThreads||0;
+    });
+    const list = Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).map(date=>({date, ...byDate[date]}));
     // Per-mailbox totals — only worth showing when this person has more than
     // one connected address, which is the whole point of the request: see
     // which of their addresses did how much.
