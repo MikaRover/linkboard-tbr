@@ -281,12 +281,12 @@ async function syncAll({ onlyOwnerUid, days }) {
       else if (backfill) since = startOfDay(Date.now() - (backfill - 1) * DAY);
       else if (conn.lastSyncDay) since = Math.max(Date.parse(conn.lastSyncDay + 'T00:00:00Z'), startOfDay(Date.now() - (MAX_BACKFILL_DAYS - 1) * DAY));
       else since = startOfDay(Date.now() - 13 * DAY);
-      // Already covers this depth and isn't mid-backfill — a full re-scan
-      // would only burn shared budget another mailbox needs, for a result
-      // we already have. Still let it through if it's stale (>1 day old),
-      // so a routine "keep today fresh" refresh still happens.
-      if (backfill && !resume && conn.syncedBackToMs != null && conn.syncedBackToMs <= since
-        && conn.lastSyncDay === new Date().toISOString().slice(0, 10)) {
+      // Already covers this depth and isn't mid-backfill — a full re-scan of
+      // a deep range would only burn shared budget another mailbox still
+      // needs, for a result we already have. Keeping "today" itself fresh
+      // is the nightly cron's / a plain refresh's job, not this deep-backfill
+      // request's, so it isn't a reason to redo the whole scan here.
+      if (backfill && !resume && conn.syncedBackToMs != null && conn.syncedBackToMs <= since) {
         results.push({ name: conn.name, email: conn.email, messages: 0, truncated: false, skipped: 'already covers this range' });
         return;
       }
