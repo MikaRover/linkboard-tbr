@@ -265,6 +265,23 @@ module.exports = async function gmailHandler(req, res) {
       return res.json({ ok: true });
     }
 
+    // TEMP: raw diagnostic — bypasses date bucketing entirely, calls the
+    // Gmail API directly and reports exactly what it returned. Admin only.
+    // Remove once the sync-returns-0 investigation is done.
+    if (action === 'debug') {
+      const u = await userFromRequest(req);
+      if (!u || u.role !== 'admin') return res.status(401).json({ error: 'Unauthorized' });
+      const db = getAdmin().firestore();
+      const sec = await db.collection('gmailSecrets').doc(u.uid).get();
+      if (!sec.exists) return res.json({ error: 'not connected' });
+      const refresh = decrypt(sec.data().refreshTokenEnc);
+      const tok = await tokenRequest({ grant_type: 'refresh_token', refresh_token: refresh });
+      const list = await gmailGet('messages?labelIds=SENT&maxResults=5', tok.access_token);
+      const detail = list.messages ? await Promise.all(list.messages.slice(0, 3).map(m =>
+        gmailGet(`messages/${m.id}?format=metadata&metadataHeaders=To&fields=id,internalDate,labelIds,payload/headers`, tok.access_token))) : [];
+      return res.json({ scope: tok.scope, resultSizeEstimate: list.resultSizeEstimate, messages: list.messages, detail });
+    }
+
     if (action === 'sync') {
       let onlyUid = q.uid || '';
       if (!isCron(req)) {
