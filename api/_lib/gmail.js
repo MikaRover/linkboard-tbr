@@ -296,6 +296,28 @@ module.exports = async function gmailHandler(req, res) {
       return res.json({ ok: true });
     }
 
+    // TEMP: cross-check Gmail's own count against what LinkBoard computed,
+    // for one mailbox and a date window. Admin only. Remove once resolved.
+    if (action === 'audit') {
+      const u = await userFromRequest(req);
+      if (!u || u.role !== 'admin') return res.status(401).json({ error: 'Unauthorized' });
+      const id = mailboxId(q.id || '');
+      const db = getAdmin().firestore();
+      const sec = await db.collection('gmailSecrets').doc(id).get();
+      if (!sec.exists) return res.json({ error: 'not connected: ' + id });
+      const access = (await tokenRequest({ grant_type: 'refresh_token', refresh_token: decrypt(sec.data().refreshTokenEnc) })).access_token;
+      const after = q.after || '2026/09/14';
+      const gq = await gmailGet('messages?labelIds=SENT&q=' + encodeURIComponent('after:' + after), access);
+      const ids = (gq.messages || []).map(m => m.id);
+      const details = await Promise.all(ids.map(i => gmailGet(`messages/${i}?format=metadata&metadataHeaders=To&fields=id,internalDate,payload/headers`, access).catch(e => ({ __err: e.message }))));
+      const rows = details.filter(d => d && !d.__err).map(d => ({
+        date: new Date(Number(d.internalDate)).toISOString().slice(0, 10),
+        to: (d.payload && d.payload.headers && d.payload.headers.find(h => h.name === 'To') || {}).value
+      }));
+      const our = (await db.collection('emailCounts').get()).docs.filter(d => d.data().email === id).map(d => d.data());
+      return res.json({ mailbox: id, gmailResultSizeEstimate: gq.resultSizeEstimate, gmailMessageCount: ids.length, gmailRows: rows, ourEmailCountsDocs: our });
+    }
+
     if (action === 'sync') {
       let onlyOwnerUid = q.uid || '';
       if (!isCron(req)) {
