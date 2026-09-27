@@ -160,6 +160,10 @@ async function inChunks(items, size, fn) {
 // both tagged with their name, and the admin page sums them together.
 async function syncOne(conn, secretDoc, sinceMs, deadline, resume) {
   const db = getAdmin().firestore();
+  // Nothing left in the shared time budget (an earlier mailbox in this same
+  // sync call used it all) — bail out without writing anything at all rather
+  // than writing a spurious "today = 0" that would clobber a real count.
+  if (Date.now() >= deadline) return { name: conn.name, email: conn.email, messages: 0, truncated: true, skipped: 'no time left' };
   const refresh = decrypt(secretDoc.refreshTokenEnc);
   let access;
   try { access = (await tokenRequest({ grant_type: 'refresh_token', refresh_token: refresh })).access_token; }
@@ -228,7 +232,13 @@ async function syncOne(conn, secretDoc, sinceMs, deadline, resume) {
     // Cleared once a backfill finally completes; set (or refreshed) while it's still in progress.
     resumeToken: truncated ? pageToken : null,
     resumeCeilingMs: truncated ? writeFromMs : null,
-    resumeSinceMs: truncated ? sinceMs : null
+    resumeSinceMs: truncated ? sinceMs : null,
+    // How far back this mailbox has been fully, correctly counted — lets a
+    // later backfill request skip mailboxes that already cover it instead of
+    // wastefully re-scanning them and starving a still-incomplete one of
+    // its share of the time budget. Only advances (never regresses) on a
+    // shallow routine sync that didn't ask to go this deep.
+    syncedBackToMs: completed ? Math.min(sinceMs, conn.syncedBackToMs || sinceMs) : (conn.syncedBackToMs || null)
   }, { merge: true });
   await batch.commit();
   return { name: conn.name, email: conn.email, messages: seen, truncated };
@@ -243,6 +253,10 @@ async function syncAll({ onlyOwnerUid, days }) {
   const deadline = Date.now() + SYNC_BUDGET_MS;
   let conns = (await db.collection('gmailConnections').get()).docs.map(d => ({ id: d.id, ...d.data() }));
   if (onlyOwnerUid) conns = conns.filter(c => c.ownerUid === onlyOwnerUid);
+  // A mailbox mid-backfill (has a resumeToken) goes first, so the shared time
+  // budget advances it before being spent re-scanning ones that are already
+  // fully caught up — otherwise a slow mailbox never gets its turn.
+  conns.sort((a, b) => (b.resumeToken ? 1 : 0) - (a.resumeToken ? 1 : 0));
   const results = [];
   // Sequential, not parallel — a deep backfill on 2+ mailboxes at once was
   // bursting past Gmail's per-user "Units per minute" quota and failing both
@@ -267,6 +281,15 @@ async function syncAll({ onlyOwnerUid, days }) {
       else if (backfill) since = startOfDay(Date.now() - (backfill - 1) * DAY);
       else if (conn.lastSyncDay) since = Math.max(Date.parse(conn.lastSyncDay + 'T00:00:00Z'), startOfDay(Date.now() - (MAX_BACKFILL_DAYS - 1) * DAY));
       else since = startOfDay(Date.now() - 13 * DAY);
+      // Already covers this depth and isn't mid-backfill — a full re-scan
+      // would only burn shared budget another mailbox needs, for a result
+      // we already have. Still let it through if it's stale (>1 day old),
+      // so a routine "keep today fresh" refresh still happens.
+      if (backfill && !resume && conn.syncedBackToMs != null && conn.syncedBackToMs <= since
+        && conn.lastSyncDay === new Date().toISOString().slice(0, 10)) {
+        results.push({ name: conn.name, email: conn.email, messages: 0, truncated: false, skipped: 'already covers this range' });
+        return;
+      }
       results.push(await syncOne(conn, sec.data(), since, deadline, resume));
     } catch (e) {
       results.push({ name: conn.name, email: conn.email, error: e.message });
