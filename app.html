@@ -7509,9 +7509,17 @@ async function renderEmailStats(){
     wrap.innerHTML = '<div class="loading">Could not load — check Firestore rules for the '+(isGmail?'emailCounts':'outreachEmails')+' collection.</div>';
     return;
   }
-  // Days in range (UTC strings), capped so a huge range can't blow up the table
-  const days = [];
-  for(let t=Date.parse(from+'T00:00:00Z'), end=Date.parse(to+'T00:00:00Z'); t<=end && days.length<62; t+=86400000) days.push(new Date(t).toISOString().slice(0,10));
+  // Days in range (UTC strings), capped so a huge range can't blow up the table.
+  // Kept from the END of the range, not the start — otherwise a wide range
+  // (e.g. 3 months) silently drops the most recent days from both the table
+  // AND the Emails/People-sending totals above it, while the per-person
+  // detail panel (which reads straight from the fetched rows, uncapped)
+  // keeps showing them — looking like the totals are wrong.
+  let days = [];
+  for(let t=Date.parse(from+'T00:00:00Z'), end=Date.parse(to+'T00:00:00Z'); t<=end; t+=86400000) days.push(new Date(t).toISOString().slice(0,10));
+  const truncated = days.length>62;
+  if(truncated) days = days.slice(-62);
+  if(truncated) document.getElementById('es-note').innerHTML += ` <b style="color:#f0a500;">Showing the most recent ${days.length} days only</b> — narrow the date range to see the rest.`;
   const byPerson = {};
   (typeof BUILDERS!=='undefined'?BUILDERS:[]).forEach(b=>{ byPerson[b]={}; });
   rows.forEach(r=>{
