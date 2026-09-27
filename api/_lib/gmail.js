@@ -306,16 +306,30 @@ module.exports = async function gmailHandler(req, res) {
       const sec = await db.collection('gmailSecrets').doc(id).get();
       if (!sec.exists) return res.json({ error: 'not connected: ' + id });
       const access = (await tokenRequest({ grant_type: 'refresh_token', refresh_token: decrypt(sec.data().refreshTokenEnc) })).access_token;
-      const after = q.after || '2026/09/14';
-      const gq = await gmailGet('messages?labelIds=SENT&q=' + encodeURIComponent('after:' + after), access);
-      const ids = (gq.messages || []).map(m => m.id);
-      const details = await Promise.all(ids.map(i => gmailGet(`messages/${i}?format=metadata&metadataHeaders=To&fields=id,internalDate,payload/headers`, access).catch(e => ({ __err: e.message }))));
-      const rows = details.filter(d => d && !d.__err).map(d => ({
-        date: new Date(Number(d.internalDate)).toISOString().slice(0, 10),
-        to: (d.payload && d.payload.headers && d.payload.headers.find(h => h.name === 'To') || {}).value
-      }));
+      // metadata scope rejects the `q` search param — page raw and stop once
+      // we pass the requested boundary, exactly like syncOne does.
+      const sinceMs = Date.parse((q.after || '2026-09-14') + 'T00:00:00Z');
+      const rows = [];
+      let pageToken = '', pages = 0, seen = 0;
+      while (pages < 20) {
+        pages++;
+        const list = await gmailGet('messages?labelIds=SENT&maxResults=100' + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''), access);
+        const ids = (list.messages || []).map(m => m.id);
+        if (!ids.length) break;
+        const details = await Promise.all(ids.map(i => gmailGet(`messages/${i}?format=metadata&metadataHeaders=To&fields=id,internalDate,payload/headers`, access).catch(e => ({ __err: e.message }))));
+        let hitOld = false;
+        for (const d of details) {
+          if (!d || d.__err) continue;
+          seen++;
+          const t = Number(d.internalDate);
+          if (t < sinceMs) { hitOld = true; continue; }
+          rows.push({ date: new Date(t).toISOString().slice(0, 10), to: (d.payload && d.payload.headers && d.payload.headers.find(h => h.name === 'To') || {}).value });
+        }
+        pageToken = list.nextPageToken || '';
+        if (hitOld || !pageToken) break;
+      }
       const our = (await db.collection('emailCounts').get()).docs.filter(d => d.data().email === id).map(d => d.data());
-      return res.json({ mailbox: id, gmailResultSizeEstimate: gq.resultSizeEstimate, gmailMessageCount: ids.length, gmailRows: rows, ourEmailCountsDocs: our });
+      return res.json({ mailbox: id, sinceMs, pagesScanned: pages, messagesScanned: seen, gmailRowsInWindow: rows.length, gmailRows: rows, ourEmailCountsDocs: our });
     }
 
     if (action === 'sync') {
