@@ -6682,7 +6682,7 @@ async function loadSnovBalance(){
   try {
     const resp = await fetch('/api/snov',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({domain:'x.com', action:'balance'})
+      body: JSON.stringify({action:'balance'})
     });
     const data = await resp.json();
     if(data.balance!=null){
