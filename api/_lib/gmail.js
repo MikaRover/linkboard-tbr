@@ -1,9 +1,15 @@
 // Gmail "emails sent per day" tracking.
 //
-// Each team member connects their own Gmail once (Google OAuth, read-only
+// Each team member connects their own Gmail (Google OAuth, read-only
 // *metadata* scope — headers and labels only, LinkBoard can never read a
 // message body). A sync then counts messages in their SENT label per UTC day
-// and stores the totals in Firestore `emailCounts/{date}_{name}`.
+// and stores the totals in Firestore `emailCounts/{date}_{mailboxId}`.
+//
+// The outreach team sends from TWO addresses each (thebusinessrover.com and
+// thebusinessrover.io), so one LinkBoard login can connect more than one
+// Gmail mailbox — gmailConnections/gmailSecrets are keyed by mailbox
+// (sanitized email), each carrying an `ownerUid` back to the LinkBoard user,
+// and every mailbox's counts roll up under that person's name.
 //
 // Lives in api/_lib (not api/) because the Vercel Hobby plan caps the number
 // of serverless functions and every slot is taken — api/sheets-import.js
@@ -13,8 +19,9 @@
 // random string — encrypts refresh tokens + signs OAuth state), CRON_SECRET
 // (Vercel Cron sends it as a Bearer token), FIREBASE_SERVICE_ACCOUNT.
 // Optional: GMAIL_REDIRECT_URI (defaults to https://<host>/api/gmail),
-// GMAIL_INTERNAL_DOMAINS (comma list, default thebusinessrover.com — mail
-// only to these domains is not counted as outreach).
+// GMAIL_INTERNAL_DOMAINS (comma list, default thebusinessrover.com +
+// thebusinessrover.io — mail only to these domains is not counted as
+// outreach, since it's the team emailing itself across its two domains).
 
 const admin = require('firebase-admin');
 const crypto = require('crypto');
@@ -37,6 +44,11 @@ function need(name) {
   const v = process.env[name];
   if (!v) throw new Error(name + ' not configured');
   return v;
+}
+
+// A mailbox's Firestore doc id — its email address, safe for a doc id.
+function mailboxId(email) {
+  return String(email || '').toLowerCase().replace(/[^a-z0-9@._-]/g, '_');
 }
 
 // ─── crypto helpers ──────────────────────────────────────
@@ -109,7 +121,7 @@ async function gmailGet(path, accessToken) {
 }
 
 function internalDomains() {
-  return String(process.env.GMAIL_INTERNAL_DOMAINS || 'thebusinessrover.com').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+  return String(process.env.GMAIL_INTERNAL_DOMAINS || 'thebusinessrover.com,thebusinessrover.io').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
 }
 function recipientDomains(headers) {
   const out = [];
@@ -127,8 +139,10 @@ async function inChunks(items, size, fn) {
 }
 
 // Counts SENT messages since `sinceMs` (a UTC day boundary, so every day
-// touched is counted completely) and overwrites those days' totals — safe to
-// re-run, never double counts.
+// touched is counted completely) and overwrites those days' totals for this
+// mailbox — safe to re-run, never double counts. A person with two mailboxes
+// (thebusinessrover.com + .io) gets one emailCounts doc per mailbox per day,
+// both tagged with their name, and the admin page sums them together.
 async function syncOne(conn, secretDoc, sinceMs, deadline) {
   const db = getAdmin().firestore();
   const refresh = decrypt(secretDoc.refreshTokenEnc);
@@ -136,7 +150,7 @@ async function syncOne(conn, secretDoc, sinceMs, deadline) {
   try { access = (await tokenRequest({ grant_type: 'refresh_token', refresh_token: refresh })).access_token; }
   catch (e) {
     if (e.code === 'invalid_grant') {
-      await db.collection('gmailConnections').doc(conn.uid).set({ lastError: 'Access revoked — reconnect Gmail', lastErrorAt: Date.now() }, { merge: true });
+      await db.collection('gmailConnections').doc(conn.id).set({ lastError: 'Access revoked — reconnect Gmail', lastErrorAt: Date.now() }, { merge: true });
     }
     throw e;
   }
@@ -172,28 +186,30 @@ async function syncOne(conn, secretDoc, sinceMs, deadline) {
   for (let t = sinceMs; t <= nowMs; t += DAY) {
     const d = new Date(t).toISOString().slice(0, 10);
     const rec = days[d] || { sent: 0, external: 0, newThreads: 0 };
-    batch.set(db.collection('emailCounts').doc(d + '_' + conn.name.replace(/[^\w.-]/g, '_')), {
-      builder: conn.name, date: d, ...rec, source: 'gmail', updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    batch.set(db.collection('emailCounts').doc(d + '_' + conn.id), {
+      builder: conn.name, email: conn.email || '', date: d, ...rec, source: 'gmail', updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
   }
-  batch.set(db.collection('gmailConnections').doc(conn.uid), {
+  batch.set(db.collection('gmailConnections').doc(conn.id), {
     lastSyncAt: nowMs, lastSyncDay: new Date(nowMs).toISOString().slice(0, 10), lastError: null, truncated: seen >= MAX_MESSAGES_PER_USER
   }, { merge: true });
   await batch.commit();
-  return { name: conn.name, messages: seen };
+  return { name: conn.name, email: conn.email, messages: seen };
 }
 
 function startOfDay(ms) { return Math.floor(ms / DAY) * DAY; }
 
-async function syncAll({ onlyUid, days }) {
+// `onlyOwnerUid` restricts to one LinkBoard user's mailbox(es) — a person
+// with two connected addresses gets both synced together.
+async function syncAll({ onlyOwnerUid, days }) {
   const db = getAdmin().firestore();
   const deadline = Date.now() + SYNC_BUDGET_MS;
-  let conns = (await db.collection('gmailConnections').get()).docs.map(d => ({ uid: d.id, ...d.data() }));
-  if (onlyUid) conns = conns.filter(c => c.uid === onlyUid);
+  let conns = (await db.collection('gmailConnections').get()).docs.map(d => ({ id: d.id, ...d.data() }));
+  if (onlyOwnerUid) conns = conns.filter(c => c.ownerUid === onlyOwnerUid);
   const results = [];
   await inChunks(conns, 3, async conn => {
     try {
-      const sec = await db.collection('gmailSecrets').doc(conn.uid).get();
+      const sec = await db.collection('gmailSecrets').doc(conn.id).get();
       if (!sec.exists) throw new Error('no stored token');
       const backfill = Math.min(Math.max(parseInt(days) || 0, 0), 60);
       // Normal run: re-count from the last synced day (so today is always
@@ -204,7 +220,7 @@ async function syncAll({ onlyUid, days }) {
       else since = startOfDay(Date.now() - 13 * DAY);
       results.push(await syncOne(conn, sec.data(), since, deadline));
     } catch (e) {
-      results.push({ name: conn.name, error: e.message });
+      results.push({ name: conn.name, email: conn.email, error: e.message });
     }
   });
   return results;
@@ -222,21 +238,26 @@ module.exports = async function gmailHandler(req, res) {
       const go = (flag) => { res.statusCode = 302; res.setHeader('Location', ret + (ret.includes('?') ? '&' : '?') + 'gmail=' + flag); res.end(); };
       if (!state || q.error || !q.code) return go(q.error === 'access_denied' ? 'denied' : 'error');
       try {
-      const tok = await tokenRequest({ grant_type: 'authorization_code', code: q.code, redirect_uri: redirectUri(req) });
-      if (!tok.refresh_token || !String(tok.scope || '').includes('gmail.metadata')) return go('error');
-      let email = '';
-      try {
-        const info = await (await fetch('https://openidconnect.googleapis.com/v1/userinfo', { headers: { Authorization: 'Bearer ' + tok.access_token } })).json();
-        email = info.email || '';
-      } catch (e) {}
-      const db = getAdmin().firestore();
-      await db.collection('gmailSecrets').doc(state.uid).set({ refreshTokenEnc: encrypt(tok.refresh_token) });
-      await db.collection('gmailConnections').doc(state.uid).set({
-        uid: state.uid, name: state.name, email, connectedAt: Date.now(), lastSyncAt: null, lastSyncDay: null, lastError: null
-      });
-      // First data straight away: backfill two weeks so the admin page isn't empty.
-      try { await syncAll({ onlyUid: state.uid, days: 14 }); } catch (e) {}
-      return go('connected');
+        const tok = await tokenRequest({ grant_type: 'authorization_code', code: q.code, redirect_uri: redirectUri(req) });
+        if (!tok.refresh_token || !String(tok.scope || '').includes('gmail.metadata')) return go('error');
+        let email = '';
+        try {
+          const info = await (await fetch('https://openidconnect.googleapis.com/v1/userinfo', { headers: { Authorization: 'Bearer ' + tok.access_token } })).json();
+          email = info.email || '';
+        } catch (e) {}
+        if (!email) return go('error');
+        const db = getAdmin().firestore();
+        const id = mailboxId(email);
+        // Reconnecting the same mailbox (e.g. after a revoke) just replaces
+        // its token — it never creates a duplicate entry, since the doc id
+        // is the mailbox's own address.
+        await db.collection('gmailSecrets').doc(id).set({ refreshTokenEnc: encrypt(tok.refresh_token) });
+        await db.collection('gmailConnections').doc(id).set({
+          ownerUid: state.uid, name: state.name, email, connectedAt: Date.now(), lastSyncAt: null, lastSyncDay: null, lastError: null
+        });
+        // First data straight away: backfill two weeks so the admin page isn't empty.
+        try { await syncAll({ onlyOwnerUid: state.uid, days: 14 }); } catch (e) {}
+        return go('connected');
       } catch (e) { return go('error'); }
     }
 
@@ -246,7 +267,7 @@ module.exports = async function gmailHandler(req, res) {
       const ret = /^\/[^/\\]/.test(q.ret || '') ? q.ret : '/app.html';
       const params = new URLSearchParams({
         client_id: need('GOOGLE_CLIENT_ID'), redirect_uri: redirectUri(req), response_type: 'code',
-        scope: SCOPE + ' openid email', access_type: 'offline', prompt: 'consent', include_granted_scopes: 'false',
+        scope: SCOPE + ' openid email', access_type: 'offline', prompt: 'consent select_account', include_granted_scopes: 'false',
         state: signState({ uid: u.uid, name: u.name, ret, exp: Date.now() + 15 * 60000 })
       });
       return res.json({ url: 'https://accounts.google.com/o/oauth2/v2/auth?' + params });
@@ -255,24 +276,29 @@ module.exports = async function gmailHandler(req, res) {
     if (action === 'disconnect') {
       const u = await userFromRequest(req);
       if (!u) return res.status(401).json({ error: 'Unauthorized' });
+      const id = mailboxId(q.id || '');
+      if (!id) return res.status(400).json({ error: 'id required' });
       const db = getAdmin().firestore();
-      const sec = await db.collection('gmailSecrets').doc(u.uid).get();
+      const doc = await db.collection('gmailConnections').doc(id).get();
+      // Only the mailbox's own owner or an admin can disconnect it.
+      if (doc.exists && doc.data().ownerUid !== u.uid && u.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+      const sec = await db.collection('gmailSecrets').doc(id).get();
       if (sec.exists) {
         try { await fetch('https://oauth2.googleapis.com/revoke?token=' + encodeURIComponent(decrypt(sec.data().refreshTokenEnc)), { method: 'POST' }); } catch (e) {}
       }
-      await db.collection('gmailSecrets').doc(u.uid).delete();
-      await db.collection('gmailConnections').doc(u.uid).delete();
+      await db.collection('gmailSecrets').doc(id).delete();
+      await db.collection('gmailConnections').doc(id).delete();
       return res.json({ ok: true });
     }
 
     if (action === 'sync') {
-      let onlyUid = q.uid || '';
+      let onlyOwnerUid = q.uid || '';
       if (!isCron(req)) {
         const u = await userFromRequest(req);
         if (!u) return res.status(401).json({ error: 'Unauthorized' });
-        if (u.role !== 'admin') onlyUid = u.uid; // builders can only refresh themselves
+        if (u.role !== 'admin') onlyOwnerUid = u.uid; // builders can only refresh their own mailbox(es)
       }
-      const results = await syncAll({ onlyUid, days: q.days });
+      const results = await syncAll({ onlyOwnerUid, days: q.days });
       return res.json({ ok: true, results });
     }
 

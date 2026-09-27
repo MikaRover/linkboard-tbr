@@ -7416,13 +7416,21 @@ const PRESENCE_STALE_MS = 5 * 60 * 1000; // 5 min — 2x the 2-min heartbeat, pl
 function saveEmailTarget(){
   try{ localStorage.setItem('lb_email_target', document.getElementById('es-target').value||''); }catch(e){}
 }
+// The outreach team sends from two addresses each (…@thebusinessrover.com
+// and …@thebusinessrover.io), so one person can have two connections here —
+// grouped by name below rather than assumed 1:1.
 let allGmailConns = [], gmailConnsUnsub = null;
 function listenGmailConns(){
   if(gmailConnsUnsub || cu?.role!=='admin') return;
   gmailConnsUnsub = db.collection('gmailConnections').onSnapshot(snap=>{
-    allGmailConns = snap.docs.map(d=>({uid:d.id,...d.data()}));
+    allGmailConns = snap.docs.map(d=>({id:d.id,...d.data()}));
     renderGmailConnsPanel();
   }, ()=>{});
+}
+// ".com"/".io"/etc — the short label distinguishing a person's two mailboxes.
+function mailboxTag(email){
+  const m = /@([^.]+)\.([a-z]+)$/i.exec(email||'');
+  return m ? m[2] : '';
 }
 function renderGmailConnsPanel(){
   const el = document.getElementById('es-conns');
@@ -7432,12 +7440,12 @@ function renderGmailConnsPanel(){
   const ago = t => t ? timeAgo(new Date(t))+' ago' : 'never';
   el.innerHTML = `<div class="card-body" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-      <div style="font-size:13px;font-weight:700;">Gmail connections — ${allGmailConns.length} connected</div>
+      <div style="font-size:13px;font-weight:700;">Gmail connections — ${allGmailConns.length} mailbox(es)</div>
       <button class="btn-sm" id="es-sync-btn" style="width:auto;padding:6px 14px;font-size:12px;" onclick="syncGmailNow(this)">↻ Sync now</button>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;">${allGmailConns.map(c=>`<span title="${escAttr((c.email||'')+' · synced '+ago(c.lastSyncAt))}" style="font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid ${c.lastError?'#ff6b6b':'rgba(0,230,118,0.4)'};color:${c.lastError?'#ff6b6b':'#00e676'};">${escapeHtml(c.name)}${c.lastError?' ⚠ reconnect':''}</span>`).join('')||'<span style="font-size:12px;color:var(--text3);">Nobody has connected yet — each person clicks “Connect Gmail” in the sidebar.</span>'}</div>
-    ${missing.length&&allGmailConns.length?`<div style="font-size:11px;color:var(--text3);">Not connected: ${missing.map(escapeHtml).join(', ')}</div>`:''}
-    <div style="font-size:11px;color:var(--text3);">Synced automatically every night; “Sync now” recounts the last 7 days.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">${allGmailConns.map(c=>`<span title="${escAttr((c.email||'')+' · synced '+ago(c.lastSyncAt))}" style="font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid ${c.lastError?'#ff6b6b':'rgba(0,230,118,0.4)'};color:${c.lastError?'#ff6b6b':'#00e676'};">${escapeHtml(c.name)}${mailboxTag(c.email)?` · ${escapeHtml(mailboxTag(c.email))}`:''}${c.lastError?' ⚠ reconnect':''}</span>`).join('')||'<span style="font-size:12px;color:var(--text3);">Nobody has connected yet — each person clicks “Connect Gmail” in the sidebar.</span>'}</div>
+    ${missing.length&&allGmailConns.length?`<div style="font-size:11px;color:var(--text3);">Not connected at all: ${missing.map(escapeHtml).join(', ')}</div>`:''}
+    <div style="font-size:11px;color:var(--text3);">Most people send from both @thebusinessrover.com and @thebusinessrover.io — connect both in the sidebar so both count. Synced automatically every night; “Sync now” recounts the last 7 days.</div>
   </div>`;
 }
 async function syncGmailNow(btn){
@@ -7547,13 +7555,16 @@ function showEmailDetail(person){
     }</tbody></table></div></div>`;
 }
 
-// ─── GMAIL CONNECT (sidebar) ─────────────────────────────
-let gmailConn = null, gmailConnUnsub = null;
+// ─── GMAIL CONNECT (sidebar) ──────────────────────────────
+// Most builders send outreach from two addresses (…@thebusinessrover.com and
+// …@thebusinessrover.io), so this connects a *list* of mailboxes, not one —
+// "+ Connect another" lets a second (or third) address be added.
+let myGmailConns = [], gmailConnUnsub = null;
 function listenMyGmail(){
   if(gmailConnUnsub){ gmailConnUnsub(); gmailConnUnsub = null; }
   if(!cu?.uid) return;
-  gmailConnUnsub = db.collection('gmailConnections').doc(cu.uid).onSnapshot(s=>{
-    gmailConn = s.exists ? s.data() : null;
+  gmailConnUnsub = db.collection('gmailConnections').where('ownerUid','==',cu.uid).onSnapshot(snap=>{
+    myGmailConns = snap.docs.map(d=>({id:d.id,...d.data()}));
     renderGmailStrip();
   }, ()=>{});
   renderGmailStrip();
@@ -7572,15 +7583,16 @@ function renderGmailStrip(){
   const el = document.getElementById('gmail-strip');
   if(!el) return;
   if(!cu){ el.innerHTML=''; return; }
-  const base = 'width:100%;text-align:left;font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer;';
-  if(gmailConn && !gmailConn.lastError){
-    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:#00e676;padding:4px 2px;" title="${escAttr(gmailConn.email||'')}">✉️ Gmail connected<button onclick="disconnectGmail()" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;">disconnect</button></div>`;
-  } else {
-    el.innerHTML = `<button onclick="connectGmail()" style="${base}background:var(--bg2);border:1px solid ${gmailConn?'#ff6b6b':'var(--border2)'};color:${gmailConn?'#ff6b6b':'var(--text)'};">✉️ ${gmailConn?'Reconnect Gmail':'Connect Gmail'}</button>`;
-  }
+  const rows = myGmailConns.map(c=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;color:${c.lastError?'#ff6b6b':'#00e676'};padding:3px 2px;" title="${escAttr(c.email||'')}">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">✉️ ${escapeHtml(c.email||'Gmail')}${c.lastError?' ⚠':''}</span>
+      <button onclick="disconnectGmail('${escAttr(c.id)}')" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;flex-shrink:0;">✕</button>
+    </div>`).join('');
+  const addBtn = `<button onclick="connectGmail()" style="width:100%;text-align:left;font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer;background:var(--bg2);border:1px solid var(--border2);color:var(--text);">✉️ ${myGmailConns.length?'+ Connect another Gmail':'Connect Gmail'}</button>`;
+  el.innerHTML = rows + addBtn
+    + (myGmailConns.length===1?'<div style="font-size:10px;color:var(--text3);padding:2px 2px 0;">Also send outreach from your other address (.com / .io)? Connect that one too.</div>':'');
 }
 async function connectGmail(){
-  if(!confirm('Connect your Gmail so LinkBoard can count how many emails you send per day?\n\nOnly counts and recipient domains are read (Google’s “metadata” permission) — never the text of your emails. You can disconnect any time.')) return;
+  if(!confirm('Connect a Gmail account so LinkBoard can count how many emails you send per day?\n\nOnly counts and recipient domains are read (Google’s “metadata” permission) — never the text of your emails. If you send from two addresses, connect each one; you can disconnect any time.')) return;
   try{
     const r = await fetch('/api/gmail?action=connect&ret='+encodeURIComponent(location.pathname),{headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken()}});
     const j = await r.json();
@@ -7588,10 +7600,10 @@ async function connectGmail(){
     location.href = j.url;
   }catch(e){ showToast(e.message,'warn'); }
 }
-async function disconnectGmail(){
-  if(!confirm('Disconnect Gmail? Your past counts stay, new emails stop being counted.')) return;
+async function disconnectGmail(id){
+  if(!confirm('Disconnect this Gmail account? Its past counts stay, new emails stop being counted.')) return;
   try{
-    const r = await fetch('/api/gmail?action=disconnect',{method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken()}});
+    const r = await fetch('/api/gmail?action=disconnect&id='+encodeURIComponent(id),{method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken()}});
     if(!r.ok) throw new Error((await r.json()).error||'Failed');
     showToast('Gmail disconnected');
   }catch(e){ showToast(e.message,'warn'); }
