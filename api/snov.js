@@ -692,13 +692,24 @@ module.exports = async function handler(req, res) {
   if (req.method!=='POST') return res.status(405).json({error:'Method not allowed'});
 
   const { domain, action, urls } = req.body || {};
-  if (action !== 'enrich-linkedin' && !domain) return res.status(400).json({error:'domain required'});
+  if (action !== 'enrich-linkedin' && action !== 'balance' && !domain) return res.status(400).json({error:'domain required'});
   if (!SNOV_CLIENT_ID || !SNOV_CLIENT_SECRET) return res.status(500).json({error:'Snov credentials not configured'});
 
   const cleanDomain = domain ? domain.replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*/,'').trim() : '';
 
   try {
     const token = await getToken();
+
+    // Remaining Snov account credits, shown in the Outreach Finder sidebar.
+    // v1 endpoint (like the oauth token endpoint itself) — Snov's v1 API
+    // takes the token as an `access_token` query param, not a Bearer header.
+    if (action === 'balance') {
+      const r = await fetch(`https://api.snov.io/v1/get-balance?access_token=${encodeURIComponent(token)}`, { signal: AbortSignal.timeout(8000) });
+      if (!isOk(r.status)) return res.status(502).json({ error: 'Snov balance check failed HTTP ' + r.status });
+      const j = await r.json();
+      const balance = j?.data?.balance ?? j?.balance ?? null;
+      return res.json({ balance });
+    }
 
     if (!action || action === 'prospects') {
       const rows = await fetchProspects(cleanDomain, token, 20);
