@@ -286,7 +286,23 @@ module.exports = async function gmailHandler(req, res) {
         const id0 = list.messages[0].id;
         syncShaped = await gmailGet(`messages/${id0}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc&fields=id,threadId,internalDate,payload/headers`, tok.access_token);
       } catch (e) { syncShaped = { caught_error: e.message }; }
-      return res.json({ scope: tok.scope, resultSizeEstimate: list.resultSizeEstimate, messages: list.messages, detail, syncShaped });
+      // Replay syncOne's own loop (first page only, no writes) to see exactly
+      // what it computes for "days" — isolates whether the bug is in the
+      // loop/bucketing logic itself vs. the API calls.
+      const sinceMs = Date.now() - 13 * 86400000;
+      const ids2 = (list.messages || []).map(m => m.id);
+      const msgs2 = await Promise.all(ids2.map(id =>
+        gmailGet(`messages/${id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc&fields=id,threadId,internalDate,payload/headers`, tok.access_token).catch(e => ({ __err: e.message }))));
+      const days2 = {};
+      let reachedOld2 = false;
+      for (const m of msgs2) {
+        if (!m || m.__err) continue;
+        const t = Number(m.internalDate);
+        if (t < sinceMs) { reachedOld2 = true; continue; }
+        const d = new Date(t).toISOString().slice(0, 10);
+        days2[d] = (days2[d] || 0) + 1;
+      }
+      return res.json({ scope: tok.scope, resultSizeEstimate: list.resultSizeEstimate, messages: list.messages, detail, syncShaped, replay: { sinceMs, nowMs: Date.now(), msgErrors: msgs2.filter(m => m && m.__err).map(m => m.__err), days2, reachedOld2 } });
     }
 
     if (action === 'sync') {
