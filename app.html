@@ -818,11 +818,13 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 #p-dashboard .mac-ring-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text);}
 #p-dashboard .mac-stat-num{font-size:32px;font-weight:700;color:var(--text);letter-spacing:-0.03em;font-family:var(--font-mono);line-height:1;}
 
-#p-dashboard .mac-builder-card{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 16px;min-width:170px;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+#p-dashboard .mac-builder-card{display:flex;align-items:center;gap:10px;background:transparent;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;transition:background 0.15s ease;}
+#p-dashboard .mac-builder-card:hover{background:var(--bg3);}
+#p-dashboard .mac-builder-card+.mac-builder-card{border-left:1px solid var(--border);}
 #p-dashboard .mac-builder-card:hover{background:var(--bg4);transform:translateY(-1px);}
-#p-dashboard .mac-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
-#p-dashboard .mac-builder-name{font-size:13px;font-weight:700;color:var(--text);}
-#p-dashboard .mac-builder-meta{font-size:11px;color:var(--teal);font-weight:600;margin-top:1px;}
+#p-dashboard .mac-avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;opacity:0.85;}
+#p-dashboard .mac-builder-name{font-size:13px;font-weight:600;color:var(--text);}
+#p-dashboard .mac-builder-meta{font-size:11px;color:var(--text2);font-weight:500;margin-top:1px;}
 
 #p-dashboard .mac-table{width:100%;border-collapse:collapse;}
 #p-dashboard .mac-table th{text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;padding:9px 1.25rem;border-bottom:1px solid var(--border);}
@@ -1071,7 +1073,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <!-- Builder leaderboard this month -->
   <div class="card adm" id="ds-leaderboard-card">
     <div class="card-head">🏆 This month's builders <span style="font-size:12px;color:var(--text2)" id="ds-month-label"></span></div>
-    <div id="ds-leaderboard" style="display:flex;flex-wrap:wrap;gap:10px;padding:14px 1.25rem 18px;"></div>
+    <div id="ds-leaderboard" style="display:flex;flex-wrap:wrap;gap:0;padding:10px 1rem 16px;"></div>
   </div>
 
   <div class="card">
@@ -4955,14 +4957,13 @@ function renderDashboard(){
         if(!isNaN(dr)&&dr>0){builderMap[b].drSum+=dr;builderMap[b].drN++;}
       });
       const sorted = Object.entries(builderMap).sort((a,b)=>b[1].count-a[1].count);
-      const medals = ['🥇','🥈','🥉'];
-      lb.innerHTML = sorted.length ? sorted.map(([name, d], i)=>{
+      lb.innerHTML = sorted.length ? sorted.map(([name, d])=>{
         const avgDr = d.drN ? Math.round(d.drSum/d.drN) : null;
         return `<div class="mac-builder-card" onclick="openBuilderModal('${escAttr(name)}')">
           <div class="mac-avatar" style="background:${colorFor(name)};">${escapeHtml(name.charAt(0).toUpperCase())}</div>
           <div>
-            <div class="mac-builder-name">${medals[i]||''} ${escapeHtml(name)}</div>
-            <div class="mac-builder-meta">${d.count} live${avgDr?' · Avg DR '+avgDr:''}</div>
+            <div class="mac-builder-name">${escapeHtml(name)}</div>
+            <div class="mac-builder-meta">${d.count} live${avgDr?' · DR '+avgDr:''}</div>
           </div>
         </div>`;
       }).join('') : '<div style="color:var(--text3);font-size:13px;padding:4px 0;">No live links this month yet</div>';
