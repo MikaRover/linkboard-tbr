@@ -5,11 +5,12 @@
 // message body). A sync then counts messages in their SENT label per UTC day
 // and stores the totals in Firestore `emailCounts/{date}_{mailboxId}`.
 //
-// The outreach team sends from TWO addresses each (thebusinessrover.com and
-// thebusinessrover.io), so one LinkBoard login can connect more than one
-// Gmail mailbox — gmailConnections/gmailSecrets are keyed by mailbox
-// (sanitized email), each carrying an `ownerUid` back to the LinkBoard user,
-// and every mailbox's counts roll up under that person's name.
+// The outreach team sends from more than one address each (at least
+// thebusinessrover.com and thebusinessrover.io), so one LinkBoard login can
+// connect several Gmail mailboxes (up to MAX_MAILBOXES_PER_PERSON) —
+// gmailConnections/gmailSecrets are keyed by mailbox (sanitized email), each
+// carrying an `ownerUid` back to the LinkBoard user, and every mailbox's
+// counts roll up under that person's name.
 //
 // Lives in api/_lib (not api/) because the Vercel Hobby plan caps the number
 // of serverless functions and every slot is taken — api/sheets-import.js
@@ -30,6 +31,7 @@ const SCOPE = 'https://www.googleapis.com/auth/gmail.metadata';
 const DAY = 86400000;
 const MAX_MESSAGES_PER_USER = 1500;
 const SYNC_BUDGET_MS = 50000;
+const MAX_MAILBOXES_PER_PERSON = 5;
 
 function getAdmin() {
   if (!admin.apps.length) {
@@ -264,6 +266,9 @@ module.exports = async function gmailHandler(req, res) {
     if (action === 'connect') {
       const u = await userFromRequest(req);
       if (!u) return res.status(401).json({ error: 'Unauthorized' });
+      const db = getAdmin().firestore();
+      const existing = await db.collection('gmailConnections').where('ownerUid', '==', u.uid).get();
+      if (existing.size >= MAX_MAILBOXES_PER_PERSON) return res.status(400).json({ error: `You can connect up to ${MAX_MAILBOXES_PER_PERSON} mailboxes` });
       const ret = /^\/[^/\\]/.test(q.ret || '') ? q.ret : '/app.html';
       const params = new URLSearchParams({
         client_id: need('GOOGLE_CLIENT_ID'), redirect_uri: redirectUri(req), response_type: 'code',
