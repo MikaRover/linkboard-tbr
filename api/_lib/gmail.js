@@ -279,7 +279,14 @@ module.exports = async function gmailHandler(req, res) {
       const list = await gmailGet('messages?labelIds=SENT&maxResults=5', tok.access_token);
       const detail = list.messages ? await Promise.all(list.messages.slice(0, 3).map(m =>
         gmailGet(`messages/${m.id}?format=metadata&metadataHeaders=To&fields=id,internalDate,labelIds,payload/headers`, tok.access_token))) : [];
-      return res.json({ scope: tok.scope, resultSizeEstimate: list.resultSizeEstimate, messages: list.messages, detail });
+      // Exact same request shape syncOne uses, but without the try/catch that
+      // silently swallows a failure — to see if THIS specific call is what breaks.
+      let syncShaped;
+      try {
+        const id0 = list.messages[0].id;
+        syncShaped = await gmailGet(`messages/${id0}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc&fields=id,threadId,internalDate,payload/headers`, tok.access_token);
+      } catch (e) { syncShaped = { caught_error: e.message }; }
+      return res.json({ scope: tok.scope, resultSizeEstimate: list.resultSizeEstimate, messages: list.messages, detail, syncShaped });
     }
 
     if (action === 'sync') {
