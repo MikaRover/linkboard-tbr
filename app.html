@@ -1893,7 +1893,13 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div id="es-note" style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.5;"></div>
   <div class="stats" id="es-stats" style="grid-template-columns:repeat(3,1fr);"></div>
   <div class="card"><div class="tbl-wrap" id="es-table"><div class="loading">Loading...</div></div></div>
-  <div id="es-detail" style="margin-top:1rem;"></div>
+  <div class="card" style="margin-top:1rem;">
+    <div class="card-head" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span>👤 View one person</span>
+      <select id="es-person" style="margin:0;padding:6px 10px;font-size:12px;font-weight:700;width:auto;" onchange="showEmailDetail(this.value)"><option value="">Select a person…</option></select>
+    </div>
+    <div id="es-detail"></div>
+  </div>
 </div>
 
 <div id="p-analytics" class="page">
@@ -7517,6 +7523,14 @@ async function renderEmailStats(){
   const people = Object.keys(byPerson).map(p=>({p, total:days.reduce((a,d)=>a+(byPerson[p][d]||0),0)})).sort((a,b)=>b.total-a.total||a.p.localeCompare(b.p));
   const total = people.reduce((a,x)=>a+x.total,0);
   const active = people.filter(x=>x.total>0).length;
+  // Person picker mirrors the table's order/totals so it's obvious who's worth clicking.
+  const personSel = document.getElementById('es-person');
+  if(personSel){
+    const cur = personSel.value;
+    personSel.innerHTML = '<option value="">Select a person…</option>'
+      + people.map(x=>`<option value="${escAttr(x.p)}">${escapeHtml(x.p)}${x.total?` (${x.total})`:''}</option>`).join('');
+    if(cur && people.some(x=>x.p===cur)) personSel.value = cur;
+  }
   document.getElementById('es-stats').innerHTML = `
     <div class="stat"><div class="stat-l">Emails</div><div class="stat-v" style="color:var(--teal)">${total}</div></div>
     <div class="stat"><div class="stat-l">People sending</div><div class="stat-v" style="color:var(--teal)">${active}</div></div>
@@ -7537,19 +7551,44 @@ async function renderEmailStats(){
   window._esGmail = isGmail;
   if(esDetailPerson) showEmailDetail(esDetailPerson); else document.getElementById('es-detail').innerHTML='';
 }
-// Who exactly was emailed — click a person's row
+// Detail for one person — picked from the #es-person select, or by clicking
+// their row in the main table (which also syncs the select to match).
 function showEmailDetail(person){
   esDetailPerson = person;
+  const sel = document.getElementById('es-person');
+  if(sel && sel.value!==person && [...sel.options].some(o=>o.value===person)) sel.value = person;
+  const detailEl = document.getElementById('es-detail');
+  if(!person){ detailEl.innerHTML=''; return; }
+
   if(window._esGmail){
-    const list = (window._esRows||[]).filter(r=>r.builder===person).sort((a,b)=>b.date.localeCompare(a.date));
-    document.getElementById('es-detail').innerHTML = `<div class="card"><div class="card-head" style="display:flex;justify-content:space-between;align-items:center;"><span>${escapeHtml(person)} — by day</span><button class="btn-ghost" style="font-size:11px;padding:3px 8px;" onclick="esDetailPerson='';document.getElementById('es-detail').innerHTML=''">✕ Close</button></div>
+    const rows = (window._esRows||[]).filter(r=>r.builder===person);
+    const list = [...rows].sort((a,b)=>b.date.localeCompare(a.date));
+    // Per-mailbox totals — only worth showing when this person has more than
+    // one connected address, which is the whole point of the request: see
+    // which of their addresses did how much.
+    const byMailbox = {};
+    rows.forEach(r=>{
+      const e = r.email || '(unknown mailbox)';
+      const m = byMailbox[e] = byMailbox[e] || {sent:0, external:0, newThreads:0};
+      m.sent += r.sent||0; m.external += r.external||0; m.newThreads += r.newThreads||0;
+    });
+    const mailboxes = Object.keys(byMailbox).sort((a,b)=>byMailbox[b].external-byMailbox[a].external);
+    const mailboxSection = mailboxes.length>1 ? `
+      <div class="tbl-wrap" style="margin-bottom:10px;"><table><thead><tr><th>Mailbox</th><th style="text-align:right;">Outreach</th><th style="text-align:right;">New conversations</th><th style="text-align:right;">All sent</th></tr></thead><tbody>${
+        mailboxes.map(e=>`<tr><td>${escapeHtml(e)}</td><td style="text-align:right;">${byMailbox[e].external}</td><td style="text-align:right;">${byMailbox[e].newThreads}</td><td style="text-align:right;">${byMailbox[e].sent}</td></tr>`).join('')
+      }</tbody></table></div>` : (mailboxes.length===1 ? `<div style="font-size:11px;color:var(--text3);margin-bottom:10px;">Mailbox: ${escapeHtml(mailboxes[0])} — connect another in the sidebar if ${escapeHtml(person)} also sends from a second address.</div>` : '');
+    detailEl.innerHTML = `<div class="card-body" style="padding-top:0;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">${escapeHtml(person)}${mailboxes.length>1?` — ${mailboxes.length} mailboxes`:''}</div>
+      ${mailboxSection}
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px;">By day (all mailboxes combined):</div>
       <div class="tbl-wrap"><table><thead><tr><th>Date</th><th style="text-align:right;">Outreach</th><th style="text-align:right;">New conversations</th><th style="text-align:right;">All sent</th></tr></thead><tbody>${
         list.length ? list.map(r=>`<tr><td>${escapeHtml(r.date)}</td><td style="text-align:right;">${r.external||0}</td><td style="text-align:right;">${r.newThreads||0}</td><td style="text-align:right;">${r.sent||0}</td></tr>`).join('') : '<tr><td colspan="4" class="loading">Nothing in this range — not connected, or not synced yet</td></tr>'
       }</tbody></table></div></div>`;
     return;
   }
   const list = (window._esRows||[]).filter(r=>r.builder===person).sort((a,b)=>(b.date+(b.domain||'')).localeCompare(a.date+(a.domain||'')));
-  document.getElementById('es-detail').innerHTML = `<div class="card"><div class="card-head" style="display:flex;justify-content:space-between;align-items:center;"><span>${escapeHtml(person)} — ${list.length} emails</span><button class="btn-ghost" style="font-size:11px;padding:3px 8px;" onclick="esDetailPerson='';document.getElementById('es-detail').innerHTML=''">✕ Close</button></div>
+  detailEl.innerHTML = `<div class="card-body" style="padding-top:0;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">${escapeHtml(person)} — ${list.length} emails</div>
     <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Domain</th><th>Email</th></tr></thead><tbody>${
       list.length ? list.map(r=>`<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.domain||'—')}</td><td>${escapeHtml(r.email)}</td></tr>`).join('') : '<tr><td colspan="3" class="loading">Nothing in this range</td></tr>'
     }</tbody></table></div></div>`;
