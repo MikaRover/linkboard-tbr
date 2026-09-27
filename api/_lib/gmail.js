@@ -158,7 +158,7 @@ async function inChunks(items, size, fn) {
 // mailbox — safe to re-run, never double counts. A person with two mailboxes
 // (thebusinessrover.com + .io) gets one emailCounts doc per mailbox per day,
 // both tagged with their name, and the admin page sums them together.
-async function syncOne(conn, secretDoc, sinceMs, deadline) {
+async function syncOne(conn, secretDoc, sinceMs, deadline, resume) {
   const db = getAdmin().firestore();
   const refresh = decrypt(secretDoc.refreshTokenEnc);
   let access;
@@ -172,7 +172,11 @@ async function syncOne(conn, secretDoc, sinceMs, deadline) {
 
   const internal = internalDomains();
   const days = {}; // 'YYYY-MM-DD' -> {sent, external, newThreads}
-  let seen = 0, pageToken = '', reachedOld = false, exhaustedMailbox = false, oldestProcessedMs = null;
+  // A deep backfill on a busy mailbox can take more than one sync run to
+  // finish — `resume.pageToken` picks up paging exactly where the last
+  // truncated run left off, instead of re-scanning the same newest messages
+  // every time and never actually reaching further back.
+  let seen = 0, pageToken = (resume && resume.pageToken) || '', reachedOld = false, exhaustedMailbox = false, oldestProcessedMs = null;
   while (!reachedOld && seen < MAX_MESSAGES_PER_USER && Date.now() < deadline) {
     const list = await gmailGet('messages?labelIds=SENT&maxResults=100' + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''), access);
     const ids = (list.messages || []).map(m => m.id);
@@ -203,12 +207,16 @@ async function syncOne(conn, secretDoc, sinceMs, deadline) {
   const completed = reachedOld || exhaustedMailbox;
   const truncated = !completed;
   const writeFromMs = completed ? sinceMs : (oldestProcessedMs === null ? Date.now() : startOfDay(oldestProcessedMs));
-
-  // Write every day in the safely-covered range (zeros included) so a day
-  // that lost messages since the last sync is corrected too.
+  // Resuming a previous truncated run: everything from `resume.ceilingMs`
+  // onward was already correctly written by that earlier run (or the one
+  // before it) — never rewrite it, or a `days` object that only has entries
+  // for the older messages scanned *this* round would zero those newer,
+  // already-correct days right back out.
   const nowMs = Date.now();
+  const writeUpToMs = resume ? Math.min(nowMs, resume.ceilingMs - DAY) : nowMs;
+
   const batch = db.batch();
-  for (let t = writeFromMs; t <= nowMs; t += DAY) {
+  for (let t = writeFromMs; t <= writeUpToMs; t += DAY) {
     const d = new Date(t).toISOString().slice(0, 10);
     const rec = days[d] || { sent: 0, external: 0, newThreads: 0 };
     batch.set(db.collection('emailCounts').doc(d + '_' + conn.id), {
@@ -216,7 +224,11 @@ async function syncOne(conn, secretDoc, sinceMs, deadline) {
     });
   }
   batch.set(db.collection('gmailConnections').doc(conn.id), {
-    lastSyncAt: nowMs, lastSyncDay: new Date(nowMs).toISOString().slice(0, 10), lastError: null, truncated
+    lastSyncAt: nowMs, lastSyncDay: new Date(nowMs).toISOString().slice(0, 10), lastError: null, truncated,
+    // Cleared once a backfill finally completes; set (or refreshed) while it's still in progress.
+    resumeToken: truncated ? pageToken : null,
+    resumeCeilingMs: truncated ? writeFromMs : null,
+    resumeSinceMs: truncated ? sinceMs : null
   }, { merge: true });
   await batch.commit();
   return { name: conn.name, email: conn.email, messages: seen, truncated };
@@ -241,13 +253,21 @@ async function syncAll({ onlyOwnerUid, days }) {
       const sec = await db.collection('gmailSecrets').doc(conn.id).get();
       if (!sec.exists) throw new Error('no stored token');
       const backfill = Math.min(Math.max(parseInt(days) || 0, 0), MAX_BACKFILL_DAYS);
+      // Continuing an earlier truncated deep backfill? Keep its original
+      // target boundary and resume paging where it left off, rather than
+      // restarting from the newest message and re-covering the same ground
+      // (which a busy mailbox would never actually get past).
+      let since, resume = null;
+      if (backfill && conn.resumeToken && conn.resumeSinceMs) {
+        since = conn.resumeSinceMs;
+        resume = { pageToken: conn.resumeToken, ceilingMs: conn.resumeCeilingMs };
+      }
       // Normal run: re-count from the last synced day (so today is always
       // refreshed). Manual/backfill run or first sync: go back N days.
-      let since;
-      if (backfill) since = startOfDay(Date.now() - (backfill - 1) * DAY);
+      else if (backfill) since = startOfDay(Date.now() - (backfill - 1) * DAY);
       else if (conn.lastSyncDay) since = Math.max(Date.parse(conn.lastSyncDay + 'T00:00:00Z'), startOfDay(Date.now() - (MAX_BACKFILL_DAYS - 1) * DAY));
       else since = startOfDay(Date.now() - 13 * DAY);
-      results.push(await syncOne(conn, sec.data(), since, deadline));
+      results.push(await syncOne(conn, sec.data(), since, deadline, resume));
     } catch (e) {
       results.push({ name: conn.name, email: conn.email, error: e.message });
     }
