@@ -291,6 +291,44 @@ module.exports = async function gmailHandler(req, res) {
       return res.json({ ok: true });
     }
 
+    // TEMP: one-time migration for connections made before mailboxes were
+    // keyed by email (ownerUid didn't exist yet, doc id was the LinkBoard
+    // uid). Idempotent — safe to call more than once. Remove once run.
+    if (action === 'migrate') {
+      const u = await userFromRequest(req);
+      if (!u || u.role !== 'admin') return res.status(401).json({ error: 'Unauthorized' });
+      const db = getAdmin().firestore();
+      const connsSnap = await db.collection('gmailConnections').get();
+      const legacy = connsSnap.docs.filter(d => !('ownerUid' in d.data()));
+      const report = [];
+      for (const d of legacy) {
+        const data = d.data();
+        const oldId = d.id;
+        const newId = mailboxId(data.email);
+        if (!newId || newId === oldId) { report.push({ oldId, skipped: 'no email' }); continue; }
+        const secOld = await db.collection('gmailSecrets').doc(oldId).get();
+        if (secOld.exists) {
+          await db.collection('gmailSecrets').doc(newId).set(secOld.data(), { merge: true });
+          await db.collection('gmailSecrets').doc(oldId).delete();
+        }
+        await db.collection('gmailConnections').doc(newId).set({
+          ownerUid: data.uid || oldId, name: data.name, email: data.email,
+          connectedAt: data.connectedAt || Date.now(), lastSyncAt: data.lastSyncAt || null,
+          lastSyncDay: data.lastSyncDay || null, lastError: data.lastError || null
+        }, { merge: true });
+        await db.collection('gmailConnections').doc(oldId).delete();
+        // Remove any emailCounts docs a sync may have already written under
+        // the old id suffix after this schema shipped, before this cleanup ran.
+        const badSnap = await db.collection('emailCounts').where('builder', '==', data.name).get();
+        let removed = 0;
+        for (const bd of badSnap.docs) {
+          if (bd.id.endsWith('_' + oldId)) { await bd.ref.delete(); removed++; }
+        }
+        report.push({ oldId, newId, removedDuplicateDays: removed });
+      }
+      return res.json({ ok: true, migrated: report });
+    }
+
     if (action === 'sync') {
       let onlyOwnerUid = q.uid || '';
       if (!isCron(req)) {
