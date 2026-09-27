@@ -29,9 +29,10 @@ const crypto = require('crypto');
 
 const SCOPE = 'https://www.googleapis.com/auth/gmail.metadata';
 const DAY = 86400000;
-const MAX_MESSAGES_PER_USER = 1500;
+const MAX_MESSAGES_PER_USER = 4000;
 const SYNC_BUDGET_MS = 50000;
 const MAX_MAILBOXES_PER_PERSON = 5;
+const MAX_BACKFILL_DAYS = 200; // ~6.5 months — comfortably covers "since April" asks
 
 function getAdmin() {
   if (!admin.apps.length) {
@@ -159,11 +160,11 @@ async function syncOne(conn, secretDoc, sinceMs, deadline) {
 
   const internal = internalDomains();
   const days = {}; // 'YYYY-MM-DD' -> {sent, external, newThreads}
-  let seen = 0, pageToken = '', reachedOld = false;
+  let seen = 0, pageToken = '', reachedOld = false, exhaustedMailbox = false, oldestProcessedMs = null;
   while (!reachedOld && seen < MAX_MESSAGES_PER_USER && Date.now() < deadline) {
     const list = await gmailGet('messages?labelIds=SENT&maxResults=100' + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''), access);
     const ids = (list.messages || []).map(m => m.id);
-    if (!ids.length) break;
+    if (!ids.length) { exhaustedMailbox = true; break; }
     const msgs = await inChunks(ids, 10, id =>
       gmailGet(`messages/${id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc&fields=id,threadId,internalDate,payload/headers`, access).catch(() => null));
     for (const m of msgs) {
@@ -171,6 +172,7 @@ async function syncOne(conn, secretDoc, sinceMs, deadline) {
       seen++;
       const t = Number(m.internalDate);
       if (t < sinceMs) { reachedOld = true; continue; }
+      oldestProcessedMs = oldestProcessedMs === null ? t : Math.min(oldestProcessedMs, t);
       const d = new Date(t).toISOString().slice(0, 10);
       const rec = days[d] = days[d] || { sent: 0, external: 0, newThreads: 0 };
       rec.sent++;
@@ -178,14 +180,23 @@ async function syncOne(conn, secretDoc, sinceMs, deadline) {
       if (isExternal) { rec.external++; if (m.threadId === m.id) rec.newThreads++; }
     }
     pageToken = list.nextPageToken || '';
-    if (!pageToken) break;
+    if (!pageToken) { exhaustedMailbox = true; break; }
   }
+  // Did the scan actually make it all the way back to `sinceMs` (or run out
+  // of mailbox first, which is the same thing)? If it stopped early because
+  // of the message cap or the time budget, we must NOT overwrite the days
+  // between `sinceMs` and the oldest message actually looked at — they were
+  // never scanned this run, so zeroing them would erase real data a previous,
+  // deeper sync already recorded for them.
+  const completed = reachedOld || exhaustedMailbox;
+  const truncated = !completed;
+  const writeFromMs = completed ? sinceMs : (oldestProcessedMs === null ? Date.now() : startOfDay(oldestProcessedMs));
 
-  // Write every day in range (zeros included) so a day that lost messages
-  // since the last sync is corrected too.
+  // Write every day in the safely-covered range (zeros included) so a day
+  // that lost messages since the last sync is corrected too.
   const nowMs = Date.now();
   const batch = db.batch();
-  for (let t = sinceMs; t <= nowMs; t += DAY) {
+  for (let t = writeFromMs; t <= nowMs; t += DAY) {
     const d = new Date(t).toISOString().slice(0, 10);
     const rec = days[d] || { sent: 0, external: 0, newThreads: 0 };
     batch.set(db.collection('emailCounts').doc(d + '_' + conn.id), {
@@ -193,10 +204,10 @@ async function syncOne(conn, secretDoc, sinceMs, deadline) {
     });
   }
   batch.set(db.collection('gmailConnections').doc(conn.id), {
-    lastSyncAt: nowMs, lastSyncDay: new Date(nowMs).toISOString().slice(0, 10), lastError: null, truncated: seen >= MAX_MESSAGES_PER_USER
+    lastSyncAt: nowMs, lastSyncDay: new Date(nowMs).toISOString().slice(0, 10), lastError: null, truncated
   }, { merge: true });
   await batch.commit();
-  return { name: conn.name, email: conn.email, messages: seen };
+  return { name: conn.name, email: conn.email, messages: seen, truncated };
 }
 
 function startOfDay(ms) { return Math.floor(ms / DAY) * DAY; }
@@ -213,12 +224,12 @@ async function syncAll({ onlyOwnerUid, days }) {
     try {
       const sec = await db.collection('gmailSecrets').doc(conn.id).get();
       if (!sec.exists) throw new Error('no stored token');
-      const backfill = Math.min(Math.max(parseInt(days) || 0, 0), 60);
+      const backfill = Math.min(Math.max(parseInt(days) || 0, 0), MAX_BACKFILL_DAYS);
       // Normal run: re-count from the last synced day (so today is always
       // refreshed). Manual/backfill run or first sync: go back N days.
       let since;
       if (backfill) since = startOfDay(Date.now() - (backfill - 1) * DAY);
-      else if (conn.lastSyncDay) since = Math.max(Date.parse(conn.lastSyncDay + 'T00:00:00Z'), startOfDay(Date.now() - 59 * DAY));
+      else if (conn.lastSyncDay) since = Math.max(Date.parse(conn.lastSyncDay + 'T00:00:00Z'), startOfDay(Date.now() - (MAX_BACKFILL_DAYS - 1) * DAY));
       else since = startOfDay(Date.now() - 13 * DAY);
       results.push(await syncOne(conn, sec.data(), since, deadline));
     } catch (e) {

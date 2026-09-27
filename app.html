@@ -7449,19 +7449,33 @@ function renderGmailConnsPanel(){
       <div style="font-size:13px;font-weight:700;">Gmail connections — ${allGmailConns.length} mailbox(es)</div>
       <button class="btn-sm" id="es-sync-btn" style="width:auto;padding:6px 14px;font-size:12px;" onclick="syncGmailNow(this)">↻ Sync now</button>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;">${allGmailConns.map(c=>`<span title="${escAttr((c.email||'')+' · synced '+ago(c.lastSyncAt))}" style="font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid ${c.lastError?'#ff6b6b':'rgba(0,230,118,0.4)'};color:${c.lastError?'#ff6b6b':'#00e676'};">${escapeHtml(c.name)}${mailboxTag(c.email)?` · ${escapeHtml(mailboxTag(c.email))}`:''}${c.lastError?' ⚠ reconnect':''}</span>`).join('')||'<span style="font-size:12px;color:var(--text3);">Nobody has connected yet — each person clicks “Connect Gmail” in the sidebar.</span>'}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">${allGmailConns.map(c=>`<span title="${escAttr((c.email||'')+' · synced '+ago(c.lastSyncAt)+(c.truncated?' · more history left to fetch':''))}" style="font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid ${c.lastError?'#ff6b6b':(c.truncated?'#f0a500':'rgba(0,230,118,0.4)')};color:${c.lastError?'#ff6b6b':(c.truncated?'#f0a500':'#00e676')};">${escapeHtml(c.name)}${mailboxTag(c.email)?` · ${escapeHtml(mailboxTag(c.email))}`:''}${c.lastError?' ⚠ reconnect':(c.truncated?' ⏳ more history':'')}</span>`).join('')||'<span style="font-size:12px;color:var(--text3);">Nobody has connected yet — each person clicks “Connect Gmail” in the sidebar.</span>'}</div>
     ${missing.length&&allGmailConns.length?`<div style="font-size:11px;color:var(--text3);">Not connected at all: ${missing.map(escapeHtml).join(', ')}</div>`:''}
-    <div style="font-size:11px;color:var(--text3);">Most people send from more than one address (e.g. @thebusinessrover.com and .io) — connect each one in the sidebar (up to 5) so all of them count. Synced automatically every night; “Sync now” recounts the last 7 days.</div>
+    <div style="font-size:11px;color:var(--text3);">Most people send from more than one address (e.g. @thebusinessrover.com and .io) — connect each one in the sidebar (up to 5) so all of them count. To see further back than the last sync reached, widen the date range below and click “Sync now” again — “⏳ more history” means one click didn’t finish reaching it yet. Synced automatically every night otherwise.</div>
   </div>`;
 }
+const MAX_GMAIL_BACKFILL_DAYS = 200; // keep in sync with api/_lib/gmail.js MAX_BACKFILL_DAYS
 async function syncGmailNow(btn){
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Syncing…';
+  const orig = btn.textContent; btn.disabled = true;
+  // Reach back as far as the currently-selected "from" date, not a fixed 7
+  // days — otherwise widening the date range (e.g. back to April) never
+  // actually fetches that history no matter how many times you sync.
+  const fromVal = document.getElementById('es-from')?.value;
+  let days = 7;
+  if(fromVal){
+    const daysBack = Math.ceil((Date.now() - Date.parse(fromVal+'T00:00:00Z')) / 86400000) + 1;
+    days = Math.min(Math.max(daysBack, 7), MAX_GMAIL_BACKFILL_DAYS);
+  }
+  btn.textContent = days>14 ? `⏳ Fetching ~${days}d of history…` : '⏳ Syncing…';
   try{
-    const r = await fetch('/api/gmail?action=sync&days=7',{method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken()}});
+    const r = await fetch('/api/gmail?action=sync&days='+days,{method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken()}});
     const j = await r.json();
     if(!r.ok) throw new Error(j.error||'Sync failed');
     const bad = (j.results||[]).filter(x=>x.error);
-    showToast(bad.length ? `Synced with ${bad.length} error(s): ${bad.map(x=>x.name).join(', ')}` : `Synced ${(j.results||[]).length} mailbox(es)`, bad.length?'warn':'ok');
+    const cutShort = (j.results||[]).filter(x=>x.truncated);
+    showToast(bad.length ? `Synced with ${bad.length} error(s): ${bad.map(x=>x.name).join(', ')}`
+      : cutShort.length ? `Synced ${(j.results||[]).length} mailbox(es) — ${cutShort.map(x=>x.name).join(', ')} has more history, click Sync again to keep going`
+      : `Synced ${(j.results||[]).length} mailbox(es)`, (bad.length||cutShort.length)?'warn':'ok');
   }catch(e){ showToast(e.message,'warn'); }
   btn.disabled = false; btn.textContent = orig;
   renderEmailStats();
