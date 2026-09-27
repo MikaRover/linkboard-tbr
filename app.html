@@ -5274,7 +5274,17 @@ function renderLinks(){
     </tr>`;
   };
   const _allOpen=getOpenEditIds(tb);
-  tb.innerHTML = fl.length ? renderRowsGrouped(fl, rowFn, 11) : `<tr><td colspan="11" class="loading">No links</td></tr>`;
+  // Every row here carries a full hidden inline edit form (all-projects/all-
+  // builders dropdowns included) — on an unfiltered list of thousands of
+  // links that's tens of thousands of DOM nodes built from one giant string
+  // in a single synchronous innerHTML assignment, which froze the tab for
+  // several seconds with a blank page before anything painted. Filtering
+  // (search/project/status/builder) narrows fl itself, lifting this cap.
+  const LINKS_ROW_CAP = 500;
+  const truncatedLinks = fl.length > LINKS_ROW_CAP;
+  const flShown = truncatedLinks ? fl.slice(0, LINKS_ROW_CAP) : fl;
+  tb.innerHTML = (flShown.length ? renderRowsGrouped(flShown, rowFn, 11) : `<tr><td colspan="11" class="loading">No links</td></tr>`)
+    + (truncatedLinks ? `<tr><td colspan="11" style="text-align:center;color:var(--text3);font-size:12px;padding:14px;">Showing ${LINKS_ROW_CAP} of ${fl.length} — search or filter by project/status/builder to see the rest</td></tr>` : '');
   restoreOpenEditIds(tb,_allOpen);
 
 }
@@ -6209,7 +6219,16 @@ function renderInvoices(){
   }
 
   if(!fl.length){tb.innerHTML='<tr><td colspan="8" class="loading">No invoices found</td></tr>';return;}
-  tb.innerHTML=fl.map(l=>{
+  // Stats/breakdown above use the full filtered set (fl/unpaidAll) — only the
+  // rendered rows are capped. Building thousands of row strings and handing
+  // them to innerHTML in one shot is synchronous work the browser can't skip
+  // (content-visibility only helps scrolling *after* the DOM exists), so an
+  // unfiltered invoices list — thousands of rows — froze the tab for several
+  // seconds with a blank page before anything painted. Filtering (date/
+  // builder/project) narrows fl itself, so it naturally lifts this cap.
+  const INV_ROW_CAP = 500;
+  const shown = fl.slice(0, INV_ROW_CAP);
+  tb.innerHTML=shown.map(l=>{
     const lid=l.id;
     return`<tr>
       <td onclick="event.stopPropagation()"><input type="checkbox" class="inv-cb" data-id="${escapeHtml(lid)}" onchange="onInvSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
@@ -6221,7 +6240,7 @@ function renderInvoices(){
       <td>${l.invoice?`<a href="${escapeHtml(l.invoice)}" target="_blank" style="color:var(--teal);">↗ Invoice</a>`:'<span style="color:var(--text3);">—</span>'}</td>
       <td><button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;background:${l.paid?'linear-gradient(135deg,var(--teal),var(--teal2))':'transparent'};border:${l.paid?'none':'1px solid var(--border2)'};color:${l.paid?'#061520':'var(--text2)'};" onclick="toggleInvoicePaid('${escAttr(lid)}',${!l.paid})">${l.paid?'✅ Paid':'⏳ Unpaid'}</button></td>
     </tr>`;
-  }).join('');
+  }).join('') + (fl.length>INV_ROW_CAP ? `<tr><td colspan="8" style="text-align:center;color:var(--text3);font-size:12px;padding:14px;">Showing ${INV_ROW_CAP} of ${fl.length} — filter by builder, project, or month to see the rest</td></tr>` : '');
 }
 async function toggleInvoicePaid(id,paid){
   await db.collection('links').doc(id).update({paid});
