@@ -1076,7 +1076,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
   <!-- Builder leaderboard this month -->
   <div class="card adm" id="ds-leaderboard-card">
-    <div class="card-head">🏆 This month's builders <span style="font-size:12px;color:var(--text2)" id="ds-month-label"></span></div>
+    <div class="card-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:-3px;flex-shrink:0;">
+      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>This month's builders <span style="font-size:12px;color:var(--text2)" id="ds-month-label"></span></div>
     <div id="ds-leaderboard" style="display:flex;flex-wrap:wrap;gap:0;padding:10px 1rem 16px;"></div>
   </div>
 
@@ -1088,7 +1089,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
 <!-- ADD LINK -->
 <div id="p-add" class="page">
-  <div class="page-top"><div class="page-title">➕ Add link</div></div>
+  <div class="page-top"><div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:9px;vertical-align:-4px;">
+    <path d="M12 4v16M4 12h16"/></svg>Add link</div></div>
   <div class="card" style="max-width:720px;">
     <div class="qa-close" onclick="closeAddLinkModal()" title="Close">✕</div>
     <div class="card-body">
@@ -1454,7 +1456,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 <!-- INVOICES -->
 <div id="p-invoices" class="page">
   <div class="page-top">
-    <div class="page-title">🧾 Invoices</div>
+    <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;">
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>Invoices</div>
     <button class="btn-sm" onclick="exportInvoicesCSV()" style="width:auto;background:transparent;border:1px solid var(--teal);color:var(--teal);">Export CSV</button>
   </div>
   <div class="stats" id="inv-stats" style="grid-template-columns:repeat(4,1fr);"></div>
@@ -1578,7 +1581,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 <!-- ══ LOAD DISTRIBUTION ══ -->
 <div id="p-load" class="page">
   <div class="page-top">
-    <div class="page-title">📊 Load Distribution</div>
+    <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;">
+      <path d="M5 20V10M12 20V4M19 20v-7"/></svg>Load Distribution</div>
     <div style="display:flex;gap:8px;">
       <button class="btn-sm" onclick="fillByCapacity()" style="white-space:nowrap;width:auto;" title="Fill each builder to exactly their monthly capacity">⚡ Fill by capacity</button>
       <button class="btn-ghost" onclick="exportLoadCSV()" style="white-space:nowrap;">⬇ Export CSV</button>
@@ -1643,7 +1647,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 <!-- ══ CAPACITY ══ -->
 <div id="p-capacity" class="page">
   <div class="page-top">
-    <div class="page-title">⚡ Builder Capacity</div>
+    <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;">
+      <path d="M4 18a8 8 0 0 1 16 0"/><path d="M12 18l4-6"/><circle cx="12" cy="18" r="1"/></svg>Builder Capacity</div>
     <div style="display:flex;gap:8px;">
       <button class="btn-sm" onclick="addCapacityBuilder()" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">+ Add builder</button>
       <button class="btn-sm" onclick="saveCapacity()" style="width:auto;">Save →</button>
@@ -1722,7 +1727,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   </div>
 
   <div class="page-top">
-    <div class="page-title">⚓ Anchors</div>
+    <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;">
+      <circle cx="12" cy="5" r="2"/><path d="M12 7v14M5 12H2a10 10 0 0 0 20 0h-3M7 15l-2 3M17 15l2 3"/></svg>Anchors</div>
     <div style="display:flex;gap:8px;align-items:center;" id="anchor-admin-controls">
       <button class="btn-sm" onclick="openAddAnchorModal()" style="width:auto;">+ Add anchors</button>
       <button class="btn-sm" onclick="resetAllAnchors()" style="width:auto;background:transparent;border:1px solid rgba(255,107,107,0.4);color:#ff6b6b;margin-left:8px;">🗑 Reset all</button>
@@ -1748,7 +1754,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 <!-- ══ KPI ══ -->
 <div id="p-kpi" class="page">
   <div class="page-top">
-    <div class="page-title">🏆 KPI</div>
+    <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:9px;vertical-align:-4px;">
+      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>KPI</div>
     <div style="display:flex;gap:8px;align-items:center;">
       <select id="kpi-month" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderKPI()">
         <option>January</option><option>February</option><option>March</option><option>April</option>
@@ -1816,7 +1823,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 <!-- ══ ONLINE TRACKING ══ -->
 <div id="p-online" class="page">
   <div class="page-top">
-    <div class="page-title">🟢 Online Tracking</div>
+    <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:9px;vertical-align:-4px;">
+      <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"/><path d="M12 12l4-2"/></svg>Online Tracking</div>
     <input type="date" id="online-date" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderOnlinePage()"/>
   </div>
 
@@ -1881,7 +1889,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 <!-- ══ ANALYTICS ══ -->
 <div id="p-emailstats" class="page">
   <div class="page-top">
-    <div class="page-title">✉️ Outreach emails per day</div>
+    <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;">
+      <rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Outreach emails per day</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <select id="es-source" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderEmailStats()"><option value="gmail">Gmail (actually sent)</option><option value="clicks">LinkBoard ✉️ clicks</option></select>
       <select id="es-metric" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderEmailStats()"><option value="external">Outreach (external)</option><option value="newThreads">New conversations</option><option value="sent">All sent</option></select>
@@ -1911,7 +1920,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
 <div id="p-analytics" class="page">
   <div class="page-top">
-    <div class="page-title">📈 Analytics</div>
+    <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;">
+      <path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Analytics</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="font-size:11px;color:var(--text3);margin:0;">From</label>
@@ -2180,7 +2190,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
       <div>
         <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--teal);text-transform:uppercase;">Outreach Finder</div>
-        <div style="font-size:19px;font-weight:800;color:var(--text);margin-top:4px;">🎯 Find contacts</div>
+        <div style="font-size:19px;font-weight:800;color:var(--text);margin-top:4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:7px;vertical-align:-3px;">
+          <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Find contacts</div>
         <div style="font-size:12px;color:var(--text2);margin-top:4px;">Via Snov.io + LinkedIn</div>
       </div>
 
@@ -2293,7 +2304,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <!-- LinkedIn URL results -->
       <div id="ot-li-results" style="display:none;">
         <div class="card">
-          <div class="card-head">👥 Resolved contacts</div>
+          <div class="card-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:6px;vertical-align:-3px;flex-shrink:0;">
+            <circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.3"/><path d="M15.5 14.2a5 5 0 0 1 4.5 5.8"/></svg>Resolved contacts</div>
           <div class="tbl-wrap"><table>
             <thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Email</th><th>Status</th><th></th></tr></thead>
             <tbody id="ot-li-tbody"></tbody>
@@ -2309,7 +2321,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 <!-- ══ DOMAINS DATABASE ══ -->
 <div id="p-domains" class="page">
   <div class="page-top">
-    <div class="page-title">🗄 Domains Database</div>
+    <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:9px;vertical-align:-4px;">
+      <ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Domains Database</div>
     <div style="display:flex;gap:8px;">
       <button class="btn-ghost" onclick="exportDomainsCSV()" style="font-size:12px;">⬇ Export CSV</button>
       <button class="btn-sm" onclick="openDomainModal()" style="width:auto;">+ Add domain</button>
@@ -2432,7 +2445,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 <div id="p-batch" class="page">
   <div class="page-top">
     <div>
-      <div class="page-title">🔍 Batch Analyze</div>
+      <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:9px;vertical-align:-4px;">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Batch Analyze</div>
       <div style="font-size:12px;color:var(--text2);margin-top:4px;">Paste domains to get DR, Traffic & Category in bulk</div>
     </div>
     <div style="display:flex;gap:8px;">
@@ -2480,7 +2494,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 <div id="p-catcheck" class="page">
   <div class="page-top">
     <div>
-      <div class="page-title">▦ Category & Email Check</div>
+      <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Category & Email Check</div>
       <div style="font-size:12px;color:var(--text2);margin-top:4px;">Paste domains to get the Category, in bulk — no DR/Traffic lookup, so it runs faster. Also gets a free email lookup for every domain — SaaS excluded by default, since it usually isn't the outreach target.</div>
     </div>
     <div style="display:flex;gap:8px;">
@@ -2531,7 +2546,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 <div id="p-prospector" class="page">
   <div class="page-top">
     <div>
-      <div class="page-title">🔍 AI Anchor Prospector</div>
+      <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:9px;vertical-align:-4px;">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>AI Anchor Prospector</div>
       <div style="font-size:12px;color:var(--text2);margin-top:4px;">Find the best anchor placement opportunities on any website</div>
     </div>
   </div>
@@ -2914,10 +2930,10 @@ function hideEmptyNavSections(){
 function startApp(){
   showAppWithAnimation();
   const NEON_COLORS={
-    'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
-    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
-    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
-    'Rubik':'#ea80fc','Admin':'#2d6a4f'
+    'Tam':'#0A84FF','Lusine':'#BF5AF2','Sofya':'#5E5CE6','Vahe':'#30D158',
+    'Syuzi':'#FF375F','Anna':'#FFD60A','Liana':'#64D2FF','Diana H':'#FF453A',
+    'Armen':'#30B0C7','Mika':'#2d6a4f','Nick':'#AC8E68','Diana Y':'#FF9F0A',
+    'Rubik':'#8E8E93','Admin':'#2d6a4f'
   };
   // Extract first name from email if name not set
   const emailFirst=(cu.email||'').split('@')[0].split('.')[0];
@@ -6827,12 +6843,12 @@ function smtpBadge(smtp){
 
 function roleScore(pos){
   const p=(pos||'').toLowerCase();
-  if(p.includes('link build')||p.includes('backlink'))return{color:'#00e5ff',rank:'⭐⭐⭐'};
+  if(p.includes('link build')||p.includes('backlink'))return{color:'#0A84FF',rank:'⭐⭐⭐'};
   if(p.includes('outreach'))return{color:'#32d74b',rank:'⭐⭐⭐'};
-  if(p.includes('off-page')||p.includes('offpage'))return{color:'#7c4dff',rank:'⭐⭐⭐'};
-  if(p.includes('seo'))return{color:'#76ff03',rank:'⭐⭐'};
-  if(p.includes('pr'))return{color:'#00bcd4',rank:'⭐⭐'};
-  if(p.includes('content')||p.includes('marketing'))return{color:'#ffeb3b',rank:'⭐'};
+  if(p.includes('off-page')||p.includes('offpage'))return{color:'#5E5CE6',rank:'⭐⭐⭐'};
+  if(p.includes('seo'))return{color:'#AC8E68',rank:'⭐⭐'};
+  if(p.includes('pr'))return{color:'#64D2FF',rank:'⭐⭐'};
+  if(p.includes('content')||p.includes('marketing'))return{color:'#FFD60A',rank:'⭐'};
   return{color:'var(--text2)',rank:'⭐'};
 }
 
@@ -7101,7 +7117,8 @@ function renderFreeResults(data, domain){
   // Emails table
   const emailsSection = all.length ? `
     <div class="card">
-      <div class="card-head">📧 Found emails <span style="font-size:11px;color:var(--text3);font-weight:400;">(verified via Snov)</span></div>
+      <div class="card-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-3px;flex-shrink:0;">
+        <rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Found emails <span style="font-size:11px;color:var(--text3);font-weight:400;">(verified via Snov)</span></div>
       <div class="tbl-wrap"><table>
         <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Status</th><th>Type</th><th></th></tr></thead>
         <tbody>${all.map(e=>`<tr>
@@ -7126,7 +7143,8 @@ function renderFreeResults(data, domain){
   // pass as everything else here.
   const teamSection = team.length ? `
     <div class="card" style="margin-top:1rem;">
-      <div class="card-head">👥 Team found on site <span style="font-size:11px;color:var(--text3);font-weight:400;">(name/title scraped from the site — email is a verified guess)</span></div>
+      <div class="card-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:6px;vertical-align:-3px;flex-shrink:0;">
+        <circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.3"/><path d="M15.5 14.2a5 5 0 0 1 4.5 5.8"/></svg>Team found on site <span style="font-size:11px;color:var(--text3);font-weight:400;">(name/title scraped from the site — email is a verified guess)</span></div>
       <div class="tbl-wrap"><table>
         <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Status</th><th></th></tr></thead>
         <tbody>${team.map(t=>{
@@ -7404,11 +7422,11 @@ function appendBulkError(domain, msg){
 
 function roleScoreInfo(pos){
   const p=(pos||'').toLowerCase();
-  if(p.includes('link build')||p.includes('backlink')) return{color:'#00e5ff',stars:'⭐⭐⭐'};
+  if(p.includes('link build')||p.includes('backlink')) return{color:'#0A84FF',stars:'⭐⭐⭐'};
   if(p.includes('outreach')) return{color:'#32d74b',stars:'⭐⭐⭐'};
-  if(p.includes('off-page')) return{color:'#7c4dff',stars:'⭐⭐⭐'};
-  if(p.includes('seo')) return{color:'#76ff03',stars:'⭐⭐'};
-  if(p.includes('pr')) return{color:'#00bcd4',stars:'⭐⭐'};
+  if(p.includes('off-page')) return{color:'#5E5CE6',stars:'⭐⭐⭐'};
+  if(p.includes('seo')) return{color:'#AC8E68',stars:'⭐⭐'};
+  if(p.includes('pr')) return{color:'#64D2FF',stars:'⭐⭐'};
   return{color:'var(--text2)',stars:'⭐'};
 }
 
@@ -7716,11 +7734,14 @@ async function disconnectGmail(id){
 }
 
 const ONLINE_TRACKING_BUILDERS = ['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik','David','Edgar','Edo','Tatev','Vard'];
+// Apple's own system-color palette (iOS/macOS dark-mode values) instead of
+// the previous neon set — same idea (one stable, distinguishable hue per
+// person) without the arcade-y saturation.
 const ONLINE_NEON_COLORS={
-  'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
-  'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
-  'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
-  'Rubik':'#ea80fc','Admin':'#2d6a4f'
+  'Tam':'#0A84FF','Lusine':'#BF5AF2','Sofya':'#5E5CE6','Vahe':'#30D158',
+  'Syuzi':'#FF375F','Anna':'#FFD60A','Liana':'#64D2FF','Diana H':'#FF453A',
+  'Armen':'#30B0C7','Mika':'#2d6a4f','Nick':'#AC8E68','Diana Y':'#FF9F0A',
+  'Rubik':'#8E8E93','Admin':'#2d6a4f'
 };
 
 // Shared by both the daily report and the by-person summary — an abandoned
@@ -8545,10 +8566,10 @@ function renderKPI(){
   if(!month||!year) return;
 
   const NEON_COLORS={
-    'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
-    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
-    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
-    'Rubik':'#ea80fc'
+    'Tam':'#0A84FF','Lusine':'#BF5AF2','Sofya':'#5E5CE6','Vahe':'#30D158',
+    'Syuzi':'#FF375F','Anna':'#FFD60A','Liana':'#64D2FF','Diana H':'#FF453A',
+    'Armen':'#30B0C7','Mika':'#2d6a4f','Nick':'#AC8E68','Diana Y':'#FF9F0A',
+    'Rubik':'#8E8E93'
   };
 
   // Filter links for this month+year
@@ -8716,10 +8737,10 @@ function renderAnalytics(){
 
   // Bar chart — links per builder
   const NEON_COLORS = {
-    'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
-    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
-    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
-    'Rubik':'#ea80fc'
+    'Tam':'#0A84FF','Lusine':'#BF5AF2','Sofya':'#5E5CE6','Vahe':'#30D158',
+    'Syuzi':'#FF375F','Anna':'#FFD60A','Liana':'#64D2FF','Diana H':'#FF453A',
+    'Armen':'#30B0C7','Mika':'#2d6a4f','Nick':'#AC8E68','Diana Y':'#FF9F0A',
+    'Rubik':'#8E8E93'
   };
 
   const builderCounts = BUILDERS.map(b=>({
@@ -9037,10 +9058,10 @@ function closeBuilderModal(e){
 function openBuilderModal(builderName){
   const overlay = document.getElementById('builder-modal-overlay');
   const NEON_COLORS={
-    'Tam':'#00e5ff','Lusine':'#d400ff','Sofya':'#7c4dff','Vahe':'#00e676',
-    'Syuzi':'#ff69b4','Anna':'#ffeb3b','Liana':'#00bcd4','Diana H':'#ff1744',
-    'Armen':'#2979ff','Mika':'#2d6a4f','Nick':'#76ff03','Diana Y':'#ff6e40',
-    'Rubik':'#ea80fc'
+    'Tam':'#0A84FF','Lusine':'#BF5AF2','Sofya':'#5E5CE6','Vahe':'#30D158',
+    'Syuzi':'#FF375F','Anna':'#FFD60A','Liana':'#64D2FF','Diana H':'#FF453A',
+    'Armen':'#30B0C7','Mika':'#2d6a4f','Nick':'#AC8E68','Diana Y':'#FF9F0A',
+    'Rubik':'#8E8E93'
   };
   const color = NEON_COLORS[builderName] || 'var(--teal)';
 
