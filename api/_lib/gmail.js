@@ -265,46 +265,6 @@ module.exports = async function gmailHandler(req, res) {
       return res.json({ ok: true });
     }
 
-    // TEMP: raw diagnostic — bypasses date bucketing entirely, calls the
-    // Gmail API directly and reports exactly what it returned. Admin only.
-    // Remove once the sync-returns-0 investigation is done.
-    if (action === 'debug') {
-      const u = await userFromRequest(req);
-      if (!u || u.role !== 'admin') return res.status(401).json({ error: 'Unauthorized' });
-      const db = getAdmin().firestore();
-      const sec = await db.collection('gmailSecrets').doc(u.uid).get();
-      if (!sec.exists) return res.json({ error: 'not connected' });
-      const refresh = decrypt(sec.data().refreshTokenEnc);
-      const tok = await tokenRequest({ grant_type: 'refresh_token', refresh_token: refresh });
-      const list = await gmailGet('messages?labelIds=SENT&maxResults=5', tok.access_token);
-      const detail = list.messages ? await Promise.all(list.messages.slice(0, 3).map(m =>
-        gmailGet(`messages/${m.id}?format=metadata&metadataHeaders=To&fields=id,internalDate,labelIds,payload/headers`, tok.access_token))) : [];
-      // Exact same request shape syncOne uses, but without the try/catch that
-      // silently swallows a failure — to see if THIS specific call is what breaks.
-      let syncShaped;
-      try {
-        const id0 = list.messages[0].id;
-        syncShaped = await gmailGet(`messages/${id0}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc&fields=id,threadId,internalDate,payload/headers`, tok.access_token);
-      } catch (e) { syncShaped = { caught_error: e.message }; }
-      // Replay syncOne's own loop (first page only, no writes) to see exactly
-      // what it computes for "days" — isolates whether the bug is in the
-      // loop/bucketing logic itself vs. the API calls.
-      const sinceMs = Date.now() - 13 * 86400000;
-      const ids2 = (list.messages || []).map(m => m.id);
-      const msgs2 = await Promise.all(ids2.map(id =>
-        gmailGet(`messages/${id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc&fields=id,threadId,internalDate,payload/headers`, tok.access_token).catch(e => ({ __err: e.message }))));
-      const days2 = {};
-      let reachedOld2 = false;
-      for (const m of msgs2) {
-        if (!m || m.__err) continue;
-        const t = Number(m.internalDate);
-        if (t < sinceMs) { reachedOld2 = true; continue; }
-        const d = new Date(t).toISOString().slice(0, 10);
-        days2[d] = (days2[d] || 0) + 1;
-      }
-      return res.json({ scope: tok.scope, resultSizeEstimate: list.resultSizeEstimate, messages: list.messages, detail, syncShaped, replay: { sinceMs, nowMs: Date.now(), msgErrors: msgs2.filter(m => m && m.__err).map(m => m.__err), days2, reachedOld2 } });
-    }
-
     if (action === 'sync') {
       let onlyUid = q.uid || '';
       if (!isCron(req)) {
