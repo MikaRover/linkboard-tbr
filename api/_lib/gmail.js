@@ -296,6 +296,23 @@ module.exports = async function gmailHandler(req, res) {
       return res.json({ ok: true });
     }
 
+    // TEMP: one-time cleanup of emailCounts docs written under the pre-multi-
+    // mailbox scheme (id = `${date}_${builderName}`, no `email` field) — the
+    // next sync would otherwise write the same days again under the new
+    // `${date}_${mailboxId}` id and double the totals. Idempotent. Remove
+    // once run.
+    if (action === 'cleanup-legacy-counts') {
+      const u = await userFromRequest(req);
+      if (!u || u.role !== 'admin') return res.status(401).json({ error: 'Unauthorized' });
+      const db = getAdmin().firestore();
+      const snap = await db.collection('emailCounts').get();
+      const legacy = snap.docs.filter(d => !('email' in d.data()));
+      await inChunks(legacy, 400, async d => { await d.ref.delete(); });
+      // Repopulate immediately so the admin page isn't left empty.
+      const resync = await syncAll({ days: 14 });
+      return res.json({ ok: true, deleted: legacy.length, resync });
+    }
+
     if (action === 'sync') {
       let onlyOwnerUid = q.uid || '';
       if (!isCron(req)) {
