@@ -800,8 +800,11 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
    just with richer, more structured cards than the plain number+label
    chips this replaces. ── */
 #p-dashboard .mac-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:1.5rem;}
-#p-dashboard .mac-stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;display:flex;flex-direction:column;gap:14px;cursor:pointer;transition:transform 0.15s ease,border-color 0.15s ease,box-shadow 0.15s ease;}
+#p-dashboard .mac-stat-card{position:relative;overflow:hidden;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;display:flex;flex-direction:column;gap:14px;cursor:pointer;transition:transform 0.15s ease,border-color 0.15s ease,box-shadow 0.15s ease;}
 #p-dashboard .mac-stat-card:hover{transform:translateY(-2px);border-color:var(--border2);box-shadow:var(--shadow);}
+#p-dashboard .mac-stat-card::before{content:'';position:absolute;top:-40px;right:-40px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,var(--glow-c,transparent) 0%,transparent 72%);pointer-events:none;transition:opacity 0.2s ease;}
+#p-dashboard .mac-stat-card:hover::before{opacity:1.4;}
+#p-dashboard .mac-stat-card>*{position:relative;z-index:1;}
 #p-dashboard .mac-stat-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
 #p-dashboard .mac-stat-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;}
 body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-transform:none;letter-spacing:normal;}
@@ -1038,27 +1041,27 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     </div>
   </div>
   <div class="mac-stats">
-    <div class="mac-stat-card" onclick="goToMyLinksFromDashboard('live')">
+    <div class="mac-stat-card" style="--glow-c:rgba(50,215,75,0.16);" onclick="goToMyLinksFromDashboard('live')">
       <div class="mac-stat-top">
         <div class="mac-stat-label">Live this month</div>
         <div class="mac-ring-wrap">
           <svg width="36" height="36" viewBox="0 0 36 36">
             <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border2)" stroke-width="4"/>
-            <circle id="ds-ring" cx="18" cy="18" r="15" fill="none" stroke="var(--teal)" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2"/>
+            <circle id="ds-ring" cx="18" cy="18" r="15" fill="none" stroke="var(--teal)" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2" style="filter:drop-shadow(0 0 4px var(--teal-glow));"/>
           </svg>
           <div class="mac-ring-val" id="ds-ring-val">—</div>
         </div>
       </div>
-      <div class="mac-stat-num" style="color:var(--teal);" id="ds-total">—</div>
+      <div class="mac-stat-num" style="color:var(--teal);text-shadow:0 0 24px var(--teal-glow);" id="ds-total">—</div>
       <div class="mac-stat-sub" id="ds-total-sub">vs last month</div>
     </div>
 
-    <div class="mac-stat-card" onclick="goToMyLinksFromDashboard('pending')">
+    <div class="mac-stat-card" style="--glow-c:rgba(240,165,0,0.16);" onclick="goToMyLinksFromDashboard('pending')">
       <div class="mac-stat-top">
         <div class="mac-stat-label">Pending this month</div>
-        <div class="mac-stat-icon" style="background:rgba(240,165,0,0.12);color:var(--yellow);">⏳</div>
+        <div class="mac-stat-icon" style="background:rgba(240,165,0,0.14);color:var(--yellow);box-shadow:0 0 16px rgba(240,165,0,0.25);">⏳</div>
       </div>
-      <div class="mac-stat-num" style="color:var(--yellow);" id="ds-pend">—</div>
+      <div class="mac-stat-num" style="color:var(--yellow);text-shadow:0 0 24px rgba(240,165,0,0.35);" id="ds-pend">—</div>
       <button class="mac-stat-btn" style="background:rgba(240,165,0,0.14);color:var(--yellow);" onclick="event.stopPropagation();goToMyLinksFromDashboard('pending')">Review Items</button>
     </div>
 
