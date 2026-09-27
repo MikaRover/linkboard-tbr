@@ -1837,7 +1837,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <!-- By person — click a name to see their hours -->
   <div class="card" style="margin-bottom:1.5rem;">
     <div class="card-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <span>👤 View hours by person</span>
+      <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:6px;vertical-align:-2px;">
+        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>View hours by person</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <select id="person-select" style="margin:0;padding:6px 10px;font-size:12px;font-weight:700;width:auto;" onchange="onPersonSelectChange()"></select>
         <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setPersonRangePreset('today')">Today</button>
@@ -1911,7 +1912,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div class="card"><div class="tbl-wrap" id="es-table"><div class="loading">Loading...</div></div></div>
   <div class="card" style="margin-top:1rem;">
     <div class="card-head" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span>👤 View one person</span>
+      <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:6px;vertical-align:-2px;">
+        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>View one person</span>
       <select id="es-person" style="margin:0;padding:6px 10px;font-size:12px;font-weight:700;width:auto;" onchange="showEmailDetail(this.value)"><option value="">Select a person…</option></select>
     </div>
     <div id="es-detail"></div>
