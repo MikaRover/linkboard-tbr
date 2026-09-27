@@ -7556,6 +7556,7 @@ async function renderEmailStats(){
     if(!target) return n?'':'color:var(--text3);';
     return n>=target?'color:#00e676;font-weight:700;':(n?'color:#f0a500;font-weight:700;':'color:#ff6b6b;');
   };
+  const short = d => d.slice(5).replace('-','/');
   // A day-by-day grid works for a week or two but turns into an endless
   // horizontally-scrolling wall of mostly-zero columns on a wide range (e.g.
   // 6 months) — this is a leaderboard instead; click a person (or use "View
