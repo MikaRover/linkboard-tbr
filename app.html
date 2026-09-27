@@ -807,11 +807,8 @@ tr.link-row:hover td{ background:var(--bg3) !important; }
    just with richer, more structured cards than the plain number+label
    chips this replaces. ── */
 #p-dashboard .mac-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:1.5rem;}
-#p-dashboard .mac-stat-card{position:relative;overflow:hidden;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;display:flex;flex-direction:column;gap:14px;cursor:pointer;transition:transform 0.15s ease,border-color 0.15s ease,box-shadow 0.15s ease;}
-#p-dashboard .mac-stat-card:hover{transform:translateY(-2px);border-color:var(--border2);box-shadow:var(--shadow);}
-#p-dashboard .mac-stat-card::before{content:'';position:absolute;top:-40px;right:-40px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,var(--glow-c,transparent) 0%,transparent 72%);pointer-events:none;transition:opacity 0.2s ease;}
-#p-dashboard .mac-stat-card:hover::before{opacity:1.4;}
-#p-dashboard .mac-stat-card>*{position:relative;z-index:1;}
+#p-dashboard .mac-stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;display:flex;flex-direction:column;gap:14px;cursor:pointer;transition:border-color 0.15s ease;}
+#p-dashboard .mac-stat-card:hover{border-color:var(--border2);}
 #p-dashboard .mac-stat-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
 #p-dashboard .mac-stat-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;}
 body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-transform:none;letter-spacing:normal;}
@@ -970,7 +967,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <div id="notif-bell" class="notif-bell-card" onclick="toggleNotifPanel()" style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 14px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);font-size:14px;font-weight:700;color:var(--text);">
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
       <span style="flex:1;">Notifications</span>
-      <span id="notif-badge" style="display:none;min-width:21px;height:21px;padding:0 6px;border-radius:20px;background:#f4795b;box-shadow:0 0 8px rgba(244,121,91,0.5);color:#fff;font-size:11px;font-weight:800;line-height:21px;text-align:center;flex-shrink:0;"></span>
+      <span id="notif-badge" style="display:none;min-width:21px;height:21px;padding:0 6px;border-radius:20px;background:#f4795b;color:#fff;font-size:11px;font-weight:800;line-height:21px;text-align:center;flex-shrink:0;"></span>
     </div>
   </div>
   <div id="notif-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center;padding:24px;" onclick="if(event.target===this)toggleNotifPanel()">
@@ -1050,27 +1047,27 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     </div>
   </div>
   <div class="mac-stats">
-    <div class="mac-stat-card" style="--glow-c:rgba(50,215,75,0.16);" onclick="goToMyLinksFromDashboard('live')">
+    <div class="mac-stat-card" onclick="goToMyLinksFromDashboard('live')">
       <div class="mac-stat-top">
         <div class="mac-stat-label">Live this month</div>
         <div class="mac-ring-wrap">
           <svg width="36" height="36" viewBox="0 0 36 36">
             <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border2)" stroke-width="4"/>
-            <circle id="ds-ring" cx="18" cy="18" r="15" fill="none" stroke="var(--teal)" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2" style="filter:drop-shadow(0 0 4px var(--teal-glow));"/>
+            <circle id="ds-ring" cx="18" cy="18" r="15" fill="none" stroke="var(--teal)" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2"/>
           </svg>
           <div class="mac-ring-val" id="ds-ring-val">—</div>
         </div>
       </div>
-      <div class="mac-stat-num" style="color:var(--teal);text-shadow:0 0 24px var(--teal-glow);" id="ds-total">—</div>
+      <div class="mac-stat-num" style="color:var(--teal);" id="ds-total">—</div>
       <div class="mac-stat-sub" id="ds-total-sub">vs last month</div>
     </div>
 
-    <div class="mac-stat-card" style="--glow-c:rgba(240,165,0,0.16);" onclick="goToMyLinksFromDashboard('pending')">
+    <div class="mac-stat-card" onclick="goToMyLinksFromDashboard('pending')">
       <div class="mac-stat-top">
         <div class="mac-stat-label">Pending this month</div>
-        <div class="mac-stat-icon" style="background:rgba(240,165,0,0.14);color:var(--yellow);box-shadow:0 0 16px rgba(240,165,0,0.25);">⏳</div>
+        <div class="mac-stat-icon" style="background:rgba(240,165,0,0.12);color:var(--yellow);">⏳</div>
       </div>
-      <div class="mac-stat-num" style="color:var(--yellow);text-shadow:0 0 24px rgba(240,165,0,0.35);" id="ds-pend">—</div>
+      <div class="mac-stat-num" style="color:var(--yellow);" id="ds-pend">—</div>
       <button class="mac-stat-btn" style="background:rgba(240,165,0,0.14);color:var(--yellow);" onclick="event.stopPropagation();goToMyLinksFromDashboard('pending')">Review Items</button>
     </div>
 
@@ -7683,7 +7680,7 @@ function renderGmailStrip(){
   if(!cu){ el.innerHTML=''; return; }
   const atMax = myGmailConns.length >= MAX_GMAIL_MAILBOXES;
   const rows = myGmailConns.map(c=>`<div class="gmail-strip-row" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;">
-      <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:${c.lastError?'#f4795b':'var(--teal2)'};box-shadow:0 0 6px ${c.lastError?'rgba(244,121,91,0.6)':'var(--teal-glow)'};"></span>
+      <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:${c.lastError?'#f4795b':'var(--teal2)'};"></span>
       <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:${c.lastError?'#f4795b':'var(--text2)'};" title="${escAttr(c.email||'')}">${escapeHtml(c.email||'Gmail')}</span>
       ${c.lastError?`<span title="Access revoked — click Connect to re-authorize" style="font-size:12px;flex-shrink:0;">⚠️</span>`:''}
       <button class="gmail-strip-x" onclick="disconnectGmail('${escAttr(c.id)}')" title="Disconnect" style="background:none;border:none;color:var(--text3);font-size:15px;line-height:1;padding:2px;cursor:pointer;flex-shrink:0;border-radius:4px;">×</button>
