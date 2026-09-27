@@ -162,6 +162,13 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
 th{text-align:left;font-size:11px;font-weight:700;color:var(--text3);padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:0.5px;}
 td{padding:7px 10px;border-bottom:1px solid rgba(26,48,72,0.5);vertical-align:middle;white-space:nowrap;}
 tr:last-child td{border-bottom:none;}
+/* Pages like All links / Domains DB render every matching row at once with
+   no pagination — on a large table that's thousands of DOM nodes with hover
+   transitions each, which is what actually made scrolling feel laggy.
+   content-visibility skips layout/paint work for rows currently off-screen
+   (the browser still sizes the scrollbar correctly from the size hint) —
+   this alone fixes big-table scroll jank without touching any render logic. */
+.tbl-wrap tbody tr{content-visibility:auto;contain-intrinsic-size:auto 38px;}
 .link-row{cursor:pointer;transition:background 0.1s ease;}
 .link-row:hover td{background:var(--bg3);}
 
