@@ -117,9 +117,21 @@ async function tokenRequest(params) {
   return j;
 }
 
-async function gmailGet(path, accessToken) {
+function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
+// Retries transient per-minute rate limits (common during a deep backfill —
+// Gmail's "Units per minute per user" quota) with a short backoff. A real
+// permission/scope error (403 without "quota"/"rate" in the body) still
+// throws immediately, same as before.
+async function gmailGet(path, accessToken, attempt) {
+  attempt = attempt || 0;
   const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/' + path, { headers: { Authorization: 'Bearer ' + accessToken } });
-  if (!r.ok) throw new Error('Gmail ' + r.status + ' ' + (await r.text()).slice(0, 200));
+  if (!r.ok) {
+    const body = await r.text();
+    if (r.status === 429 || (r.status === 403 && /quota|rate/i.test(body))) {
+      if (attempt < 4) { await sleep(1000 * Math.pow(2, attempt)); return gmailGet(path, accessToken, attempt + 1); }
+    }
+    throw new Error('Gmail ' + r.status + ' ' + body.slice(0, 200));
+  }
   return r.json();
 }
 
@@ -220,7 +232,11 @@ async function syncAll({ onlyOwnerUid, days }) {
   let conns = (await db.collection('gmailConnections').get()).docs.map(d => ({ id: d.id, ...d.data() }));
   if (onlyOwnerUid) conns = conns.filter(c => c.ownerUid === onlyOwnerUid);
   const results = [];
-  await inChunks(conns, 3, async conn => {
+  // Sequential, not parallel — a deep backfill on 2+ mailboxes at once was
+  // bursting past Gmail's per-user "Units per minute" quota and failing both
+  // outright. One at a time is slower overall but each gets a fair shot at
+  // its own quota window; gmailGet's own backoff smooths out the rest.
+  await inChunks(conns, 1, async conn => {
     try {
       const sec = await db.collection('gmailSecrets').doc(conn.id).get();
       if (!sec.exists) throw new Error('no stored token');
