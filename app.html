@@ -7561,13 +7561,17 @@ async function renderEmailStats(){
     if(!target) return n?'':'color:var(--text3);';
     return n>=target?'color:#00e676;font-weight:700;':(n?'color:#f0a500;font-weight:700;':'color:#ff6b6b;');
   };
-  const short = d => d.slice(5).replace('-','/');
-  wrap.innerHTML = `<table><thead><tr><th>Person</th>${days.map(d=>`<th style="text-align:center;">${short(d)}</th>`).join('')}<th style="text-align:right;">Total</th><th style="text-align:right;">Avg/day</th></tr></thead><tbody>`
-    + people.map(x=>`<tr class="link-row" style="cursor:pointer;" onclick="showEmailDetail('${escAttr(x.p)}')">
+  // A day-by-day grid works for a week or two but turns into an endless
+  // horizontally-scrolling wall of mostly-zero columns on a wide range (e.g.
+  // 6 months) — this is a leaderboard instead; click a person (or use "View
+  // one person" below) for their actual day-by-day breakdown.
+  const lastDay = days[days.length-1];
+  wrap.innerHTML = `<table><thead><tr><th>Person</th><th style="text-align:center;">Today (${short(lastDay)})</th><th style="text-align:right;">Total</th><th style="text-align:right;">Avg/day</th></tr></thead><tbody>`
+    + people.map(x=>{const todayN=byPerson[x.p][lastDay]||0; return `<tr class="link-row" style="cursor:pointer;" onclick="showEmailDetail('${escAttr(x.p)}')">
         <td style="font-weight:600;">${escapeHtml(x.p)}</td>
-        ${days.map(d=>{const n=byPerson[x.p][d]||0;return `<td style="text-align:center;${cellStyle(n)}">${n}</td>`;}).join('')}
+        <td style="text-align:center;${cellStyle(todayN)}">${todayN}</td>
         <td style="text-align:right;font-weight:700;color:var(--teal);">${x.total}</td>
-        <td style="text-align:right;color:var(--text2);">${days.length?Math.round(x.total/days.length*10)/10:0}</td></tr>`).join('')
+        <td style="text-align:right;color:var(--text2);">${days.length?Math.round(x.total/days.length*10)/10:0}</td></tr>`;}).join('')
     + '</tbody></table>';
   window._esRows = rows;
   window._esGmail = isGmail;
