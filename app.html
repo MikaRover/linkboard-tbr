@@ -124,6 +124,11 @@ label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;displa
 .nav{padding:10px 1.25rem;font-size:14px;font-weight:500;cursor:pointer;color:var(--text2);border-left:2px solid transparent;transition:all 0.15s ease;border-radius:0 8px 8px 0;margin:1px 8px 1px 0;display:flex;align-items:center;}
 .nav:hover{color:var(--text);background:var(--bg4);border-left-color:var(--border2);}
 .nav.active{color:var(--accent2);background:var(--accent2-glow);border-left-color:var(--accent2);font-weight:700;}
+.gmail-strip-row:hover{background:var(--bg3);}
+.gmail-strip-x{opacity:0.55;}
+.gmail-strip-row:hover .gmail-strip-x{opacity:1;}
+.gmail-strip-x:hover{color:var(--red)!important;background:var(--bg4);}
+.gmail-strip-add:hover{border-color:var(--accent2);color:var(--accent2);background:var(--accent2-glow);}
 .sb-bottom{margin-top:auto;padding:1.25rem;}
 .logout{font-size:13px;color:var(--text3);cursor:pointer;transition:color 0.15s;}
 .logout:hover{color:var(--red);}
@@ -7648,19 +7653,29 @@ function listenMyGmail(){
   }catch(e){}
 }
 const MAX_GMAIL_MAILBOXES = 5; // keep in sync with api/_lib/gmail.js MAX_MAILBOXES_PER_PERSON
+const GMAIL_ICON_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 function renderGmailStrip(){
   const el = document.getElementById('gmail-strip');
   if(!el) return;
   if(!cu){ el.innerHTML=''; return; }
-  const rows = myGmailConns.map(c=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;color:${c.lastError?'#ff6b6b':'#00e676'};padding:3px 2px;" title="${escAttr(c.email||'')}">
-      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">✉️ ${escapeHtml(c.email||'Gmail')}${c.lastError?' ⚠':''}</span>
-      <button onclick="disconnectGmail('${escAttr(c.id)}')" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;flex-shrink:0;">✕</button>
-    </div>`).join('');
   const atMax = myGmailConns.length >= MAX_GMAIL_MAILBOXES;
-  const addBtn = atMax ? '' : `<button onclick="connectGmail()" style="width:100%;text-align:left;font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer;background:var(--bg2);border:1px solid var(--border2);color:var(--text);">✉️ ${myGmailConns.length?'+ Connect another Gmail':'Connect Gmail'}</button>`;
-  el.innerHTML = rows + addBtn
-    + (atMax?`<div style="font-size:10px;color:var(--text3);padding:2px 2px 0;">Max ${MAX_GMAIL_MAILBOXES} mailboxes connected.</div>`
-      :myGmailConns.length?`<div style="font-size:10px;color:var(--text3);padding:2px 2px 0;">Send outreach from another address too? Connect up to ${MAX_GMAIL_MAILBOXES} in total.</div>`:'');
+  const rows = myGmailConns.map(c=>`<div class="gmail-strip-row" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;">
+      <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:${c.lastError?'#f4795b':'var(--teal2)'};box-shadow:0 0 6px ${c.lastError?'rgba(244,121,91,0.6)':'var(--teal-glow)'};"></span>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:${c.lastError?'#f4795b':'var(--text2)'};" title="${escAttr(c.email||'')}">${escapeHtml(c.email||'Gmail')}</span>
+      ${c.lastError?`<span title="Access revoked — click Connect to re-authorize" style="font-size:12px;flex-shrink:0;">⚠️</span>`:''}
+      <button class="gmail-strip-x" onclick="disconnectGmail('${escAttr(c.id)}')" title="Disconnect" style="background:none;border:none;color:var(--text3);font-size:15px;line-height:1;padding:2px;cursor:pointer;flex-shrink:0;border-radius:4px;">×</button>
+    </div>`).join('');
+  const addBtn = atMax ? '' : `<button class="gmail-strip-add" onclick="connectGmail()" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:7px 8px;margin-top:${myGmailConns.length?'2px':'0'};border-radius:8px;cursor:pointer;background:transparent;border:1px dashed var(--border2);color:var(--text2);font-size:12px;font-weight:600;transition:all 0.15s ease;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 4v16M4 12h16"/></svg>${myGmailConns.length?'Connect another':'Connect Gmail'}
+    </button>`;
+  const footNote = atMax ? `Max ${MAX_GMAIL_MAILBOXES} mailboxes connected.`
+    : myGmailConns.length ? `Send from another address too? Up to ${MAX_GMAIL_MAILBOXES} total.` : '';
+  el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:${myGmailConns.length?'6px':'10px'};display:flex;flex-direction:column;gap:1px;">
+    ${myGmailConns.length?'':`<div style="display:flex;align-items:center;gap:8px;padding:2px 2px 8px;color:var(--text2);font-size:12px;font-weight:700;">${GMAIL_ICON_SVG}Gmail tracking</div>`}
+    ${rows}
+    ${addBtn}
+    </div>
+    ${footNote?`<div style="font-size:10px;color:var(--text3);padding:5px 4px 0;line-height:1.4;">${footNote}</div>`:''}`;
 }
 async function connectGmail(){
   if(!confirm('Connect a Gmail account so LinkBoard can count how many emails you send per day?\n\nOnly counts and recipient domains are read (Google’s “metadata” permission) — never the text of your emails. If you send from more than one address, connect each one (up to '+MAX_GMAIL_MAILBOXES+'); you can disconnect any time.')) return;
