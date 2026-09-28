@@ -7,7 +7,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { domain, project, linkTo, anchors, siteData } = req.body || {};
+  const { domain, project, linkTo, anchors, siteData, hint } = req.body || {};
   if (!domain) return res.status(400).json({ error: 'domain required' });
   if (!isSafeHost(domain)) return res.status(400).json({ error: 'Invalid or disallowed domain' });
 
@@ -139,6 +139,16 @@ module.exports = async function handler(req, res) {
   anchorList.forEach(addPhrase);
   if (siteData?.coreTopics) siteData.coreTopics.forEach(addPhrase);
   if (siteData?.keywords) siteData.keywords.forEach(addPhrase);
+  // A free-text hint ("find listicle articles about marketing tools") is an
+  // instruction, not a phrase to match verbatim — pull out its meaningful
+  // words (past a small instructional-word list) so an article genuinely
+  // about that topic is more likely to even reach the candidate pool Claude
+  // sees, instead of relying on Claude to notice it in whatever 8 articles
+  // the keyword scorer happened to already rank highest.
+  if (hint && hint.trim()) {
+    const STOP = new Set(['find','look','looking','search','searching','article','articles','post','posts','about','that','this','with','from','where','which','talk','talks','talking','prefer','preferably','like','want','need','please','into','over','only','more','less','best','good','some','such','have','been','will']);
+    hint.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 3 && !STOP.has(w)).forEach(w => wordSet.add(w));
+  }
   const phrases = [...phraseSet], words = [...wordSet];
   const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -224,9 +234,19 @@ Content:
 ${a.content.slice(0, 2500)}
 `).join('\n---\n');
 
+  // Free-text steer from whoever's running the search — e.g. "find listicle
+  // articles about marketing tools" or "prefer older evergreen posts, not
+  // news". A human reading the donor articles can act on this kind of
+  // instruction directly; the keyword scorer above can't, so it only
+  // reaches Claude, not the candidate-selection step.
+  const hintCtx = hint && hint.trim() ? `
+TEAM GUIDANCE FOR THIS SEARCH (follow this — it's a deliberate instruction from the person running the search):
+${hint.trim()}
+` : '';
+
   const prompt = `You are a senior SEO link builder. Your job is to find places in EXISTING blog articles where a link can be naturally inserted.
 
-${projectCtx}${targetPageCtx}
+${projectCtx}${targetPageCtx}${hintCtx}
 Target URL: ${linkTo || 'not specified'}
 Anchors to place: ${anchorStr}
 
@@ -235,7 +255,7 @@ ${articlesText}
 
 YOUR TASK:
 1. Read each article carefully
-2. Find sentences where the anchor fits NATURALLY based on topic overlap with what the TARGET PAGE ITSELF is about (not just the client's product in general — a specific feature page needs a specific match, not a generic one)
+2. Find sentences where the anchor fits NATURALLY based on topic overlap with what the TARGET PAGE ITSELF is about (not just the client's product in general — a specific feature page needs a specific match, not a generic one)${hintCtx ? '\n2b. Apply the TEAM GUIDANCE above when deciding which articles/placements to prefer' : ''}
 3. Either edit an existing sentence to include the anchor, or suggest adding a new sentence
 4. The reader should NOT notice it's a paid link — it must add genuine value
 5. Only suggest placements scoring 70+ on the relevancy scale below — a technically-possible but generic or forced fit is worse than no suggestion at all
