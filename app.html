@@ -2203,6 +2203,25 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
         <div style="font-size:18px;font-weight:800;color:var(--teal);" id="ot-balance">
           <span style="font-size:12px;color:var(--text3);font-weight:400;">—</span>
         </div>
+        <div style="font-size:10px;margin-top:4px;" id="ot-snov-account-status"></div>
+      </div>
+
+      <!-- Everyone can connect their own Snov.io account (Client ID/Secret
+           from their own account's API Settings) so their searches spend
+           their own credits instead of everyone sharing one account's
+           balance. Falls back to the shared account until they do. -->
+      <div id="ot-snov-connect">
+        <button onclick="toggleSnovConnectForm()" id="ot-snov-connect-btn" class="btn-ghost" style="font-size:11px;padding:6px 10px;width:100%;">Use my own Snov account</button>
+        <div id="ot-snov-connect-form" style="display:none;flex-direction:column;gap:6px;margin-top:8px;">
+          <input id="ot-snov-clientid" placeholder="Client ID" style="margin:0;font-size:11px;padding:6px 8px;"/>
+          <input id="ot-snov-clientsecret" placeholder="Client Secret" type="password" style="margin:0;font-size:11px;padding:6px 8px;"/>
+          <div style="display:flex;gap:6px;">
+            <button onclick="connectSnovAccount(this)" class="btn-sm" style="flex:1;font-size:11px;padding:6px;">Connect</button>
+            <button onclick="toggleSnovConnectForm(false)" class="btn-ghost" style="font-size:11px;padding:6px 10px;">Cancel</button>
+          </div>
+          <div style="font-size:10px;color:var(--text3);">From your own Snov.io account → API Settings.</div>
+          <div id="ot-snov-connect-err" style="display:none;font-size:11px;color:var(--red);"></div>
+        </div>
       </div>
 
       <!-- Mode tabs -->
@@ -3999,6 +4018,7 @@ function gotoPage(name,el){
   }
   if(name==='outreach'){
     loadSnovBalance();
+    loadSnovAccountStatus();
     initOutreachHistory();
   }
   if(name==='bulkrel'){
@@ -6780,12 +6800,22 @@ async function doResetPassword(){
 
 
 // ─── OUTREACH FINDER ──────────────────────────────────────
+// Sends the caller's Firebase ID token to /api/snov so the backend can look
+// up whether THIS person has connected their own Snov.io account — without
+// it, every request would fall back to the one shared account regardless
+// of who's actually running the search.
+async function snovHeaders(){
+  const h = {'Content-Type':'application/json'};
+  try{ if(typeof auth!=='undefined' && auth.currentUser) h['Authorization'] = 'Bearer '+await auth.currentUser.getIdToken(); }catch(e){}
+  return h;
+}
+
 async function loadSnovBalance(){
   const el = document.getElementById('ot-balance');
   if(!el) return;
   try {
     const resp = await fetch('/api/snov',{
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers: await snovHeaders(),
       body: JSON.stringify({action:'balance'})
     });
     const data = await resp.json();
@@ -6797,6 +6827,63 @@ async function loadSnovBalance(){
   } catch(e){
     el.innerHTML = '<span style="font-size:12px;color:var(--text3);font-weight:400;">—</span>';
   }
+}
+
+function toggleSnovConnectForm(show){
+  const f = document.getElementById('ot-snov-connect-form');
+  if(!f) return;
+  const willShow = show===false ? false : f.style.display==='none';
+  f.style.display = willShow ? 'flex' : 'none';
+}
+
+async function loadSnovAccountStatus(){
+  const el = document.getElementById('ot-snov-account-status');
+  const btn = document.getElementById('ot-snov-connect-btn');
+  if(!el || typeof auth==='undefined' || !auth.currentUser) return;
+  try{
+    const resp = await fetch('/api/snov', { method:'POST', headers: await snovHeaders(), body: JSON.stringify({action:'account-status'}) });
+    const data = await resp.json();
+    if(data.connected){
+      el.innerHTML = '<span style="color:var(--teal);">✓ Using your own Snov account</span>';
+      if(btn){ btn.textContent = 'Disconnect my Snov account'; btn.onclick = disconnectSnovAccount; }
+    } else {
+      el.innerHTML = '<span style="color:var(--text3);">Using the shared account</span>';
+      if(btn){ btn.textContent = 'Use my own Snov account'; btn.onclick = ()=>toggleSnovConnectForm(); }
+    }
+  }catch(e){}
+}
+
+async function connectSnovAccount(btn){
+  const clientId = (document.getElementById('ot-snov-clientid').value||'').trim();
+  const clientSecret = (document.getElementById('ot-snov-clientsecret').value||'').trim();
+  const errEl = document.getElementById('ot-snov-connect-err');
+  errEl.style.display = 'none';
+  if(!clientId || !clientSecret){ errEl.style.display='block'; errEl.textContent='Enter both fields'; return; }
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Checking...';
+  try{
+    const resp = await fetch('/api/snov', { method:'POST', headers: await snovHeaders(), body: JSON.stringify({action:'connect-account', clientId, clientSecret}) });
+    const data = await resp.json();
+    if(!resp.ok || data.error){ errEl.style.display='block'; errEl.textContent = data.error||'Could not connect'; return; }
+    document.getElementById('ot-snov-clientid').value = '';
+    document.getElementById('ot-snov-clientsecret').value = '';
+    toggleSnovConnectForm(false);
+    await loadSnovAccountStatus();
+    await loadSnovBalance();
+  }catch(e){
+    errEl.style.display = 'block'; errEl.textContent = 'Error: '+e.message;
+  }finally{
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+async function disconnectSnovAccount(){
+  if(!confirm('Stop using your own Snov account and switch back to the shared one?')) return;
+  try{
+    await fetch('/api/snov', { method:'POST', headers: await snovHeaders(), body: JSON.stringify({action:'disconnect-account'}) });
+  }catch(e){}
+  await loadSnovAccountStatus();
+  await loadSnovBalance();
 }
 
 async function runOutreach(action = 'prospects'){
@@ -6822,7 +6909,7 @@ async function runOutreach(action = 'prospects'){
   try {
     const resp = await fetch('/api/snov', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: await snovHeaders(),
       body: JSON.stringify({ domain, action })
     });
     const data = await resp.json();
@@ -7333,7 +7420,7 @@ async function runLinkedInEnrich(){
 
   try{
     const resp = await fetch('/api/snov',{
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers: await snovHeaders(),
       body: JSON.stringify({ action:'enrich-linkedin', urls })
     });
     const data = await resp.json();
@@ -7406,7 +7493,7 @@ async function runBulkOutreach(action='prospects'){
     try {
       const resp = await fetch('/api/snov',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers: await snovHeaders(),
         body: JSON.stringify({domain, action})
       });
       const data = await resp.json();

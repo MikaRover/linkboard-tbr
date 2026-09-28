@@ -4,7 +4,10 @@
 // ══════════════════════════════════════════════════════════════
 
 const { browserHeaders, isSafeHost } = require('./_lib/security');
-const { verifyEmailsWithSnov } = require('./_lib/snov');
+const {
+  verifyEmailsWithSnov, userFromRequest,
+  getUserSnovCredentials, saveUserSnovCredentials, deleteUserSnovCredentials
+} = require('./_lib/snov');
 
 const SNOV_CLIENT_ID = process.env.SNOV_CLIENT_ID;
 const SNOV_CLIENT_SECRET = process.env.SNOV_CLIENT_SECRET;
@@ -168,14 +171,21 @@ function roleRelevanceScore(position){
 }
 
 // ── Auth ──
-async function getToken() {
+// `creds` (optional): { clientId, clientSecret } — the calling user's own
+// connected Snov account, so their searches spend their own credits
+// instead of everyone drawing on one shared account. Falls back to the
+// shared env-var account when omitted (no one signed in, or they haven't
+// connected their own yet).
+async function getToken(creds) {
+  const clientId = (creds && creds.clientId) || SNOV_CLIENT_ID;
+  const clientSecret = (creds && creds.clientSecret) || SNOV_CLIENT_SECRET;
   const res = await fetch('https://api.snov.io/v1/oauth/access_token', {
     method: 'POST',
     headers: { 'Content-Type':'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type:'client_credentials',
-      client_id: SNOV_CLIENT_ID,
-      client_secret: SNOV_CLIENT_SECRET
+      client_id: clientId,
+      client_secret: clientSecret
     }),
     signal: AbortSignal.timeout(8000)
   });
@@ -687,20 +697,55 @@ async function findInternalPages(url) {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin','*');
   res.setHeader('Access-Control-Allow-Methods','POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers','Content-Type');
+  res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization');
   if (req.method==='OPTIONS') return res.status(200).end();
   if (req.method!=='POST') return res.status(405).json({error:'Method not allowed'});
 
-  const { domain, action, urls } = req.body || {};
+  const { domain, action, urls, clientId, clientSecret } = req.body || {};
+
+  // Identify who's calling (if the frontend sent a Firebase ID token) so
+  // their own connected Snov account, if any, is used for their own
+  // requests — see api/_lib/snov.js for why. Never required: an anonymous
+  // or not-yet-connected caller still works via the shared env-var account.
+  const user = await userFromRequest(req);
+
+  // ── Per-user Snov account connect/disconnect/status — no domain needed ──
+  if (action === 'connect-account' || action === 'disconnect-account' || action === 'account-status') {
+    if (!user) return res.status(401).json({ error: 'Sign-in required' });
+    if (action === 'connect-account') {
+      if (!clientId || !clientSecret) return res.status(400).json({ error: 'Client ID and Client Secret are required' });
+      // Verify the credentials actually work before saving — a typo'd
+      // secret saved silently would otherwise look "connected" while every
+      // request quietly falls back to the shared account with no clear sign why.
+      let testToken;
+      try { testToken = await getToken({ clientId, clientSecret }); }
+      catch (e) { testToken = null; }
+      if (!testToken) return res.status(400).json({ error: 'Could not authenticate with these Snov credentials — double check the Client ID / Secret from your Snov.io account\'s API Settings page.' });
+      await saveUserSnovCredentials(user.uid, clientId, clientSecret);
+      return res.json({ success: true });
+    }
+    if (action === 'disconnect-account') {
+      await deleteUserSnovCredentials(user.uid);
+      return res.json({ success: true });
+    }
+    if (action === 'account-status') {
+      const creds = await getUserSnovCredentials(user.uid);
+      return res.json({ connected: !!creds });
+    }
+  }
+
   if (action !== 'enrich-linkedin' && action !== 'balance' && !domain) return res.status(400).json({error:'domain required'});
-  if (!SNOV_CLIENT_ID || !SNOV_CLIENT_SECRET) return res.status(500).json({error:'Snov credentials not configured'});
+
+  const userCreds = user ? await getUserSnovCredentials(user.uid) : null;
+  if (!userCreds && (!SNOV_CLIENT_ID || !SNOV_CLIENT_SECRET)) return res.status(500).json({error:'Snov credentials not configured'});
 
   const cleanDomain = domain ? domain.replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*/,'').trim() : '';
 
   try {
-    const token = await getToken();
+    const token = await getToken(userCreds);
 
-    // Remaining Snov account credits, shown in the Outreach Finder sidebar.
+    // Remaining Snov account credits, shown in the Outreach Finder sidebar —
+    // whichever account `token` belongs to (the caller's own, if connected).
     // v1 endpoint (like the oauth token endpoint itself) — Snov's v1 API
     // takes the token as an `access_token` query param, not a Bearer header.
     if (action === 'balance') {
@@ -708,7 +753,7 @@ module.exports = async function handler(req, res) {
       if (!isOk(r.status)) return res.status(502).json({ error: 'Snov balance check failed HTTP ' + r.status });
       const j = await r.json();
       const balance = j?.data?.balance ?? j?.balance ?? null;
-      return res.json({ balance });
+      return res.json({ balance, usingOwnAccount: !!userCreds });
     }
 
     if (!action || action === 'prospects') {
