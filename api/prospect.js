@@ -245,13 +245,17 @@ Return 4-6 suggestions. Quality over quantity.`;
 
     const aiData = await aiResp.json();
     // A failed call (bad key, no credit balance, rate limit, etc.) has no
-    // `content` and used to fall straight through to an empty "suggestions:
-    // []" with no error — indistinguishable from Claude genuinely finding no
-    // natural placement. Surface it as a real failure instead.
-    if (!aiResp.ok || !aiData.content?.[0]?.text) {
+    // `content` block at all and used to fall straight through to an empty
+    // "suggestions: []" with no error — indistinguishable from Claude
+    // genuinely finding no natural placement. Surface it as a real failure
+    // instead. Checked as "no text block present", not "text is falsy" — a
+    // legitimately empty string is still a real (if useless) response, not
+    // an API failure, and must not be misreported as one.
+    const textBlock = Array.isArray(aiData.content) && aiData.content.find(b => typeof b?.text === 'string');
+    if (!aiResp.ok || !textBlock) {
       return res.json({ domain, suggestions: [], error: aiData?.error?.message || `Claude API error (HTTP ${aiResp.status})` });
     }
-    const text = aiData.content[0].text.trim();
+    const text = textBlock.text.trim();
 
     let suggestions = [];
     try {
