@@ -113,11 +113,14 @@ Return ONLY a JSON object (no markdown):
     });
 
     const aiData = await aiResp.json();
-    const text = (aiData.content?.[0]?.text || '').trim();
-    // TEMP debug — remove once the silent-empty-siteData bug is diagnosed.
-    if (!text) {
-      return res.json({ success: false, _debugStatus: aiResp.status, _debugKeyLen: ANTHROPIC_KEY.length, _debugBody: aiData });
+    // A failed call (bad key, no credit balance, rate limit, etc.) has no
+    // `content` and used to fall straight through to an empty-but-"success"
+    // response — every "Scan" silently did nothing, with no way to tell a
+    // real analysis from a blank one. Surface it as a real failure instead.
+    if (!aiResp.ok || !aiData.content?.[0]?.text) {
+      return res.json({ success: false, error: aiData?.error?.message || `Claude API error (HTTP ${aiResp.status})` });
     }
+    const text = aiData.content[0].text.trim();
 
     let siteData = {};
     try {

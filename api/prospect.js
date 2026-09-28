@@ -244,7 +244,14 @@ Return 4-6 suggestions. Quality over quantity.`;
     });
 
     const aiData = await aiResp.json();
-    const text = (aiData.content?.[0]?.text || '').trim();
+    // A failed call (bad key, no credit balance, rate limit, etc.) has no
+    // `content` and used to fall straight through to an empty "suggestions:
+    // []" with no error — indistinguishable from Claude genuinely finding no
+    // natural placement. Surface it as a real failure instead.
+    if (!aiResp.ok || !aiData.content?.[0]?.text) {
+      return res.json({ domain, suggestions: [], error: aiData?.error?.message || `Claude API error (HTTP ${aiResp.status})` });
+    }
+    const text = aiData.content[0].text.trim();
 
     let suggestions = [];
     try {
