@@ -1010,6 +1010,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div class="nav" onclick="gotoPage('batch',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='11' cy='11' r='7'/><path d='M20 20l-4.35-4.35' stroke-linecap='round'/></svg>Batch Analyze</div>
   <div class="nav" onclick="gotoPage('catcheck',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='3' y='3' width='7' height='7' rx='1' fill='currentColor'/><rect x='14' y='3' width='7' height='7' rx='1' fill='currentColor'/><rect x='3' y='14' width='7' height='7' rx='1' fill='currentColor'/><rect x='14' y='14' width='7' height='7' rx='1' fill='currentColor'/></svg>Category & Email Check</div>
   <div class="nav adm" onclick="gotoPage('prospector',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' fill='currentColor'/></svg>AI Prospector</div>
+  <div class="nav tatev-tool" style="display:none;" onclick="gotoPage('bulkrel',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1'/><path d='M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1'/></svg>Bulk Relevancy</div>
   <div class="nav-section" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding:14px 16px 4px;opacity:0.6;">Builders</div>
   <div class="nav adm" onclick="gotoPage('load',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='4' y='12' width='4' height='9' fill='currentColor'/><rect x='10' y='7' width='4' height='14' fill='currentColor'/><rect x='16' y='3' width='4' height='18' fill='currentColor'/></svg>Load</div>
   <div class="nav adm" onclick="gotoPage('capacity',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M13 2L3 14h6l-1 8 9-12h-6l1-8z' fill='currentColor'/></svg>Capacity</div>
@@ -2611,6 +2612,51 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   </div>
 </div>
 
+<!-- ══ BULK RELEVANCY (Mika + Tatev only) ══ -->
+<div id="p-bulkrel" class="page">
+  <div class="page-top">
+    <div>
+      <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:9px;vertical-align:-4px;">
+        <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Bulk Relevancy</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Paste link-from / link-to / anchor rows to get a relevancy rate and suggestion in bulk — no AI, purely keyword-based, so it's instant and free to run.</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-ghost" onclick="exportBulkRelCSV()" id="bulkrel-export-btn" style="display:none;">⬇ Export CSV</button>
+      <button class="btn-sm" onclick="runBulkRelevancy(this)" style="width:auto;" id="bulkrel-run-btn">▶ Check →</button>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:900px;margin-bottom:1.5rem;">
+    <div class="card-body">
+      <div class="section-label">Rows — one per line, tab-separated: link from&nbsp;&nbsp;→&nbsp;&nbsp;link to&nbsp;&nbsp;→&nbsp;&nbsp;anchor</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Paste straight from a spreadsheet (3 columns). Anchor is optional. Max 60 rows per run.</div>
+      <textarea id="bulkrel-input" placeholder="https://example.com/blog/some-article&#9;https://ourtool.com/pricing&#9;pricing calculator&#10;https://other-site.com/guide&#9;https://ourtool.com/features&#9;project management tool"
+        style="width:100%;height:180px;padding:10px 12px;font-size:12px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:12px;outline:none;white-space:pre;"
+        onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <span id="bulkrel-progress" style="font-size:12px;color:var(--text3);"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results table -->
+  <div id="bulkrel-results" style="display:none;">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;" id="bulkrel-count"></div>
+    <div class="card">
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>Link from</th>
+          <th>Link to</th>
+          <th>Anchor</th>
+          <th style="text-align:center;">Rate</th>
+          <th>Suggestion</th>
+        </tr></thead>
+        <tbody id="bulkrel-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /content -->
 </div><!-- /app -->
 </div><!-- /s-app -->
@@ -2960,6 +3006,12 @@ function startApp(){
 
   // Show/hide admin-only elements
   document.querySelectorAll('.adm').forEach(el=>el.style.display=isAdmin?'block':'none');
+  // Bulk Relevancy — a dedicated, named allow-list (not a role) since this is
+  // "admin + one specific builder", not "admin-only". Client-side gating
+  // only, same caveat as folder ownership elsewhere in this app: someone
+  // with dev tools could still hit gotoPage('bulkrel') directly.
+  const canSeeBulkRel = isAdmin || (cu.name||'')==='Tatev';
+  document.querySelectorAll('.tatev-tool').forEach(el=>el.style.display=canSeeBulkRel?'block':'none');
   if(isAdmin){
     // Admin sees all admin nav, builder nav hidden
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='none');
@@ -3945,6 +3997,13 @@ function gotoPage(name,el){
   if(name==='outreach'){
     loadSnovBalance();
     initOutreachHistory();
+  }
+  if(name==='bulkrel'){
+    // .tatev-tool only hides the nav link — gotoPage itself is reachable
+    // from devtools by anyone signed in, so re-check here before showing
+    // a page meant for admin + Tatev only.
+    const allowed = isAdmin || (cu.name||'')==='Tatev';
+    if(!allowed){ gotoPage('dashboard', document.querySelector('.nav[onclick*="dashboard"]')); return; }
   }
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
@@ -10866,6 +10925,127 @@ function exportCatCheckCSV(){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
   a.download = 'category_check_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+// ─── BULK RELEVANCY (Mika + Tatev only) ───────────────────
+// Deliberately NOT the Claude API — a deterministic keyword/TF-overlap
+// score computed server-side in /api/check-relevancy (mode:'bulk-lexical'),
+// so it's instant, free to run, and gives the same answer every time for
+// the same pair of pages.
+let bulkRelResults = [];
+const BULK_REL_MAX_ROWS = 60;
+
+function bulkRelTierBadge(tier){
+  const map = {
+    Strong:   {bg:'rgba(50,215,75,0.12)',  fg:'var(--teal)'},
+    Moderate: {bg:'rgba(242,183,62,0.12)', fg:'var(--yellow)'},
+    Weak:     {bg:'rgba(255,255,255,0.06)',fg:'var(--text3)'}
+  };
+  const c = map[tier] || map.Weak;
+  return `<span style="display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;background:${c.bg};color:${c.fg};">${escapeHtml(tier||'—')}</span>`;
+}
+
+function parseBulkRelInput(raw){
+  return raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(line=>{
+    let parts = line.split('\t');
+    if(parts.length<2) parts = line.split(/\s{2,}/);
+    if(parts.length<2) parts = line.split(',');
+    return {
+      linkFrom: (parts[0]||'').trim(),
+      linkTo: (parts[1]||'').trim(),
+      anchor: (parts[2]||'').trim()
+    };
+  }).filter(r=>r.linkFrom || r.linkTo);
+}
+
+async function runBulkRelevancy(btn){
+  const raw = document.getElementById('bulkrel-input').value.trim();
+  if(!raw){ alert('Enter at least one row'); return; }
+
+  let rows = parseBulkRelInput(raw);
+  if(!rows.length){ alert('No valid rows found — each line needs a link-from and link-to URL, tab-separated'); return; }
+  if(rows.length > BULK_REL_MAX_ROWS){
+    rows = rows.slice(0, BULK_REL_MAX_ROWS);
+    alert(`Only the first ${BULK_REL_MAX_ROWS} rows will be checked (max per run).`);
+  }
+
+  const tbody = document.getElementById('bulkrel-tbody');
+  const progress = document.getElementById('bulkrel-progress');
+  const results = document.getElementById('bulkrel-results');
+  results.style.display = 'none';
+  tbody.innerHTML = '';
+  document.getElementById('bulkrel-export-btn').style.display = 'none';
+
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Checking...';
+
+  let elapsed = 0;
+  progress.textContent = `Checking ${rows.length} row${rows.length===1?'':'s'}... 0s`;
+  const timer = setInterval(()=>{
+    elapsed++;
+    progress.textContent = `Checking ${rows.length} row${rows.length===1?'':'s'}... ${elapsed}s`;
+  }, 1000);
+
+  try{
+    const resp = await fetch('/api/check-relevancy', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ mode: 'bulk-lexical', rows })
+    });
+    const data = await resp.json();
+    clearInterval(timer);
+
+    if(!resp.ok || data.error){
+      progress.textContent = '';
+      alert('Error: ' + (data.error || `HTTP ${resp.status}`));
+      return;
+    }
+
+    bulkRelResults = data.results || [];
+    tbody.innerHTML = bulkRelResults.map(r=>{
+      if(r.error){
+        return `<tr>
+          <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkFrom)}"><a href="${escAttr(r.linkFrom)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkFrom||'—')}</a></td>
+          <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkTo)}"><a href="${escAttr(r.linkTo)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkTo||'—')}</a></td>
+          <td style="color:var(--text3);">${escapeHtml(r.anchor||'—')}</td>
+          <td style="text-align:center;color:var(--text3);">—</td>
+          <td style="color:var(--red);font-size:12px;">⚠️ ${escapeHtml(r.error)}</td>
+        </tr>`;
+      }
+      return `<tr>
+        <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkFrom)}"><a href="${escAttr(r.linkFrom)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkFrom||'—')}</a></td>
+        <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkTo)}"><a href="${escAttr(r.linkTo)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkTo||'—')}</a></td>
+        <td>${escapeHtml(r.anchor||'—')}</td>
+        <td style="text-align:center;">${bulkRelTierBadge(r.tier)}<div style="font-size:10px;color:var(--text3);margin-top:2px;">${r.rate!=null?r.rate+'%':''}</div></td>
+        <td style="font-size:12px;color:var(--text2);max-width:420px;">${escapeHtml(r.suggestion||'')}</td>
+      </tr>`;
+    }).join('');
+
+    results.style.display = 'block';
+    progress.textContent = `Done! ${bulkRelResults.length} row${bulkRelResults.length===1?'':'s'} checked`;
+    document.getElementById('bulkrel-count').textContent = `${bulkRelResults.length} row${bulkRelResults.length===1?'':'s'}`;
+    document.getElementById('bulkrel-export-btn').style.display = 'block';
+  }catch(e){
+    clearInterval(timer);
+    progress.textContent = '';
+    alert('Error: ' + e.message);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+function exportBulkRelCSV(){
+  if(!bulkRelResults.length){ alert('No data'); return; }
+  const h = ['Link From','Link To','Anchor','Rate','Tier','Shared Keywords','Suggestion','Error'];
+  const rows = bulkRelResults.map(r=>[
+      r.linkFrom||'', r.linkTo||'', r.anchor||'', r.rate!=null?r.rate:'', r.tier||'',
+      (r.sharedKeywords||[]).join('; '), r.suggestion||'', r.error||''
+    ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
+  a.download = 'bulk_relevancy_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
 }
 
