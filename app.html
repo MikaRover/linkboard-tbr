@@ -2581,13 +2581,15 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
         <div id="prosp-anchors-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;"></div>
       </div>
     </div>
+    <div id="prosp-history" style="margin-top:14px;"></div>
   </div>
 
   <!-- Loading -->
   <div id="prosp-loading" style="display:none;text-align:center;padding:3rem;color:var(--text2);">
-    <div style="font-size:32px;margin-bottom:12px;">🔍</div>
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-bottom:12px;">
+      <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
     <div style="font-size:14px;font-weight:600;" id="prosp-loading-text">Scanning website...</div>
-    <div style="font-size:12px;color:var(--text3);margin-top:6px;">This may take 10-20 seconds</div>
+    <div style="font-size:12px;color:var(--text3);margin-top:6px;">Usually 15–35 seconds · <span id="prosp-loading-elapsed">0s</span> so far</div>
     <div style="margin-top:16px;display:flex;justify-content:center;gap:6px;">
       <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out infinite;"></div>
       <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);animation:pulse 1.4s ease-in-out 0.2s infinite;"></div>
@@ -3934,6 +3936,7 @@ function gotoPage(name,el){
   if(name==='prospector'){
     const ps=document.getElementById('prosp-proj');
     if(ps){ps.innerHTML='<option value="">Select project</option>';allProjects.forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;ps.appendChild(o);});}
+    initProspectorHistory();
   }
   if(name==='outreach'){
     loadSnovBalance();
@@ -10381,11 +10384,20 @@ async function runProspectorPage(btn){
   document.getElementById('prosp-loading').style.display = 'block';
   document.getElementById('prosp-page-results').style.display = 'none';
   document.getElementById('prosp-page-error').style.display = 'none';
-  if(btn && btn.textContent){ btn.disabled=true; btn.textContent='⏳ Scanning...'; }
+  if(btn && btn.textContent){ btn.disabled=true; btn.textContent='Scanning…'; }
 
-  const steps = ['Fetching website content...','Scanning blog articles...','Finding anchor opportunities...','Generating suggestions...'];
-  let si=0;
-  const st = setInterval(()=>{ if(si<steps.length) document.getElementById('prosp-loading-text').textContent=steps[si++]; },4000);
+  // Timed to roughly match reality now that blog discovery runs in parallel
+  // server-side (~5s) rather than sequentially (previously up to 77s worst
+  // case, which is why this used to just hang). Still a guess, not real
+  // progress — the elapsed counter below is the honest part.
+  const steps = [[0,'Finding the blog section…'],[5,'Reading articles…'],[14,'Scoring for topical fit…'],[22,'Asking Claude for placements…']];
+  const startedAt = Date.now();
+  const st = setInterval(()=>{
+    const secs = Math.floor((Date.now()-startedAt)/1000);
+    const el = document.getElementById('prosp-loading-elapsed'); if(el) el.textContent = secs+'s';
+    const step = [...steps].reverse().find(s=>secs>=s[0]);
+    if(step) document.getElementById('prosp-loading-text').textContent = step[1];
+  },1000);
 
   try{
     // Load project siteData for context
@@ -10406,6 +10418,7 @@ async function runProspectorPage(btn){
       document.getElementById('prosp-page-error').style.display = 'block';
       document.getElementById('prosp-page-error').textContent = data.error || 'No suggestions found. Try a different domain or add a target URL.';
     } else {
+      logOutreachSearch(domain, 'prospector', data.suggestions.length);
       renderProspectorCards(data.suggestions, domain, proj, linkTo);
     }
   } catch(e){
@@ -10416,6 +10429,31 @@ async function runProspectorPage(btn){
   }
 
   if(btn){ btn.disabled=false; btn.textContent='🔍 Find anchors →'; }
+}
+let prospectorHistoryListener = null;
+function initProspectorHistory(){
+  if(prospectorHistoryListener) return; // one listener for the session is enough
+  prospectorHistoryListener = db.collection('outreachHistory').orderBy('searchedAt','desc').limit(60).onSnapshot(snap=>{
+    renderProspectorHistory(snap.docs.map(d=>d.data()).filter(r=>r.action==='prospector'));
+  }, ()=>{});
+}
+function renderProspectorHistory(rows){
+  const el = document.getElementById('prosp-history');
+  if(!el) return;
+  const seen = new Set(); const unique = [];
+  for(const r of rows){ if(seen.has(r.domain)) continue; seen.add(r.domain); unique.push(r); }
+  if(!unique.length){ el.innerHTML=''; return; }
+  el.innerHTML = `
+    <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Recent searches</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">${unique.slice(0,10).map(r=>`
+      <button onclick="rerunProspectorHistory('${escAttr(r.domain)}')" class="btn-ghost" style="font-size:11px;padding:5px 10px;display:flex;align-items:center;gap:6px;">
+        <span style="font-family:'JetBrains Mono',monospace;">${escapeHtml(r.domain)}</span>
+        <span style="color:var(--text3);">${timeAgo(r.searchedAt?.toDate?.())}</span>
+      </button>`).join('')}</div>`;
+}
+function rerunProspectorHistory(domain){
+  document.getElementById('prosp-domain').value = domain;
+  runProspectorPage();
 }
 
 function renderProspectorCards(suggestions, domain, proj, linkTo){
