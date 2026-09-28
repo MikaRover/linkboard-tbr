@@ -39,7 +39,13 @@ module.exports = async function handler(req, res) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  // STEP 1: Find article links
+  // STEP 1: Find article links.
+  // Was a sequential loop over 11 candidate index pages (up to 11×7s=77s in
+  // the worst case) — comfortably longer than this function's own 60s Vercel
+  // limit, so a site whose blog lived at, say, the 8th URL tried would get
+  // silently killed by the platform with no response at all. Checking every
+  // candidate at once bounds this step by the single slowest request
+  // (~5s) instead of their sum.
   const indexUrls = [
     `${baseUrl}/blog`, `${baseUrl}/guides`, `${baseUrl}/articles`,
     `${baseUrl}/resources`, `${baseUrl}/learn`, `${baseUrl}/news`,
@@ -47,11 +53,7 @@ module.exports = async function handler(req, res) {
     `${baseUrl}/posts`, `${baseUrl}`
   ];
 
-  let blogLinks = [];
-  for (const url of indexUrls) {
-    const html = await fetchHtml(url);
-    if (!html) continue;
-
+  const extractArticleLinks = (html) => {
     const found = new Set();
     const linkRe = /href="([^"#?][^"]*)"/gi;
     let m;
@@ -80,11 +82,25 @@ module.exports = async function handler(req, res) {
       found.add(href);
       if (found.size >= 30) break;
     }
+    return found;
+  };
 
-    if (found.size >= 5) {
-      blogLinks = [...found];
-      break;
-    }
+  const indexResults = await Promise.all(indexUrls.map(async (url) => {
+    const html = await fetchHtml(url, 5000);
+    return { url, links: html ? extractArticleLinks(html) : new Set() };
+  }));
+
+  // Preserve the original priority order (dedicated /blog etc. over the
+  // homepage) — first one that found a healthy batch wins.
+  let blogLinks = [];
+  for (const r of indexResults) {
+    if (r.links.size >= 5) { blogLinks = [...r.links]; break; }
+  }
+  // Nothing hit the 5-link bar — still use whichever page found the most,
+  // rather than failing outright on a site with a thin blog.
+  if (!blogLinks.length) {
+    const best = indexResults.reduce((a, b) => (b.links.size > a.links.size ? b : a), { links: new Set() });
+    blogLinks = [...best.links];
   }
 
   if (!blogLinks.length) {
