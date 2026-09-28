@@ -27,12 +27,21 @@ function htmlToText(html) {
     .trim();
 }
 
-// ─── Bulk lexical relevancy (no AI) ──────────────────────────
-// A separate, deterministic checker for the "bulk link from / link to /
-// anchor" tool — Mika + Tatev only. Scores by keyword overlap between the
-// two pages instead of asking an LLM, so it has no Anthropic cost or
-// dependency at all (relevant given how the credit-balance outage above
-// broke every AI-backed tool at once).
+// ─── Bulk AI relevancy ────────────────────────────────────────
+// A separate checker for the "bulk link from / link to / anchor" tool —
+// Mika + Tatev only. This used to be a pure keyword-overlap score with no
+// Anthropic dependency, but a side-by-side comparison against how Mika
+// actually reviews placements by hand in Claude — reading the real article,
+// checking whether the link is actually live, judging Low/Medium/High/Very
+// High by how the piece is written, flagging link-farm/paid-insertion
+// patterns — showed the deterministic version was missing exactly the
+// judgment calls that matter (e.g. a great, dedicated mention scored "Weak"
+// just because the rest of a 35-item listicle was about other tools). So:
+// this now does the actual fact-finding itself in plain JS (fetch both
+// pages, locate the real link, count other outbound links as a spam
+// signal) — all free — and hands that pre-digested context to Claude to
+// make the one call a script genuinely can't: is this a natural, relevant
+// placement, and how would a careful reviewer rate it.
 const STOPWORDS = new Set(('the and for with this that from have will your about into more some such than then when where which while what their they them these those http https www com html also '
   + 'been being are was were is are can could would should will just only very much many more most into onto over under between across through during before after above below out off '
   + 'here there our its his her she him page site website read more learn click here home contact privacy policy terms cookie cookies login sign signup subscribe newsletter copyright rights reserved '
@@ -120,81 +129,82 @@ function topKeywords(tf, n) {
   return [...tf.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([w]) => w);
 }
 
-// No corpus to compute real IDF against, so this is deliberately simple and
-// explainable rather than a black box: how much of the TARGET page's own
-// top topics are echoed near the actual link on the DONOR page (falling
-// back to the donor's whole-page vocabulary when the exact link can't be
-// located), plus whether the anchor text itself matches either page's
-// subject matter.
-function scorePair(donorPage, targetPage, anchor, linkToUrl) {
-  const donorTF = weightedTF(donorPage);
-  const targetTF = weightedTF(targetPage);
-  const targetTop = topKeywords(targetTF, 20);
-  const donorTop = topKeywords(donorTF, 30);
-  const donorTopSet = new Set(donorTop);
-  const wholePageShared = targetTop.filter(w => donorTopSet.has(w));
-  const wholePageRatio = targetTop.length ? wholePageShared.length / Math.min(20, targetTop.length) : 0;
-
-  const localText = findLinkContext(donorPage.rawHtml, linkToUrl, anchor);
-  let overlapRatio = wholePageRatio;
-  let shared = wholePageShared;
-  let contextFound = false;
-
-  if (localText) {
-    contextFound = true;
-    const localTokens = new Set(tokenize(localText).filter(w => !STOPWORDS.has(w)));
-    const localShared = targetTop.filter(w => localTokens.has(w));
-    const localRatio = targetTop.length ? localShared.length / Math.min(20, targetTop.length) : 0;
-    // Trust the real surrounding paragraph far more than the donor's overall
-    // page topic (a single on-topic mention inside an otherwise-unrelated
-    // article is a completely normal, legitimate placement) — but keep a
-    // little whole-page signal so a context match on a wildly off-topic
-    // page doesn't score identically to a full-topic match.
-    overlapRatio = localRatio * 0.8 + wholePageRatio * 0.2;
-    shared = localShared.length ? localShared : wholePageShared;
+// A cheap, deterministic proxy for "does this page look like a link-farm /
+// paid-insertion piece" — Claude's judgment is better at reading the prose,
+// but handing it a hard count of how many other third-party domains this
+// page links out to (the signal that kept showing up in manual reviews —
+// "dozens of unrelated inserted links") grounds that judgment in a fact
+// instead of an impression.
+function countExternalLinks(rawHtml, donorUrl) {
+  if (!rawHtml) return 0;
+  const donorHost = (donorUrl || '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0].toLowerCase();
+  const seen = new Set();
+  const aRe = /<a\b[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>/gi;
+  let m;
+  while ((m = aRe.exec(rawHtml)) !== null) {
+    let host;
+    try { host = new URL(m[1]).hostname.replace(/^www\./i, '').toLowerCase(); } catch (e) { continue; }
+    if (host && host !== donorHost) seen.add(host);
   }
+  return seen.size;
+}
 
-  const anchorWords = tokenize(anchor).filter(w => !STOPWORDS.has(w));
-  const anchorMatchesTarget = anchorWords.length ? anchorWords.some(w => targetTF.has(w)) : null;
-  const anchorMatchesDonor = anchorWords.length ? anchorWords.some(w => donorTF.has(w)) : null;
+function summarizeTargetPage(page) {
+  const topKw = topKeywords(weightedTF(page), 12);
+  return { title: page.title, description: page.description, topKeywords: topKw };
+}
 
-  let rate = Math.round(overlapRatio * 100);
-  // Actually finding the real link/anchor on the page (instead of guessing
-  // from overall page vocabulary) is itself a meaningful confidence signal.
-  if (contextFound) rate += 12;
-  if (anchorWords.length) {
-    if (anchorMatchesTarget) rate += 10; else rate -= 15;
-    if (anchorMatchesDonor) rate += 5;
+// One Claude call judges a whole batch of rows at once (each row's context
+// already pre-built in plain JS) — keeps this within Vercel's time limit
+// for a bulk run instead of one round-trip per row.
+async function callClaudeForBatch(ANTHROPIC_KEY, blocks) {
+  const prompt = `You are a meticulous SEO reviewer assessing backlink placements — exactly the way an experienced link-building lead reviews a report by hand: read the actual surrounding content, decide if it's a natural and relevant placement, and flag anything that looks like a paid/spammy link-insertion pattern.
+
+Guidance:
+- A link buried in one sentence of an otherwise-unrelated article can still be a fine placement IF that sentence is genuinely on-topic — don't penalize it just for being a small part of a bigger page.
+- Pages that link out to many unrelated third-party domains show a link-farm / paid-insertion pattern — that should lower the rating even when the one sentence itself reads fine.
+- If the target link was NOT found on the donor page, judge the HYPOTHETICAL relevancy from the page's actual content and say so in your notes.
+- "Very High" = dedicated, substantive, on-topic section on a clean page. "High" = clearly on-topic paragraph, page reasonably clean. "Medium" = on-topic but diluted by other inserted links, or a plausible-but-secondary fit. "Low" = topic mismatch, throwaway one-liner, or heavy link-farm signals.
+
+ITEMS TO REVIEW:
+${blocks.map((b, i) => `[${i + 1}]\n${b}`).join('\n\n')}
+
+Return ONLY a JSON array (no markdown), one object per item in the exact same order:
+[{"relevancy":"Low"|"Medium"|"High"|"Very High","rating":1-10,"notes":"1-2 sentences specific to this item"}]`;
+
+  try {
+    const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 1800, messages: [{ role: 'user', content: prompt }] }),
+      signal: AbortSignal.timeout(45000)
+    });
+    const aiData = await aiResp.json();
+    // Same "presence of a text block" check as scan-project.js / prospect.js
+    // use — a falsy check on the text string itself would wrongly treat a
+    // real, successful-but-empty response as an API failure.
+    const textBlock = Array.isArray(aiData.content) && aiData.content.find(b => typeof b?.text === 'string');
+    if (!aiResp.ok || !textBlock) {
+      const msg = aiData?.error?.message || `Claude API error (HTTP ${aiResp.status})`;
+      return blocks.map(() => ({ error: msg }));
+    }
+    const clean = textBlock.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    let arr;
+    try { arr = JSON.parse(clean); }
+    catch (e) { const m = clean.match(/\[[\s\S]*\]/); arr = m ? JSON.parse(m[0]) : null; }
+    if (!Array.isArray(arr)) return blocks.map(() => ({ error: 'Could not parse Claude\'s response for this batch' }));
+
+    return blocks.map((_, i) => {
+      const o = arr[i];
+      if (!o || !o.relevancy) return { error: 'Missing a result for this row' };
+      const relevancy = ['Low', 'Medium', 'High', 'Very High'].includes(o.relevancy) ? o.relevancy : 'Medium';
+      const rating = Math.max(1, Math.min(10, Math.round(Number(o.rating)) || 5));
+      return { relevancy, rating, notes: String(o.notes || '').slice(0, 400) };
+    });
+  } catch (e) {
+    const msg = e.name === 'TimeoutError' ? 'Claude request timed out' : ('Error: ' + e.message.slice(0, 150));
+    return blocks.map(() => ({ error: msg }));
   }
-  rate = Math.max(0, Math.min(100, rate));
-
-  // Recalibrated down from the original 70/40 split — once real overlap is
-  // measured against the actual link context rather than a whole page, a
-  // genuinely good placement still rarely lights up every one of the
-  // target's top-20 keywords, so scores naturally cluster lower than a
-  // "dedicated article on the exact same topic" would score.
-  const tier = rate >= 65 ? 'Strong' : rate >= 35 ? 'Moderate' : 'Weak';
-  const kwList = shared.slice(0, 5).join(', ');
-  const contextNote = contextFound
-    ? ''
-    : ' (Could not find the exact link or anchor text on the fetched page — this is a rougher estimate based on the page\'s overall topic, so worth a manual look.)';
-  let suggestion;
-  if (!targetTop.length || !donorTop.length) {
-    suggestion = 'Could not extract enough text from one of the pages to judge topic overlap.';
-  } else if (tier === 'Strong') {
-    suggestion = `Strong topical overlap (${kwList || 'shared vocabulary'}) — reads as a natural, relevant placement.${contextNote}`;
-  } else if (tier === 'Moderate') {
-    suggestion = (shared.length
-      ? `Some overlap (${kwList}), but not strong — worth a manual look before using this anchor here.`
-      : `Little shared vocabulary detected between the two pages — worth a manual look.`) + contextNote;
-  } else {
-    suggestion = `Little to no topical overlap detected — this donor page doesn't appear to discuss what the target page is about.${contextNote}`;
-  }
-  if (anchorWords.length && anchorMatchesTarget === false) {
-    suggestion += ' Also: the anchor text itself doesn\'t match the target page\'s own topic — double-check the anchor is appropriate.';
-  }
-
-  return { rate, tier, sharedKeywords: shared.slice(0, 8), suggestion };
 }
 
 async function fetchPageForScoring(rawUrl) {
@@ -210,15 +220,14 @@ async function fetchPageForScoring(rawUrl) {
   } catch (e) { return null; }
 }
 
-const MAX_BULK_ROWS = 60;
-async function inChunks(items, size, fn) {
-  const out = [];
-  for (let i = 0; i < items.length; i += size) out.push(...await Promise.all(items.slice(i, i + size).map(fn)));
-  return out;
-}
+const BULK_AI_MAX_ROWS = 40; // lower than the old lexical cap — each row now costs a real Anthropic call
+const BULK_AI_BATCH_SIZE = 8; // rows per Claude call; batches run in parallel so this bounds prompt size, not total rows
 
-async function handleBulkLexical(req, res) {
-  const rows = Array.isArray(req.body?.rows) ? req.body.rows.slice(0, MAX_BULK_ROWS) : [];
+async function handleBulkAI(req, res) {
+  const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+  if (!ANTHROPIC_KEY) return res.status(500).json({ error: 'Anthropic API key not configured' });
+
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows.slice(0, BULK_AI_MAX_ROWS) : [];
   if (!rows.length) return res.status(400).json({ error: 'rows required' });
 
   const pageCache = new Map(); // a URL reused across rows (common: same target page) is only fetched once
@@ -229,16 +238,52 @@ async function handleBulkLexical(req, res) {
     return pageCache.get(url);
   };
 
-  const results = await inChunks(rows, 10, async (row) => {
+  // Fetch pages + build each row's context block in plain JS first — this
+  // part is free and deterministic (locate the real link, count outbound
+  // domains, summarize the target topic), so Claude only has to spend
+  // tokens on the actual judgment call, not on re-deriving facts.
+  const prepared = await Promise.all(rows.map(async (row) => {
     const linkFrom = (row.linkFrom || '').trim();
     const linkTo = (row.linkTo || '').trim();
     const anchor = (row.anchor || '').trim();
     if (!linkFrom || !linkTo) return { linkFrom, linkTo, anchor, error: 'Both link-from and link-to are required' };
+
     const [donorPage, targetPage] = await Promise.all([getPage(linkFrom), getPage(linkTo)]);
     if (donorPage?.__invalid || targetPage?.__invalid) return { linkFrom, linkTo, anchor, error: 'Invalid or disallowed URL' };
     if (!donorPage) return { linkFrom, linkTo, anchor, error: 'Could not fetch the link-from page' };
     if (!targetPage) return { linkFrom, linkTo, anchor, error: 'Could not fetch the link-to page' };
-    return { linkFrom, linkTo, anchor, ...scorePair(donorPage, targetPage, anchor, linkTo) };
+
+    const localText = findLinkContext(donorPage.rawHtml, linkTo, anchor);
+    const linkFound = !!localText;
+    const contextText = (localText || donorPage.body || '').slice(0, 1200);
+    const externalLinkCount = countExternalLinks(donorPage.rawHtml, linkFrom);
+    const targetSummary = summarizeTargetPage(targetPage);
+
+    const block = [
+      `DONOR ARTICLE: ${donorPage.title || linkFrom} (${linkFrom})`,
+      `TARGET PAGE: ${targetSummary.title || linkTo} (${linkTo})${targetSummary.topKeywords.length ? ' — topics: ' + targetSummary.topKeywords.join(', ') : ''}${targetSummary.description ? '\nTARGET DESCRIPTION: ' + targetSummary.description : ''}`,
+      `ANCHOR TEXT: "${anchor || '(none given)'}"`,
+      `TARGET LINK FOUND ON DONOR PAGE: ${linkFound ? 'YES' : 'NO — judge hypothetically from the page\'s actual content below'}`,
+      `OTHER THIRD-PARTY DOMAINS LINKED FROM THIS DONOR PAGE: ${externalLinkCount}`,
+      `DONOR PAGE ${linkFound ? 'TEXT AROUND THE ACTUAL LINK' : 'CONTENT SAMPLE'}:\n"""\n${contextText || '(no readable text extracted)'}\n"""`
+    ].join('\n');
+
+    return { linkFrom, linkTo, anchor, linkFound, block };
+  }));
+
+  const toCheck = prepared.filter(p => !p.error);
+  const batches = [];
+  for (let i = 0; i < toCheck.length; i += BULK_AI_BATCH_SIZE) batches.push(toCheck.slice(i, i + BULK_AI_BATCH_SIZE));
+
+  const batchResults = await Promise.all(batches.map(b => callClaudeForBatch(ANTHROPIC_KEY, b.map(x => x.block))));
+  const verdictByRow = new Map();
+  batches.forEach((batch, bi) => batch.forEach((row, ri) => verdictByRow.set(row, batchResults[bi][ri])));
+
+  const results = prepared.map(p => {
+    if (p.error) return { linkFrom: p.linkFrom, linkTo: p.linkTo, anchor: p.anchor, error: p.error };
+    const v = verdictByRow.get(p) || { error: 'No result returned' };
+    if (v.error) return { linkFrom: p.linkFrom, linkTo: p.linkTo, anchor: p.anchor, linkFound: p.linkFound, error: v.error };
+    return { linkFrom: p.linkFrom, linkTo: p.linkTo, anchor: p.anchor, linkFound: p.linkFound, relevancy: v.relevancy, rating: v.rating, notes: v.notes };
   });
 
   return res.json({ results });
@@ -251,7 +296,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (req.body && req.body.mode === 'bulk-lexical') return handleBulkLexical(req, res);
+  if (req.body && req.body.mode === 'bulk-ai') return handleBulkAI(req, res);
 
   const { linkin, anchor, project, niche, coreTopics } = req.body || {};
   if (!linkin) return res.status(400).json({ error: 'linkin required' });

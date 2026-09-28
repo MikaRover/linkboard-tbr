@@ -2618,7 +2618,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <div>
       <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:9px;vertical-align:-4px;">
         <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Bulk Relevancy</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Paste link-from / link-to / anchor rows to get a relevancy rate and suggestion in bulk — no AI, purely keyword-based, so it's instant and free to run.</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Paste link-from / link-to / anchor rows — Claude reads the actual page, checks whether the link is really there, and rates it Low/Medium/High/Very High the same way you'd review it by hand. Uses Anthropic credits, so it's slower and not free like the old keyword version.</div>
     </div>
     <div style="display:flex;gap:8px;">
       <button class="btn-ghost" onclick="exportBulkRelCSV()" id="bulkrel-export-btn" style="display:none;">⬇ Export CSV</button>
@@ -2629,7 +2629,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div class="card" style="max-width:900px;margin-bottom:1.5rem;">
     <div class="card-body">
       <div class="section-label">Rows — one per line, tab-separated: link from&nbsp;&nbsp;→&nbsp;&nbsp;link to&nbsp;&nbsp;→&nbsp;&nbsp;anchor</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Paste straight from a spreadsheet (3 columns). Anchor is optional. Max 60 rows per run.</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Paste straight from a spreadsheet (3 columns). Anchor is optional. Max 40 rows per run.</div>
       <textarea id="bulkrel-input" placeholder="https://example.com/blog/some-article&#9;https://ourtool.com/pricing&#9;pricing calculator&#10;https://other-site.com/guide&#9;https://ourtool.com/features&#9;project management tool"
         style="width:100%;height:180px;padding:10px 12px;font-size:12px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:12px;outline:none;white-space:pre;"
         onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
@@ -2648,8 +2648,10 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
           <th>Link from</th>
           <th>Link to</th>
           <th>Anchor</th>
-          <th style="text-align:center;">Rate</th>
-          <th>Suggestion</th>
+          <th style="text-align:center;">Link found?</th>
+          <th style="text-align:center;">Relevancy</th>
+          <th style="text-align:center;">Rating</th>
+          <th>Notes</th>
         </tr></thead>
         <tbody id="bulkrel-tbody"></tbody>
       </table></div>
@@ -10929,20 +10931,27 @@ function exportCatCheckCSV(){
 }
 
 // ─── BULK RELEVANCY (Mika + Tatev only) ───────────────────
-// Deliberately NOT the Claude API — a deterministic keyword/TF-overlap
-// score computed server-side in /api/check-relevancy (mode:'bulk-lexical'),
-// so it's instant, free to run, and gives the same answer every time for
-// the same pair of pages.
+// Started as a deterministic keyword/TF-overlap score with no Claude API
+// involved at all — but a side-by-side check against how relevancy actually
+// gets reviewed by hand (read the real article, confirm the link is really
+// there, judge Low/Medium/High/Very High, flag link-farm patterns) showed
+// the keyword-only version kept scoring genuinely good placements "Weak"
+// just because the rest of a listicle/article was about other things. So
+// this now calls Claude server-side (/api/check-relevancy, mode:'bulk-ai')
+// — the fact-finding (fetch pages, locate the real link, count outbound
+// links) still happens for free in plain JS first; Claude only makes the
+// actual judgment call. Slower and not free, but matches the real thing.
 let bulkRelResults = [];
-const BULK_REL_MAX_ROWS = 60;
+const BULK_REL_MAX_ROWS = 40;
 
 function bulkRelTierBadge(tier){
   const map = {
-    Strong:   {bg:'rgba(50,215,75,0.12)',  fg:'var(--teal)'},
-    Moderate: {bg:'rgba(242,183,62,0.12)', fg:'var(--yellow)'},
-    Weak:     {bg:'rgba(255,255,255,0.06)',fg:'var(--text3)'}
+    'Very High': {bg:'rgba(50,215,75,0.16)', fg:'var(--teal)'},
+    'High':      {bg:'rgba(50,215,75,0.10)', fg:'var(--teal)'},
+    'Medium':    {bg:'rgba(242,183,62,0.12)',fg:'var(--yellow)'},
+    'Low':       {bg:'rgba(255,69,58,0.10)', fg:'var(--red)'}
   };
-  const c = map[tier] || map.Weak;
+  const c = map[tier] || {bg:'rgba(255,255,255,0.06)',fg:'var(--text3)'};
   return `<span style="display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;background:${c.bg};color:${c.fg};">${escapeHtml(tier||'—')}</span>`;
 }
 
@@ -10982,16 +10991,16 @@ async function runBulkRelevancy(btn){
   btn.textContent = '⏳ Checking...';
 
   let elapsed = 0;
-  progress.textContent = `Checking ${rows.length} row${rows.length===1?'':'s'}... 0s`;
+  progress.textContent = `Claude is checking ${rows.length} row${rows.length===1?'':'s'}... 0s`;
   const timer = setInterval(()=>{
     elapsed++;
-    progress.textContent = `Checking ${rows.length} row${rows.length===1?'':'s'}... ${elapsed}s`;
+    progress.textContent = `Claude is checking ${rows.length} row${rows.length===1?'':'s'}... ${elapsed}s`;
   }, 1000);
 
   try{
     const resp = await fetch('/api/check-relevancy', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ mode: 'bulk-lexical', rows })
+      body: JSON.stringify({ mode: 'bulk-ai', rows })
     });
     const data = await resp.json();
     clearInterval(timer);
@@ -11004,21 +11013,28 @@ async function runBulkRelevancy(btn){
 
     bulkRelResults = data.results || [];
     tbody.innerHTML = bulkRelResults.map(r=>{
+      const linkFoundCell = r.linkFound===true ? '<span style="color:var(--teal);font-size:12px;">✓ Yes</span>'
+        : r.linkFound===false ? '<span style="color:var(--yellow);font-size:12px;">Not found</span>'
+        : '<span style="color:var(--text3);">—</span>';
       if(r.error){
         return `<tr>
-          <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkFrom)}"><a href="${escAttr(r.linkFrom)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkFrom||'—')}</a></td>
-          <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkTo)}"><a href="${escAttr(r.linkTo)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkTo||'—')}</a></td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkFrom)}"><a href="${escAttr(r.linkFrom)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkFrom||'—')}</a></td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkTo)}"><a href="${escAttr(r.linkTo)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkTo||'—')}</a></td>
           <td style="color:var(--text3);">${escapeHtml(r.anchor||'—')}</td>
+          <td style="text-align:center;">${linkFoundCell}</td>
+          <td style="text-align:center;color:var(--text3);">—</td>
           <td style="text-align:center;color:var(--text3);">—</td>
           <td style="color:var(--red);font-size:12px;">⚠️ ${escapeHtml(r.error)}</td>
         </tr>`;
       }
       return `<tr>
-        <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkFrom)}"><a href="${escAttr(r.linkFrom)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkFrom||'—')}</a></td>
-        <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkTo)}"><a href="${escAttr(r.linkTo)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkTo||'—')}</a></td>
+        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkFrom)}"><a href="${escAttr(r.linkFrom)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkFrom||'—')}</a></td>
+        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(r.linkTo)}"><a href="${escAttr(r.linkTo)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(r.linkTo||'—')}</a></td>
         <td>${escapeHtml(r.anchor||'—')}</td>
-        <td style="text-align:center;">${bulkRelTierBadge(r.tier)}<div style="font-size:10px;color:var(--text3);margin-top:2px;">${r.rate!=null?r.rate+'%':''}</div></td>
-        <td style="font-size:12px;color:var(--text2);max-width:420px;">${escapeHtml(r.suggestion||'')}</td>
+        <td style="text-align:center;">${linkFoundCell}</td>
+        <td style="text-align:center;">${bulkRelTierBadge(r.relevancy)}</td>
+        <td style="text-align:center;font-weight:600;color:var(--text);">${r.rating!=null?r.rating+'/10':'—'}</td>
+        <td style="font-size:12px;color:var(--text2);max-width:420px;">${escapeHtml(r.notes||'')}</td>
       </tr>`;
     }).join('');
 
@@ -11038,10 +11054,11 @@ async function runBulkRelevancy(btn){
 
 function exportBulkRelCSV(){
   if(!bulkRelResults.length){ alert('No data'); return; }
-  const h = ['Link From','Link To','Anchor','Rate','Tier','Shared Keywords','Suggestion','Error'];
+  const h = ['Link From','Link To','Anchor','Link Found','Relevancy','Rating','Notes','Error'];
   const rows = bulkRelResults.map(r=>[
-      r.linkFrom||'', r.linkTo||'', r.anchor||'', r.rate!=null?r.rate:'', r.tier||'',
-      (r.sharedKeywords||[]).join('; '), r.suggestion||'', r.error||''
+      r.linkFrom||'', r.linkTo||'', r.anchor||'',
+      r.linkFound===true?'Yes':r.linkFound===false?'No':'',
+      r.relevancy||'', r.rating!=null?r.rating:'', r.notes||'', r.error||''
     ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
