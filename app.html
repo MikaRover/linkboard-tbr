@@ -6780,12 +6780,13 @@ async function runOutreach(action = 'prospects'){
 // ─── RECENT SEARCHES (whole team, not just this browser) ──
 let outreachHistoryListener = null;
 
-function logOutreachSearch(domain, action, count){
+function logOutreachSearch(domain, action, count, extra){
   if(!cu || !domain) return;
   db.collection('outreachHistory').add({
     domain, action, count: count||0,
     searchedBy: cu.name||cu.email||'',
-    searchedAt: firebase.firestore.FieldValue.serverTimestamp()
+    searchedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    ...(extra||{})
   }).catch(()=>{});
 }
 
@@ -10417,8 +10418,10 @@ async function runProspectorPage(btn){
     // Log every completed search, not just ones with results — a domain
     // that came back empty was still tried, and belongs in "recent
     // searches" exactly so nobody re-runs it by accident (matches Outreach
-    // Finder's history, which logs unconditionally the same way).
-    logOutreachSearch(domain, 'prospector', (data.suggestions||[]).length);
+    // Finder's history, which logs unconditionally the same way). Anchor +
+    // target URL + project are saved too so clicking a history entry can
+    // re-fill and re-run the *exact* same search, not just the domain.
+    logOutreachSearch(domain, 'prospector', (data.suggestions||[]).length, {anchor: manualAnchor, linkTo, project: proj});
     if(!data.suggestions?.length){
       document.getElementById('prosp-page-error').style.display = 'block';
       document.getElementById('prosp-page-error').textContent = data.error || 'No suggestions found. Try a different domain or add a target URL.';
@@ -10441,22 +10444,40 @@ function initProspectorHistory(){
     renderProspectorHistory(snap.docs.map(d=>d.data()).filter(r=>r.action==='prospector'));
   }, ()=>{});
 }
+let prospHistoryRows = [];
 function renderProspectorHistory(rows){
   const el = document.getElementById('prosp-history');
   if(!el) return;
+  // Keyed by domain+anchor, not domain alone — searching the same site again
+  // for a *different* anchor is exactly the "find one more, fast" case this
+  // is for, so each anchor tried on a domain gets its own recent entry.
   const seen = new Set(); const unique = [];
-  for(const r of rows){ if(seen.has(r.domain)) continue; seen.add(r.domain); unique.push(r); }
-  if(!unique.length){ el.innerHTML=''; return; }
+  for(const r of rows){
+    const key = r.domain+'|'+(r.anchor||'');
+    if(seen.has(key)) continue; seen.add(key); unique.push(r);
+  }
+  prospHistoryRows = unique.slice(0,10);
+  if(!prospHistoryRows.length){ el.innerHTML=''; return; }
   el.innerHTML = `
     <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Recent searches</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;">${unique.slice(0,10).map(r=>`
-      <button onclick="rerunProspectorHistory('${escAttr(r.domain)}')" class="btn-ghost" style="font-size:11px;padding:5px 10px;display:flex;align-items:center;gap:6px;">
-        <span style="font-family:'JetBrains Mono',monospace;">${escapeHtml(r.domain)}</span>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">${prospHistoryRows.map((r,i)=>`
+      <button onclick="rerunProspectorHistory(${i})" title="Click to search again" class="btn-ghost" style="font-size:11px;padding:5px 10px;display:flex;align-items:center;gap:7px;">
+        <span style="font-family:'JetBrains Mono',monospace;color:var(--text);">${escapeHtml(r.domain)}</span>
+        ${r.anchor?`<span style="color:var(--teal);">· ${escapeHtml(r.anchor)}</span>`:''}
         <span style="color:var(--text3);">${timeAgo(r.searchedAt?.toDate?.())}</span>
       </button>`).join('')}</div>`;
 }
-function rerunProspectorHistory(domain){
-  document.getElementById('prosp-domain').value = domain;
+function rerunProspectorHistory(i){
+  const r = prospHistoryRows[i];
+  if(!r) return;
+  document.getElementById('prosp-domain').value = r.domain||'';
+  document.getElementById('prosp-anchor').value = r.anchor||'';
+  document.getElementById('prosp-linkto').value = r.linkTo||'';
+  const projSel = document.getElementById('prosp-proj');
+  if(projSel && r.project && [...projSel.options].some(o=>o.value===r.project)){
+    projSel.value = r.project;
+    loadProspectorAnchors();
+  }
   runProspectorPage();
 }
 
