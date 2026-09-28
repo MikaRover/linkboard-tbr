@@ -1895,7 +1895,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Outreach emails per day</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <select id="es-source" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderEmailStats()"><option value="gmail">Gmail (actually sent)</option><option value="clicks">LinkBoard ✉️ clicks</option></select>
-      <select id="es-metric" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderEmailStats()"><option value="external">Outreach (external)</option><option value="newThreads">New conversations</option><option value="sent">All sent</option></select>
+      <select id="es-metric" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderEmailStats()"><option value="newThreads" selected>New conversations</option><option value="external">Outreach (external)</option><option value="sent">All sent</option></select>
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setEmailStatsPreset('today')">Today</button>
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setEmailStatsPreset('week')">This week</button>
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setEmailStatsPreset('month')">This month</button>
