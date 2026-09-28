@@ -10414,11 +10414,15 @@ async function runProspectorPage(btn){
     clearInterval(st);
     document.getElementById('prosp-loading').style.display = 'none';
 
+    // Log every completed search, not just ones with results — a domain
+    // that came back empty was still tried, and belongs in "recent
+    // searches" exactly so nobody re-runs it by accident (matches Outreach
+    // Finder's history, which logs unconditionally the same way).
+    logOutreachSearch(domain, 'prospector', (data.suggestions||[]).length);
     if(!data.suggestions?.length){
       document.getElementById('prosp-page-error').style.display = 'block';
       document.getElementById('prosp-page-error').textContent = data.error || 'No suggestions found. Try a different domain or add a target URL.';
     } else {
-      logOutreachSearch(domain, 'prospector', data.suggestions.length);
       renderProspectorCards(data.suggestions, domain, proj, linkTo);
     }
   } catch(e){
