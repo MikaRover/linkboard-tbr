@@ -253,8 +253,7 @@ Return 4-6 suggestions. Quality over quantity.`;
     // an API failure, and must not be misreported as one.
     const textBlock = Array.isArray(aiData.content) && aiData.content.find(b => typeof b?.text === 'string');
     if (!aiResp.ok || !textBlock) {
-      // TEMP debug — remove once diagnosed.
-      return res.json({ domain, suggestions: [], error: aiData?.error?.message || `Claude API error (HTTP ${aiResp.status})`, _debugAiData: aiData });
+      return res.json({ domain, suggestions: [], error: aiData?.error?.message || `Claude API error (HTTP ${aiResp.status})` });
     }
     const text = textBlock.text.trim();
 
