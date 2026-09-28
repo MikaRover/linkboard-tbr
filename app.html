@@ -2574,6 +2574,10 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
           <div class="section-label">Target Anchor (optional)</div>
           <input id="prosp-anchor" placeholder="e.g. email security tool" style="margin:0;"/>
         </div>
+        <div style="flex:3;min-width:240px;">
+          <div class="section-label">Guidance for Claude (optional)</div>
+          <input id="prosp-hint" placeholder="e.g. find listicle articles about marketing tools" style="margin:0;"/>
+        </div>
         <button class="btn-sm" onclick="runProspectorPage(this)" style="white-space:nowrap;padding:10px 20px;height:38px;">🔍 Find anchors →</button>
       </div>
       <div id="prosp-anchors-wrap" style="margin-top:12px;display:none;">
@@ -10406,10 +10410,11 @@ async function runProspectorPage(btn){
     const siteData = projObj?.siteData || null;
 
     const manualAnchor = document.getElementById('prosp-anchor').value.trim();
+    const hint = document.getElementById('prosp-hint').value.trim();
     const finalAnchors = manualAnchor ? [manualAnchor, ...anchors.filter(a=>a!==manualAnchor)] : anchors;
     const resp = await fetch('/api/prospect',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({domain, project:proj, linkTo, anchors: finalAnchors, siteData})
+      body: JSON.stringify({domain, project:proj, linkTo, anchors: finalAnchors, siteData, hint})
     });
     const data = await resp.json();
     clearInterval(st);
@@ -10419,9 +10424,9 @@ async function runProspectorPage(btn){
     // that came back empty was still tried, and belongs in "recent
     // searches" exactly so nobody re-runs it by accident (matches Outreach
     // Finder's history, which logs unconditionally the same way). Anchor +
-    // target URL + project are saved too so clicking a history entry can
-    // re-fill and re-run the *exact* same search, not just the domain.
-    logOutreachSearch(domain, 'prospector', (data.suggestions||[]).length, {anchor: manualAnchor, linkTo, project: proj});
+    // target URL + project + hint are saved too so clicking a history entry
+    // can re-fill and re-run the *exact* same search, not just the domain.
+    logOutreachSearch(domain, 'prospector', (data.suggestions||[]).length, {anchor: manualAnchor, linkTo, project: proj, hint});
     if(!data.suggestions?.length){
       document.getElementById('prosp-page-error').style.display = 'block';
       document.getElementById('prosp-page-error').textContent = data.error || 'No suggestions found. Try a different domain or add a target URL.';
@@ -10473,6 +10478,7 @@ function rerunProspectorHistory(i){
   document.getElementById('prosp-domain').value = r.domain||'';
   document.getElementById('prosp-anchor').value = r.anchor||'';
   document.getElementById('prosp-linkto').value = r.linkTo||'';
+  document.getElementById('prosp-hint').value = r.hint||'';
   const projSel = document.getElementById('prosp-proj');
   if(projSel && r.project && [...projSel.options].some(o=>o.value===r.project)){
     projSel.value = r.project;
