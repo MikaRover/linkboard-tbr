@@ -50,8 +50,53 @@ function extractWeightedText(html) {
     title: titleMatch ? titleMatch[1].replace(/\s+/g, ' ').trim() : '',
     description: descMatch ? descMatch[1].trim() : '',
     headings: headings.join(' '),
-    body
+    body,
+    // Kept only for the donor side, to locate the actual outbound link's
+    // surrounding paragraph (see findLinkContext) — capped well above any
+    // real page size we'd realistically fetch, just as a memory backstop.
+    rawHtml: html.slice(0, 500000)
   };
+}
+
+// A backlink almost never sits on a page that is ITSELF about the target's
+// exact topic — it's usually one mention inside a broader article (a "best
+// tools" listicle, a how-to post that name-drops a resource). Comparing the
+// donor's WHOLE-page vocabulary to the target's therefore misses the plot:
+// 34 unrelated items in a listicle drown out the one paragraph that
+// actually matters. So: find the real <a> tag pointing at the target URL
+// (or, failing that, the literal anchor text) on the donor page, and pull
+// the text immediately around it — that's what a human reviewer would
+// actually read to judge the placement.
+function findLinkContext(rawHtml, targetUrl, anchorText) {
+  if (!rawHtml || !targetUrl) return null;
+  const norm = (u) => (u || '').trim()
+    .replace(/^https?:\/\//i, '').replace(/^www\./i, '')
+    .replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase();
+  const targetNorm = norm(targetUrl);
+  if (!targetNorm) return null;
+
+  let matchIndex = -1;
+  const aRe = /<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
+  let m;
+  while ((m = aRe.exec(rawHtml)) !== null) {
+    const href = norm(m[1]);
+    if (!href) continue;
+    if (href === targetNorm || href.startsWith(targetNorm + '/') || targetNorm.startsWith(href + '/')) {
+      matchIndex = m.index;
+      break;
+    }
+  }
+  if (matchIndex === -1 && anchorText && anchorText.trim().length >= 3) {
+    const pos = rawHtml.toLowerCase().indexOf(anchorText.trim().toLowerCase());
+    if (pos !== -1) matchIndex = pos;
+  }
+  if (matchIndex === -1) return null;
+
+  const WINDOW = 900;
+  const start = Math.max(0, matchIndex - WINDOW);
+  const end = Math.min(rawHtml.length, matchIndex + WINDOW);
+  const text = htmlToText(rawHtml.slice(start, end));
+  return text && text.length > 20 ? text : null;
 }
 
 function tokenize(str) {
@@ -77,41 +122,73 @@ function topKeywords(tf, n) {
 
 // No corpus to compute real IDF against, so this is deliberately simple and
 // explainable rather than a black box: how much of the TARGET page's own
-// top topics are echoed on the DONOR page, plus whether the anchor text
-// itself actually matches either page's subject matter.
-function scorePair(donorPage, targetPage, anchor) {
+// top topics are echoed near the actual link on the DONOR page (falling
+// back to the donor's whole-page vocabulary when the exact link can't be
+// located), plus whether the anchor text itself matches either page's
+// subject matter.
+function scorePair(donorPage, targetPage, anchor, linkToUrl) {
   const donorTF = weightedTF(donorPage);
   const targetTF = weightedTF(targetPage);
   const targetTop = topKeywords(targetTF, 20);
   const donorTop = topKeywords(donorTF, 30);
   const donorTopSet = new Set(donorTop);
-  const shared = targetTop.filter(w => donorTopSet.has(w));
-  const overlapRatio = targetTop.length ? shared.length / Math.min(20, targetTop.length) : 0;
+  const wholePageShared = targetTop.filter(w => donorTopSet.has(w));
+  const wholePageRatio = targetTop.length ? wholePageShared.length / Math.min(20, targetTop.length) : 0;
+
+  const localText = findLinkContext(donorPage.rawHtml, linkToUrl, anchor);
+  let overlapRatio = wholePageRatio;
+  let shared = wholePageShared;
+  let contextFound = false;
+
+  if (localText) {
+    contextFound = true;
+    const localTokens = new Set(tokenize(localText).filter(w => !STOPWORDS.has(w)));
+    const localShared = targetTop.filter(w => localTokens.has(w));
+    const localRatio = targetTop.length ? localShared.length / Math.min(20, targetTop.length) : 0;
+    // Trust the real surrounding paragraph far more than the donor's overall
+    // page topic (a single on-topic mention inside an otherwise-unrelated
+    // article is a completely normal, legitimate placement) — but keep a
+    // little whole-page signal so a context match on a wildly off-topic
+    // page doesn't score identically to a full-topic match.
+    overlapRatio = localRatio * 0.8 + wholePageRatio * 0.2;
+    shared = localShared.length ? localShared : wholePageShared;
+  }
 
   const anchorWords = tokenize(anchor).filter(w => !STOPWORDS.has(w));
   const anchorMatchesTarget = anchorWords.length ? anchorWords.some(w => targetTF.has(w)) : null;
   const anchorMatchesDonor = anchorWords.length ? anchorWords.some(w => donorTF.has(w)) : null;
 
   let rate = Math.round(overlapRatio * 100);
+  // Actually finding the real link/anchor on the page (instead of guessing
+  // from overall page vocabulary) is itself a meaningful confidence signal.
+  if (contextFound) rate += 12;
   if (anchorWords.length) {
-    if (anchorMatchesTarget) rate += 8; else rate -= 12;
-    if (anchorMatchesDonor) rate += 4;
+    if (anchorMatchesTarget) rate += 10; else rate -= 15;
+    if (anchorMatchesDonor) rate += 5;
   }
   rate = Math.max(0, Math.min(100, rate));
 
-  const tier = rate >= 70 ? 'Strong' : rate >= 40 ? 'Moderate' : 'Weak';
+  // Recalibrated down from the original 70/40 split — once real overlap is
+  // measured against the actual link context rather than a whole page, a
+  // genuinely good placement still rarely lights up every one of the
+  // target's top-20 keywords, so scores naturally cluster lower than a
+  // "dedicated article on the exact same topic" would score.
+  const tier = rate >= 65 ? 'Strong' : rate >= 35 ? 'Moderate' : 'Weak';
   const kwList = shared.slice(0, 5).join(', ');
+  const contextNote = contextFound
+    ? ''
+    : ' (Could not find the exact link or anchor text on the fetched page — this is a rougher estimate based on the page\'s overall topic, so worth a manual look.)';
   let suggestion;
   if (!targetTop.length || !donorTop.length) {
     suggestion = 'Could not extract enough text from one of the pages to judge topic overlap.';
   } else if (tier === 'Strong') {
-    suggestion = `Strong topical overlap (${kwList || 'shared vocabulary'}) — reads as a natural, relevant placement.`;
+    suggestion = `Strong topical overlap (${kwList || 'shared vocabulary'}) — reads as a natural, relevant placement.${contextNote}`;
   } else if (tier === 'Moderate') {
-    suggestion = shared.length
+    suggestion = (shared.length
       ? `Some overlap (${kwList}), but not strong — worth a manual look before using this anchor here.`
-      : `Little shared vocabulary detected between the two pages — worth a manual look.`;
+      : `Little shared vocabulary detected between the two pages — worth a manual look.`) + contextNote;
   } else {
-    suggestion = `Little to no topical overlap detected — this donor page doesn't appear to discuss what the target page is about.`;
+    suggestion = `Little to no topical overlap detected — this donor page doesn't appear to discuss what the target page is about.${contextNote}`;
   }
   if (anchorWords.length && anchorMatchesTarget === false) {
     suggestion += ' Also: the anchor text itself doesn\'t match the target page\'s own topic — double-check the anchor is appropriate.';
@@ -161,7 +238,7 @@ async function handleBulkLexical(req, res) {
     if (donorPage?.__invalid || targetPage?.__invalid) return { linkFrom, linkTo, anchor, error: 'Invalid or disallowed URL' };
     if (!donorPage) return { linkFrom, linkTo, anchor, error: 'Could not fetch the link-from page' };
     if (!targetPage) return { linkFrom, linkTo, anchor, error: 'Could not fetch the link-to page' };
-    return { linkFrom, linkTo, anchor, ...scorePair(donorPage, targetPage, anchor) };
+    return { linkFrom, linkTo, anchor, ...scorePair(donorPage, targetPage, anchor, linkTo) };
   });
 
   return res.json({ results });
