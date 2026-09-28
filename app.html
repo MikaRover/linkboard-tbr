@@ -2636,6 +2636,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <span id="bulkrel-progress" style="font-size:12px;color:var(--text3);"></span>
       </div>
+      <div id="bulkrel-history" style="margin-top:14px;"></div>
     </div>
   </div>
 
@@ -4006,6 +4007,7 @@ function gotoPage(name,el){
     // a page meant for admin + Tatev only.
     const allowed = isAdmin || (cu.name||'')==='Tatev';
     if(!allowed){ gotoPage('dashboard', document.querySelector('.nav[onclick*="dashboard"]')); return; }
+    initBulkRelHistory();
   }
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
@@ -11038,6 +11040,8 @@ async function runBulkRelevancy(btn){
       </tr>`;
     }).join('');
 
+    logBulkRelHistory(bulkRelResults);
+
     results.style.display = 'block';
     progress.textContent = `Done! ${bulkRelResults.length} row${bulkRelResults.length===1?'':'s'} checked`;
     document.getElementById('bulkrel-count').textContent = `${bulkRelResults.length} row${bulkRelResults.length===1?'':'s'}`;
@@ -11064,6 +11068,67 @@ function exportBulkRelCSV(){
   a.href = URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
   a.download = 'bulk_relevancy_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
+}
+
+// ─── BULK RELEVANCY HISTORY (whole team, not just this browser) ───
+// Each checked pair costs real Anthropic credits, so the whole point of
+// this is stopping Mika/Tatev from accidentally re-spending on a link-from
+// + link-to + anchor combo someone already checked — keep it to a short,
+// clickable list rather than a full log.
+let bulkRelHistoryListener = null;
+function initBulkRelHistory(){
+  if(bulkRelHistoryListener) return; // one listener for the session is enough
+  bulkRelHistoryListener = db.collection('outreachHistory').orderBy('searchedAt','desc').limit(60).onSnapshot(snap=>{
+    renderBulkRelHistory(snap.docs.map(d=>d.data()).filter(r=>r.action==='bulkrel'));
+  }, ()=>{});
+}
+
+function logBulkRelHistory(checkedRows){
+  if(!cu || !checkedRows.length) return;
+  const batch = db.batch();
+  checkedRows.slice(0, 40).forEach(r=>{
+    if(r.error) return; // only log rows that actually produced a verdict — an error isn't a completed check worth remembering
+    const ref = db.collection('outreachHistory').doc();
+    batch.set(ref, {
+      action: 'bulkrel', domain: nd(r.linkFrom)||r.linkFrom,
+      linkFrom: r.linkFrom, linkTo: r.linkTo, anchor: r.anchor||'',
+      relevancy: r.relevancy||'', rating: r.rating!=null?r.rating:null,
+      searchedBy: cu.name||cu.email||'',
+      searchedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  });
+  batch.commit().catch(()=>{});
+}
+
+let bulkRelHistoryRows = [];
+function renderBulkRelHistory(rows){
+  const el = document.getElementById('bulkrel-history');
+  if(!el) return;
+  // Same link-from + link-to + anchor checked more than once — keep only the newest.
+  const seen = new Set(); const unique = [];
+  for(const r of rows){
+    const key = r.linkFrom+'|'+r.linkTo+'|'+(r.anchor||'');
+    if(seen.has(key)) continue; seen.add(key); unique.push(r);
+  }
+  bulkRelHistoryRows = unique.slice(0,10);
+  if(!bulkRelHistoryRows.length){ el.innerHTML=''; return; }
+  el.innerHTML = `
+    <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Recently checked — click to re-add</div>
+    <div style="display:flex;flex-direction:column;gap:4px;">${bulkRelHistoryRows.map((r,i)=>`
+      <button onclick="rerunBulkRelHistory(${i})" title="Click to add this row back to the input" class="btn-ghost" style="font-size:11px;padding:5px 10px;display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left;">
+        <span style="color:var(--teal);flex-shrink:0;">${bulkRelTierBadge(r.relevancy)}</span>
+        <span style="font-family:'JetBrains Mono',monospace;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHtml(nd(r.linkFrom))} → ${escapeHtml(nd(r.linkTo))}</span>
+        ${r.anchor?`<span style="color:var(--text2);flex-shrink:0;">${escapeHtml(r.anchor)}</span>`:''}
+        <span style="color:var(--text3);flex-shrink:0;">${timeAgo(r.searchedAt?.toDate?.())}</span>
+      </button>`).join('')}</div>`;
+}
+
+function rerunBulkRelHistory(i){
+  const r = bulkRelHistoryRows[i];
+  if(!r) return;
+  const input = document.getElementById('bulkrel-input');
+  const line = `${r.linkFrom}\t${r.linkTo}\t${r.anchor||''}`;
+  input.value = input.value.trim() ? input.value.trim()+'\n'+line : line;
 }
 
 
