@@ -107,20 +107,44 @@ module.exports = async function handler(req, res) {
     return res.json({ domain, suggestions: [], error: 'No blog articles found on this website.' });
   }
 
-  // STEP 2: Score articles by content relevance — fetch & read them
+  // STEP 2: Score articles by content relevance — fetch & read them, plus
+  // the actual target page itself (in parallel with everything else).
   const anchorList = (anchors && anchors.length) ? anchors.slice(0, 10) : [];
   const anchorStr = anchorList.join(', ') || 'relevant topics';
 
-  // Build keyword set from anchors + siteData
-  const kwSet = new Set();
-  anchorList.forEach(a => a.toLowerCase().split(/\s+/).filter(w => w.length > 3).forEach(w => kwSet.add(w)));
-  if (siteData?.coreTopics) siteData.coreTopics.forEach(t => t.toLowerCase().split(/\s+/).filter(w => w.length > 3).forEach(w => kwSet.add(w)));
-  if (siteData?.keywords) siteData.keywords.forEach(k => k.toLowerCase().split(/\s+/).filter(w => w.length > 3).forEach(w => kwSet.add(w)));
-  const keywords = [...kwSet];
+  const targetPagePromise = linkTo ? (async () => {
+    const html = await fetchHtml(linkTo);
+    if (!html) return null;
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i);
+    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    const text = htmlToText(html);
+    return {
+      title: titleMatch ? titleMatch[1].replace(/\s+/g, ' ').trim() : '',
+      description: descMatch ? descMatch[1].trim() : '',
+      h1: h1Match ? h1Match[1].replace(/<[^>]+>/g, '').trim() : '',
+      excerpt: text.slice(0, 1200)
+    };
+  })() : Promise.resolve(null);
+
+  // Build TWO keyword tiers instead of one flat word bag: multi-word phrases
+  // from the client's own coreTopics/keywords are what actually signal real
+  // topical overlap ("customer data platform" as a unit) — splitting them
+  // into individual words ("customer", "data", "platform") let any article
+  // that merely mentioned "data" once outscore one that's a genuine fit,
+  // which is why past results skewed toward superficial matches.
+  const phraseSet = new Set();
+  const wordSet = new Set();
+  const addPhrase = (p) => { const t = p.toLowerCase().trim(); if (t.length > 3) { phraseSet.add(t); t.split(/\s+/).filter(w => w.length > 3).forEach(w => wordSet.add(w)); } };
+  anchorList.forEach(addPhrase);
+  if (siteData?.coreTopics) siteData.coreTopics.forEach(addPhrase);
+  if (siteData?.keywords) siteData.keywords.forEach(addPhrase);
+  const phrases = [...phraseSet], words = [...wordSet];
+  const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   // Fetch all articles and score by actual content
   const scoredArticles = [];
-  await Promise.all(blogLinks.slice(0, 20).map(async (url) => {
+  await Promise.all(blogLinks.slice(0, 25).map(async (url) => {
     const html = await fetchHtml(url);
     if (!html) return;
 
@@ -137,18 +161,15 @@ module.exports = async function handler(req, res) {
 
     const text = htmlToText(html);
 
-    // Score: count keyword matches in title + headings + content
+    // Score: phrase matches count for far more than individual-word matches
     const searchable = `${title} ${headings.join(' ')} ${text}`.toLowerCase();
     let score = 0;
-    keywords.forEach(kw => {
-      const count = (searchable.match(new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')) || []).length;
-      score += count;
-    });
+    phrases.forEach(p => { score += ((searchable.match(new RegExp(escRe(p), 'gi')) || []).length) * 6; });
+    words.forEach(w => { score += (searchable.match(new RegExp(escRe(w), 'gi')) || []).length; });
 
-    // Bonus for title match
-    keywords.forEach(kw => {
-      if (title.toLowerCase().includes(kw)) score += 5;
-    });
+    // Bonus for title/heading match — a phrase actually in the title is a
+    // much stronger relevance signal than one buried somewhere in the body.
+    phrases.forEach(p => { if (title.toLowerCase().includes(p)) score += 15; else if (headings.some(h => h.toLowerCase().includes(p))) score += 8; });
 
     // Extract clean paragraphs (sentences 40-300 chars)
     const sentences = text.match(/[A-Z][^.!?]{40,300}[.!?]/g) || [];
@@ -159,13 +180,18 @@ module.exports = async function handler(req, res) {
     }
   }));
 
+  const targetPage = await targetPagePromise;
+
   if (!scoredArticles.length) {
     return res.json({ domain, suggestions: [], error: 'Could not read article content.' });
   }
 
-  // Pick top 5 by score
+  // Pick top 8 by score — was top 5, which on a thin or loosely-matching
+  // blog meant Claude only ever saw a handful of mediocre keyword-frequency
+  // "winners" with nothing better to compare against. More raw material
+  // gives it an actual choice, without the prompt getting unmanageably long.
   scoredArticles.sort((a, b) => b.score - a.score);
-  const topArticles = scoredArticles.slice(0, 5);
+  const topArticles = scoredArticles.slice(0, 8);
 
   // STEP 3: Claude deep analysis
   const projectCtx = siteData ? `
@@ -178,6 +204,17 @@ CLIENT CONTEXT (what we're linking TO):
 - Why link here: ${siteData.linkingContext || ''}
 ` : `Client: ${project || 'unknown'}`;
 
+  // The site-wide niche is often too broad to match against — a page-level
+  // summary of the *actual* URL being linked lets Claude judge fit against
+  // what that specific page is about, not just "the company in general".
+  const targetPageCtx = targetPage ? `
+TARGET PAGE ITSELF (${linkTo}):
+- Title: ${targetPage.title}
+- H1: ${targetPage.h1}
+- Meta description: ${targetPage.description}
+- Page excerpt: ${targetPage.excerpt.slice(0, 600)}
+` : '';
+
   const articlesText = topArticles.map((a, i) => `
 ARTICLE ${i+1}:
 URL: ${a.url}
@@ -189,7 +226,7 @@ ${a.content.slice(0, 2500)}
 
   const prompt = `You are a senior SEO link builder. Your job is to find places in EXISTING blog articles where a link can be naturally inserted.
 
-${projectCtx}
+${projectCtx}${targetPageCtx}
 Target URL: ${linkTo || 'not specified'}
 Anchors to place: ${anchorStr}
 
@@ -198,17 +235,17 @@ ${articlesText}
 
 YOUR TASK:
 1. Read each article carefully
-2. Find sentences where the anchor fits NATURALLY based on topic overlap
+2. Find sentences where the anchor fits NATURALLY based on topic overlap with what the TARGET PAGE ITSELF is about (not just the client's product in general — a specific feature page needs a specific match, not a generic one)
 3. Either edit an existing sentence to include the anchor, or suggest adding a new sentence
 4. The reader should NOT notice it's a paid link — it must add genuine value
-5. Only suggest placements where there is REAL topical relevance
-6. If an anchor doesn't fit naturally anywhere — skip it, don't force it
+5. Only suggest placements scoring 70+ on the relevancy scale below — a technically-possible but generic or forced fit is worse than no suggestion at all
+6. If nothing on this site clears that bar for a given anchor — skip it, don't force it. Returning fewer (even zero) suggestions is the correct answer when the fit isn't genuinely there.
 
 For each suggestion return:
 - The EXACT existing sentence you're modifying (copy it word for word from the content)
 - Your edited version with the anchor naturally embedded
 - Where exactly in the article it goes
-- A relevancy score 0-100 (how natural the placement is)
+- A relevancy score 0-100 (how natural the placement is — score honestly; do not inflate a mediocre fit to clear the bar)
 
 Return ONLY valid JSON array:
 [
@@ -220,12 +257,12 @@ Return ONLY valid JSON array:
     "originalSentence": "exact original sentence from the article",
     "editedSentence": "modified sentence with anchor naturally embedded",
     "placement": "specific location, e.g. 'Under the H2 heading X, second paragraph'",
-    "reason": "why this is topically relevant and natural",
+    "reason": "why this is topically relevant and natural, specifically to the target page's own content",
     "relevancy": 85
   }
 ]
 
-Return 4-6 suggestions. Quality over quantity.`;
+Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`;
 
   try {
     const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -266,7 +303,11 @@ Return 4-6 suggestions. Quality over quantity.`;
       if (match) { try { suggestions = JSON.parse(match[0]); } catch(e2) {} }
     }
 
-    return res.json({ domain, suggestions: suggestions.slice(0, 6) });
+    // Safety net — the prompt asks Claude to self-filter at 70+, but a
+    // model doesn't always hold a numeric bar perfectly; drop anything that
+    // slipped through under it rather than trust the instruction alone.
+    const filtered = suggestions.filter(s => (s.relevancy == null || s.relevancy >= 70));
+    return res.json({ domain, suggestions: filtered.slice(0, 6) });
   } catch(e) {
     return res.json({ error: e.message, suggestions: [] });
   }
