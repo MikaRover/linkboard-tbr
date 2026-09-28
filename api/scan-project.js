@@ -114,6 +114,10 @@ Return ONLY a JSON object (no markdown):
 
     const aiData = await aiResp.json();
     const text = (aiData.content?.[0]?.text || '').trim();
+    // TEMP debug — remove once the silent-empty-siteData bug is diagnosed.
+    if (!text) {
+      return res.json({ success: false, _debugStatus: aiResp.status, _debugKeyLen: ANTHROPIC_KEY.length, _debugBody: aiData });
+    }
 
     let siteData = {};
     try {
