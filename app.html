@@ -6931,7 +6931,7 @@ async function runOutreach(action = 'prospects'){
   }
 }
 
-// ─── RECENT SEARCHES (whole team, not just this browser) ──
+// ─── RECENT SEARCHES (this person's own only) ──
 let outreachHistoryListener = null;
 
 function logOutreachSearch(domain, action, count, extra){
@@ -6946,8 +6946,14 @@ function logOutreachSearch(domain, action, count, extra){
 
 function initOutreachHistory(){
   if(outreachHistoryListener) return; // one listener for the session is enough
-  outreachHistoryListener = db.collection('outreachHistory').orderBy('searchedAt','desc').limit(25).onSnapshot(snap=>{
-    renderOutreachHistory(snap.docs.map(d=>d.data()));
+  const mine = cu?.name||cu?.email||'';
+  outreachHistoryListener = db.collection('outreachHistory').orderBy('searchedAt','desc').limit(60).onSnapshot(snap=>{
+    // This collection is shared by Outreach Finder, AI Prospector and Bulk
+    // Relevancy (distinguished by `action`) — restrict to this page's own
+    // actions, or Prospector/Bulk-Relevancy entries leak in here too since
+    // they also carry a `domain` field. Also each person's own entries only.
+    renderOutreachHistory(snap.docs.map(d=>d.data())
+      .filter(r=>(r.action==='prospects'||r.action==='scrape') && r.searchedBy===mine));
   }, ()=>{});
 }
 
@@ -10600,8 +10606,9 @@ async function runProspectorPage(btn){
 let prospectorHistoryListener = null;
 function initProspectorHistory(){
   if(prospectorHistoryListener) return; // one listener for the session is enough
+  const mine = cu?.name||cu?.email||'';
   prospectorHistoryListener = db.collection('outreachHistory').orderBy('searchedAt','desc').limit(60).onSnapshot(snap=>{
-    renderProspectorHistory(snap.docs.map(d=>d.data()).filter(r=>r.action==='prospector'));
+    renderProspectorHistory(snap.docs.map(d=>d.data()).filter(r=>r.action==='prospector' && r.searchedBy===mine));
   }, ()=>{});
 }
 let prospHistoryRows = [];
@@ -11162,16 +11169,13 @@ function exportBulkRelCSV(){
   a.click();
 }
 
-// ─── BULK RELEVANCY HISTORY (whole team, not just this browser) ───
-// Each checked pair costs real Anthropic credits, so the whole point of
-// this is stopping Mika/Tatev from accidentally re-spending on a link-from
-// + link-to + anchor combo someone already checked — keep it to a short,
-// clickable list rather than a full log.
+// ─── BULK RELEVANCY HISTORY (this person's own only) ───
 let bulkRelHistoryListener = null;
 function initBulkRelHistory(){
   if(bulkRelHistoryListener) return; // one listener for the session is enough
+  const mine = cu?.name||cu?.email||'';
   bulkRelHistoryListener = db.collection('outreachHistory').orderBy('searchedAt','desc').limit(60).onSnapshot(snap=>{
-    renderBulkRelHistory(snap.docs.map(d=>d.data()).filter(r=>r.action==='bulkrel'));
+    renderBulkRelHistory(snap.docs.map(d=>d.data()).filter(r=>r.action==='bulkrel' && r.searchedBy===mine));
   }, ()=>{});
 }
 
