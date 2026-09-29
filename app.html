@@ -10418,6 +10418,11 @@ function renderDomainsPage(){
   tb.innerHTML=fl.map(d=>{
     const smtpHtml=d.smtp?smtpBadge(d.smtp):'<span style="color:var(--text3);">—</span>';
     const trafficV=d.traffic?Number(String(d.traffic).replace(/,/g,'')).toLocaleString():'—';
+    // Admin can edit/delete anything; everyone else can manage only the
+    // rows they themselves added — same ownership check the filter above
+    // already uses (addedBy, with the old notes-as-owner fallback for rows
+    // saved before addedBy existed).
+    const canManage = isAdm || d.addedBy===myName || ((!d.addedBy)&&d.notes===myName);
     return`<tr class="link-row">
       <td style="font-weight:600;"><a href="https://${escapeHtml(d.domain)}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(d.domain)}</a></td>
       <td style="text-align:center;">${d.dr||'—'}</td>
@@ -10432,7 +10437,7 @@ function renderDomainsPage(){
       <td style="font-size:13px;">${d.folder?`<span class="badge b-general">${escapeHtml(d.folder)}</span>`:'<span style="color:var(--text3);">—</span>'}</td>
       <td style="font-size:13px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(d.addedBy||'—')}</td>
       <td style="white-space:nowrap;">
-        ${isAdm?`<button class="btn-ghost" style="font-size:11px;padding:2px 8px;margin-right:4px;" onclick="openDomainModal('${escAttr(d.id)}')">Edit</button>
+        ${canManage?`<button class="btn-ghost" style="font-size:11px;padding:2px 8px;margin-right:4px;" onclick="openDomainModal('${escAttr(d.id)}')">Edit</button>
         <button class="btn-danger" style="font-size:11px;padding:2px 8px;" onclick="deleteDomain('${escAttr(d.id)}','${escAttr(d.domain)}')">✕</button>`:''}
       </td>
     </tr>`;
