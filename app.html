@@ -7934,16 +7934,36 @@ function trackSession(action){
       lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
       loginAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    // Log session start, and keep the ref so heartbeats/logout update this
-    // exact session — avoids a separate query (and its required composite
-    // index) just to find "the open session" again later.
-    db.collection('sessions').add({
-      builder: cu.name||cu.email,
-      date: dateKey,
-      loginAt: firebase.firestore.FieldValue.serverTimestamp(),
-      lastHeartbeat: firebase.firestore.FieldValue.serverTimestamp(),
-      logoutAt: null
-    }).then(ref => { currentSessionRef = ref; });
+    // trackSession('login') fires on every page load/refresh (Firebase
+    // restores the signed-in session via onAuthStateChanged), not just a
+    // real fresh visit — without this, every reload created a brand new
+    // `sessions` doc, inflating the per-day "sessions" count for anyone who
+    // reloads a few times. sessionStorage (cleared only when the tab
+    // actually closes, unlike localStorage) lets a refresh resume the SAME
+    // open session instead.
+    let resumeId = null;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('lb_session')||'null');
+      if(saved && saved.date===dateKey && saved.builder===(cu.name||cu.email)) resumeId = saved.id;
+    } catch(e){}
+    if(resumeId){
+      currentSessionRef = db.collection('sessions').doc(resumeId);
+      currentSessionRef.update({lastHeartbeat: firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{});
+    } else {
+      // Log session start, and keep the ref so heartbeats/logout update this
+      // exact session — avoids a separate query (and its required composite
+      // index) just to find "the open session" again later.
+      db.collection('sessions').add({
+        builder: cu.name||cu.email,
+        date: dateKey,
+        loginAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastHeartbeat: firebase.firestore.FieldValue.serverTimestamp(),
+        logoutAt: null
+      }).then(ref => {
+        currentSessionRef = ref;
+        try { sessionStorage.setItem('lb_session', JSON.stringify({id:ref.id, date:dateKey, builder:cu.name||cu.email})); } catch(e){}
+      });
+    }
   } else if(action === 'logout'){
     db.collection('presence').doc(cu.name||cu.email).update({
       online: false,
@@ -7953,6 +7973,7 @@ function trackSession(action){
       currentSessionRef.update({logoutAt: firebase.firestore.FieldValue.serverTimestamp()});
       currentSessionRef = null;
     }
+    try { sessionStorage.removeItem('lb_session'); } catch(e){}
   }
 }
 
@@ -7967,17 +7988,18 @@ function sendHeartbeat(){
   }
 }
 
-// Track page visibility for auto logout
+// `presence` is one doc per PERSON, not per browser tab — with two tabs
+// open, switching away from just one of them used to flip this doc to
+// online:false immediately, incorrectly showing the person as offline
+// while their other tab was still actively in use. Removed that write
+// entirely: the presence listener's own 5-minute stale-heartbeat check
+// (PRESENCE_STALE_MS) already correctly detects a truly-abandoned session
+// (closed tab/laptop, no more heartbeats) without needing this tab to
+// announce "I personally went to the background" as if it spoke for the
+// whole person.
 document.addEventListener('visibilitychange', ()=>{
-  if(!cu) return;
-  if(document.hidden){
-    db.collection('presence').doc(cu.name||cu.email).update({
-      online: false,
-      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(()=>{});
-  } else {
-    sendHeartbeat();
-  }
+  if(!cu || document.hidden) return;
+  sendHeartbeat();
 });
 
 // Heartbeat every 2 minutes
