@@ -1826,7 +1826,6 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div class="page-top">
     <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:9px;vertical-align:-4px;">
       <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"/><path d="M12 12l4-2"/></svg>Online Tracking</div>
-    <input type="date" id="online-date" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderOnlinePage()"/>
   </div>
 
   <!-- Who is online now -->
@@ -1865,9 +1864,19 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     </div>
   </div>
 
-  <!-- Daily activity table -->
+  <!-- Activity log — everyone, over a date range (not just one day) -->
   <div class="card">
-    <div class="card-head">Daily activity log <span id="online-date-label" style="font-size:12px;color:var(--text3);margin-left:8px;"></span></div>
+    <div class="card-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>Activity log</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setActivityLogPreset('today')">Today</button>
+        <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setActivityLogPreset('week')">This week</button>
+        <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="setActivityLogPreset('month')">This month</button>
+        <input type="date" id="online-from" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderActivityLog()"/>
+        <span style="color:var(--text3);font-size:12px;">–</span>
+        <input type="date" id="online-to" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderActivityLog()"/>
+      </div>
+    </div>
     <div class="tbl-wrap"><table>
       <thead><tr>
         <th>Builder</th>
@@ -1875,15 +1884,19 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
         <th>Last seen</th>
         <th>Total time</th>
         <th>Sessions</th>
+        <th>Days active</th>
         <th>Status</th>
       </tr></thead>
       <tbody id="online-tbody"></tbody>
     </table></div>
   </div>
 
-  <!-- Session timeline -->
+  <!-- Session timeline — one specific day -->
   <div class="card" style="margin-top:1rem;">
-    <div class="card-head">Session timeline</div>
+    <div class="card-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>Session timeline <span id="online-date-label" style="font-size:12px;color:var(--text3);margin-left:8px;font-weight:400;"></span></span>
+      <input type="date" id="online-date" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderTimeline()"/>
+    </div>
     <div class="card-body" id="online-timeline"></div>
   </div>
 </div>
@@ -7927,10 +7940,14 @@ function trackSession(action){
   const dateKey = now.toISOString().slice(0,10);
 
   if(action === 'login'){
-    // Mark online
+    // Mark online — a fresh login/reload always counts as active
+    lastActivityTs = Date.now();
+    lastWrittenStatus = 'active';
+    lastHeartbeatWriteTs = Date.now();
     db.collection('presence').doc(cu.name||cu.email).set({
       name: cu.name||cu.email,
       online: true,
+      status: 'active',
       lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
       loginAt: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -7965,10 +7982,15 @@ function trackSession(action){
       });
     }
   } else if(action === 'logout'){
-    db.collection('presence').doc(cu.name||cu.email).update({
-      online: false,
-      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    // Deliberately NOT writing presence online:false here any more — same
+    // reasoning as the visibilitychange fix below. `presence` is one doc
+    // per PERSON, not per device/tab: logging out on your phone while
+    // still working in a LinkBoard tab on your laptop used to flip the
+    // whole person to offline immediately, even though the laptop session
+    // was still very much live. Just close THIS session; if it really was
+    // the only one, staleness (PRESENCE_STALE_MS) clears the online dot on
+    // its own within 5 minutes — if another device/tab is still
+    // heartbeating, the person correctly stays shown online.
     if(currentSessionRef){
       currentSessionRef.update({logoutAt: firebase.firestore.FieldValue.serverTimestamp()});
       currentSessionRef = null;
@@ -7977,12 +7999,39 @@ function trackSession(action){
   }
 }
 
-function sendHeartbeat(){
+// ─── Idle/Away detection ────────────────────────────────
+// A tab left open and focused used to always report "online", even after
+// hours of no actual mouse/keyboard activity — not very smart. Real
+// interaction updates lastActivityTs; heartbeats compare against it to
+// decide Active vs Away, so "currently online" reflects whether someone's
+// actually AT the keyboard, not just whether a browser tab is sitting open.
+let lastActivityTs = Date.now();
+['mousemove','mousedown','keydown','touchstart','scroll'].forEach(evt=>{
+  document.addEventListener(evt, ()=>{ lastActivityTs = Date.now(); }, {passive:true});
+});
+const IDLE_AWAY_MS = 5 * 60 * 1000; // 5 min with no real interaction → Away
+function currentActivityStatus(){
+  return (Date.now()-lastActivityTs) < IDLE_AWAY_MS ? 'active' : 'away';
+}
+
+let lastHeartbeatWriteTs = 0;
+let lastWrittenStatus = null;
+const HEARTBEAT_KEEPALIVE_MS = 120000; // write at least this often even with no status change, so lastSeen doesn't go stale
+
+function sendHeartbeat(force){
   if(!cu) return;
-  db.collection('presence').doc(cu.name||cu.email).update({
+  const status = currentActivityStatus();
+  const statusChanged = status !== lastWrittenStatus;
+  const dueForKeepalive = (Date.now()-lastHeartbeatWriteTs) >= HEARTBEAT_KEEPALIVE_MS;
+  if(!force && !statusChanged && !dueForKeepalive) return; // nothing new worth a write yet
+  lastWrittenStatus = status;
+  lastHeartbeatWriteTs = Date.now();
+  db.collection('presence').doc(cu.name||cu.email).set({
+    name: cu.name||cu.email,
     online: true,
+    status,
     lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-  }).catch(()=>{});
+  }, {merge:true}).catch(()=>{});
   if(currentSessionRef){
     currentSessionRef.update({lastHeartbeat: firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{});
   }
@@ -7999,20 +8048,30 @@ function sendHeartbeat(){
 // whole person.
 document.addEventListener('visibilitychange', ()=>{
   if(!cu || document.hidden) return;
-  sendHeartbeat();
+  sendHeartbeat(true); // force — coming back from hidden is always worth a fresh write
 });
 
-// Heartbeat every 2 minutes
+// Poll locally every 30s (no Firestore cost — sendHeartbeat itself decides
+// whether an actual write is due) so an Active↔Away transition shows up
+// promptly instead of waiting up to the old fixed 2-minute cycle.
 setInterval(()=>{
   if(!cu || document.hidden) return;
-  sendHeartbeat();
-}, 120000);
+  sendHeartbeat(false);
+}, 30000);
 
 function initOnlinePage(){
   // Set today as default
   const today = new Date().toISOString().slice(0,10);
   document.getElementById('online-date').value = today;
-  document.getElementById('online-date-label').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+
+  // Activity log range — default to the last 7 days, like the by-person view.
+  const onlineFrom = document.getElementById('online-from');
+  const onlineTo = document.getElementById('online-to');
+  if(onlineFrom && !onlineFrom.value){
+    const weekAgo = new Date(Date.now() - 6*86400000).toISOString().slice(0,10);
+    onlineFrom.value = weekAgo;
+    onlineTo.value = today;
+  }
 
   // By-person controls — default to the last 7 days, select built once
   const personSelect = document.getElementById('person-select');
@@ -8045,35 +8104,58 @@ function initOnlinePage(){
     if(!online.length){
       onlineNow.innerHTML='<div style="color:var(--text3);font-size:13px;">No one online right now</div>';
     } else {
+      // Active = real mouse/keyboard activity in the last IDLE_AWAY_MS;
+      // Away = tab's still open and heartbeating, just idle — still
+      // meaningfully "online" (don't message them as if they vanished),
+      // just shown dimmer with no pulse.
       onlineNow.innerHTML = online.map(u=>{
         const color = ONLINE_NEON_COLORS[u.name]||'var(--teal)';
+        const isAway = u.status==='away';
         const lastSeen = u.lastSeen?.toDate ? u.lastSeen.toDate().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
-        return `<div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid ${color}44;border-radius:10px;padding:8px 14px;">
-          <div style="width:8px;height:8px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color};animation:pulse 2s infinite;"></div>
+        return `<div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid ${color}${isAway?'22':'44'};border-radius:10px;padding:8px 14px;${isAway?'opacity:0.6;':''}">
+          <div style="width:8px;height:8px;border-radius:50%;background:${color};${isAway?'':`box-shadow:0 0 6px ${color};animation:pulse 2s infinite;`}"></div>
           <span style="font-size:13px;font-weight:700;color:${color};">${escapeHtml(u.name)}</span>
-          <span style="font-size:10px;color:var(--text3);">since ${lastSeen}</span>
+          <span style="font-size:10px;color:var(--text3);">${isAway?'away · ':''}since ${lastSeen}</span>
         </div>`;
       }).join('');
     }
   });
 
-  renderOnlinePage();
+  renderActivityLog();
+  renderTimeline();
   renderPersonSummary();
 }
 
-async function renderOnlinePage(){
-  const dateVal = document.getElementById('online-date').value;
-  if(!dateVal) return;
+function setActivityLogPreset(preset){
+  // Session `date` fields are always UTC — see setPersonRangePreset for why
+  // this stays in UTC-string space instead of local-time Date methods.
+  const now = new Date();
+  const toStr = now.toISOString().slice(0,10);
+  let fromStr;
+  if(preset==='today') fromStr = toStr;
+  else if(preset==='week'){
+    const d = new Date(now.getTime() - now.getUTCDay()*86400000);
+    fromStr = d.toISOString().slice(0,10);
+  } else fromStr = toStr.slice(0,7)+'-01';
+  document.getElementById('online-from').value = fromStr;
+  document.getElementById('online-to').value = toStr;
+  renderActivityLog();
+}
 
-  document.getElementById('online-date-label').textContent =
-    new Date(dateVal+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+// Everyone, aggregated across a date range — was single-day-only, so
+// checking "who put in real hours this week" meant clicking through each
+// day one at a time. First/Last seen are the earliest/latest across the
+// whole range, Total time and Sessions are summed across every day in it.
+async function renderActivityLog(){
+  const fromVal = document.getElementById('online-from')?.value;
+  const toVal = document.getElementById('online-to')?.value;
+  if(!fromVal||!toVal) return;
 
-  const snap = await db.collection('sessions').where('date','==',dateVal).get();
+  const snap = await db.collection('sessions').where('date','>=',fromVal).where('date','<=',toVal).get();
   const sessions = snap.docs.map(d=>({id:d.id,...d.data()}));
 
   if(!sessions.length){
-    document.getElementById('online-tbody').innerHTML='<tr><td colspan="6" class="loading">No activity on this date</td></tr>';
-    document.getElementById('online-timeline').innerHTML='<div style="color:var(--text3);font-size:13px;">No sessions found</div>';
+    document.getElementById('online-tbody').innerHTML='<tr><td colspan="7" class="loading">No activity in this range</td></tr>';
     return;
   }
 
@@ -8088,10 +8170,10 @@ async function renderOnlinePage(){
     const color = ONLINE_NEON_COLORS[builder]||'var(--teal)';
     const logins = bSessions.map(s=>s.loginAt?.toDate?.()||null).filter(Boolean).sort((a,b)=>a-b);
     const ends = bSessions.map(sessionEnd).filter(Boolean).sort((a,b)=>a-b);
-    const first = logins[0] ? logins[0].toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
-    const last = ends.length ? ends[ends.length-1].toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
+    const first = logins[0] ? logins[0].toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit'})+' '+logins[0].toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
+    const last = ends.length ? ends[ends.length-1].toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit'})+' '+ends[ends.length-1].toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
 
-    // Total time
+    // Total time, summed across every day in the range
     let totalMs = 0;
     bSessions.forEach(s=>{
       const login = s.loginAt?.toDate?.();
@@ -8102,6 +8184,8 @@ async function renderOnlinePage(){
     const totalMins = Math.floor((totalMs%3600000)/60000);
     const totalStr = totalMs>0 ? `${totalHrs}h ${totalMins}m` : '—';
 
+    const daysActive = new Set(bSessions.map(s=>s.date)).size;
+
     // Check if currently online
     const isOnline = bSessions.some(isSessionLive);
 
@@ -8111,14 +8195,40 @@ async function renderOnlinePage(){
       <td style="font-size:12px;">${last}</td>
       <td style="font-weight:700;color:var(--teal);">${totalStr}</td>
       <td style="text-align:center;">${bSessions.length}</td>
+      <td style="text-align:center;">${daysActive}</td>
       <td>${isOnline?
         `<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:#00e676;box-shadow:0 0 4px #00e676;animation:pulse 2s infinite;"></span><span style="font-size:11px;color:#00e676;">Online</span></span>`:
         `<span style="font-size:11px;color:var(--text3);">Offline</span>`
       }</td>
     </tr>`;
   }).join('');
+}
 
-  // Timeline
+// One specific day's login/logout bars per builder — a range doesn't make
+// sense to plot on a single 24h timeline, so this stays single-day and is
+// driven by its own date picker (online-date) instead of the activity
+// log's range.
+async function renderTimeline(){
+  const dateVal = document.getElementById('online-date').value;
+  if(!dateVal) return;
+
+  document.getElementById('online-date-label').textContent =
+    new Date(dateVal+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  const snap = await db.collection('sessions').where('date','==',dateVal).get();
+  const sessions = snap.docs.map(d=>({id:d.id,...d.data()}));
+
+  if(!sessions.length){
+    document.getElementById('online-timeline').innerHTML='<div style="color:var(--text3);font-size:13px;">No sessions found</div>';
+    return;
+  }
+
+  const byBuilder = {};
+  sessions.forEach(s=>{
+    if(!byBuilder[s.builder]) byBuilder[s.builder]=[];
+    byBuilder[s.builder].push(s);
+  });
+
   const dayStart = new Date(dateVal+'T00:00:00').getTime();
   const dayEnd = new Date(dateVal+'T23:59:59').getTime();
   const dayMs = dayEnd - dayStart;
