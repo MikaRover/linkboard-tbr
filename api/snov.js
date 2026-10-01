@@ -259,11 +259,10 @@ async function fetchDatabaseSearchPage(companyName, page, token) {
   } catch(e) { return { prospects: [], totalPages: 0 }; }
 }
 
-async function fetchDatabaseSearchSupplement(domain, token, existingRows, debugOut) {
+async function fetchDatabaseSearchSupplement(domain, token, existingRows) {
   try {
     let onDomain = [];
-    const triedNames = deriveCompanyNameCandidates(domain);
-    for (const companyName of triedNames) {
+    for (const companyName of deriveCompanyNameCandidates(domain)) {
       const first = await fetchDatabaseSearchPage(companyName, 1, token);
       const totalPages = Math.min(first.totalPages || 1, MAX_DB_SEARCH_PAGES);
       const restPages = await Promise.all(
@@ -296,11 +295,6 @@ async function fetchDatabaseSearchSupplement(domain, token, existingRows, debugO
       .sort((a, b) => b._relevance - a._relevance);
     const fresh = pool.filter(p => !isAlreadyFound(p, existingRows));
     const toReveal = fresh.filter(p => p.email_and_hidden_info_reveal).slice(0, MAX_DB_SEARCH_REVEALS);
-    if (debugOut) Object.assign(debugOut, {
-      triedNames, onDomainCount: onDomain.length, relevantCount: relevant.length,
-      poolCount: pool.length, freshCount: fresh.length, toRevealCount: toReveal.length,
-      sampleTitles: onDomain.slice(0, 10).map(p => p.job_title)
-    });
 
     const revealed = await Promise.all(toReveal.map(async (p) => {
       try {
@@ -343,7 +337,7 @@ async function fetchDatabaseSearchSupplement(domain, token, existingRows, debugO
 // LINKEDIN PROSPECTING
 // Returns rows: {first_name,last_name,position,source_page,email,smtp_status,source}
 // ══════════════════════════════════════════════════════════════
-async function fetchProspects(domain, token, maxPeople = 20, debugOut) {
+async function fetchProspects(domain, token, maxPeople = 20) {
   const headers = { Authorization: 'Bearer ' + token };
 
   // Split roles into batches
@@ -441,7 +435,6 @@ async function fetchProspects(domain, token, maxPeople = 20, debugOut) {
   // comes back completely empty when Snov found literally no one relevant.
   const MIN_RESULTS = 1;
   const ranked = (relevant.length >= MIN_RESULTS ? relevant : scored).slice(0, maxPeople);
-  if (debugOut) Object.assign(debugOut, { scoredCount: scored.length, relevantCount: relevant.length, rankedCount: ranked.length });
 
   if (!ranked.length) return [];
 
@@ -779,17 +772,13 @@ module.exports = async function handler(req, res) {
     }
 
     if (!action || action === 'prospects') {
-      // TEMP debug — remove once the "finds nobody" complaint is resolved.
-      const wantDebug = req.body && req.body.debug === true;
-      const debugA = wantDebug ? {} : null;
-      const debugB = wantDebug ? {} : null;
-      const rows = await fetchProspects(cleanDomain, token, 20, debugA);
+      const rows = await fetchProspects(cleanDomain, token, 20);
 
       // Supplement with database-search — catches real people domain-search's
       // title-matching misses (non-standard/combined titles). Every result
       // is domain-verified before being trusted, and anyone domain-search
       // already found is excluded so the same person can't appear twice.
-      const supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, rows, debugB);
+      const supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, rows);
       const allRows = [...rows, ...supplement];
 
       // Snov's name+domain database lookup only surfaces an email it already
@@ -829,8 +818,7 @@ module.exports = async function handler(req, res) {
         prospects,
         total: prospects.length,
         withEmail: prospects.filter(p=>p.email && p.smtp_status!=='invalid').length,
-        verified:  prospects.filter(p=>p.smtp_status==='valid').length,
-        ...(wantDebug ? { _debugDomainSearch: debugA, _debugDatabaseSearch: debugB } : {})
+        verified:  prospects.filter(p=>p.smtp_status==='valid').length
       });
     }
 
