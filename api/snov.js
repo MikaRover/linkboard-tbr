@@ -259,10 +259,11 @@ async function fetchDatabaseSearchPage(companyName, page, token) {
   } catch(e) { return { prospects: [], totalPages: 0 }; }
 }
 
-async function fetchDatabaseSearchSupplement(domain, token, existingRows) {
+async function fetchDatabaseSearchSupplement(domain, token, existingRows, debugOut) {
   try {
     let onDomain = [];
-    for (const companyName of deriveCompanyNameCandidates(domain)) {
+    const triedNames = deriveCompanyNameCandidates(domain);
+    for (const companyName of triedNames) {
       const first = await fetchDatabaseSearchPage(companyName, 1, token);
       const totalPages = Math.min(first.totalPages || 1, MAX_DB_SEARCH_PAGES);
       const restPages = await Promise.all(
@@ -278,8 +279,28 @@ async function fetchDatabaseSearchSupplement(domain, token, existingRows) {
     // whoever actually looks like a link-building/SEO/PR/marketing contact.
     const relevant = onDomain.filter(p => roleTier(p.job_title) >= MIN_RELEVANT_TIER);
     relevant.sort((a, b) => roleTier(b.job_title) - roleTier(a.job_title));
-    const fresh = relevant.filter(p => !isAlreadyFound(p, existingRows));
+    // fetchProspects already has this exact fallback (search "never come
+    // back totally empty" above) but this function didn't — found live:
+    // a company with no dedicated SEO/outreach/PR role (so domain-search's
+    // own title search finds nobody) whose best actual contact is a plain
+    // "Marketing Manager" (roleTier 3, below MIN_RELEVANT_TIER) used to
+    // come back with literally zero prospects from BOTH functions combined,
+    // even though that Marketing Manager is right there on the full roster
+    // database-search just fetched — and is exactly who a team member
+    // would find and email after a 10-second manual look on snov.io. Rank
+    // by the full relevance score (tier + seniority) so "VP of Marketing"
+    // still beats a junior "Marketing Coordinator" when neither clears the
+    // strict bar.
+    const pool = relevant.length ? relevant : onDomain
+      .map(p => Object.assign({}, p, { _relevance: roleRelevanceScore(p.job_title) }))
+      .sort((a, b) => b._relevance - a._relevance);
+    const fresh = pool.filter(p => !isAlreadyFound(p, existingRows));
     const toReveal = fresh.filter(p => p.email_and_hidden_info_reveal).slice(0, MAX_DB_SEARCH_REVEALS);
+    if (debugOut) Object.assign(debugOut, {
+      triedNames, onDomainCount: onDomain.length, relevantCount: relevant.length,
+      poolCount: pool.length, freshCount: fresh.length, toRevealCount: toReveal.length,
+      sampleTitles: onDomain.slice(0, 10).map(p => p.job_title)
+    });
 
     const revealed = await Promise.all(toReveal.map(async (p) => {
       try {
@@ -322,7 +343,7 @@ async function fetchDatabaseSearchSupplement(domain, token, existingRows) {
 // LINKEDIN PROSPECTING
 // Returns rows: {first_name,last_name,position,source_page,email,smtp_status,source}
 // ══════════════════════════════════════════════════════════════
-async function fetchProspects(domain, token, maxPeople = 20) {
+async function fetchProspects(domain, token, maxPeople = 20, debugOut) {
   const headers = { Authorization: 'Bearer ' + token };
 
   // Split roles into batches
@@ -420,6 +441,7 @@ async function fetchProspects(domain, token, maxPeople = 20) {
   // comes back completely empty when Snov found literally no one relevant.
   const MIN_RESULTS = 1;
   const ranked = (relevant.length >= MIN_RESULTS ? relevant : scored).slice(0, maxPeople);
+  if (debugOut) Object.assign(debugOut, { scoredCount: scored.length, relevantCount: relevant.length, rankedCount: ranked.length });
 
   if (!ranked.length) return [];
 
@@ -757,13 +779,17 @@ module.exports = async function handler(req, res) {
     }
 
     if (!action || action === 'prospects') {
-      const rows = await fetchProspects(cleanDomain, token, 20);
+      // TEMP debug — remove once the "finds nobody" complaint is resolved.
+      const wantDebug = req.body && req.body.debug === true;
+      const debugA = wantDebug ? {} : null;
+      const debugB = wantDebug ? {} : null;
+      const rows = await fetchProspects(cleanDomain, token, 20, debugA);
 
       // Supplement with database-search — catches real people domain-search's
       // title-matching misses (non-standard/combined titles). Every result
       // is domain-verified before being trusted, and anyone domain-search
       // already found is excluded so the same person can't appear twice.
-      const supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, rows);
+      const supplement = await fetchDatabaseSearchSupplement(cleanDomain, token, rows, debugB);
       const allRows = [...rows, ...supplement];
 
       // Snov's name+domain database lookup only surfaces an email it already
@@ -803,7 +829,8 @@ module.exports = async function handler(req, res) {
         prospects,
         total: prospects.length,
         withEmail: prospects.filter(p=>p.email && p.smtp_status!=='invalid').length,
-        verified:  prospects.filter(p=>p.smtp_status==='valid').length
+        verified:  prospects.filter(p=>p.smtp_status==='valid').length,
+        ...(wantDebug ? { _debugDomainSearch: debugA, _debugDatabaseSearch: debugB } : {})
       });
     }
 
