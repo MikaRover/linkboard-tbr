@@ -2531,7 +2531,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <div>
       <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;">
         <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Category & Email Check</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Paste domains to get the Category, in bulk — no DR/Traffic lookup, so it runs faster. Also gets a free email lookup for every domain — SaaS excluded by default, since it usually isn't the outreach target.</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;">Paste domains to get the Category, in bulk — no DR/Traffic lookup, so it runs faster. Also gets a free email lookup for every domain (untick “Find emails” to skip it) — SaaS excluded by default, since it usually isn't the outreach target.</div>
     </div>
     <div style="display:flex;gap:8px;">
       <button class="btn-ghost" onclick="exportCatCheckCSV()" id="catcheck-export-btn" style="display:none;">⬇ Export CSV</button>
@@ -2551,7 +2551,11 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
           Auto-save to Domains DB
         </label>
         <select id="catcheck-folder" onchange="handleFolderSelectChange(this)" style="margin:0;padding:5px 8px;font-size:12px;min-width:140px;"><option value="">— no folder —</option></select>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;" title="Off by default — SaaS companies usually aren't the outreach target">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;" title="Uncheck to only detect the category — skips the email lookup entirely, so it runs faster">
+          <input type="checkbox" id="catcheck-find-emails" style="width:auto;margin:0;" checked onchange="toggleCatCheckEmails()"/>
+          Find emails
+        </label>
+        <label id="catcheck-saas-label" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;" title="Off by default — SaaS companies usually aren't the outreach target">
           <input type="checkbox" id="catcheck-include-saas" style="width:auto;margin:0;"/>
           Also find email for SaaS
         </label>
@@ -11019,6 +11023,14 @@ function exportBatchCSV(){
 // 3-at-a-time instead of Batch Analyze's one-at-a-time-with-delay —
 // meaningfully faster when only the category is needed.
 let catCheckResults = [];
+// "Find emails" off = category only — the SaaS sub-option is meaningless then, so grey it out.
+function toggleCatCheckEmails(){
+  const on = document.getElementById('catcheck-find-emails').checked;
+  const saas = document.getElementById('catcheck-include-saas');
+  const lbl = document.getElementById('catcheck-saas-label');
+  if(saas) saas.disabled = !on;
+  if(lbl) lbl.style.opacity = on ? '' : '0.4';
+}
 async function runCatCheckBatch(btn){
   const raw = document.getElementById('catcheck-input').value.trim();
   if(!raw){ alert('Enter at least one domain'); return; }
@@ -11036,6 +11048,7 @@ async function runCatCheckBatch(btn){
   const saveDB = document.getElementById('catcheck-save-db').checked;
   const targetFolder = document.getElementById('catcheck-folder')?.value||'';
   const includeSaas = document.getElementById('catcheck-include-saas')?.checked||false;
+  const findEmails = document.getElementById('catcheck-find-emails')?.checked!==false;
 
   results.style.display = 'none';
   tbody.innerHTML = '';
@@ -11078,7 +11091,7 @@ async function runCatCheckBatch(btn){
       // Non-SaaS domains (Service/Magazine/General/Other) get a free email
       // lookup too — a SaaS company isn't usually the outreach target, so
       // it's skipped by default unless "Also find email for SaaS" is on.
-      const wantsEmail = category && category!=='—' && (includeSaas || category!=='SaaS');
+      const wantsEmail = findEmails && category && category!=='—' && (includeSaas || category!=='SaaS');
       if(wantsEmail){
         if(row) row.querySelector('td:last-child').innerHTML = '<span style="font-size:11px;color:var(--accent2);">📧 Finding email...</span>';
         try{
@@ -11134,6 +11147,7 @@ async function runCatCheckBatch(btn){
         const catBadgeHtml = category&&category!=='—' ? catBadge(category) : '<span style="color:var(--text3);">—</span>';
         let emailsHtml;
         if(!category||category==='—') emailsHtml = '<span style="color:var(--text3);">—</span>';
+        else if(!findEmails) emailsHtml = '<span style="color:var(--text3);font-size:11px;">— (skipped)</span>';
         else if(category==='SaaS' && !includeSaas) emailsHtml = '<span style="color:var(--text3);font-size:11px;" title="Skipped — category is SaaS">— (SaaS)</span>';
         else if(emails.length) emailsHtml = emails.map(e=>`<div style="font-size:12px;color:var(--teal);display:flex;align-items:center;gap:5px;">${escapeHtml(e.email)}<button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.innerHTML=COPY_ICON,1500);" title="Copy" style="background:none;border:none;cursor:pointer;padding:0;line-height:1;">${COPY_ICON}</button>${smtpBadge(e.smtp||'unknown')}${composeBtn(e.firstName, e.email, domain)}</div>`).join('');
         else emailsHtml = '<span style="color:var(--text3);font-size:11px;">No email found</span>';
