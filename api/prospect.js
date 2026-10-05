@@ -12,9 +12,13 @@ module.exports = async function handler(req, res) {
   if (!isSafeHost(domain)) return res.status(400).json({ error: 'Invalid or disallowed domain' });
 
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || '';
-  const baseUrl = `https://${domain.replace(/^https?:\/\//, '').replace(/^www\./, '')}`;
+  const cleaned = domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+  const bareDomain = cleaned.split('/')[0].toLowerCase();
+  const baseUrl = `https://${bareDomain}`;
+  // Someone may paste a specific blog section (forms.app/en/blog) — keep it as an extra index page.
+  const pastedPath = cleaned.includes('/') ? `${baseUrl}/${cleaned.split('/').slice(1).join('/').replace(/\/+$/, '')}` : '';
 
-  const fetchHtml = async (url, timeout = 7000) => {
+  const fetchHtml = async (url, timeout = 6000) => {
     try {
       const r = await fetch(url, {
         headers: browserHeaders(),
@@ -39,69 +43,117 @@ module.exports = async function handler(req, res) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  // STEP 1: Find article links.
-  // Was a sequential loop over 11 candidate index pages (up to 11×7s=77s in
-  // the worst case) — comfortably longer than this function's own 60s Vercel
-  // limit, so a site whose blog lived at, say, the 8th URL tried would get
-  // silently killed by the platform with no response at all. Checking every
-  // candidate at once bounds this step by the single slowest request
-  // (~5s) instead of their sum.
+  // STEP 1: Find candidate article URLs.
+  // Two sources, fetched all at once (bounded by the slowest request, not
+  // their sum — an earlier sequential version could exceed this function's
+  // own 60s limit):
+  //   a) blog index pages / homepage links, and
+  //   b) the site's XML sitemap — the reliable source for WordPress-style
+  //      sites whose posts live at the root (site.com/some-long-slug/), which
+  //      the old path-pattern-only discovery could never recognise. That's
+  //      exactly the shape of most guest-post donor sites, and it made the
+  //      tool answer "No blog articles found" for them.
   const indexUrls = [
     `${baseUrl}/blog`, `${baseUrl}/guides`, `${baseUrl}/articles`,
     `${baseUrl}/resources`, `${baseUrl}/learn`, `${baseUrl}/news`,
     `${baseUrl}/insights`, `${baseUrl}/tutorials`, `${baseUrl}/library`,
     `${baseUrl}/posts`, `${baseUrl}`
   ];
+  if (pastedPath) indexUrls.unshift(pastedPath);
+
+  const NON_ARTICLE_SEG = /^(tag|tags|category|categories|author|authors|page|wp-[a-z-]+|feed|cart|checkout|login|signup|search|privacy|privacy-policy|terms|terms-of-service|about|about-us|contact|contact-us|disclaimer|cookie-policy|advertise|advertising|write-for-us|guest-post|sitemap|shop|product|products|my-account)$/i;
+  const isArticleUrl = (href, loose) => {
+    let u; try { u = new URL(href); } catch(e) { return false; }
+    const host = u.hostname.replace(/^www\./, '').toLowerCase();
+    if (host !== bareDomain && !host.endsWith('.' + bareDomain)) return false;
+    if (/\.(css|js|png|jpg|jpeg|svg|pdf|zip|xml|gif|webp|ico|mp4|woff2?)$/i.test(u.pathname)) return false;
+    const segments = u.pathname.split('/').filter(Boolean);
+    if (!segments.length) return false;
+    if (segments.some(sg => NON_ARTICLE_SEG.test(sg))) return false;
+    if (/\/(page\/\d+|wp-|feed|cart|checkout|login|signup)\b/i.test(u.pathname)) return false;
+    const last = segments[segments.length - 1];
+    const words = last.split('-').filter(Boolean).length;
+    // classic /blog/slug, /guides/slug ... (any hyphenated-ish slug)
+    const hasArticlePath = segments.length >= 2 && /^(blog|blogs|article|articles|post|posts|news|resources|learn|guides|guide|insights|knowledge|tutorials|tutorial|library|content|stories|story|magazine)$/i.test(segments[segments.length - 2]) || /\/(blog|blogs|article|articles|post|posts|news|resources|learn|guides|guide|insights|knowledge|tutorials|tutorial|library|content)\//i.test(u.pathname);
+    if (hasArticlePath && (last.includes('-') || last.length >= 8)) return true;
+    // dated permalinks: /2025/05/slug/
+    if (segments.length >= 3 && /^\d{4}$/.test(segments[0]) && /^\d{1,2}$/.test(segments[1]) && last.includes('-')) return true;
+    // root-level / topic-level slugs (WordPress "post name" permalinks). Sitemap
+    // URLs are posts by construction so a hyphenated slug is enough; links scraped
+    // from a page need a longer, headline-like slug to avoid picking up nav pages.
+    return loose ? (last.includes('-') && last.length >= 10) : (words >= 4 && last.length >= 20);
+  };
 
   const extractArticleLinks = (html) => {
     const found = new Set();
-    const linkRe = /href="([^"#?][^"]*)"/gi;
+    const linkRe = /href\s*=\s*["']([^"'#][^"']*)["']/gi;
     let m;
     while ((m = linkRe.exec(html)) !== null) {
-      let href = m[1];
-      if (href.startsWith('/')) href = baseUrl + href;
-      if (!href.startsWith('http')) continue;
-      if (!href.includes(domain.replace(/^www\./, ''))) continue;
-
-      const path = href.replace(/^https?:\/\/[^\/]+/, '');
-      const segments = path.split('/').filter(Boolean);
-      if (segments.length < 2) continue;
-      if (/\.(css|js|png|jpg|svg|pdf|zip|xml|gif|webp)$/i.test(href)) continue;
-
-      // Must be article-like path
-      const hasArticlePath = /\/(blog|article|articles|post|posts|news|resources|learn|guides|guide|insights|knowledge|tutorials|tutorial|library|content)\//i.test(path);
-      if (!hasArticlePath) continue;
-
-      // Skip pagination, tags, categories
-      if (/\/(tag|category|author|page\/\d+|wp-|feed|cart|checkout|login|signup|search)\//i.test(path)) continue;
-
-      // Slug must look like an article (has hyphens)
-      const lastSeg = segments[segments.length - 1];
-      if (!lastSeg.includes('-') && lastSeg.length < 8) continue;
-
-      found.add(href);
-      if (found.size >= 30) break;
+      let abs; try { abs = new URL(m[1], baseUrl + '/').href; } catch(e) { continue; }
+      abs = abs.split('#')[0].split('?')[0];
+      if (!isArticleUrl(abs, false)) continue;
+      found.add(abs);
+      if (found.size >= 40) break;
     }
     return found;
   };
 
-  const indexResults = await Promise.all(indexUrls.map(async (url) => {
-    const html = await fetchHtml(url, 5000);
-    return { url, links: html ? extractArticleLinks(html) : new Set() };
-  }));
+  const xmlLocs = (xml) => [...xml.matchAll(/<url>[\s\S]*?<\/url>|<sitemap>[\s\S]*?<\/sitemap>/gi)].map(blk => {
+    const loc = (/<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]\s]+)/i.exec(blk[0]) || [])[1];
+    const lm = (/<lastmod>\s*([^<\s]+)/i.exec(blk[0]) || [])[1] || '';
+    return loc ? { loc, lastmod: lm } : null;
+  }).filter(Boolean);
+  const fetchXml = async (url) => {
+    const t = await fetchHtml(url, 5000);
+    return t && /<(urlset|sitemapindex)[\s>]/i.test(t.slice(0, 3000)) ? t : null;
+  };
 
-  // Preserve the original priority order (dedicated /blog etc. over the
-  // homepage) — first one that found a healthy batch wins.
-  let blogLinks = [];
-  for (const r of indexResults) {
-    if (r.links.size >= 5) { blogLinks = [...r.links]; break; }
-  }
-  // Nothing hit the 5-link bar — still use whichever page found the most,
-  // rather than failing outright on a site with a thin blog.
-  if (!blogLinks.length) {
+  const sitemapRoots = [`${baseUrl}/sitemap_index.xml`, `${baseUrl}/sitemap.xml`, `${baseUrl}/wp-sitemap.xml`];
+  const [indexResults, robotsTxt, ...rootXmls] = await Promise.all([
+    Promise.all(indexUrls.map(async (url) => {
+      const html = await fetchHtml(url, 5000);
+      return { url, links: html ? extractArticleLinks(html) : new Set() };
+    })),
+    fetchHtml(`${baseUrl}/robots.txt`, 4000),
+    ...sitemapRoots.map(fetchXml)
+  ]);
+
+  // Sitemap URLs: follow a sitemap *index* down to its post/blog/news children (a few at once).
+  let sitemapEntries = [];
+  try {
+    const roots = rootXmls.filter(Boolean);
+    const extraRoots = ((robotsTxt || '').match(/^\s*Sitemap:\s*(\S+)/gim) || []).map(l => l.replace(/^\s*Sitemap:\s*/i, '').trim()).filter(u => !sitemapRoots.includes(u)).slice(0, 2);
+    if (!roots.length && extraRoots.length) { const extra = await Promise.all(extraRoots.map(fetchXml)); roots.push(...extra.filter(Boolean)); }
+    const childUrls = [];
+    for (const xml of roots) {
+      if (/<sitemapindex[\s>]/i.test(xml)) {
+        const kids = xmlLocs(xml).map(e => e.loc);
+        const wanted = kids.filter(k => /post|blog|article|news|stor|content/i.test(k) && !/page|categor|tag|author|product|attach|image|video|local|taxonom/i.test(k));
+        childUrls.push(...(wanted.length ? wanted : kids.slice(0, 1)).slice(0, 3));
+      } else {
+        sitemapEntries.push(...xmlLocs(xml));
+      }
+    }
+    if (childUrls.length) {
+      const kidXmls = await Promise.all([...new Set(childUrls)].slice(0, 4).map(fetchXml));
+      kidXmls.filter(Boolean).forEach(x => sitemapEntries.push(...xmlLocs(x)));
+    }
+  } catch(e) { /* sitemap is a bonus source — never fail the whole search over it */ }
+
+  const sitemapLinks = sitemapEntries
+    .filter(e => isArticleUrl(e.loc.split('#')[0], true))
+    .sort((a, b) => (b.lastmod || '').localeCompare(a.lastmod || '')) // newest first
+    .map(e => e.loc.split('#')[0]);
+
+  // Page-scraped candidates keep their old priority (dedicated /blog first); a
+  // thin index page no longer ends the search — sitemap URLs are merged in.
+  let scraped = [];
+  for (const r of indexResults) { if (r.links.size >= 5) { scraped = [...r.links]; break; } }
+  if (!scraped.length) {
     const best = indexResults.reduce((a, b) => (b.links.size > a.links.size ? b : a), { links: new Set() });
-    blogLinks = [...best.links];
+    scraped = [...best.links];
   }
+  const blogLinks = [...new Set([...scraped, ...sitemapLinks])].slice(0, 400);
 
   if (!blogLinks.length) {
     return res.json({ domain, suggestions: [], error: 'No blog articles found on this website.' });
@@ -154,7 +206,25 @@ module.exports = async function handler(req, res) {
 
   // Fetch all articles and score by actual content
   const scoredArticles = [];
-  await Promise.all(blogLinks.slice(0, 25).map(async (url) => {
+  // With a sitemap there can be hundreds of posts — fetching only the first 25
+  // would score a tiny, arbitrary slice. Pre-rank every candidate by how well
+  // its URL slug matches the client's topics/anchors/hint (free, no fetch), read
+  // the best 25, and top up with the newest posts if few slugs match.
+  const pickCandidates = () => {
+    if (blogLinks.length <= 25) return blogLinks;
+    const slugScore = (u) => {
+      const slug = decodeURIComponent((u.split('?')[0].split('/').filter(Boolean).pop() || '')).toLowerCase().replace(/-/g, ' ');
+      let sc = 0;
+      phrases.forEach(ph => { if (slug.includes(ph)) sc += 6; });
+      words.forEach(w => { if (slug.includes(w)) sc += 2; });
+      return sc;
+    };
+    const ranked = blogLinks.map((u, i) => ({ u, i, sc: slugScore(u) }));
+    const matched = ranked.filter(r => r.sc > 0).sort((a, b) => b.sc - a.sc || a.i - b.i).slice(0, 18).map(r => r.u);
+    const rest = ranked.map(r => r.u).filter(u => !matched.includes(u));
+    return [...matched, ...rest].slice(0, 25);
+  };
+  await Promise.all(pickCandidates().map(async (url) => {
     const html = await fetchHtml(url);
     if (!html) return;
 
@@ -297,7 +367,7 @@ Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`
         max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }]
       }),
-      signal: AbortSignal.timeout(45000)
+      signal: AbortSignal.timeout(38000)
     });
 
     const aiData = await aiResp.json();
