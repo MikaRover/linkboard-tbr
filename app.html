@@ -1063,6 +1063,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div class="nav nav-bld" onclick="gotoPage('domains',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><ellipse cx='12' cy='5' rx='9' ry='3' fill='currentColor'/><path d='M21 12c0 1.66-4 3-9 3s-9-1.34-9-3' stroke-linecap='round'/><path d='M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5' stroke-linecap='round'/></svg>Domains DB</div>
   <div class="nav nav-bld" onclick="gotoPage('batch',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='11' cy='11' r='7'/><path d='M20 20l-4.35-4.35' stroke-linecap='round'/></svg>Batch Analyze</div>
   <div class="nav nav-bld" onclick="gotoPage('catcheck',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='3' y='3' width='7' height='7' rx='1' fill='currentColor'/><rect x='14' y='3' width='7' height='7' rx='1' fill='currentColor'/><rect x='3' y='14' width='7' height='7' rx='1' fill='currentColor'/><rect x='14' y='14' width='7' height='7' rx='1' fill='currentColor'/></svg>Category & Email Check</div>
+  <div class="nav nav-bld" onclick="gotoPage('prospector',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' fill='currentColor'/></svg>AI Prospector</div>
   <div class="sb-bottom">
     <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" style="margin-bottom:10px;">
       <div class="theme-switch" id="theme-switch">
@@ -3093,8 +3094,6 @@ function startApp(){
   // "admin + one specific builder", not "admin-only". Client-side gating
   // only, same caveat as folder ownership elsewhere in this app: someone
   // with dev tools could still hit gotoPage('bulkrel') directly.
-  const canSeeBulkRel = isAdmin || (cu.name||'')==='Tatev';
-  document.querySelectorAll('.tatev-tool').forEach(el=>el.style.display=canSeeBulkRel?'block':'none');
   if(isAdmin){
     // Admin sees all admin nav, builder nav hidden
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='none');
@@ -3105,6 +3104,9 @@ function startApp(){
     });
     document.querySelectorAll('.nav-bld').forEach(el=>el.style.display='block');
   }
+  // Bulk Relevancy — applied AFTER the branches above: the builder branch
+  // hides every non-nav-bld item, which used to hide this one from Tatev too.
+  document.querySelectorAll('.tatev-tool').forEach(el=>el.style.display=isAdminOrTatev()?'block':'none');
   // Double-check queue nav — admin only
   document.querySelectorAll('.nav-sofya').forEach(el=>{
     el.style.display=isAdmin?'block':'none';
