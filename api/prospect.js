@@ -129,13 +129,14 @@ module.exports = async function handler(req, res) {
       if (/<sitemapindex[\s>]/i.test(xml)) {
         const kids = xmlLocs(xml).map(e => e.loc);
         const wanted = kids.filter(k => /post|blog|article|news|stor|content/i.test(k) && !/page|categor|tag|author|product|attach|image|video|local|taxonom/i.test(k));
-        childUrls.push(...(wanted.length ? wanted : kids.slice(0, 1)).slice(0, 3));
+        // big sites split posts across dozens of sitemap files (blogbuz.co.uk: 58) — read the newest 40 in parallel; slug-ranking below picks the relevant ones
+        childUrls.push(...(wanted.length ? wanted : kids.slice(0, 1)).slice(-40));
       } else {
         sitemapEntries.push(...xmlLocs(xml));
       }
     }
     if (childUrls.length) {
-      const kidXmls = await Promise.all([...new Set(childUrls)].slice(0, 4).map(fetchXml));
+      const kidXmls = await Promise.all([...new Set(childUrls)].slice(0, 40).map(fetchXml));
       kidXmls.filter(Boolean).forEach(x => sitemapEntries.push(...xmlLocs(x)));
     }
   } catch(e) { /* sitemap is a bonus source — never fail the whole search over it */ }
@@ -153,7 +154,7 @@ module.exports = async function handler(req, res) {
     const best = indexResults.reduce((a, b) => (b.links.size > a.links.size ? b : a), { links: new Set() });
     scraped = [...best.links];
   }
-  const blogLinks = [...new Set([...scraped, ...sitemapLinks])].slice(0, 400);
+  const blogLinks = [...new Set([...scraped, ...sitemapLinks])].slice(0, 8000);
 
   if (!blogLinks.length) {
     return res.json({ domain, suggestions: [], error: 'No blog articles found on this website.' });
