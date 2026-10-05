@@ -103,8 +103,8 @@ module.exports = async function handler(req, res) {
     const lm = (/<lastmod>\s*([^<\s]+)/i.exec(blk[0]) || [])[1] || '';
     return loc ? { loc, lastmod: lm } : null;
   }).filter(Boolean);
-  const fetchXml = async (url) => {
-    const t = await fetchHtml(url, 5000);
+  const fetchXml = async (url, timeout = 5000) => {
+    const t = await fetchHtml(url, timeout);
     return t && /<(urlset|sitemapindex)[\s>]/i.test(t.slice(0, 3000)) ? t : null;
   };
 
@@ -136,7 +136,7 @@ module.exports = async function handler(req, res) {
       }
     }
     if (childUrls.length) {
-      const kidXmls = await Promise.all([...new Set(childUrls)].slice(0, 80).map(fetchXml));
+      const kidXmls = await Promise.all([...new Set(childUrls)].slice(0, 80).map(u => fetchXml(u, 8000)) // big sites throttle ~60 parallel requests (median 4s, tail >5s) — a 5s cap silently dropped a quarter of the archive);
       kidXmls.filter(Boolean).forEach(x => sitemapEntries.push(...xmlLocs(x)));
     }
   } catch(e) { /* sitemap is a bonus source — never fail the whole search over it */ }
@@ -381,7 +381,7 @@ Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`
         max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }]
       }),
-      signal: AbortSignal.timeout(38000)
+      signal: AbortSignal.timeout(34000)
     });
 
     const aiData = await aiResp.json();
