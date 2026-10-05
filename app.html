@@ -3020,6 +3020,11 @@ function hideEmptyNavSections(){
   });
 }
 
+// Admin + Tatev only (Bulk Relevancy, project "Need to change" counts).
+// Client-side gating only. NOTE: startApp's `isAdmin` is a local const, so
+// anything outside startApp must use this helper instead of referencing it.
+function isAdminOrTatev(){ return cu?.role==='admin' || (cu?.name||'')==='Tatev'; }
+
 function startApp(){
   showAppWithAnimation();
   const NEON_COLORS={
@@ -3180,6 +3185,9 @@ function renderProjectsPage(){
   if(!allProjects.length){grid.innerHTML='<div style="color:var(--text2);font-size:13px;">No projects yet</div>';return;}
   const showHidden = document.getElementById('show-hidden-projects')?.checked;
   const filtered = allProjects.filter(p => showHidden ? true : !p.hidden);
+  // "Need to change" is a review-queue number — only Admin and Tatev handle it,
+  // so it's hidden for everyone else (client-side only, same caveat as Bulk Relevancy).
+  const canSeeNeedsChange = isAdminOrTatev();
 
   grid.innerHTML = (showHidden && allProjects.some(p=>p.hidden) ? `
     <div style="grid-column:1/-1;font-size:11px;color:var(--text3);padding:4px 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
@@ -3189,6 +3197,7 @@ function renderProjectsPage(){
     const count=allLinks.filter(l=>l.project===p.name).length;
     const live=allLinks.filter(l=>l.project===p.name&&l.status==='live').length;
     const pend=allLinks.filter(l=>l.project===p.name&&l.status==='pending').length;
+    const needsChange=allLinks.filter(l=>l.project===p.name&&l.status==='needs-change').length;
     const sd = p.siteData;
     const scanned = sd && sd.lastScanned;
     const isHidden = !!p.hidden;
@@ -3197,9 +3206,10 @@ function renderProjectsPage(){
         <div style="cursor:pointer;flex:1;" onclick="openProjectDetail('${escAttr(p.name)}')">
           <div class="proj-name" style="${isHidden?'color:var(--text3);text-decoration:line-through;':''}">${escapeHtml(p.name)}</div>
           <div class="proj-count" style="color:var(--teal);">${count} links →</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:3px;display:flex;align-items:center;gap:8px;">
-            <span style="display:inline-flex;align-items:center;gap:3px;"><svg width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/><polyline points='22 4 12 14.01 9 11.01'/></svg>${live}</span>
-            <span style="display:inline-flex;align-items:center;gap:3px;"><svg width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>${pend}</span>
+          <div style="font-size:11px;margin-top:6px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
+            <span class="badge b-live" title="Live links">Live ${live}</span>
+            <span class="badge b-pend" title="Pending links">Pending ${pend}</span>
+            ${canSeeNeedsChange?`<span class="badge b-dup" title="Links that need to change">Need to change ${needsChange}</span>`:''}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
@@ -4042,7 +4052,7 @@ function gotoPage(name,el){
     // .tatev-tool only hides the nav link — gotoPage itself is reachable
     // from devtools by anyone signed in, so re-check here before showing
     // a page meant for admin + Tatev only.
-    const allowed = isAdmin || (cu.name||'')==='Tatev';
+    const allowed = isAdminOrTatev();
     if(!allowed){ gotoPage('dashboard', document.querySelector('.nav[onclick*="dashboard"]')); return; }
     initBulkRelHistory();
   }
