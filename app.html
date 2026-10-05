@@ -1994,7 +1994,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <!-- Stats row — 3 cards -->
   <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem;">
     <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="View live links"><div class="stat-l">Live this month</div><div class="stat-v" style="color:var(--teal)" id="b-live">—</div><div class="spark" id="b-live-spark"></div></div>
-    <div class="stat" onclick="goToMyLinks('pending')" style="cursor:pointer;" title="View pending links"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500" id="b-pend">—</div></div>
+    <div class="stat" onclick="goToMyLinks('pending')" style="cursor:pointer;" title="View pending links"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500" id="b-pend">—</div><div id="b-pend-hint" style="display:none;font-size:10px;color:var(--text3);margin-top:2px;"></div></div>
     <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="Live links vs your assigned monthly quota"><div class="stat-l">Live / Quota</div><div class="stat-v" id="b-live-pct" style="color:var(--teal)">—</div></div>
   </div>
 
@@ -3196,8 +3196,13 @@ function renderProjectsPage(){
   filtered.map(p=>{
     const count=allLinks.filter(l=>l.project===p.name).length;
     const live=allLinks.filter(l=>l.project===p.name&&l.status==='live').length;
-    const pend=allLinks.filter(l=>l.project===p.name&&l.status==='pending').length;
     const needsChange=allLinks.filter(l=>l.project===p.name&&l.status==='needs-change').length;
+    // A link flagged "need to change" is still outstanding work, not a live
+    // link — so it counts toward Pending (and never toward Live).
+    const pend=allLinks.filter(l=>l.project===p.name&&l.status==='pending').length+needsChange;
+    // Everyone else only sees how many of THEIR OWN links in this project were flagged.
+    const _me=(cu?.name||cu?.email||'').trim().toLowerCase();
+    const myNeedsChange=allLinks.filter(l=>l.project===p.name&&l.status==='needs-change'&&(l.builder||'').trim().toLowerCase()===_me).length;
     const sd = p.siteData;
     const scanned = sd && sd.lastScanned;
     const isHidden = !!p.hidden;
@@ -3209,7 +3214,8 @@ function renderProjectsPage(){
           <div style="font-size:11px;margin-top:6px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
             <span class="badge b-live" title="Live links">Live ${live}</span>
             <span class="badge b-pend" title="Pending links">Pending ${pend}</span>
-            ${canSeeNeedsChange?`<span class="badge b-dup" title="Links that need to change">Need to change ${needsChange}</span>`:''}
+            ${canSeeNeedsChange?`<span class="badge b-dup" title="Links that need to change (already counted in Pending)">Need to change ${needsChange}</span>`
+              :(myNeedsChange?`<span class="badge b-dup" title="Your links in this project that need to change (already counted in Pending)">Your links to change ${myNeedsChange}</span>`:'')}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
@@ -9975,7 +9981,14 @@ function renderBuilderDashboard(){
   // Unscoped by month on purpose — a link added last month that's still
   // pending is still outstanding work, it shouldn't vanish from the count
   // just because the calendar rolled over into a new month.
-  document.getElementById('b-pend').textContent=myLinks.filter(l=>l.status==='pending').length;
+  // Links flagged "need to change" count as Pending (still outstanding), never as Live.
+  const myNeedsChange=myLinks.filter(l=>l.status==='needs-change').length;
+  document.getElementById('b-pend').textContent=myLinks.filter(l=>l.status==='pending').length+myNeedsChange;
+  const needHint=document.getElementById('b-pend-hint');
+  if(needHint){
+    needHint.textContent=myNeedsChange?`incl. ${myNeedsChange} need to change`:'';
+    needHint.style.display=myNeedsChange?'':'none';
+  }
   document.getElementById('b-quota-month').textContent=`${curMonth} ${curYear}`;
 
   const quotaGrid=document.getElementById('b-quota-grid');
@@ -10156,7 +10169,7 @@ function renderBuilderLinks(){
     const ce=(cu.email||'').trim().toLowerCase();
     if(lb!==mn && lb!==cn && lb!==ce)return false;
     if(bStatusFilter==='live'&&l.status!=='live')return false;
-    if(bStatusFilter==='pend'&&l.status!=='pending')return false;
+    if(bStatusFilter==='pend'&&l.status!=='pending'&&l.status!=='needs-change')return false;
     if(bStatusFilter==='needschange'&&l.status!=='needs-change')return false;
     if(bStatusFilter==='lost'&&l.status!=='lost')return false;
     if(p&&l.project!==p)return false;
