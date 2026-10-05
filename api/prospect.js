@@ -136,8 +136,17 @@ module.exports = async function handler(req, res) {
       }
     }
     if (childUrls.length) {
-      // 8s, not 5s: big sites throttle ~60 parallel requests (median 4s, tail >5s) — a 5s cap silently dropped a quarter of the archive
-      const kidXmls = await Promise.all([...new Set(childUrls)].slice(0, 80).map(u => fetchXml(u, 8000)));
+      // Waves of 20, newest sitemaps first, with a time budget. Firing ~60 at once
+      // got throttled (median 4s, tail >5s, some refused) and then the host stopped
+      // answering at all for a while; a few small waves is gentler and still covers
+      // a big archive. The budget keeps this whole step inside the 60s function limit.
+      const uniqKids = [...new Set(childUrls)].slice(0, 80).reverse();
+      const t0 = Date.now();
+      const kidXmls = [];
+      for (let i = 0; i < uniqKids.length; i += 20) {
+        if (i > 0 && Date.now() - t0 > 11000) break;
+        kidXmls.push(...await Promise.all(uniqKids.slice(i, i + 20).map(u => fetchXml(u, 6000))));
+      }
       kidXmls.filter(Boolean).forEach(x => sitemapEntries.push(...xmlLocs(x)));
     }
   } catch(e) { /* sitemap is a bonus source — never fail the whole search over it */ }
@@ -155,7 +164,7 @@ module.exports = async function handler(req, res) {
     const best = indexResults.reduce((a, b) => (b.links.size > a.links.size ? b : a), { links: new Set() });
     scraped = [...best.links];
   }
-  const blogLinks = [...new Set([...scraped, ...sitemapLinks])].slice(0, 8000);
+  const blogLinks = [...new Set([...scraped, ...sitemapLinks])].slice(0, 30000);
 
   if (!blogLinks.length) {
     return res.json({ domain, suggestions: [], error: 'No blog articles found on this website.' });
