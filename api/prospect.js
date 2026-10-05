@@ -115,7 +115,7 @@ module.exports = async function handler(req, res) {
       return { url, links: html ? extractArticleLinks(html) : new Set() };
     })),
     fetchHtml(`${baseUrl}/robots.txt`, 4000),
-    ...sitemapRoots.map(fetchXml)
+    ...sitemapRoots.map(u => fetchXml(u))
   ]);
 
   // Sitemap URLs: follow a sitemap *index* down to its post/blog/news children (a few at once).
@@ -123,7 +123,7 @@ module.exports = async function handler(req, res) {
   try {
     const roots = rootXmls.filter(Boolean);
     const extraRoots = ((robotsTxt || '').match(/^\s*Sitemap:\s*(\S+)/gim) || []).map(l => l.replace(/^\s*Sitemap:\s*/i, '').trim()).filter(u => !sitemapRoots.includes(u)).slice(0, 2);
-    if (!roots.length && extraRoots.length) { const extra = await Promise.all(extraRoots.map(fetchXml)); roots.push(...extra.filter(Boolean)); }
+    if (!roots.length && extraRoots.length) { const extra = await Promise.all(extraRoots.map(u => fetchXml(u))); roots.push(...extra.filter(Boolean)); }
     const childUrls = [];
     for (const xml of roots) {
       if (/<sitemapindex[\s>]/i.test(xml)) {
