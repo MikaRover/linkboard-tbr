@@ -398,7 +398,9 @@ Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`
     // model doesn't always hold a numeric bar perfectly; drop anything that
     // slipped through under it rather than trust the instruction alone.
     const filtered = suggestions.filter(s => (s.relevancy == null || s.relevancy >= 70));
-    return res.json({ domain, suggestions: filtered.slice(0, 6) });
+    // stats let the UI say WHY the list is empty ("read 25 of 3,200 articles, none cleared 70")
+    // instead of one generic message for every kind of empty result.
+    return res.json({ domain, suggestions: filtered.slice(0, 6), stats: { candidates: blogLinks.length, read: scoredArticles.length, considered: topArticles.length, suggestedBeforeFilter: suggestions.length } });
   } catch(e) {
     return res.json({ error: e.message, suggestions: [] });
   }
