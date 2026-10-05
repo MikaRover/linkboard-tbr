@@ -136,7 +136,8 @@ module.exports = async function handler(req, res) {
       }
     }
     if (childUrls.length) {
-      const kidXmls = await Promise.all([...new Set(childUrls)].slice(0, 80).map(u => fetchXml(u, 8000)) // big sites throttle ~60 parallel requests (median 4s, tail >5s) — a 5s cap silently dropped a quarter of the archive);
+      // 8s, not 5s: big sites throttle ~60 parallel requests (median 4s, tail >5s) — a 5s cap silently dropped a quarter of the archive
+      const kidXmls = await Promise.all([...new Set(childUrls)].slice(0, 80).map(u => fetchXml(u, 8000)));
       kidXmls.filter(Boolean).forEach(x => sitemapEntries.push(...xmlLocs(x)));
     }
   } catch(e) { /* sitemap is a bonus source — never fail the whole search over it */ }
