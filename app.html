@@ -342,13 +342,25 @@ select option{background:var(--bg2);}
 .pj-act{width:26px;height:26px;border-radius:8px;border:none;background:transparent;color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
 .pj-act:hover{background:var(--bg4);color:var(--text);}
 .pj-act.danger:hover{color:var(--red);}
-.pj-act.pj-busy{opacity:.5;pointer-events:none;}
+.pj-busy{opacity:.5;pointer-events:none;}
 .pj-bar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--bg4);gap:1px;}
 .pj-bar i{display:block;height:100%;}
 .pj-stats{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--text2);}
 .pj-stats span{display:inline-flex;align-items:center;gap:5px;}
 .pj-stats b{color:var(--text);font-weight:600;}
 .pj-dot{width:6px;height:6px;border-radius:50%;display:inline-block;}
+/* Project detail — "what LinkBoard understands about this project" panel */
+.pp-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
+.pp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.pp-title{font-size:13px;font-weight:700;}
+.pp-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.pp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 22px;}
+.pp-k{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin-bottom:4px;}
+.pp-v{font-size:13px;color:var(--text);line-height:1.45;}
+.pp-chips{display:flex;flex-wrap:wrap;gap:5px;}
+.pp-chip{font-size:11px;padding:2px 9px;border-radius:20px;background:var(--bg4);color:var(--text2);}
+.pp-chip.hl{background:rgba(50,215,75,0.12);color:var(--teal);}
+.pp-wide{grid-column:1/-1;}
 .pj-niche{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:8px;border-top:1px solid var(--border);}
 
 /* ── IMPORT ── */
@@ -1387,6 +1399,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <button class="btn-danger adm" onclick="clearProjectLinks()" style="white-space:nowrap;padding:6px 12px;font-size:12px;">🗑 Clear all links</button>
     </div>
   </div>
+  <div id="pd-profile" style="margin-bottom:1rem;"></div>
   <div class="stats" id="pd-stats" style="grid-template-columns:repeat(4,1fr);"></div>
   <div class="filters" style="gap:6px;margin-bottom:8px;">
     <input id="pd-s" placeholder="Search..." oninput="renderDetailLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
@@ -3171,6 +3184,7 @@ function listenProjects(){
   db.collection('projects').orderBy('name').onSnapshot(snap=>{
     allProjects=snap.docs.map(d=>({id:d.id,...d.data()}));
     populateProjectSelects();renderProjectsPage();
+    if(window.currentPage==='project-detail') renderProjectProfile();
   });
 }
 function populateProjectSelects(){
@@ -3276,6 +3290,50 @@ function renderProjectsPage(){
       ${scanned&&sd.niche?`<div class="pj-niche" title="${escAttr(nicheTip)}">${escapeHtml(sd.niche)}</div>`:''}
     </div>`;
   }).join('');
+}
+
+// What the AI Prospector will be told about this project (siteData from the
+// "Scan" feature) — shown so the team can sanity-check that the tool actually
+// understands the client before running searches against it.
+function renderProjectProfile(){
+  const el=document.getElementById('pd-profile'); if(!el||!currentDetailProject) return;
+  const proj=allProjects.find(p=>p.name===currentDetailProject);
+  if(!proj){ el.innerHTML=''; return; }
+  const sd=proj.siteData;
+  const site=proj.website||proj.domain||proj.url||'';
+  const chips=(arr,hl)=>(arr&&arr.length)?`<div class="pp-chips">${arr.map(t=>`<span class="pp-chip${hl?' hl':''}">${escapeHtml(t)}</span>`).join('')}</div>`:'<span style="color:var(--text3);">—</span>';
+  const field=(k,v,wide)=>`<div class="${wide?'pp-wide':''}"><div class="pp-k">${k}</div><div class="pp-v">${v}</div></div>`;
+  const btns=`<div style="display:flex;gap:6px;">
+      <button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="editProjectWebsite('${escAttr(proj.id)}','${escAttr(proj.name)}')">${site?'Change website':'Set website'}</button>
+      <button class="btn-sm" style="width:auto;font-size:11px;padding:5px 12px;" onclick="scanProject('${escAttr(proj.id)}','${escAttr(proj.name)}',this)">${sd&&sd.lastScanned?'Re-scan':'Scan website'}</button>
+    </div>`;
+  if(!sd||!sd.lastScanned){
+    el.innerHTML=`<div class="pp-card"><div class="pp-head"><div><div class="pp-title">AI profile</div><div class="pp-sub">Not scanned yet — AI Prospector has no idea what ${escapeHtml(proj.name)} does. Scan the website so it can judge relevancy properly.</div></div>${btns}</div></div>`;
+    return;
+  }
+  el.innerHTML=`<div class="pp-card">
+    <div class="pp-head"><div><div class="pp-title">AI profile — what AI Prospector knows about ${escapeHtml(proj.name)}</div>
+      <div class="pp-sub">${site?escapeHtml(site)+' · ':''}scanned ${escapeHtml(sd.lastScanned)} · if something's wrong, fix the website and re-scan</div></div>${btns}</div>
+    <div class="pp-grid">
+      ${field('What it is',escapeHtml(sd.niche||'—'),true)}
+      ${field('Type',escapeHtml(sd.productType||'—'))}
+      ${field('Target audience',escapeHtml(sd.targetAudience||'—'))}
+      ${field('Core topics',chips(sd.coreTopics,true),true)}
+      ${field('Keywords',chips(sd.keywords))}
+      ${field('Content themes',chips(sd.contentThemes))}
+      ${field('Competitors',chips(sd.competitors))}
+      ${field('Why a site would link to it',escapeHtml(sd.linkingContext||'—'),true)}
+    </div></div>`;
+}
+async function editProjectWebsite(projId,projName){
+  const proj=allProjects.find(p=>p.id===projId);
+  const cur=proj?.website||proj?.domain||proj?.url||'';
+  const v=prompt(`Client website for "${projName}":`, cur||'example.com');
+  if(!v) return;
+  const domain=v.replace(/^https?:\/\//,'').replace(/^www\./,'').split('/')[0].trim();
+  if(!domain) return;
+  await db.collection('projects').doc(projId).update({website:domain});
+  showToast('Website saved — now re-scan to refresh the profile');
 }
 
 async function scanProject(projId, projName, btn){
@@ -3510,6 +3568,7 @@ function openProjectDetail(projName){
   document.getElementById('pd-dup').value='';
 
   gotoPage('project-detail', null);
+  renderProjectProfile();
   renderDetailLinks();
 }
 
