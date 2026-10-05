@@ -10838,7 +10838,11 @@ async function runProspectorPage(btn){
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({domain, project:proj, linkTo, anchors: finalAnchors, siteData, hint})
     });
-    const data = await resp.json();
+    // A Vercel timeout (504) comes back as an HTML page, not JSON — without this the
+    // user saw "Unexpected token '<'" with no hint that the search simply ran too long.
+    let data;
+    try { data = await resp.json(); }
+    catch(parseErr){ data = { suggestions: [], error: resp.status===504||resp.status===502 ? 'The search timed out (this site is big or slow). Try again, or add a target URL / guidance to narrow it.' : `Unexpected response from the server (HTTP ${resp.status}).` }; }
     clearInterval(st);
     document.getElementById('prosp-loading').style.display = 'none';
 
@@ -10851,7 +10855,10 @@ async function runProspectorPage(btn){
     logOutreachSearch(domain, 'prospector', (data.suggestions||[]).length, {anchor: manualAnchor, linkTo, project: proj, hint});
     if(!data.suggestions?.length){
       document.getElementById('prosp-page-error').style.display = 'block';
-      document.getElementById('prosp-page-error').textContent = data.error || 'No suggestions found. Try a different domain or add a target URL.';
+      const st2 = data.stats;
+      document.getElementById('prosp-page-error').textContent = data.error
+        || (st2 ? `Read ${st2.read} of ${st2.candidates.toLocaleString()} article${st2.candidates===1?'':'s'} on ${domain}${st2.suggestedBeforeFilter?` — ${st2.suggestedBeforeFilter} placement idea${st2.suggestedBeforeFilter===1?'':'s'} came up but none were natural enough (70+ relevancy)`:' — Claude found no natural place for these anchors'}. Try a different domain, add a target URL, or give guidance.`
+        : 'No suggestions found. Try a different domain or add a target URL.');
     } else {
       renderProspectorCards(data.suggestions, domain, proj, linkTo);
     }
