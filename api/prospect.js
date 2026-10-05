@@ -303,6 +303,7 @@ ${list}`;
   };
 
   let semanticCount = 0;
+  const semanticUrls = new Set(); // articles the semantic pass picked — must not be dropped by the keyword top-N below
   const pickCandidates = async () => {
     if (blogLinks.length <= 25) return blogLinks;
     const slugOf = (u) => { try { return decodeURIComponent(u.split('?')[0].split('/').filter(Boolean).pop() || '').toLowerCase().replace(/-/g, ' '); } catch(e) { return ''; } };
@@ -333,6 +334,7 @@ ${list}`;
     const poolIdx = [...matchedAll.slice(0, 150), ...rest].slice(0, 400);
     const picked = (await semanticPick(poolIdx.map(i => slugs[i]), await targetPagePromise)).map(n => poolIdx[n]);
     semanticCount = picked.length;
+    picked.forEach(i => semanticUrls.add(blogLinks[i]));
 
     const chosen = [...new Set([...matchedAll.slice(0, 10), ...picked, ...matchedAll, ...rest])].slice(0, 25);
     return chosen.map(i => blogLinks[i]);
@@ -384,7 +386,13 @@ ${list}`;
   // "winners" with nothing better to compare against. More raw material
   // gives it an actual choice, without the prompt getting unmanageably long.
   scoredArticles.sort((a, b) => b.score - a.score);
-  const topArticles = scoredArticles.slice(0, 8);
+  // Claude sees a MIX: the best keyword matches AND the best of what the semantic
+  // pass picked. Taking only the keyword top-8 threw the semantic picks away — on
+  // blog.loopcv.pro the one article about verification/spam ("How LoopCV Prevents
+  // Spam Applications") was read but ranked ~19th by keyword score, so Claude
+  // never got to judge it.
+  const semanticRead = scoredArticles.filter(a => semanticUrls.has(a.url));
+  const topArticles = [...new Map([...scoredArticles.slice(0, 5), ...semanticRead.slice(0, 7), ...scoredArticles.slice(5)].map(a => [a.url, a])).values()].slice(0, 11);
 
   // STEP 3: Claude deep analysis
   const projectCtx = siteData ? `
