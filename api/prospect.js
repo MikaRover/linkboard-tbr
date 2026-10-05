@@ -43,6 +43,65 @@ module.exports = async function handler(req, res) {
     .replace(/\s+/g, ' ')
     .trim();
 
+  const anchorList = (anchors && anchors.length) ? anchors.slice(0, 10) : [];
+  const anchorStr = anchorList.join(', ') || 'relevant topics';
+
+  const targetPagePromise = linkTo ? (async () => {
+    const html = await fetchHtml(linkTo);
+    if (!html) return null;
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i);
+    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    const text = htmlToText(html);
+    return {
+      title: titleMatch ? titleMatch[1].replace(/\s+/g, ' ').trim() : '',
+      description: descMatch ? descMatch[1].trim() : '',
+      h1: h1Match ? h1Match[1].replace(/<[^>]+>/g, '').trim() : '',
+      excerpt: text.slice(0, 1200)
+    };
+  })() : Promise.resolve(null);
+
+  // STEP 0: understand the TARGET first. Everything downstream (which articles to
+  // read, what counts as a natural fit) is judged against this understanding
+  // instead of just the anchor words — so for "ai video maker" the search is
+  // driven by what the page actually is and which kinds of articles/readers
+  // would link to it, not only by whether an article contains the literal words.
+  // Runs in parallel with article discovery below, so it adds no wall-clock time.
+  const callHaiku = async (prompt, maxTokens, timeout) => {
+    if (!ANTHROPIC_KEY) return '';
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] }),
+        signal: AbortSignal.timeout(timeout)
+      });
+      const j = await r.json();
+      const tb = Array.isArray(j.content) && j.content.find(b => typeof b?.text === 'string');
+      return (r.ok && tb) ? tb.text : '';
+    } catch(e) { return ''; }
+  };
+  const targetProfilePromise = (async () => {
+    const tp = await targetPagePromise;
+    if (!tp && !siteData && !anchorList.length) return null;
+    const prompt = `You help an SEO link builder. First UNDERSTAND the page we want a backlink to, then say what kind of articles on OTHER websites would naturally link to it.
+
+${tp ? `TARGET PAGE (${linkTo}):\nTitle: ${tp.title}\nH1: ${tp.h1}\nDescription: ${tp.description}\nExcerpt: ${tp.excerpt}\n` : `Target URL: ${linkTo || 'not given'}\n`}
+${siteData ? `Client: ${siteData.niche || project || ''}. Audience: ${siteData.targetAudience || ''}. Core topics: ${(siteData.coreTopics || []).join(', ')}.\n` : (project ? `Client project: ${project}\n` : '')}Anchors we want to use: ${anchorStr}
+${hint && hint.trim() ? `Team guidance: ${hint.trim()}\n` : ''}
+Return ONLY JSON:
+{
+  "summary": "2 sentences: what this page is, who it is for, what problem it solves",
+  "topics": ["5-8 short topic phrases that describe the page itself"],
+  "searchPhrases": ["10-14 SHORT phrases (1-3 words) a relevant donor article's title or URL would likely contain — include the page's own topic AND adjacent subjects its readers care about (e.g. for an AI video maker: video marketing, social media content, product demos, explainer videos, content creation, repurposing content, small business marketing)"],
+  "goodArticleTypes": ["3-5 kinds of articles where a link to this page would read as genuinely useful, e.g. 'tool roundups', 'how-to guides on creating video content'"]
+}`;
+    const txt = await callHaiku(prompt, 700, 9000);
+    const m = txt && txt.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try { return JSON.parse(m[0]); } catch(e) { return null; }
+  })();
+
   // STEP 1: Find candidate article URLs.
   // Two sources, fetched all at once (bounded by the slowest request, not
   // their sum — an earlier sequential version could exceed this function's
@@ -172,24 +231,6 @@ module.exports = async function handler(req, res) {
 
   // STEP 2: Score articles by content relevance — fetch & read them, plus
   // the actual target page itself (in parallel with everything else).
-  const anchorList = (anchors && anchors.length) ? anchors.slice(0, 10) : [];
-  const anchorStr = anchorList.join(', ') || 'relevant topics';
-
-  const targetPagePromise = linkTo ? (async () => {
-    const html = await fetchHtml(linkTo);
-    if (!html) return null;
-    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i);
-    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-    const text = htmlToText(html);
-    return {
-      title: titleMatch ? titleMatch[1].replace(/\s+/g, ' ').trim() : '',
-      description: descMatch ? descMatch[1].trim() : '',
-      h1: h1Match ? h1Match[1].replace(/<[^>]+>/g, '').trim() : '',
-      excerpt: text.slice(0, 1200)
-    };
-  })() : Promise.resolve(null);
-
   // Build TWO keyword tiers instead of one flat word bag: multi-word phrases
   // from the client's own coreTopics/keywords are what actually signal real
   // topical overlap ("customer data platform" as a unit) — splitting them
@@ -211,6 +252,13 @@ module.exports = async function handler(req, res) {
   if (hint && hint.trim()) {
     const STOP = new Set(['find','look','looking','search','searching','article','articles','post','posts','about','that','this','with','from','where','which','talk','talks','talking','prefer','preferably','like','want','need','please','into','over','only','more','less','best','good','some','such','have','been','will']);
     hint.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 3 && !STOP.has(w)).forEach(w => wordSet.add(w));
+  }
+  // Everything we learned about the target in STEP 0 joins the keyword pool (phrases
+  // count 6x in article scoring and rank slugs too).
+  const profile = await targetProfilePromise;
+  if (profile) {
+    (profile.searchPhrases || []).forEach(x => typeof x === 'string' && addPhrase(x));
+    (profile.topics || []).forEach(x => typeof x === 'string' && addPhrase(x));
   }
   // Project never scanned (no siteData)? The target page itself still says what we're linking to.
   try {
@@ -234,29 +282,19 @@ module.exports = async function handler(req, res) {
   // for an "ai video maker" anchor on a QA-testing site, nothing contains "video",
   // yet a post about AI-generated content or marketing assets might still fit.
   const semanticPick = async (slugList, tp) => {
-    if (!ANTHROPIC_KEY || !slugList.length) return [];
+    if (!slugList.length) return [];
     const list = slugList.map((sl, n) => `${n}. ${sl}`).join('\n');
     const prompt = `We want to insert a link into an EXISTING article on ${domain}.
 Target: ${linkTo || project || 'unknown'}${tp ? ` — "${tp.title}" / ${tp.h1} / ${tp.description}` : ''}
-Anchors to place: ${anchorStr}${hint && hint.trim() ? `\nTeam guidance: ${hint.trim()}` : ''}
+${profile ? `What the target page is: ${profile.summary || ''}\nArticle types where a link to it fits: ${(profile.goodArticleTypes || []).join('; ')}\n` : ''}Anchors to place: ${anchorStr}${hint && hint.trim() ? `\nTeam guidance: ${hint.trim()}` : ''}
 
 Below are article URL slugs from that site. Pick up to 20 whose articles are MOST likely to contain a paragraph where a link like this could be placed naturally. Topically adjacent counts (the article doesn't have to be mainly about the target topic), but skip articles that are clearly unrelated.
 Return ONLY a JSON array of the slug numbers, e.g. [3, 17, 42].
 
 ${list}`;
-    try {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, messages: [{ role: 'user', content: prompt }] }),
-        signal: AbortSignal.timeout(7000)
-      });
-      const j = await r.json();
-      const tb = Array.isArray(j.content) && j.content.find(b => typeof b?.text === 'string');
-      if (!r.ok || !tb) return [];
-      const m = tb.text.match(/\[[\s\d,]*\]/);
-      return m ? JSON.parse(m[0]).filter(n => Number.isInteger(n) && n >= 0 && n < slugList.length) : [];
-    } catch(e) { return []; }
+    const txt = await callHaiku(prompt, 200, 7000);
+    const m = txt && txt.match(/\[[\s\d,]*\]/);
+    try { return m ? JSON.parse(m[0]).filter(n => Number.isInteger(n) && n >= 0 && n < slugList.length) : []; } catch(e) { return []; }
   };
 
   let semanticCount = 0;
@@ -357,6 +395,12 @@ CLIENT CONTEXT (what we're linking TO):
   // The site-wide niche is often too broad to match against — a page-level
   // summary of the *actual* URL being linked lets Claude judge fit against
   // what that specific page is about, not just "the company in general".
+  const understandingCtx = profile ? `
+WHAT WE UNDERSTAND ABOUT THE TARGET (judge every placement against this):
+- Summary: ${profile.summary || ''}
+- Topics: ${(profile.topics || []).join(', ')}
+- Articles where a link to it fits: ${(profile.goodArticleTypes || []).join('; ')}
+` : '';
   const targetPageCtx = targetPage ? `
 TARGET PAGE ITSELF (${linkTo}):
 - Title: ${targetPage.title}
@@ -386,7 +430,7 @@ ${hint.trim()}
 
   const prompt = `You are a senior SEO link builder. Your job is to find places in EXISTING blog articles where a link can be naturally inserted.
 
-${projectCtx}${targetPageCtx}${hintCtx}
+${projectCtx}${targetPageCtx}${understandingCtx}${hintCtx}
 Target URL: ${linkTo || 'not specified'}
 Anchors to place: ${anchorStr}
 
@@ -469,7 +513,7 @@ Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`
     const filtered = suggestions.filter(s => (s.relevancy == null || s.relevancy >= 70));
     // stats let the UI say WHY the list is empty ("read 25 of 3,200 articles, none cleared 70")
     // instead of one generic message for every kind of empty result.
-    return res.json({ domain, suggestions: filtered.slice(0, 6), stats: { candidates: blogLinks.length, read: scoredArticles.length, considered: topArticles.length, suggestedBeforeFilter: suggestions.length, semanticPicked: semanticCount, ...(debug ? { picked: scoredArticles.map(a => ({ url: a.url, title: a.title, score: a.score })), rawModelText: text.slice(0, 1500) } : {}) } });
+    return res.json({ domain, suggestions: filtered.slice(0, 6), stats: { candidates: blogLinks.length, read: scoredArticles.length, considered: topArticles.length, suggestedBeforeFilter: suggestions.length, semanticPicked: semanticCount, ...(debug ? { profile, picked: scoredArticles.map(a => ({ url: a.url, title: a.title, score: a.score })), rawModelText: text.slice(0, 1500) } : {}) } });
   } catch(e) {
     return res.json({ error: e.message, suggestions: [] });
   }
