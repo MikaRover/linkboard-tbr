@@ -4074,9 +4074,9 @@ async function bdQaSubmit(){
   const curMonthCheck=MONTHS_EN[new Date().getMonth()];
   const curYearCheck=new Date().getFullYear();
   const curMYCheck=curMonthCheck+' '+curYearCheck;
-  const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor_lc&&(r.month===curMYCheck||r.month===curMonthCheck));
+  const req=findReqForLink(proj,anchor_lc,(document.getElementById('bd-qa-linkto')||{}).value,curMYCheck,curMonthCheck);
   if(req){
-    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&(l.month?(l.month===curMYCheck||l.month.startsWith(curMYCheck.split(' ')[0])):l.date&&getMonthKey(l.date)===curMYCheck)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&linkMatchesReq(l,req)&&(l.month?(l.month===curMYCheck||l.month.startsWith(curMYCheck.split(' ')[0])):l.date&&getMonthKey(l.date)===curMYCheck)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     if(used>=req.max){alert('🚫 Anchor limit reached ('+used+'/'+req.max+') for '+curMYCheck);return;}
   }
 
@@ -4089,7 +4089,7 @@ async function bdQaSubmit(){
       price:'',linkin:document.getElementById('bd-qa-linkin').value.trim(),linkto:document.getElementById('bd-qa-linkto').value.trim(),
       invoice:'',comments:'',
       builder:cu.name||cu.email,
-      check:getCheck(domain,anchor,proj),
+      check:getCheck(domain,anchor,proj,document.getElementById('bd-qa-linkto').value.trim()),
       relevancy:'',linkcheck:'',
       createdAt:firebase.firestore.FieldValue.serverTimestamp(),
       date:new Date().toLocaleDateString('en-GB'),
@@ -4472,7 +4472,7 @@ function renderAnchorReqs(){
 
   wrap.style.display='block';
   list.innerHTML=reqs.map(r=>{
-    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&(l.month?(l.month===curMonthYear||l.month.startsWith(curMonthYear.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonthYear)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&linkMatchesReq(l,r)&&(l.month?(l.month===curMonthYear||l.month.startsWith(curMonthYear.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonthYear)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     const pct=Math.min(100,Math.round(used/r.max*100));
     const full=used>=r.max;
     const color=full?'var(--red)':used>0?'var(--yellow)':'var(--teal)';
@@ -4497,23 +4497,54 @@ function onAnchorInput(){
   const curYear=new Date().getFullYear();
   const curMonthYear=curMonth+' '+curYear;
   // Match "Month Year" format (new) OR just "Month" (old)
-  const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor&&(r.month===curMonthYear||r.month===curMonth));
+  const req=findReqForLink(proj,anchor,(document.getElementById('f-linkto')||{}).value,curMonthYear,curMonth);
   if(!req){
     const anyReq=allReqs.find(r=>r.project===proj&&r.anchor===anchor);
     if(!anyReq){el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No anchor requirement for "'+anchor+'" in '+proj;return;}
     el.style.display='block';el.className='alert a-warn';el.textContent='⚠️ No requirement for "'+anchor+'" in '+curMonthYear+' (set for '+anyReq.month+')';return;
   }
-  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor&&(l.month?(l.month===curMonthYear||l.month.startsWith(curMonthYear.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonthYear)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor&&linkMatchesReq(l,req)&&(l.month?(l.month===curMonthYear||l.month.startsWith(curMonthYear.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonthYear)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
   if(used>=req.max){el.style.display='block';el.className='alert a-dup';el.textContent='🚫 Limit reached! '+used+'/'+req.max+' for "'+anchor+'" ('+curMonthYear+')';}
   else{el.style.display='block';el.className='alert a-ok';el.textContent='✅ Anchor OK — '+used+' of '+req.max+' used in '+curMonthYear;}
 }
 
-function getCheck(domain,anchor,proj){
+// ─── Requirement identity = anchor + target URL ─────────────────────
+// The same anchor text can be required for DIFFERENT target pages in the same
+// month (e.g. "pauli propagation" → a /blog/ page AND an app/tutorial page,
+// each with its own max). Requirements used to be keyed on project+month+anchor
+// only, so adding the second URL silently overwrote the first.
+function normUrl(u){ return (u||'').trim().toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/[?#].*$/,'').replace(/\/+$/,''); }
+function sameReqUrl(a,b){ return normUrl(a)===normUrl(b); }
+// Other requirements for the same project+month+anchor, in a stable order.
+function reqSiblings(r){
+  return allReqs.filter(x=>x.project===r.project&&x.month===r.month&&x.anchor===r.anchor).sort((a,b)=>String(a.id)<String(b.id)?-1:1);
+}
+// Does link `l` count toward requirement `r`? With a single requirement for the
+// anchor this is always true (old behaviour, so existing counts don't move).
+// With several (different URLs) a link counts toward the one whose URL it
+// points at; a link with no/unknown URL is attributed to the first sibling so
+// it is never counted twice.
+function linkMatchesReq(l,r){
+  const sib=reqSiblings(r);
+  if(sib.length<=1) return true;
+  const lu=normUrl(l.linkto);
+  if(lu){ const exact=sib.find(x=>normUrl(x.linkto)===lu); if(exact) return exact.id===r.id; }
+  return sib[0].id===r.id;
+}
+// Pick the requirement a NEW link (anchor + target URL) falls under this month.
+function findReqForLink(proj,anchorLc,linkto,monthYear,monthOnly){
+  const c=allReqs.filter(r=>r.project===proj&&(r.anchor||'').toLowerCase()===anchorLc&&(r.month===monthYear||r.month===monthOnly));
+  if(c.length<=1) return c[0];
+  const lu=normUrl(linkto);
+  return (lu&&c.find(r=>normUrl(r.linkto)===lu)) || c.slice().sort((a,b)=>String(a.id)<String(b.id)?-1:1)[0];
+}
+
+function getCheck(domain,anchor,proj,linkto){
   if(allLinks.some(l=>nd(l.domain)===nd(domain)))return'dup';
   const curM=MONTHS_EN[new Date().getMonth()]+' '+new Date().getFullYear();
-  const req=allReqs.find(r=>r.project===proj&&r.anchor.toLowerCase()===(anchor||'').toLowerCase()&&(r.month===curM||r.month===MONTHS_EN[new Date().getMonth()]));
+  const req=findReqForLink(proj,(anchor||'').toLowerCase(),linkto,curM,MONTHS_EN[new Date().getMonth()]);
   if(!req)return'noreq';
-  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===(anchor||'').toLowerCase()&&(l.month?(l.month===curM||l.month.startsWith(curM.split(' ')[0])):l.date&&getMonthKey(l.date)===curM)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+  const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===(anchor||'').toLowerCase()&&linkMatchesReq(l,req)&&(l.month?(l.month===curM||l.month.startsWith(curM.split(' ')[0])):l.date&&getMonthKey(l.date)===curM)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
   return used>=req.max?'limit':'ok';
 }
 
@@ -4578,9 +4609,9 @@ async function addLink(){
   const curMonthCheck=MONTHS_EN[new Date().getMonth()];
   const curYearCheck=new Date().getFullYear();
   const curMYCheck=curMonthCheck+' '+curYearCheck;
-  const req=allReqs.find(r=>r.project===proj&&r.anchor===anchor_lc&&(r.month===curMYCheck||r.month===curMonthCheck));
+  const req=findReqForLink(proj,anchor_lc,(document.getElementById('f-linkto')||{}).value,curMYCheck,curMonthCheck);
   if(req){
-    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&(l.month?(l.month===curMYCheck||l.month.startsWith(curMYCheck.split(' ')[0])):l.date&&getMonthKey(l.date)===curMYCheck)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+    const used=allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===anchor_lc&&linkMatchesReq(l,req)&&(l.month?(l.month===curMYCheck||l.month.startsWith(curMYCheck.split(' ')[0])):l.date&&getMonthKey(l.date)===curMYCheck)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     if(used>=req.max){alert('🚫 Anchor limit reached ('+used+'/'+req.max+') for '+curMYCheck);return;}
   }
 
@@ -4601,7 +4632,7 @@ async function addLink(){
       invoice:document.getElementById('f-invoice').value||'',
       comments:document.getElementById('f-comments').value||'',
       builder:chosenBuilder,
-      check:getCheck(domain,anchor,proj),
+      check:getCheck(domain,anchor,proj,document.getElementById('f-linkto').value||''),
       relevancy:'',linkcheck:'',
       createdAt:firebase.firestore.FieldValue.serverTimestamp(),
       date:new Date().toLocaleDateString('en-GB'),
@@ -4860,7 +4891,7 @@ async function importReqFromImage(input){
       const anchor=(row.anchor||'').toLowerCase().trim();
       const linkto=(row.linkto||'').trim();
       const max=parseInt(row.max)||1;
-      const existing=allReqs.find(r=>r.project===proj&&r.month===month&&r.anchor===anchor);
+      const existing=allReqs.find(r=>r.project===proj&&r.month===month&&r.anchor===anchor&&sameReqUrl(r.linkto,linkto));
       if(existing) await db.collection('requirements').doc(existing.id).update({max,linkto});
       else await db.collection('requirements').add({project:proj,month,anchor,linkto,max});
       saved++;
@@ -4884,7 +4915,7 @@ async function addReq(){
   const max=parseInt(document.getElementById('r-max').value);
   if(!proj||!anchor||!max){alert('Fill all fields');return;}
   // Store month as "Month Year" format
-  const existing=allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor);
+  const existing=allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor&&sameReqUrl(r.linkto,linkto));
   if(existing) await db.collection('requirements').doc(existing.id).update({max,linkto});
   else await db.collection('requirements').add({project:proj,month:monthYear,anchor,linkto,max});
   document.getElementById('r-anchor').value='';
@@ -5582,7 +5613,7 @@ function renderReqs(){
   const tb=document.getElementById('req-tbody');
   if(!allReqs.length){tb.innerHTML='<tr><td colspan="7" class="loading">No requirements</td></tr>';return;}
   tb.innerHTML=allReqs.map(r=>{
-    const used=allLinks.filter(l=>l.project===r.project&&(l.anchor||'').toLowerCase()===r.anchor&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+    const used=allLinks.filter(l=>l.project===r.project&&(l.anchor||'').toLowerCase()===r.anchor&&linkMatchesReq(l,r)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     const pct=Math.min(100,Math.round(used/r.max*100));const over=used>r.max;
     const linktoHtml=r.linkto?`<a href="${escAttr(r.linkto)}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none;" title="${escapeHtml(r.linkto)}">↗ ${escapeHtml(r.linkto.replace(/^https?:\/\/(www\.)?/,'').slice(0,30))}</a>`:'<span style="color:var(--text3);font-size:11px;">—</span>';
     return`<tr>
@@ -6756,9 +6787,11 @@ async function startReqImport(){
         .get();
 
       const data={project:proj,month:item.month,anchor:item.anchor,linkto:item.linkto||'',max:item.max,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+      // same anchor + DIFFERENT target URL is a separate requirement, not an update
+      const sameDoc=snap.docs.find(d=>sameReqUrl(d.data().linkto,item.linkto));
 
-      if(!snap.empty){
-        await db.collection('requirements').doc(snap.docs[0].id).update(data);
+      if(sameDoc){
+        await db.collection('requirements').doc(sameDoc.id).update(data);
         updated++;
       } else {
         await db.collection('requirements').add(data);
@@ -6859,7 +6892,7 @@ async function importFromPaste(){
 
   let saved=0;
   for(const item of parsed){
-    const existing = allReqs.find(r=>r.project===proj&&r.month===month&&r.anchor===item.anchor);
+    const existing = allReqs.find(r=>r.project===proj&&r.month===month&&r.anchor===item.anchor&&sameReqUrl(r.linkto,item.linkto));
     const data = {project:proj, month, anchor:item.anchor, linkto:item.linkto||'', max:item.max, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
     if(existing) await db.collection('requirements').doc(existing.id).update(data);
     else await db.collection('requirements').add(data);
@@ -6896,7 +6929,7 @@ async function importReqFromCsvDirect(input){
 
     for(const item of rows){
       const m = item.month||month;
-      const existing = allReqs.find(r=>r.project===proj&&r.month===m&&r.anchor===item.anchor);
+      const existing = allReqs.find(r=>r.project===proj&&r.month===m&&r.anchor===item.anchor&&sameReqUrl(r.linkto,item.linkto));
       const data = {project:proj, month:m, anchor:item.anchor, linkto:item.linkto||'', max:item.max, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
       if(existing){await db.collection('requirements').doc(existing.id).update(data);updated++;}
       else{await db.collection('requirements').add(data);saved++;}
@@ -8660,7 +8693,7 @@ async function importAnchorsFromImage(input){
       const anchor=(row.anchor||'').toLowerCase().trim();
       const linkto=(row.linkto||'').trim();
       const max=parseInt(row.max)||1;
-      const existing=allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor);
+      const existing=allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor&&sameReqUrl(r.linkto,linkto));
       if(existing) await db.collection('requirements').doc(existing.id).update({max,linkto});
       else await db.collection('requirements').add({project:proj,month:monthYear,anchor,linkto,max});
       saved++;
@@ -8712,7 +8745,7 @@ async function saveAnchorFromModal(btn){
       if(parts.length===2){ // anchor, target  OR  anchor | linkto
         if(/^\d+$/.test(parts[1])) mx = parseInt(parts[1]); else lt = parts[1];
       } else if(parts.length>=3){ lt = parts[1]; mx = parseInt(parts[2])||defaultMax; }
-      const existing = allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor);
+      const existing = allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor&&sameReqUrl(r.linkto,lt));
       if(existing) await db.collection('requirements').doc(existing.id).update({max:mx, linkto:lt});
       else await db.collection('requirements').add({project:proj, month:monthYear, anchor, linkto:lt, max:mx});
       saved++;
@@ -8734,7 +8767,7 @@ async function saveAnchorFromModal(btn){
   errEl.style.display='none';
   if(btn){ btn.disabled=true; btn.textContent='Adding...'; }
   try {
-    const existing = allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor);
+    const existing = allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor&&sameReqUrl(r.linkto,linkto));
     if(existing) await db.collection('requirements').doc(existing.id).update({max,linkto});
     else await db.collection('requirements').add({project:proj,month:monthYear,anchor,linkto,max});
     closeAddAnchorModal();
@@ -8764,7 +8797,7 @@ async function _oldSaveAnchorFromModal_unused(btn){
   if(btn){ btn.disabled=true; btn.textContent='Adding...'; }
 
   try {
-    const existing = allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor);
+    const existing = allReqs.find(r=>r.project===proj&&r.month===monthYear&&r.anchor===anchor&&sameReqUrl(r.linkto,linkto));
     if(existing) await db.collection('requirements').doc(existing.id).update({max,linkto});
     else await db.collection('requirements').add({project:proj,month:monthYear,anchor,linkto,max});
     closeAddAnchorModal();
@@ -8818,6 +8851,7 @@ function renderAnchorDetail(){
       totalAllUsed += allLinks.filter(l=>{
         if(l.project!==proj) return false;
         if((l.anchor||'').toLowerCase()!==r.anchor) return false;
+        if(!linkMatchesReq(l,r)) return false;
         if(!l.date) return false;
         const mk = getMonthKey(l.date);
         return mk === month+' '+curYear || mk === month+' '+(curYear-1);
@@ -8826,7 +8860,7 @@ function renderAnchorDetail(){
   });
   const curMax = curReqs.reduce((s,r)=>s+r.max,0);
   const curUsed = curReqs.reduce((s,r)=>{
-    return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&(l.month?(l.month===curMonthYearKey||l.month.startsWith(curMonthYearKey.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonthYearKey)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+    return s + allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&linkMatchesReq(l,r)&&(l.month?(l.month===curMonthYearKey||l.month.startsWith(curMonthYearKey.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonthYearKey)&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
   },0);
   const overallPct = curMax>0?Math.min(100,Math.round(curUsed/curMax*100)):0;
 
@@ -8837,10 +8871,11 @@ function renderAnchorDetail(){
     // Count LIVE links for this anchor within this month — uses the link's stored
     // month field (from CSV section header), falling back to date. This matches the
     // requirement month regardless of the actual link date.
-    const countForMonth = (anchor)=>{
+    const countForMonth = (rq)=>{
       return allLinks.filter(l=>{
         if(l.project!==proj) return false;
-        if((l.anchor||'').toLowerCase()!==anchor) return false;
+        if((l.anchor||'').toLowerCase()!==rq.anchor) return false;
+        if(!linkMatchesReq(l,rq)) return false;
         if((l.status||'').toLowerCase()!=='live') return false;
         const mk = linkMonthKey(l);
         const mkMonth = mk.split(' ')[0];
@@ -8851,10 +8886,11 @@ function renderAnchorDetail(){
       }).length;
     };
     // Count PENDING links for this anchor within this month
-    const countPendingForMonth = (anchor)=>{
+    const countPendingForMonth = (rq)=>{
       return allLinks.filter(l=>{
         if(l.project!==proj) return false;
-        if((l.anchor||'').toLowerCase()!==anchor) return false;
+        if((l.anchor||'').toLowerCase()!==rq.anchor) return false;
+        if(!linkMatchesReq(l,rq)) return false;
         if((l.status||'').toLowerCase()!=='pending') return false;
         const mk = linkMonthKey(l);
         const mkMonth = mk.split(' ')[0];
@@ -8865,13 +8901,13 @@ function renderAnchorDetail(){
       }).length;
     };
 
-    const mUsed = mReqs.reduce((s,r)=>s+countForMonth(r.anchor),0);
+    const mUsed = mReqs.reduce((s,r)=>s+countForMonth(r),0);
     const mPct = mMax>0?Math.min(100,Math.round(mUsed/mMax*100)):0;
     const mColor = mPct>=100?'var(--teal)':mPct>50?'var(--yellow)':'var(--text3)';
 
     const rowsHtml = mReqs.map(r=>{
-      const used = countForMonth(r.anchor);
-      const pending = countPendingForMonth(r.anchor);
+      const used = countForMonth(r);
+      const pending = countPendingForMonth(r);
       const p = Math.min(100,Math.round(used/r.max*100));
       const over = used > r.max;
       const full = used === r.max;
@@ -10791,9 +10827,9 @@ function loadProspectorAnchors(){
   if(!reqs.length){ wrap.style.display='none'; return; }
   wrap.style.display='block';
   list.innerHTML = reqs.map(r=>{
-    const used = allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&(l.month?(l.month===curMonth||l.month.startsWith(curMonth.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonth)+' '+curYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
+    const used = allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===r.anchor&&linkMatchesReq(l,r)&&(l.month?(l.month===curMonth||l.month.startsWith(curMonth.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonth)+' '+curYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length;
     const full = used>=r.max;
-    return `<span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid ${full?'rgba(255,95,95,0.3)':'rgba(50,215,75,0.3)'};color:${full?'var(--red)':'var(--teal)'};background:${full?'rgba(255,95,95,0.08)':'rgba(50,215,75,0.08)'};">${escapeHtml(r.anchor)} (${used}/${r.max})${full?' ❌':''}</span>`;
+    return `<span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid ${full?'rgba(255,95,95,0.3)':'rgba(50,215,75,0.3)'};color:${full?'var(--red)':'var(--teal)'};background:${full?'rgba(255,95,95,0.08)':'rgba(50,215,75,0.08)'};">${escapeHtml(r.anchor)}${reqSiblings(r).length>1&&r.linkto?` → ${escapeHtml(normUrl(r.linkto).replace(/^[^/]+/,'').slice(0,28)||normUrl(r.linkto).slice(0,28))}`:''} (${used}/${r.max})${full?' ❌':''}</span>`;
   }).join('');
 }
 
@@ -10807,6 +10843,8 @@ async function runProspectorPage(btn){
   const anchors = allReqs
     .filter(r=>r.project===proj&&(r.month===curMonth+' '+new Date().getFullYear()||r.month===curMonth))
     .map(r=>r.anchor).filter(Boolean);
+  // (the same anchor can now be required for several target URLs — don't send it twice)
+  const uniqAnchors = [...new Set(anchors)];
 
   document.getElementById('prosp-loading').style.display = 'block';
   document.getElementById('prosp-page-results').style.display = 'none';
@@ -10833,7 +10871,7 @@ async function runProspectorPage(btn){
 
     const manualAnchor = document.getElementById('prosp-anchor').value.trim();
     const hint = document.getElementById('prosp-hint').value.trim();
-    const finalAnchors = manualAnchor ? [manualAnchor, ...anchors.filter(a=>a!==manualAnchor)] : anchors;
+    const finalAnchors = manualAnchor ? [manualAnchor, ...uniqAnchors.filter(a=>a!==manualAnchor)] : uniqAnchors;
     const resp = await fetch('/api/prospect',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({domain, project:proj, linkTo, anchors: finalAnchors, siteData, hint})
@@ -10929,7 +10967,7 @@ function renderProspectorCards(suggestions, domain, proj, linkTo){
     const curMonth = MONTHS_EN[new Date().getMonth()];
     const curYear = new Date().getFullYear();
     const req = proj ? allReqs.find(r=>r.project===proj&&r.anchor===(s.anchor||'').toLowerCase()&&(r.month===curMonth+' '+curYear||r.month===curMonth)) : null;
-    const used = req ? allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===req.anchor&&(l.month?(l.month===curMonth||l.month.startsWith(curMonth.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonth)+' '+curYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length : 0;
+    const used = req ? allLinks.filter(l=>l.project===proj&&(l.anchor||'').toLowerCase()===req.anchor&&linkMatchesReq(l,req)&&(l.month?(l.month===curMonth||l.month.startsWith(curMonth.split(' ')[0])):l.date&&getMonthKey(l.date)===curMonth)+' '+curYear&&(!l.status||(l.status||'').toLowerCase()==='live')).length : 0;
     const full = req && used>=req.max;
     const hasReq = !!req;
     const isEdit = !!(s.originalSentence);
