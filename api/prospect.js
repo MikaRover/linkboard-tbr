@@ -129,14 +129,14 @@ module.exports = async function handler(req, res) {
       if (/<sitemapindex[\s>]/i.test(xml)) {
         const kids = xmlLocs(xml).map(e => e.loc);
         const wanted = kids.filter(k => /post|blog|article|news|stor|content/i.test(k) && !/page|categor|tag|author|product|attach|image|video|local|taxonom/i.test(k));
-        // big sites split posts across dozens of sitemap files (blogbuz.co.uk: 58) — read the newest 40 in parallel; slug-ranking below picks the relevant ones
-        childUrls.push(...(wanted.length ? wanted : kids.slice(0, 1)).slice(-40));
+        // big sites split posts across dozens of sitemap files (blogbuz.co.uk: 58) — read them all (up to 80) in parallel; slug-ranking below picks the relevant ones
+        childUrls.push(...(wanted.length ? wanted : kids.slice(0, 1)).slice(-80));
       } else {
         sitemapEntries.push(...xmlLocs(xml));
       }
     }
     if (childUrls.length) {
-      const kidXmls = await Promise.all([...new Set(childUrls)].slice(0, 40).map(fetchXml));
+      const kidXmls = await Promise.all([...new Set(childUrls)].slice(0, 80).map(fetchXml));
       kidXmls.filter(Boolean).forEach(x => sitemapEntries.push(...xmlLocs(x)));
     }
   } catch(e) { /* sitemap is a bonus source — never fail the whole search over it */ }
@@ -213,17 +213,30 @@ module.exports = async function handler(req, res) {
   // the best 25, and top up with the newest posts if few slugs match.
   const pickCandidates = () => {
     if (blogLinks.length <= 25) return blogLinks;
-    const slugScore = (u) => {
-      const slug = decodeURIComponent((u.split('?')[0].split('/').filter(Boolean).pop() || '')).toLowerCase().replace(/-/g, ' ');
+    const slugOf = (u) => { try { return decodeURIComponent(u.split('?')[0].split('/').filter(Boolean).pop() || '').toLowerCase().replace(/-/g, ' '); } catch(e) { return ''; } };
+    const slugs = blogLinks.map(slugOf);
+    // Weight each term by how RARE it is across this site's slugs (IDF). Flat
+    // weights let generic words win: for "laboratory management software" on a
+    // 11k-post site, 15 unrelated "…management software" posts outscored the
+    // single real "…laboratory-management" article because "laboratory" counted
+    // the same as "management". Rare terms are the discriminating ones.
+    const N = slugs.length;
+    const idf = {};
+    [...phrases, ...words].forEach(t => {
+      let df = 0; for (const sl of slugs) if (sl.includes(t)) df++;
+      idf[t] = Math.log((N + 1) / (df + 1));
+    });
+    const score = (sl) => {
       let sc = 0;
-      phrases.forEach(ph => { if (slug.includes(ph)) sc += 6; });
-      words.forEach(w => { if (slug.includes(w)) sc += 2; });
+      phrases.forEach(ph => { if (sl.includes(ph)) sc += 3 * idf[ph]; });
+      words.forEach(w => { if (sl.includes(w)) sc += idf[w]; });
       return sc;
     };
-    const ranked = blogLinks.map((u, i) => ({ u, i, sc: slugScore(u) }));
-    const matched = ranked.filter(r => r.sc > 0).sort((a, b) => b.sc - a.sc || a.i - b.i).slice(0, 18).map(r => r.u);
-    const rest = ranked.map(r => r.u).filter(u => !matched.includes(u));
-    return [...matched, ...rest].slice(0, 25);
+    const ranked = slugs.map((sl, i) => ({ i, sc: score(sl) }));
+    const matched = ranked.filter(r => r.sc > 0).sort((a, b) => b.sc - a.sc || a.i - b.i).slice(0, 18).map(r => r.i);
+    const matchedSet = new Set(matched);
+    const rest = ranked.map(r => r.i).filter(i => !matchedSet.has(i)); // already newest-first
+    return [...matched, ...rest].slice(0, 25).map(i => blogLinks[i]);
   };
   await Promise.all(pickCandidates().map(async (url) => {
     const html = await fetchHtml(url);
