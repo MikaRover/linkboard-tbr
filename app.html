@@ -327,7 +327,7 @@ select option{background:var(--bg2);}
 
 /* Projects page — compact cards (flat, Apple-style: hover only shifts the border) */
 .pj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:1rem;align-items:start;}
-.pj-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s ease;}
+.pj-card{position:relative;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s ease;}
 .pj-card:hover{border-color:var(--text3);}
 .pj-card.pj-hidden{opacity:.45;}
 .pj-top{display:flex;align-items:center;gap:10px;}
@@ -335,7 +335,8 @@ select option{background:var(--bg2);}
 .pj-meta{flex:1;min-width:0;cursor:pointer;}
 .pj-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pj-sub{font-size:11px;color:var(--text3);margin-top:1px;}
-.pj-actions{display:flex;gap:2px;opacity:0;transition:opacity .15s ease;}
+/* overlaid (not in the flow) so project names get the full width instead of being truncated by invisible buttons */
+.pj-actions{position:absolute;top:10px;right:10px;display:flex;gap:2px;padding-left:10px;background:linear-gradient(90deg,transparent,var(--bg2) 10px);opacity:0;transition:opacity .15s ease;}
 .pj-card:hover .pj-actions,.pj-card:focus-within .pj-actions{opacity:1;}
 @media (hover:none){.pj-actions{opacity:1;}}
 .pj-act{width:26px;height:26px;border-radius:8px;border:none;background:transparent;color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
