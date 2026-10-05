@@ -81,6 +81,7 @@ module.exports = async function handler(req, res) {
       return (r.ok && tb) ? tb.text : '';
     } catch(e) { return ''; }
   };
+  let profileRaw = '';
   const targetProfilePromise = (async () => {
     const tp = await targetPagePromise;
     if (!tp && !siteData && !anchorList.length) return null;
@@ -97,6 +98,7 @@ Return ONLY JSON:
   "goodArticleTypes": ["3-5 kinds of articles where a link to this page would read as genuinely useful, e.g. 'tool roundups', 'how-to guides on creating video content'"]
 }`;
     const txt = await callHaiku(prompt, 700, 9000);
+    profileRaw = txt || '(empty — call failed or timed out)';
     const m = txt && txt.match(/\{[\s\S]*\}/);
     if (!m) return null;
     try { return JSON.parse(m[0]); } catch(e) { return null; }
@@ -513,7 +515,7 @@ Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`
     const filtered = suggestions.filter(s => (s.relevancy == null || s.relevancy >= 70));
     // stats let the UI say WHY the list is empty ("read 25 of 3,200 articles, none cleared 70")
     // instead of one generic message for every kind of empty result.
-    return res.json({ domain, suggestions: filtered.slice(0, 6), stats: { candidates: blogLinks.length, read: scoredArticles.length, considered: topArticles.length, suggestedBeforeFilter: suggestions.length, semanticPicked: semanticCount, ...(debug ? { profile, picked: scoredArticles.map(a => ({ url: a.url, title: a.title, score: a.score })), rawModelText: text.slice(0, 1500) } : {}) } });
+    return res.json({ domain, suggestions: filtered.slice(0, 6), stats: { candidates: blogLinks.length, read: scoredArticles.length, considered: topArticles.length, suggestedBeforeFilter: suggestions.length, semanticPicked: semanticCount, ...(debug ? { profile, profileRaw: profileRaw.slice(0, 600), picked: scoredArticles.map(a => ({ url: a.url, title: a.title, score: a.score })), rawModelText: text.slice(0, 1500) } : {}) } });
   } catch(e) {
     return res.json({ error: e.message, suggestions: [] });
   }
