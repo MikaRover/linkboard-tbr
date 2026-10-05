@@ -97,7 +97,10 @@ Return ONLY JSON:
   "searchPhrases": ["10-14 SHORT phrases (1-3 words) a relevant donor article's title or URL would likely contain — include the page's own topic AND adjacent subjects its readers care about (e.g. for an AI video maker: video marketing, social media content, product demos, explainer videos, content creation, repurposing content, small business marketing)"],
   "goodArticleTypes": ["3-5 kinds of articles where a link to this page would read as genuinely useful, e.g. 'tool roundups', 'how-to guides on creating video content'"]
 }`;
-    const txt = await callHaiku(prompt, 700, 9000);
+    // one retry: a transient overload/timeout on this small call used to silently drop the whole
+    // "understand the target first" step for that search (profile came back null once in testing)
+    let txt = await callHaiku(prompt, 700, 8000);
+    if (!txt) txt = await callHaiku(prompt, 700, 7000);
     profileRaw = txt || '(empty — call failed or timed out)';
     const m = txt && txt.match(/\{[\s\S]*\}/);
     if (!m) return null;
