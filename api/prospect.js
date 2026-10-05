@@ -144,7 +144,7 @@ module.exports = async function handler(req, res) {
       const t0 = Date.now();
       const kidXmls = [];
       for (let i = 0; i < uniqKids.length; i += 20) {
-        if (i > 0 && Date.now() - t0 > 11000) break;
+        if (i > 0 && Date.now() - t0 > 8000) break;
         kidXmls.push(...await Promise.all(uniqKids.slice(i, i + 20).map(u => fetchXml(u, 6000))));
       }
       kidXmls.filter(Boolean).forEach(x => sitemapEntries.push(...xmlLocs(x)));
@@ -212,6 +212,13 @@ module.exports = async function handler(req, res) {
     const STOP = new Set(['find','look','looking','search','searching','article','articles','post','posts','about','that','this','with','from','where','which','talk','talks','talking','prefer','preferably','like','want','need','please','into','over','only','more','less','best','good','some','such','have','been','will']);
     hint.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 3 && !STOP.has(w)).forEach(w => wordSet.add(w));
   }
+  // Project never scanned (no siteData)? The target page itself still says what we're linking to.
+  try {
+    const tpEarly = await targetPagePromise;
+    // (skip the brand name itself — it never appears in OTHER sites' slugs and would just dilute the ranking)
+    let brand = ''; try { brand = new URL(linkTo).hostname.replace(/^www\./, '').split('.')[0].toLowerCase(); } catch(e) {}
+    if (tpEarly) `${tpEarly.title} ${tpEarly.h1}`.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 3 && w !== brand && !['free','online','best','with','from','your','that','this'].includes(w)).forEach(w => wordSet.add(w));
+  } catch(e) {}
   const phrases = [...phraseSet], words = [...wordSet];
   const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -221,7 +228,39 @@ module.exports = async function handler(req, res) {
   // would score a tiny, arbitrary slice. Pre-rank every candidate by how well
   // its URL slug matches the client's topics/anchors/hint (free, no fetch), read
   // the best 25, and top up with the newest posts if few slugs match.
-  const pickCandidates = () => {
+  // Cheap semantic pass: a small, fast model reads the slug list (no fetching) and
+  // picks the articles most likely to have a natural spot for a link to this
+  // target — topically ADJACENT counts. Pure keyword/slug matching can't do this:
+  // for an "ai video maker" anchor on a QA-testing site, nothing contains "video",
+  // yet a post about AI-generated content or marketing assets might still fit.
+  const semanticPick = async (slugList, tp) => {
+    if (!ANTHROPIC_KEY || !slugList.length) return [];
+    const list = slugList.map((sl, n) => `${n}. ${sl}`).join('\n');
+    const prompt = `We want to insert a link into an EXISTING article on ${domain}.
+Target: ${linkTo || project || 'unknown'}${tp ? ` — "${tp.title}" / ${tp.h1} / ${tp.description}` : ''}
+Anchors to place: ${anchorStr}${hint && hint.trim() ? `\nTeam guidance: ${hint.trim()}` : ''}
+
+Below are article URL slugs from that site. Pick up to 20 whose articles are MOST likely to contain a paragraph where a link like this could be placed naturally. Topically adjacent counts (the article doesn't have to be mainly about the target topic), but skip articles that are clearly unrelated.
+Return ONLY a JSON array of the slug numbers, e.g. [3, 17, 42].
+
+${list}`;
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, messages: [{ role: 'user', content: prompt }] }),
+        signal: AbortSignal.timeout(7000)
+      });
+      const j = await r.json();
+      const tb = Array.isArray(j.content) && j.content.find(b => typeof b?.text === 'string');
+      if (!r.ok || !tb) return [];
+      const m = tb.text.match(/\[[\s\d,]*\]/);
+      return m ? JSON.parse(m[0]).filter(n => Number.isInteger(n) && n >= 0 && n < slugList.length) : [];
+    } catch(e) { return []; }
+  };
+
+  let semanticCount = 0;
+  const pickCandidates = async () => {
     if (blogLinks.length <= 25) return blogLinks;
     const slugOf = (u) => { try { return decodeURIComponent(u.split('?')[0].split('/').filter(Boolean).pop() || '').toLowerCase().replace(/-/g, ' '); } catch(e) { return ''; } };
     const slugs = blogLinks.map(slugOf);
@@ -243,12 +282,19 @@ module.exports = async function handler(req, res) {
       return sc;
     };
     const ranked = slugs.map((sl, i) => ({ i, sc: score(sl) }));
-    const matched = ranked.filter(r => r.sc > 0).sort((a, b) => b.sc - a.sc || a.i - b.i).slice(0, 18).map(r => r.i);
-    const matchedSet = new Set(matched);
+    const matchedAll = ranked.filter(r => r.sc > 0).sort((a, b) => b.sc - a.sc || a.i - b.i).map(r => r.i);
+    const matchedSet = new Set(matchedAll);
     const rest = ranked.map(r => r.i).filter(i => !matchedSet.has(i)); // already newest-first
-    return [...matched, ...rest].slice(0, 25).map(i => blogLinks[i]);
+
+    // Semantic pass over up to 400 slugs (best keyword matches first, then newest).
+    const poolIdx = [...matchedAll.slice(0, 150), ...rest].slice(0, 400);
+    const picked = (await semanticPick(poolIdx.map(i => slugs[i]), await targetPagePromise)).map(n => poolIdx[n]);
+    semanticCount = picked.length;
+
+    const chosen = [...new Set([...matchedAll.slice(0, 10), ...picked, ...matchedAll, ...rest])].slice(0, 25);
+    return chosen.map(i => blogLinks[i]);
   };
-  await Promise.all(pickCandidates().map(async (url) => {
+  await Promise.all((await pickCandidates()).map(async (url) => {
     const html = await fetchHtml(url);
     if (!html) return;
 
@@ -391,7 +437,7 @@ Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`
         max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }]
       }),
-      signal: AbortSignal.timeout(34000)
+      signal: AbortSignal.timeout(30000)
     });
 
     const aiData = await aiResp.json();
@@ -423,7 +469,7 @@ Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`
     const filtered = suggestions.filter(s => (s.relevancy == null || s.relevancy >= 70));
     // stats let the UI say WHY the list is empty ("read 25 of 3,200 articles, none cleared 70")
     // instead of one generic message for every kind of empty result.
-    return res.json({ domain, suggestions: filtered.slice(0, 6), stats: { candidates: blogLinks.length, read: scoredArticles.length, considered: topArticles.length, suggestedBeforeFilter: suggestions.length, ...(debug ? { picked: scoredArticles.map(a => ({ url: a.url, title: a.title, score: a.score })), rawModelText: text.slice(0, 1500) } : {}) } });
+    return res.json({ domain, suggestions: filtered.slice(0, 6), stats: { candidates: blogLinks.length, read: scoredArticles.length, considered: topArticles.length, suggestedBeforeFilter: suggestions.length, semanticPicked: semanticCount, ...(debug ? { picked: scoredArticles.map(a => ({ url: a.url, title: a.title, score: a.score })), rawModelText: text.slice(0, 1500) } : {}) } });
   } catch(e) {
     return res.json({ error: e.message, suggestions: [] });
   }
