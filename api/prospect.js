@@ -294,14 +294,16 @@ Target: ${linkTo || project || 'unknown'}${tp ? ` — "${tp.title}" / ${tp.h1} /
 ${profile ? `What the target page is: ${profile.summary || ''}\nArticle types where a link to it fits: ${(profile.goodArticleTypes || []).join('; ')}\n` : ''}Anchors to place: ${anchorStr}${hint && hint.trim() ? `\nTeam guidance: ${hint.trim()}` : ''}
 
 Below are article URL slugs from that site. Pick 12 to 20 (at least 12 whenever the site has that many even loosely plausible ones) whose articles are MOST likely to contain a paragraph where a link like this could be placed naturally. Topically adjacent counts (the article doesn't have to be mainly about the target topic), but skip articles that are clearly unrelated.
-Return ONLY a JSON array of the slug numbers, e.g. [3, 17, 42].
+Reply with NOTHING but the JSON array of slug numbers, e.g. [3, 17, 42] — no explanation before or after it.
 
 ${list}`;
     // one retry on an empty/failed reply (observed: the same request intermittently came back empty)
-    let txt = await callHaiku(prompt, 300, 7000);
-    if (!txt) txt = await callHaiku(prompt, 300, 6000);
+    let txt = await callHaiku(prompt, 700, 7000); // roomy: Haiku 5.5 likes to preface the array with a sentence
+    if (!txt) txt = await callHaiku(prompt, 700, 6000);
     semanticRaw = (txt || '(empty)').slice(0, 300);
-    const m = txt && txt.match(/\[[\s\d,]*\]/);
+    // take the LAST numeric array in the reply (a preface sentence may contain brackets)
+    const arrs = txt ? [...txt.matchAll(/\[[\s\d,]*\]/g)] : [];
+    const m = arrs.length ? arrs[arrs.length - 1] : null;
     try { return m ? [...new Set(JSON.parse(m[0]).filter(n => Number.isInteger(n) && n >= 0 && n < slugList.length))].slice(0, 20) : []; } catch(e) { return []; }
   };
 
