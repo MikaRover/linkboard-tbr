@@ -293,7 +293,7 @@ Return ONLY JSON:
 Target: ${linkTo || project || 'unknown'}${tp ? ` — "${tp.title}" / ${tp.h1} / ${tp.description}` : ''}
 ${profile ? `What the target page is: ${profile.summary || ''}\nArticle types where a link to it fits: ${(profile.goodArticleTypes || []).join('; ')}\n` : ''}Anchors to place: ${anchorStr}${hint && hint.trim() ? `\nTeam guidance: ${hint.trim()}` : ''}
 
-Below are article URL slugs from that site. Pick up to 20 whose articles are MOST likely to contain a paragraph where a link like this could be placed naturally. Topically adjacent counts (the article doesn't have to be mainly about the target topic), but skip articles that are clearly unrelated.
+Below are article URL slugs from that site. Pick 12 to 20 (at least 12 whenever the site has that many even loosely plausible ones) whose articles are MOST likely to contain a paragraph where a link like this could be placed naturally. Topically adjacent counts (the article doesn't have to be mainly about the target topic), but skip articles that are clearly unrelated.
 Return ONLY a JSON array of the slug numbers, e.g. [3, 17, 42].
 
 ${list}`;
