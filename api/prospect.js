@@ -297,11 +297,15 @@ Below are article URL slugs from that site. Pick 12 to 20 (at least 12 whenever 
 Return ONLY a JSON array of the slug numbers, e.g. [3, 17, 42].
 
 ${list}`;
-    const txt = await callHaiku(prompt, 200, 7000);
+    // one retry on an empty/failed reply (observed: the same request intermittently came back empty)
+    let txt = await callHaiku(prompt, 300, 7000);
+    if (!txt) txt = await callHaiku(prompt, 300, 6000);
+    semanticRaw = (txt || '(empty)').slice(0, 300);
     const m = txt && txt.match(/\[[\s\d,]*\]/);
-    try { return m ? JSON.parse(m[0]).filter(n => Number.isInteger(n) && n >= 0 && n < slugList.length) : []; } catch(e) { return []; }
+    try { return m ? [...new Set(JSON.parse(m[0]).filter(n => Number.isInteger(n) && n >= 0 && n < slugList.length))].slice(0, 20) : []; } catch(e) { return []; }
   };
 
+  let semanticRaw = '';
   let semanticCount = 0;
   const semanticUrls = new Set(); // articles the semantic pass picked — must not be dropped by the keyword top-N below
   const pickCandidates = async () => {
@@ -534,7 +538,7 @@ Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`
     const filtered = suggestions.filter(s => (s.relevancy == null || s.relevancy >= 70));
     // stats let the UI say WHY the list is empty ("read 25 of 3,200 articles, none cleared 70")
     // instead of one generic message for every kind of empty result.
-    return res.json({ domain, suggestions: filtered.slice(0, 6), stats: { candidates: blogLinks.length, read: scoredArticles.length, considered: topArticles.length, suggestedBeforeFilter: suggestions.length, semanticPicked: semanticCount, model: mainModel, ...(debug ? { mainUsage, profile, profileRaw: profileRaw.slice(0, 600), picked: scoredArticles.map(a => ({ url: a.url, title: a.title, score: a.score })), rawModelText: text.slice(0, 1500) } : {}) } });
+    return res.json({ domain, suggestions: filtered.slice(0, 6), stats: { candidates: blogLinks.length, read: scoredArticles.length, considered: topArticles.length, suggestedBeforeFilter: suggestions.length, semanticPicked: semanticCount, model: mainModel, ...(debug ? { mainUsage, semanticRaw, profile, profileRaw: profileRaw.slice(0, 600), picked: scoredArticles.map(a => ({ url: a.url, title: a.title, score: a.score })), rawModelText: text.slice(0, 1500) } : {}) } });
   } catch(e) {
     return res.json({ error: e.message, suggestions: [] });
   }
