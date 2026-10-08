@@ -7,7 +7,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { domain, project, linkTo, anchors, siteData, hint, debug } = req.body || {};
+  const { domain, project, linkTo, anchors, siteData, hint, debug, model: modelOverride, thinking: thinkingOverride, effort: effortOverride } = req.body || {};
   if (!domain) return res.status(400).json({ error: 'domain required' });
   if (!isSafeHost(domain)) return res.status(400).json({ error: 'Invalid or disallowed domain' });
 
@@ -481,6 +481,7 @@ Return ONLY valid JSON array:
 
 Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`;
 
+  let mainUsage = null;
   try {
     const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -489,15 +490,19 @@ Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`
         'x-api-key': ANTHROPIC_KEY,
         'anthropic-version': '2023-06-01'
       },
+      // model/thinking/effort overrides are honoured ONLY with debug:true — for cost A/B tests
       body: JSON.stringify({
-        model: 'claude-sonnet-5',
+        model: (debug && modelOverride) || 'claude-sonnet-5',
         max_tokens: 3000,
+        ...(debug && thinkingOverride === 'disabled' ? { thinking: { type: 'disabled' } } : {}),
+        ...(debug && effortOverride ? { output_config: { effort: effortOverride } } : {}),
         messages: [{ role: 'user', content: prompt }]
       }),
       signal: AbortSignal.timeout(30000)
     });
 
     const aiData = await aiResp.json();
+    mainUsage = aiData.usage || null;
     // A failed call (bad key, no credit balance, rate limit, etc.) has no
     // `content` block at all and used to fall straight through to an empty
     // "suggestions: []" with no error — indistinguishable from Claude
@@ -526,7 +531,7 @@ Up to 6 suggestions, all scoring 70+. An empty array is a valid, honest answer.`
     const filtered = suggestions.filter(s => (s.relevancy == null || s.relevancy >= 70));
     // stats let the UI say WHY the list is empty ("read 25 of 3,200 articles, none cleared 70")
     // instead of one generic message for every kind of empty result.
-    return res.json({ domain, suggestions: filtered.slice(0, 6), stats: { candidates: blogLinks.length, read: scoredArticles.length, considered: topArticles.length, suggestedBeforeFilter: suggestions.length, semanticPicked: semanticCount, ...(debug ? { profile, profileRaw: profileRaw.slice(0, 600), picked: scoredArticles.map(a => ({ url: a.url, title: a.title, score: a.score })), rawModelText: text.slice(0, 1500) } : {}) } });
+    return res.json({ domain, suggestions: filtered.slice(0, 6), stats: { candidates: blogLinks.length, read: scoredArticles.length, considered: topArticles.length, suggestedBeforeFilter: suggestions.length, semanticPicked: semanticCount, ...(debug ? { mainUsage, profile, profileRaw: profileRaw.slice(0, 600), picked: scoredArticles.map(a => ({ url: a.url, title: a.title, score: a.score })), rawModelText: text.slice(0, 1500) } : {}) } });
   } catch(e) {
     return res.json({ error: e.message, suggestions: [] });
   }
