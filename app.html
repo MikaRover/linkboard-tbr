@@ -2656,6 +2656,9 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
           <div class="section-label">Guidance for Claude (optional)</div>
           <input id="prosp-hint" placeholder="e.g. find listicle articles about marketing tools" style="margin:0;"/>
         </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;height:38px;" title="Off (default): fast and cheap model. On: the stronger Sonnet model — slower and ~10x the cost per search, use it when placement quality matters most">
+          <input type="checkbox" id="prosp-deep" style="width:auto;margin:0;"/> Deep (Sonnet)
+        </label>
         <button class="btn-sm" onclick="runProspectorPage(this)" style="white-space:nowrap;padding:10px 20px;height:38px;">🔍 Find anchors →</button>
       </div>
       <div id="prosp-anchors-wrap" style="margin-top:12px;display:none;">
@@ -10877,7 +10880,7 @@ async function runProspectorPage(btn){
     const finalAnchors = manualAnchor ? [manualAnchor, ...uniqAnchors.filter(a=>a!==manualAnchor)] : uniqAnchors;
     const resp = await fetch('/api/prospect',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({domain, project:proj, linkTo, anchors: finalAnchors, siteData, hint})
+      body: JSON.stringify({domain, project:proj, linkTo, anchors: finalAnchors, siteData, hint, deep: !!document.getElementById('prosp-deep')?.checked})
     });
     // A Vercel timeout (504) comes back as an HTML page, not JSON — without this the
     // user saw "Unexpected token '<'" with no hint that the search simply ran too long.
