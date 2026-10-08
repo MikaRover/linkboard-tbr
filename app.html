@@ -3373,10 +3373,10 @@ async function scanProject(projId, projName, btn){
       });
       showToast(`✅ ${projName} scanned — ${data.siteData.niche}`);
     } else {
-      showToast('❌ Scan failed: ' + (data.error||'Unknown error'));
+      showToast('❌ Scan failed: ' + (data.error||'Unknown error'), 'warn');
     }
   } catch(e){
-    showToast('❌ Error: ' + e.message);
+    showToast('❌ Error: ' + e.message, 'warn');
   }
 
   btn.classList.remove('pj-busy');
