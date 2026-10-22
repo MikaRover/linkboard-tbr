@@ -104,6 +104,81 @@ async function handleSheetAck(req, res) {
   }
 }
 
+// ─── Google Sheets -> LinkBoard (batch, create-only) ─────────────────────
+// A scheduled Apps Script scans the board and sends the rows it hasn't sent
+// before. Existing links are never modified here (that's the single-row path
+// above for `paid`); only links LinkBoard doesn't have yet are created.
+//   - project names are resolved case/punctuation-insensitively against the real
+//     `projects` collection ("Novisign" -> "NoviSign"); an unknown project is
+//     REPORTED, never created — a typo'd tab must not spawn a phantom project;
+//   - duplicates (same normalized domain in the same project) are skipped,
+//     both against what's stored and within the request itself;
+//   - `dry:true` computes everything and writes nothing (used for the first look).
+const IMPORT_MAX_ROWS = 500;
+const ALLOWED_STATUS = ['live', 'pending', 'needs-change', 'lost', 'rejected'];
+const normProject = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+async function handleImportRows(req, res) {
+  try {
+    const rows = Array.isArray(req.body && req.body.rows) ? req.body.rows : [];
+    const dry = !!(req.body && req.body.dry);
+    if (!rows.length) return res.status(400).json({ error: 'rows required' });
+    if (rows.length > IMPORT_MAX_ROWS) return res.status(400).json({ error: 'max ' + IMPORT_MAX_ROWS + ' rows per request' });
+
+    const db = getDb();
+    const projSnap = await db.collection('projects').get();
+    const projectByNorm = new Map();
+    projSnap.docs.forEach(d => { const n = d.data().name; if (n) projectByNorm.set(normProject(n), n); });
+
+    const unmatched = new Set();
+    const byProject = new Map(); // canonical project -> rows
+    for (const r of rows) {
+      const canon = projectByNorm.get(normProject(r.project));
+      if (!canon || !r.domain) { if (!canon && r.project) unmatched.add(String(r.project)); continue; }
+      if (!byProject.has(canon)) byProject.set(canon, []);
+      byProject.get(canon).push(r);
+    }
+
+    const toCreate = [];
+    let skipped = 0;
+    for (const [project, list] of byProject) {
+      // one field-masked read per project per request
+      const existing = await db.collection('links').where('project', '==', project).select('domain').get();
+      const have = new Set(existing.docs.map(d => normalizeDomain(d.data().domain)));
+      for (const r of list) {
+        const key = normalizeDomain(r.domain);
+        if (!key || have.has(key)) { skipped++; continue; }
+        have.add(key); // duplicate rows inside the same request
+        const status = ALLOWED_STATUS.includes(r.status) ? r.status : 'pending';
+        toCreate.push({
+          domain: String(r.domain).trim(), anchor: String(r.anchor || '').trim(), project,
+          dr: r.dr === 0 || r.dr ? String(r.dr) : '', traffic: r.traffic === 0 || r.traffic ? String(r.traffic) : '', ss: r.ss === 0 || r.ss ? String(r.ss) : '',
+          price: String(r.price || '').replace(/^\$+/, '').trim(),
+          linkin: r.linkin || '', linkto: r.linkto || '', builder: r.builder || '', status,
+          invoice: r.invoice || '', paid: typeof r.paid === 'boolean' ? r.paid : false, comments: r.comments || '',
+          relevancy: '', linkcheck: '', check: '', source: 'google-sheets',
+          date: r.date || new Date().toLocaleDateString('en-GB')
+        });
+      }
+    }
+
+    if (!dry) {
+      for (let i = 0; i < toCreate.length; i += 400) {
+        const batch = db.batch();
+        toCreate.slice(i, i + 400).forEach(doc => batch.set(db.collection('links').doc(), { ...doc, createdAt: admin.firestore.FieldValue.serverTimestamp() }));
+        await batch.commit();
+      }
+    }
+    return res.json({
+      ok: true, dry, scanned: rows.length, created: toCreate.length, skipped,
+      unmatchedProjects: [...unmatched],
+      sample: toCreate.slice(0, 15).map(d => ({ project: d.project, domain: d.domain, status: d.status, date: d.date }))
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 module.exports = async function handler(req, res) {
   // Hobby plan = 12 functions max and all are used, so /api/gmail (rewritten
   // here in vercel.json) shares this one. Gmail auth is its own (Firebase ID
@@ -120,6 +195,7 @@ module.exports = async function handler(req, res) {
 
   if (!secretOk(req)) return res.status(401).json({ error: 'Unauthorized' });
   if (req.body && req.body.action === 'ack') return handleSheetAck(req, res);
+  if (req.body && req.body.action === 'import-rows') return handleImportRows(req, res);
 
   const {
     domain, anchor, project, dr, traffic, ss, price,
