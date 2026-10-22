@@ -179,6 +179,80 @@ async function handleImportRows(req, res) {
   }
 }
 
+// Sheet -> LinkBoard STATUS sync. Only ever changes the `status` field of a link that already
+// exists (matched by project + domain); never creates or deletes. The Sheet script only sends a
+// row when its section changed since the last run (`delta`) or on its first-ever run (catch-up);
+// a catch-up never pushes a link LinkBoard has as live back to pending (the Sheet is probably stale).
+async function handleUpdateStatus(req, res) {
+  try {
+    const rows = Array.isArray(req.body && req.body.rows) ? req.body.rows : [];
+    const dry = !!(req.body && req.body.dry);
+    if (!rows.length) return res.status(400).json({ error: 'rows required' });
+    if (rows.length > IMPORT_MAX_ROWS) return res.status(400).json({ error: 'max ' + IMPORT_MAX_ROWS + ' rows per request' });
+
+    const db = getDb();
+    const projSnap = await db.collection('projects').get();
+    const projectByNorm = new Map();
+    projSnap.docs.forEach(d => { const n = d.data().name; if (n) projectByNorm.set(normProject(n), n); });
+
+    const byProject = new Map();
+    const results = [];
+    for (const r of rows) {
+      const canon = projectByNorm.get(normProject(r.project));
+      if (!canon) { results.push({ i: r.i, project: r.project, domain: r.domain, result: 'unknown-project' }); continue; }
+      if (!byProject.has(canon)) byProject.set(canon, []);
+      byProject.get(canon).push(r);
+    }
+
+    const updates = []; // { ref, status }
+    for (const [project, list] of byProject) {
+      const snap = await db.collection('links').where('project', '==', project).select('domain', 'status', 'anchor', 'linkin').get();
+      const index = new Map();
+      snap.docs.forEach(d => {
+        const k = normalizeDomain(d.data().domain);
+        if (!k) return;
+        if (!index.has(k)) index.set(k, []);
+        index.get(k).push(d);
+      });
+      for (const r of list) {
+        const base = { i: r.i, project, domain: r.domain };
+        if (!ALLOWED_STATUS.includes(r.status)) { results.push({ ...base, result: 'bad-status' }); continue; }
+        let docs = index.get(normalizeDomain(r.domain)) || [];
+        if (!docs.length) { results.push({ ...base, result: 'not-found' }); continue; }
+        if (docs.length > 1) { // same domain twice in one project: narrow by anchor / link-in page, else refuse to guess
+          const anchor = String(r.anchor || '').toLowerCase().trim();
+          const linkin = String(r.linkin || '').toLowerCase().trim();
+          const narrowed = docs.filter(d => {
+            const x = d.data();
+            return (anchor && String(x.anchor || '').toLowerCase().trim() === anchor) || (linkin && String(x.linkin || '').toLowerCase().trim() === linkin);
+          });
+          if (narrowed.length !== 1) { results.push({ ...base, result: 'ambiguous' }); continue; }
+          docs = narrowed;
+        }
+        const d = docs[0];
+        const from = d.data().status || 'pending';
+        if (from === r.status) { results.push({ ...base, result: 'same', from }); continue; }
+        if (!r.delta && from === 'live' && r.status === 'pending') { results.push({ ...base, result: 'protected', from, to: r.status }); continue; }
+        updates.push({ ref: d.ref, status: r.status });
+        results.push({ ...base, result: dry ? 'would-update' : 'updated', from, to: r.status });
+      }
+    }
+
+    if (!dry) {
+      for (let i = 0; i < updates.length; i += 400) {
+        const batch = db.batch();
+        updates.slice(i, i + 400).forEach(u => batch.update(u.ref, { status: u.status, statusSource: 'google-sheets', statusSyncedAt: admin.firestore.FieldValue.serverTimestamp() }));
+        await batch.commit();
+      }
+    }
+    const counts = {};
+    results.forEach(r => { counts[r.result] = (counts[r.result] || 0) + 1; });
+    return res.json({ ok: true, dry, scanned: rows.length, counts, results });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 module.exports = async function handler(req, res) {
   // Hobby plan = 12 functions max and all are used, so /api/gmail (rewritten
   // here in vercel.json) shares this one. Gmail auth is its own (Firebase ID
@@ -196,6 +270,7 @@ module.exports = async function handler(req, res) {
   if (!secretOk(req)) return res.status(401).json({ error: 'Unauthorized' });
   if (req.body && req.body.action === 'ack') return handleSheetAck(req, res);
   if (req.body && req.body.action === 'import-rows') return handleImportRows(req, res);
+  if (req.body && req.body.action === 'update-status') return handleUpdateStatus(req, res);
 
   const {
     domain, anchor, project, dr, traffic, ss, price,

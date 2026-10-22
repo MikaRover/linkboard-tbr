@@ -11,6 +11,14 @@
  *     "Needs change"    -> needs-change   "Lost" -> lost   "Rejected" -> rejected
  *   Rows under any OTHER band are skipped and listed in the log (never guessed).
  *
+ * STATUS SYNC (new): when a row's section changes in the Sheet (e.g. a link is moved from
+ *   "Pending" up to "... live links"), LinkBoard's status for that link follows. It only ever
+ *   changes the `status` of a link that already exists (project + domain); it never deletes.
+ *   Old month bands ("October", "September 2025", ...) count as live for this. First run =
+ *   catch-up (never moves a LinkBoard-live link back to pending); after that only CHANGES in
+ *   the Sheet are sent, so a status someone sets in LinkBoard isn't overwritten again and again.
+ *   Dry run: `sbStatusTest` (logs what would change, changes nothing).
+ *
  * SAFE BY DESIGN
  *   - Unknown project (typo'd tab name): reported, never created in LinkBoard.
  *   - Domains already in LinkBoard (including ones the pull script put in the
@@ -48,23 +56,25 @@ const SB_TAB_ALIASES = {
 
 const SB_CHUNK = 400; // rows per request (LinkBoard accepts up to 500)
 
-/** Real run: sends rows not sent before, remembers the ones LinkBoard accepted. */
+/** Real run: sends rows not sent before, remembers the ones LinkBoard accepted; then syncs statuses. */
 function sbSync() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return;
   try {
-    const scan = sbScan_();
+    const scan = sbScan_(false);
     const sent = sbLoadSent_();
     const fresh = scan.rows.filter(r => !sent.has(r.__key));
     Logger.log('%s row(s) scanned, %s new to send.', scan.rows.length, fresh.length);
-    if (!fresh.length) return;
-    for (const chunk of sbChunkByProject_(fresh)) {
-      const res = sbPost_(chunk, false);
-      Logger.log('sent %s -> created %s, already there %s, unknown projects: %s', chunk.length, res.created, res.skipped, JSON.stringify(res.unmatchedProjects));
-      const bad = new Set((res.unmatchedProjects || []).map(String));
-      chunk.forEach(r => { if (!bad.has(String(r.project))) sent.add(r.__key); }); // unknown-project rows stay un-sent and are retried
+    if (fresh.length) {
+      for (const chunk of sbChunkByProject_(fresh)) {
+        const res = sbPost_(chunk, false);
+        Logger.log('sent %s -> created %s, already there %s, unknown projects: %s', chunk.length, res.created, res.skipped, JSON.stringify(res.unmatchedProjects));
+        const bad = new Set((res.unmatchedProjects || []).map(String));
+        chunk.forEach(r => { if (!bad.has(String(r.project))) sent.add(r.__key); }); // unknown-project rows stay un-sent and are retried
+      }
+      sbSaveSent_(sent);
     }
-    sbSaveSent_(sent);
+    try { sbStatusRun_(false); } catch (e) { Logger.log('Status sync failed: %s', e); }
   } finally {
     lock.releaseLock();
   }
@@ -72,7 +82,7 @@ function sbSync() {
 
 /** Dry run: asks LinkBoard what it WOULD create. Saves nothing, remembers nothing. */
 function sbTest() {
-  const scan = sbScan_();
+  const scan = sbScan_(false);
   Logger.log('%s row(s) scanned on %s tab(s). Skipped rows under unknown bands: %s', scan.rows.length, scan.tabs.length, scan.skippedBands.length);
   scan.skippedBands.slice(0, 10).forEach(b => Logger.log('  skipped band "%s" on tab "%s" (%s rows)', b.band, b.tab, b.count));
   let created = 0, skipped = 0; const unknown = new Set();
@@ -95,12 +105,16 @@ function sbSetup() {
 /** Forget what was sent (the next sbSync re-sends everything; LinkBoard still skips what it already has). */
 function sbReset() {
   PropertiesService.getDocumentProperties().deleteProperty('sb_sent_n');
-  Logger.log('Cleared the sent-rows memory.');
+  PropertiesService.getDocumentProperties().deleteProperty('sb_stat_n');
+  Logger.log('Cleared the sent-rows and status memory.');
 }
 
 // ───────────────────────── scanning ─────────────────────────
 const sbNorm_ = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const sbDomain_ = d => String(d || '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '').trim();
+
+// Old per-month sections of a project tab ("October", "September 2025", "June-July"): archived live links.
+const SB_MONTH_BAND = /^\s*(january|february|march|april|may|june|july|august|september|october|november|december)\b/i;
 
 function sbStatusForBand_(text) {
   const t = String(text || '').toLowerCase();
@@ -119,7 +133,7 @@ function sbDateStr_(v) {
   return ('0' + m[1]).slice(-2) + '/' + ('0' + m[2]).slice(-2) + '/' + (m[3].length === 2 ? '20' + m[3] : m[3]);
 }
 
-function sbScan_() {
+function sbScan_(forStatus) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const rows = [], tabs = [], skippedBands = [];
   const from = SB_FROM_DATE ? new Date(SB_FROM_DATE + 'T00:00:00') : null;
@@ -147,14 +161,14 @@ function sbScan_() {
       if (!domain) { // a band row: text in column A, nothing in Domain
         if (a && !(row[dateCol] instanceof Date) && !/^\d/.test(a)) {
           if (skippedHere) { skippedBands.push({ tab: sh.getName(), band, count: skippedHere }); skippedHere = 0; }
-          band = a; status = sbStatusForBand_(a);
+          band = a; status = sbStatusForBand_(a) || (forStatus && SB_MONTH_BAND.test(a) ? 'live' : null);
         }
         continue;
       }
       if (!/\./.test(domain) || /\s/.test(domain)) continue; // not a real domain cell
       if (!status) { skippedHere++; continue; }
       const date = sbDateStr_(row[dateCol]);
-      if (from && date) { const [dd, mm, yy] = date.split('/'); if (new Date(Number(yy), Number(mm) - 1, Number(dd)) < from) continue; }
+      if (!forStatus && from && date) { const [dd, mm, yy] = date.split('/'); if (new Date(Number(yy), Number(mm) - 1, Number(dd)) < from) continue; }
       const num = v => (v === '' || v == null || isNaN(Number(String(v).replace(/[,%$\s]/g, '')))) ? '' : Number(String(v).replace(/[,%$\s]/g, ''));
       const ssv = num(get(row, 'ss'));
       rows.push({
@@ -218,4 +232,83 @@ function sbSaveSent_(sent) {
   const n = Math.ceil(all.length / per);
   for (let i = 0; i < n; i++) props.setProperty('sb_sent_' + i, all.slice(i * per, (i + 1) * per).join(','));
   props.setProperty('sb_sent_n', String(n));
+}
+
+// ───────────────────────── status sync ─────────────────────────
+const SB_STATUS_CODE = { 'live': 'l', 'pending': 'p', 'needs-change': 'n', 'lost': 'x', 'rejected': 'r' };
+
+/** Dry run: logs which LinkBoard statuses WOULD change (per project). Changes and remembers nothing. */
+function sbStatusTest() { sbStatusRun_(true); }
+
+function sbStatusRun_(dry) {
+  const scan = sbScan_(true);
+  const by = {};
+  scan.rows.forEach(r => (by[r.__key] = by[r.__key] || []).push(r));
+  const rows = [], conflicts = [];
+  Object.keys(by).forEach(k => {
+    const list = by[k], sts = [...new Set(list.map(r => r.status))];
+    if (sts.length > 1) conflicts.push(list[0].project + ' / ' + list[0].domain + ' (' + sts.join(' vs ') + ')');
+    else rows.push(list[0]);
+  });
+
+  const mem = sbLoadStat_();
+  const cand = [];
+  rows.forEach(r => {
+    const h = sbHash_(r.__key), c = SB_STATUS_CODE[r.status];
+    if (mem[h] === c) return; // unchanged since the last run
+    cand.push({ project: r.project, domain: r.domain, status: r.status, anchor: r.anchor, linkin: r.linkin, delta: mem[h] !== undefined, __h: h, __c: c });
+  });
+  Logger.log('%s link row(s) in the Sheet, %s with a status to check (%s unchanged since last run).', rows.length, cand.length, rows.length - cand.length);
+  if (conflicts.length) Logger.log('Same domain under DIFFERENT sections (skipped, fix in the Sheet): %s', JSON.stringify(conflicts.slice(0, 15)));
+
+  const totals = {}, trans = {}, unknown = new Set();
+  const perProject = {};
+  for (const chunk of sbChunkByProject_(cand)) {
+    chunk.forEach((r, i) => { r.i = i; });
+    const res = sbPostStatus_(chunk.map(r => ({ i: r.i, project: r.project, domain: r.domain, status: r.status, anchor: r.anchor, linkin: r.linkin, delta: r.delta })), dry);
+    (res.results || []).forEach(x => {
+      const src = chunk[x.i]; if (!src) return;
+      totals[x.result] = (totals[x.result] || 0) + 1;
+      if (x.result === 'unknown-project') unknown.add(src.project);
+      if (x.result === 'updated' || x.result === 'would-update') {
+        const t = src.project + ': ' + x.from + ' -> ' + x.to;
+        trans[t] = (trans[t] || 0) + 1;
+        const pp = perProject[src.project] = perProject[src.project] || [];
+        if (pp.length < 3) pp.push(src.domain);
+      }
+      if (!dry && (x.result === 'updated' || x.result === 'same' || x.result === 'protected')) mem[src.__h] = src.__c;
+    });
+  }
+  if (!dry && cand.length) sbSaveStat_(mem);
+  Object.keys(trans).sort().forEach(t => Logger.log('  %s : %s', t, trans[t]));
+  Object.keys(perProject).forEach(p => Logger.log('  e.g. %s: %s', p, perProject[p].join(', ')));
+  Logger.log('%s %s', dry ? 'DRY RUN, nothing changed. Result:' : 'Status sync result:', JSON.stringify(totals));
+  if (totals['not-found']) Logger.log('not-found = in the Sheet but not (yet) in LinkBoard; sbSync creates those, then the next run aligns them.');
+  if (totals['protected']) Logger.log('protected = LinkBoard has it live but the Sheet row is still under Pending; left alone on the first (catch-up) run.');
+  if (unknown.size) Logger.log('Unknown projects (not in LinkBoard): %s', JSON.stringify([...unknown]));
+}
+
+function sbPostStatus_(rows, dry) {
+  const res = UrlFetchApp.fetch(SB_URL, {
+    method: 'post', contentType: 'application/json', headers: { 'X-Webhook-Secret': SB_SECRET },
+    payload: JSON.stringify({ action: 'update-status', dry: !!dry, rows: rows }), muteHttpExceptions: true
+  });
+  if (res.getResponseCode() !== 200) throw new Error('LinkBoard status sync failed: HTTP ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200));
+  return JSON.parse(res.getContentText());
+}
+
+// "Last status we saw per row": hash(project|domain) + 1-letter status code, spread over document properties.
+function sbLoadStat_() {
+  const props = PropertiesService.getDocumentProperties();
+  const n = Number(props.getProperty('sb_stat_n') || 0), map = {};
+  for (let i = 0; i < n; i++) (props.getProperty('sb_stat_' + i) || '').split(',').filter(Boolean).forEach(t => { map[t.slice(0, -1)] = t.slice(-1); });
+  return map;
+}
+
+function sbSaveStat_(map) {
+  const props = PropertiesService.getDocumentProperties();
+  const all = Object.keys(map).map(h => h + map[h]);
+  const per = 500, n = Math.ceil(all.length / per);
+  for (let i = 0; i < n; i++) props.setProperty('sb_stat_' + i, all.slice(i * per, (i + 1) * per).join(','));
+  props.setProperty('sb_stat_n', String(n));
 }
