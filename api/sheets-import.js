@@ -132,6 +132,18 @@ async function handleImportRows(req, res) {
     const projectByNorm = new Map();
     projSnap.docs.forEach(d => { const n = d.data().name; if (n) projectByNorm.set(normProject(n), n); });
 
+    // Projects the caller explicitly asked to create when missing (a visible Sheet tab with no LinkBoard
+    // project yet) — so none of its rows are dropped. Only these exact names; never guessed.
+    const createdProjects = [];
+    const wanted = Array.isArray(req.body && req.body.createProjects) ? req.body.createProjects : [];
+    for (const nm of wanted) {
+      const name = String(nm || '').trim();
+      if (!name || projectByNorm.has(normProject(name))) continue;
+      if (!dry) await db.collection('projects').add({ name, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+      projectByNorm.set(normProject(name), name);
+      createdProjects.push(name);
+    }
+
     const unmatched = new Set();
     const byProject = new Map(); // canonical project -> rows
     for (const r of rows) {
@@ -173,7 +185,7 @@ async function handleImportRows(req, res) {
     }
     return res.json({
       ok: true, dry, scanned: rows.length, created: toCreate.length, skipped,
-      unmatchedProjects: [...unmatched],
+      unmatchedProjects: [...unmatched], createdProjects,
       sample: toCreate.slice(0, 15).map(d => ({ project: d.project, domain: d.domain, status: d.status, date: d.date }))
     });
   } catch (e) {
@@ -235,7 +247,7 @@ async function handleUpdateStatus(req, res) {
         const from = d.data().status || 'pending';
         if (from === r.status) { results.push({ ...base, result: 'same', from }); continue; }
         if (!r.delta && from === 'live' && r.status === 'pending') { results.push({ ...base, result: 'protected', from, to: r.status }); continue; }
-        updates.push({ ref: d.ref, status: r.status });
+        updates.push({ ref: d.ref, status: r.status, from });
         results.push({ ...base, result: dry ? 'would-update' : 'updated', from, to: r.status });
       }
     }
@@ -243,7 +255,7 @@ async function handleUpdateStatus(req, res) {
     if (!dry) {
       for (let i = 0; i < updates.length; i += 400) {
         const batch = db.batch();
-        updates.slice(i, i + 400).forEach(u => batch.update(u.ref, { status: u.status, statusSource: 'google-sheets', statusSyncedAt: admin.firestore.FieldValue.serverTimestamp() }));
+        updates.slice(i, i + 400).forEach(u => batch.update(u.ref, { status: u.status, prevStatus: u.from, statusSource: 'google-sheets', statusSyncedAt: admin.firestore.FieldValue.serverTimestamp() }));
         await batch.commit();
       }
     }
@@ -286,7 +298,7 @@ async function checkPendingChunk(db, { since, limit, dry, budgetMs, concurrency 
       const ts = admin.firestore.FieldValue.serverTimestamp();
       if (isLive) {
         live.push({ project: x.project, domain: x.domain, linkin: x.linkin });
-        await d.ref.update({ status: 'live', needsDoubleCheck: true, linkcheck: out.result, pendingCheckedAt: ts, statusSource: 'auto-check', statusSyncedAt: ts });
+        await d.ref.update({ status: 'live', prevStatus: 'pending', needsDoubleCheck: true, linkcheck: out.result, pendingCheckedAt: ts, statusSource: 'auto-check', statusSyncedAt: ts });
         const recipients = new Set(['admin', 'tatev']); // Mika + Tatev do the double-check; recipient = lower-cased name (app.html listenNotifications)
         const b = String(x.builder || '').trim().toLowerCase();
         if (b) recipients.add(b);

@@ -9,12 +9,14 @@
  * STATUS comes from the section a row sits in:
  *     "... live links"  -> live        "Pending" -> pending
  *     "Needs change"    -> needs-change   "Lost" -> lost   "Rejected" -> rejected
+ *     Old month bands ("October", "September 2025") -> live (archived live links).
  *   Rows under any OTHER band are skipped and listed in the log (never guessed).
+ *   HIDDEN tabs are ignored.
  *
  * STATUS SYNC (new): when a row's section changes in the Sheet (e.g. a link is moved from
  *   "Pending" up to "... live links"), LinkBoard's status for that link follows. It only ever
  *   changes the `status` of a link that already exists (project + domain); it never deletes.
- *   Old month bands ("October", "September 2025", ...) count as live for this. First run =
+ *   Old month bands ("October", "September 2025", ...) count as live (for new links too). First run =
  *   catch-up (never moves a LinkBoard-live link back to pending); after that only CHANGES in
  *   the Sheet are sent, so a status someone sets in LinkBoard isn't overwritten again and again.
  *   Dry run: `sbStatusTest` (logs what would change, changes nothing).
@@ -56,8 +58,13 @@ const SB_HOURS = [21];
 // Tab name (without trailing count) -> LinkBoard project name, ONLY when they don't match by themselves
 // (matching already ignores case, spaces and punctuation: "Novisign 19" -> NoviSign).
 const SB_TAB_ALIASES = {
-  // 'TheCascadeTravel': 'Cascade Travel',
+  'Electives': 'Elecitves',            // LinkBoard's project is spelled "Elecitves"
+  'TheCascadeTravel': 'Cascade Travel',
 };
+
+// Visible Sheet tabs whose project doesn't exist in LinkBoard yet: created (name only) on the first sync,
+// so none of their rows are dropped. Exact names only.
+const SB_CREATE_PROJECTS = ['Cloudtalk'];
 // ───────────────────────────────────────────────────────────
 
 const SB_CHUNK = 400; // rows per request (LinkBoard accepts up to 500)
@@ -74,7 +81,7 @@ function sbSync() {
     if (fresh.length) {
       for (const chunk of sbChunkByProject_(fresh)) {
         const res = sbPost_(chunk, false);
-        Logger.log('sent %s -> created %s, already there %s, unknown projects: %s', chunk.length, res.created, res.skipped, JSON.stringify(res.unmatchedProjects));
+        Logger.log('sent %s -> created %s, already there %s, unknown projects: %s%s', chunk.length, res.created, res.skipped, JSON.stringify(res.unmatchedProjects), (res.createdProjects || []).length ? ', created project(s): ' + JSON.stringify(res.createdProjects) : '');
         const bad = new Set((res.unmatchedProjects || []).map(String));
         chunk.forEach(r => { if (!bad.has(String(r.project))) sent.add(r.__key); }); // unknown-project rows stay un-sent and are retried
       }
@@ -145,6 +152,7 @@ function sbScan_(forStatus) {
   const from = SB_FROM_DATE ? new Date(SB_FROM_DATE + 'T00:00:00') : null;
 
   ss.getSheets().forEach(sh => {
+    if (sh.isSheetHidden()) return; // hidden tabs are not part of the live board
     const last = sh.getLastRow(), lastCol = sh.getLastColumn();
     if (last < 2 || lastCol < 2) return;
     const values = sh.getRange(1, 1, last, lastCol).getValues();
@@ -167,7 +175,7 @@ function sbScan_(forStatus) {
       if (!domain) { // a band row: text in column A, nothing in Domain
         if (a && !(row[dateCol] instanceof Date) && !/^\d/.test(a)) {
           if (skippedHere) { skippedBands.push({ tab: sh.getName(), band, count: skippedHere }); skippedHere = 0; }
-          band = a; status = sbStatusForBand_(a) || (forStatus && SB_MONTH_BAND.test(a) ? 'live' : null);
+          band = a; status = sbStatusForBand_(a) || (SB_MONTH_BAND.test(a) ? 'live' : null);
         }
         continue;
       }
@@ -206,7 +214,7 @@ function sbPost_(rows, dry) {
   const payload = rows.map(r => { const o = Object.assign({}, r); delete o.__key; return o; });
   const res = UrlFetchApp.fetch(SB_URL, {
     method: 'post', contentType: 'application/json', headers: { 'X-Webhook-Secret': SB_SECRET },
-    payload: JSON.stringify({ action: 'import-rows', dry: !!dry, rows: payload }), muteHttpExceptions: true
+    payload: JSON.stringify({ action: 'import-rows', dry: !!dry, rows: payload, createProjects: SB_CREATE_PROJECTS }), muteHttpExceptions: true
   });
   if (res.getResponseCode() !== 200) throw new Error('LinkBoard import failed: HTTP ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200));
   return JSON.parse(res.getContentText());
