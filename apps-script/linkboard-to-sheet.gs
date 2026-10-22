@@ -25,9 +25,9 @@
  *      name it "LinkBoard pull", paste this whole file. (Leave your existing
  *      TBR Tools script alone — nothing here overlaps it.)
  *   2. Put the secret in CONFIG below (same value as SHEETS_WEBHOOK_SECRET in Vercel).
- *   3. Run `testPull` once and approve the permissions. It only LOGS what it
+ *   3. Run `lbTest` once and approve the permissions. It only LOGS what it
  *      would do — it changes nothing.
- *   4. Run `setup` once. That installs the every-minute trigger. Done.
+ *   4. Run `lbSetup` once. That installs the every-minute trigger. Done.
  *
  * To stop: Triggers (clock icon) -> delete the lbPull trigger.
  */
@@ -65,14 +65,14 @@ function lbPull() {
 }
 
 /** Dry run: logs where each pending link WOULD go. Changes nothing (no rows, no cursor). */
-function testPull() {
+function lbTest() {
   const data = lbFetch_(true);
   Logger.log('%s new link(s) waiting.', data.items.length);
   lbWrite_(data.items, true);
 }
 
 /** Installs the every-minute trigger (run once). */
-function setup() {
+function lbSetup() {
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'lbPull').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('lbPull').timeBased().everyMinutes(1).create();
   Logger.log('Trigger installed: lbPull runs every minute.');
