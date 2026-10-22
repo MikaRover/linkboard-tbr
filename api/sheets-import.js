@@ -193,10 +193,23 @@ async function handleImportRows(req, res) {
   }
 }
 
+// dd/mm/yyyy | dd.mm.yyyy | dd-mm-yyyy -> Date (UTC midnight) or null
+function parseDmy(v) {
+  const m = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/.exec(String(v || '').trim());
+  if (!m) return null;
+  const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  const d = new Date(Date.UTC(y, Number(m[2]) - 1, Number(m[1])));
+  return isNaN(d) ? null : d;
+}
+const DATE_SYNC_DAYS = 62; // only RECENT sheet dates are copied onto LinkBoard links; old history keeps its dates
+
 // Sheet -> LinkBoard STATUS sync. Only ever changes the `status` field of a link that already
 // exists (matched by project + domain); never creates or deletes. The Sheet script only sends a
 // row when its section changed since the last run (`delta`) or on its first-ever run (catch-up);
 // a catch-up never pushes a link LinkBoard has as live back to pending (the Sheet is probably stale).
+// The Sheet's Date is when the link was placed / went live (the Report counts by it), LinkBoard's own
+// Date can be older or blank: for links dated in the last DATE_SYNC_DAYS days the Sheet date is copied over
+// (the old one is kept in prevDate), so the dashboard's "this month's builders" matches the Sheet.
 async function handleUpdateStatus(req, res) {
   try {
     const rows = Array.isArray(req.body && req.body.rows) ? req.body.rows : [];
@@ -220,7 +233,7 @@ async function handleUpdateStatus(req, res) {
 
     const updates = []; // { ref, status }
     for (const [project, list] of byProject) {
-      const snap = await db.collection('links').where('project', '==', project).select('domain', 'status', 'anchor', 'linkin').get();
+      const snap = await db.collection('links').where('project', '==', project).select('domain', 'status', 'anchor', 'linkin', 'date').get();
       const index = new Map();
       snap.docs.forEach(d => {
         const k = normalizeDomain(d.data().domain);
@@ -245,17 +258,39 @@ async function handleUpdateStatus(req, res) {
         }
         const d = docs[0];
         const from = d.data().status || 'pending';
-        if (from === r.status) { results.push({ ...base, result: 'same', from }); continue; }
-        if (!r.delta && from === 'live' && r.status === 'pending') { results.push({ ...base, result: 'protected', from, to: r.status }); continue; }
-        updates.push({ ref: d.ref, status: r.status, from });
-        results.push({ ...base, result: dry ? 'would-update' : 'updated', from, to: r.status });
+        // date: copy a RECENT sheet date over a different / blank LinkBoard date (same separator style as the existing one)
+        let newDate = null;
+        const sd = parseDmy(r.date);
+        if (sd && Date.now() - sd.getTime() <= DATE_SYNC_DAYS * 86400000 && sd.getTime() <= Date.now() + 86400000) {
+          const cur = String(d.data().date || '').trim();
+          const cd = parseDmy(cur);
+          if (!cd || cd.getTime() !== sd.getTime()) {
+            const sep = /[.]/.test(cur) ? '.' : '/';
+            const pad = n => String(n).padStart(2, '0');
+            newDate = pad(sd.getUTCDate()) + sep + pad(sd.getUTCMonth() + 1) + sep + sd.getUTCFullYear();
+          }
+        }
+        const statusChange = from !== r.status && !(!r.delta && from === 'live' && r.status === 'pending');
+        if (from !== r.status && !statusChange) { // protected (catch-up never moves live back to pending)
+          if (newDate) updates.push({ ref: d.ref, from, date: newDate, prevDate: String(d.data().date || '') });
+          results.push({ ...base, result: 'protected', from, to: r.status, dateTo: newDate || undefined });
+          continue;
+        }
+        if (!statusChange && !newDate) { results.push({ ...base, result: 'same', from }); continue; }
+        updates.push({ ref: d.ref, from, ...(statusChange ? { status: r.status } : {}), ...(newDate ? { date: newDate, prevDate: String(d.data().date || '') } : {}) });
+        results.push({ ...base, result: statusChange ? (dry ? 'would-update' : 'updated') : (dry ? 'would-date' : 'date-updated'), from, to: statusChange ? r.status : from, dateFrom: newDate ? String(d.data().date || '') : undefined, dateTo: newDate || undefined });
       }
     }
 
     if (!dry) {
       for (let i = 0; i < updates.length; i += 400) {
         const batch = db.batch();
-        updates.slice(i, i + 400).forEach(u => batch.update(u.ref, { status: u.status, prevStatus: u.from, statusSource: 'google-sheets', statusSyncedAt: admin.firestore.FieldValue.serverTimestamp() }));
+        updates.slice(i, i + 400).forEach(u => {
+          const upd = { statusSyncedAt: admin.firestore.FieldValue.serverTimestamp(), statusSource: 'google-sheets' };
+          if (u.status) { upd.status = u.status; upd.prevStatus = u.from; }
+          if (u.date) { upd.date = u.date; upd.prevDate = u.prevDate; }
+          batch.update(u.ref, upd);
+        });
         await batch.commit();
       }
     }

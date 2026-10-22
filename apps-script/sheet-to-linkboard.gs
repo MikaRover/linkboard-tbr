@@ -275,9 +275,9 @@ function sbStatusRun_(dry) {
   const mem = sbLoadStat_();
   const cand = [];
   rows.forEach(r => {
-    const h = sbHash_(r.__key), c = SB_STATUS_CODE[r.status];
-    if (mem[h] === c) return; // unchanged since the last run
-    cand.push({ project: r.project, domain: r.domain, status: r.status, anchor: r.anchor, linkin: r.linkin, delta: mem[h] !== undefined, __h: h, __c: c });
+    const h = sbHash_(r.__key), c = SB_STATUS_CODE[r.status], dh = sbHash_('d' + r.date), val = c + dh;
+    if (mem[h] === val) return; // status and date unchanged since the last run
+    cand.push({ project: r.project, domain: r.domain, status: r.status, date: r.date, anchor: r.anchor, linkin: r.linkin, delta: mem[h] !== undefined && mem[h].charAt(0) !== c, __h: h, __c: val });
   });
   Logger.log('%s link row(s) in the Sheet, %s with a status to check (%s unchanged since last run).', rows.length, cand.length, rows.length - cand.length);
   if (conflicts.length) Logger.log('Same domain under DIFFERENT sections (skipped, fix in the Sheet): %s', JSON.stringify(conflicts.slice(0, 15)));
@@ -286,18 +286,22 @@ function sbStatusRun_(dry) {
   const perProject = {};
   for (const chunk of sbChunkByProject_(cand)) {
     chunk.forEach((r, i) => { r.i = i; });
-    const res = sbPostStatus_(chunk.map(r => ({ i: r.i, project: r.project, domain: r.domain, status: r.status, anchor: r.anchor, linkin: r.linkin, delta: r.delta })), dry);
+    const res = sbPostStatus_(chunk.map(r => ({ i: r.i, project: r.project, domain: r.domain, status: r.status, date: r.date, anchor: r.anchor, linkin: r.linkin, delta: r.delta })), dry);
     (res.results || []).forEach(x => {
       const src = chunk[x.i]; if (!src) return;
       totals[x.result] = (totals[x.result] || 0) + 1;
       if (x.result === 'unknown-project') unknown.add(src.project);
+      if (x.dateTo) {
+        const dt = src.project + ': date ' + (x.dateFrom || '(blank)') + ' -> ' + x.dateTo;
+        trans[dt] = (trans[dt] || 0) + 1;
+      }
       if (x.result === 'updated' || x.result === 'would-update') {
         const t = src.project + ': ' + x.from + ' -> ' + x.to;
         trans[t] = (trans[t] || 0) + 1;
         const pp = perProject[src.project] = perProject[src.project] || [];
         if (pp.length < 3) pp.push(src.domain);
       }
-      if (!dry && (x.result === 'updated' || x.result === 'same' || x.result === 'protected')) mem[src.__h] = src.__c;
+      if (!dry && (x.result === 'updated' || x.result === 'date-updated' || x.result === 'same' || x.result === 'protected')) mem[src.__h] = src.__c;
     });
   }
   if (!dry && cand.length) sbSaveStat_(mem);
@@ -318,18 +322,18 @@ function sbPostStatus_(rows, dry) {
   return JSON.parse(res.getContentText());
 }
 
-// "Last status we saw per row": hash(project|domain) + 1-letter status code, spread over document properties.
+// "Last status + date we saw per row": hash(project|domain) : 1-letter status code + date hash, spread over document properties.
 function sbLoadStat_() {
   const props = PropertiesService.getDocumentProperties();
   const n = Number(props.getProperty('sb_stat_n') || 0), map = {};
-  for (let i = 0; i < n; i++) (props.getProperty('sb_stat_' + i) || '').split(',').filter(Boolean).forEach(t => { map[t.slice(0, -1)] = t.slice(-1); });
+  for (let i = 0; i < n; i++) (props.getProperty('sb_stat_' + i) || '').split(',').filter(Boolean).forEach(t => { const k = t.indexOf(':'); if (k > 0) map[t.slice(0, k)] = t.slice(k + 1); });
   return map;
 }
 
 function sbSaveStat_(map) {
   const props = PropertiesService.getDocumentProperties();
-  const all = Object.keys(map).map(h => h + map[h]);
-  const per = 500, n = Math.ceil(all.length / per);
+  const all = Object.keys(map).map(h => h + ':' + map[h]);
+  const per = 350, n = Math.ceil(all.length / per); // ~20 chars each -> ~7 KB per property
   for (let i = 0; i < n; i++) props.setProperty('sb_stat_' + i, all.slice(i * per, (i + 1) * per).join(','));
   props.setProperty('sb_stat_n', String(n));
 }
