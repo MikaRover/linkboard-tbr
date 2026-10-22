@@ -255,64 +255,99 @@ async function handleUpdateStatus(req, res) {
   }
 }
 
-// Scheduled check of PENDING links (Apps Script trigger, 3x/day -> POST {action:'check-pending'}).
-// For every pending link that has a Link in + Link to, looks at the page: if a real <a href> to the
-// target is there (same test as the app's own "Check link" button) the link is marked live, flagged
-// for the double-check queue (Mika + Tatev) like any other newly-live link, and Mika (admin), Tatev and
-// the builder get a notification. Anything inconclusive (blocked, error, not found yet) is left pending, never touched.
-// Chunked: each request checks up to `limit` links not yet checked since `since` (the run's start),
-// and answers with how many are `remaining`, so the caller loops until it reaches 0.
+// Check of PENDING links. For every pending link that has a Link in + Link to, looks at the page: if a
+// real <a href> to the target is there (same test as the app's own "Check link" button) the link is
+// marked live, flagged for the double-check queue (Mika + Tatev) like any other newly-live link, and
+// Mika (admin), Tatev and the builder get a notification. Anything inconclusive (blocked, error, not
+// found yet) is left pending, never touched. Links already checked since `since` are skipped and the
+// oldest-checked go first, so repeated runs rotate through all of them.
+async function checkPendingChunk(db, { since, limit, dry, budgetMs, concurrency }) {
+  const snap = await db.collection('links').where('status', '==', 'pending')
+    .select('linkin', 'linkto', 'anchor', 'project', 'domain', 'builder', 'pendingCheckedAt').get();
+  const checkedAt = d => { const t = d.data().pendingCheckedAt; return t && t.toMillis ? t.toMillis() : 0; };
+  const eligible = snap.docs.filter(d => { const x = d.data(); return /^https?:\/\//i.test(String(x.linkin || '').trim()) && x.linkto && isSafeHost(x.linkin); });
+  const todo = eligible.filter(d => checkedAt(d) < since).sort((a, b) => checkedAt(a) - checkedAt(b));
+  const batch = todo.slice(0, limit);
+
+  const live = [], counts = { live: 0, 'not-found': 0, blocked: 0, error: 0 };
+  const started = Date.now();
+  let next = 0;
+  async function worker() {
+    while (next < batch.length && Date.now() - started < budgetMs) {
+      const d = batch[next++];
+      const x = d.data();
+      let out;
+      try { out = await checkLink({ linkIn: x.linkin, linkTo: x.linkto, anchor: x.anchor || '' }); }
+      catch (e) { out = { result: '⚠️ Error', ok: null }; }
+      const isLive = out.ok === true && String(out.result || '').includes('Live');
+      const kind = isLive ? 'live' : (out.ok === false ? 'not-found' : (String(out.result || '').includes('Blocked') ? 'blocked' : 'error'));
+      counts[kind]++;
+      if (dry) { if (isLive) live.push({ project: x.project, domain: x.domain, linkin: x.linkin }); continue; }
+      const ts = admin.firestore.FieldValue.serverTimestamp();
+      if (isLive) {
+        live.push({ project: x.project, domain: x.domain, linkin: x.linkin });
+        await d.ref.update({ status: 'live', needsDoubleCheck: true, linkcheck: out.result, pendingCheckedAt: ts, statusSource: 'auto-check', statusSyncedAt: ts });
+        const recipients = new Set(['admin', 'tatev']); // Mika + Tatev do the double-check; recipient = lower-cased name (app.html listenNotifications)
+        const b = String(x.builder || '').trim().toLowerCase();
+        if (b) recipients.add(b);
+        for (const recipient of recipients) {
+          await db.collection('notifications').add({
+            type: 'link-live', recipient, domain: x.domain || '', project: x.project || '', linkin: x.linkin || '',
+            builder: x.builder || '', read: false, createdAt: ts
+          });
+        }
+      } else {
+        await d.ref.update({ pendingCheckedAt: ts, pendingCheck: out.result || '' });
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  const done = Math.min(next, batch.length);
+  return { pending: snap.size, eligible: eligible.length, checked: done, remaining: Math.max(todo.length - done, 0), counts, live };
+}
+
+// Apps Script / manual: POST {action:'check-pending'} with the webhook secret (chunked; the caller loops).
 async function handleCheckPending(req, res) {
   try {
     const body = req.body || {};
-    const since = Number(body.since) || Date.now();
-    const limit = Math.min(Math.max(Number(body.limit) || 40, 1), 80);
-    const dry = !!body.dry;
+    const r = await checkPendingChunk(getDb(), {
+      since: Number(body.since) || Date.now(), limit: Math.min(Math.max(Number(body.limit) || 40, 1), 80),
+      dry: !!body.dry, budgetMs: 35000, concurrency: 8
+    });
+    return res.json({ ok: true, dry: !!body.dry, ...r });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// Automatic runs, built into LinkBoard (no Apps Script needed): /api/pendingcheck is hit by the daily
+// Vercel cron (Bearer CRON_SECRET) and by the app itself when someone opens it (Firebase ID token).
+// Hobby cron is once a day, so the app-open trigger adds the extra runs, throttled by meta/pendingCheck
+// (at most one run per MIN_GAP_MS, claimed in a transaction so two open tabs can't both run).
+const PENDING_MIN_GAP_MS = 7 * 60 * 60 * 1000;
+async function handleAutoPendingCheck(req, res) {
+  try {
+    const m = /^Bearer (.+)$/.exec(req.headers.authorization || '');
+    if (!m) return res.status(401).json({ error: 'Unauthorized' });
     const db = getDb();
-
-    const snap = await db.collection('links').where('status', '==', 'pending')
-      .select('linkin', 'linkto', 'anchor', 'project', 'domain', 'builder', 'pendingCheckedAt').get();
-    const checkedAt = d => { const t = d.data().pendingCheckedAt; return t && t.toMillis ? t.toMillis() : 0; };
-    const eligible = snap.docs.filter(d => { const x = d.data(); return /^https?:\/\//i.test(String(x.linkin || '').trim()) && x.linkto && isSafeHost(x.linkin); });
-    const todo = eligible.filter(d => checkedAt(d) < since).sort((a, b) => checkedAt(a) - checkedAt(b));
-    const batch = todo.slice(0, limit);
-
-    const live = [], counts = { live: 0, 'not-found': 0, blocked: 0, error: 0 };
-    const started = Date.now();
-    let next = 0;
-    async function worker() {
-      while (next < batch.length && Date.now() - started < 35000) {
-        const d = batch[next++];
-        const x = d.data();
-        let out;
-        try { out = await checkLink({ linkIn: x.linkin, linkTo: x.linkto, anchor: x.anchor || '' }); }
-        catch (e) { out = { result: '⚠️ Error', ok: null }; }
-        const isLive = out.ok === true && String(out.result || '').includes('Live');
-        const kind = isLive ? 'live' : (out.ok === false ? 'not-found' : (String(out.result || '').includes('Blocked') ? 'blocked' : 'error'));
-        counts[kind]++;
-        if (dry) { if (isLive) live.push({ project: x.project, domain: x.domain, linkin: x.linkin }); continue; }
-        const ts = admin.firestore.FieldValue.serverTimestamp();
-        if (isLive) {
-          live.push({ project: x.project, domain: x.domain, linkin: x.linkin });
-          await d.ref.update({ status: 'live', needsDoubleCheck: true, linkcheck: out.result, pendingCheckedAt: ts, statusSource: 'auto-check', statusSyncedAt: ts });
-          const recipients = new Set(['admin', 'tatev']); // Mika + Tatev do the double-check; recipient = lower-cased name (app.html listenNotifications)
-          const b = String(x.builder || '').trim().toLowerCase();
-          if (b) recipients.add(b);
-          for (const recipient of recipients) {
-            await db.collection('notifications').add({
-              type: 'link-live', recipient, domain: x.domain || '', project: x.project || '', linkin: x.linkin || '',
-              builder: x.builder || '', read: false, createdAt: ts
-            });
-          }
-        } else {
-          await d.ref.update({ pendingCheckedAt: ts, pendingCheck: out.result || '' });
-        }
-      }
+    const isCronCall = !!(process.env.CRON_SECRET && m[1] === process.env.CRON_SECRET);
+    if (!isCronCall) {
+      try { await admin.auth().verifyIdToken(m[1]); } catch (e) { return res.status(401).json({ error: 'Unauthorized' }); }
     }
-    await Promise.all(Array.from({ length: 8 }, worker));
-
-    const done = Math.min(next, batch.length);
-    return res.json({ ok: true, dry, pending: snap.size, eligible: eligible.length, checked: done, remaining: Math.max(todo.length - done, 0), counts, live });
+    const ref = db.collection('meta').doc('pendingCheck');
+    const gap = isCronCall ? 2 * 60 * 60 * 1000 : PENDING_MIN_GAP_MS;
+    const now = Date.now();
+    const claimed = await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const last = snap.exists && snap.data().lastRunAt && snap.data().lastRunAt.toMillis ? snap.data().lastRunAt.toMillis() : 0;
+      if (now - last < gap) return false;
+      tx.set(ref, { lastRunAt: admin.firestore.Timestamp.fromMillis(now), trigger: isCronCall ? 'cron' : 'app' }, { merge: true });
+      return true;
+    });
+    if (!claimed) return res.json({ ok: true, skipped: true });
+    const r = await checkPendingChunk(db, { since: now, limit: 150, dry: false, budgetMs: 32000, concurrency: 12 });
+    await ref.set({ lastResult: { checked: r.checked, remaining: r.remaining, live: r.counts.live, finishedAt: admin.firestore.FieldValue.serverTimestamp() } }, { merge: true });
+    return res.json({ ok: true, ...r });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
@@ -324,6 +359,12 @@ module.exports = async function handler(req, res) {
   // token / cron secret), so it must dispatch before the webhook-secret check.
   if ((req.query && req.query.gmail) || /^\/api\/gmail(\?|$)/.test(req.url || '')) {
     return require('./_lib/gmail')(req, res);
+  }
+  if ((req.query && req.query.pendingcheck) || /^\/api\/pendingcheck(\?|$)/.test(req.url || '')) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    return handleAutoPendingCheck(req, res);
   }
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');

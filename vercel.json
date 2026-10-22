@@ -32,12 +32,20 @@
     {
       "source": "/api/gmail",
       "destination": "/api/sheets-import?gmail=1"
+    },
+    {
+      "source": "/api/pendingcheck",
+      "destination": "/api/sheets-import?pendingcheck=1"
     }
   ],
   "crons": [
     {
       "path": "/api/gmail?action=sync",
       "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/pendingcheck",
+      "schedule": "0 6 * * *"
     }
   ]
 }
