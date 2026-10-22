@@ -65,6 +65,10 @@ const SB_TAB_ALIASES = {
 // Visible Sheet tabs whose project doesn't exist in LinkBoard yet: created (name only) on the first sync,
 // so none of their rows are dropped. Exact names only.
 const SB_CREATE_PROJECTS = ['Cloudtalk'];
+
+// Also copy the Sheet's Date onto LinkBoard links when it differs (only dates from the last 62 days). OFF until
+// decided: the two sets of dates differ in BOTH directions, so some links would move out of the current month.
+const SB_SYNC_DATES = false;
 // ───────────────────────────────────────────────────────────
 
 const SB_CHUNK = 400; // rows per request (LinkBoard accepts up to 500)
@@ -275,7 +279,7 @@ function sbStatusRun_(dry) {
   const mem = sbLoadStat_();
   const cand = [];
   rows.forEach(r => {
-    const h = sbHash_(r.__key), c = SB_STATUS_CODE[r.status], dh = sbHash_('d' + r.date), val = c + dh;
+    const h = sbHash_(r.__key), c = SB_STATUS_CODE[r.status], dh = SB_SYNC_DATES ? sbHash_('d' + r.date) : '', val = c + dh;
     if (mem[h] === val) return; // status and date unchanged since the last run
     cand.push({ project: r.project, domain: r.domain, status: r.status, date: r.date, anchor: r.anchor, linkin: r.linkin, delta: mem[h] !== undefined && mem[h].charAt(0) !== c, __h: h, __c: val });
   });
@@ -286,7 +290,7 @@ function sbStatusRun_(dry) {
   const perProject = {};
   for (const chunk of sbChunkByProject_(cand)) {
     chunk.forEach((r, i) => { r.i = i; });
-    const res = sbPostStatus_(chunk.map(r => ({ i: r.i, project: r.project, domain: r.domain, status: r.status, date: r.date, anchor: r.anchor, linkin: r.linkin, delta: r.delta })), dry);
+    const res = sbPostStatus_(chunk.map(r => ({ i: r.i, project: r.project, domain: r.domain, status: r.status, date: SB_SYNC_DATES ? r.date : '', anchor: r.anchor, linkin: r.linkin, delta: r.delta })), dry);
     (res.results || []).forEach(x => {
       const src = chunk[x.i]; if (!src) return;
       totals[x.result] = (totals[x.result] || 0) + 1;
