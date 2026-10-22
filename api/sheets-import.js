@@ -5,6 +5,8 @@
 // needs its own secret check instead of relying on a logged-in user.
 
 const admin = require('firebase-admin');
+const { isSafeHost } = require('./_lib/security');
+const { checkLink } = require('./_lib/linkcheck');
 
 function getDb() {
   if (!admin.apps.length) {
@@ -253,6 +255,69 @@ async function handleUpdateStatus(req, res) {
   }
 }
 
+// Scheduled check of PENDING links (Apps Script trigger, 3x/day -> POST {action:'check-pending'}).
+// For every pending link that has a Link in + Link to, looks at the page: if a real <a href> to the
+// target is there (same test as the app's own "Check link" button) the link is marked live, flagged
+// for Sofya's double-check queue like any other newly-live link, and the admin + the builder get a
+// notification. Anything inconclusive (blocked, error, not found yet) is left pending, never touched.
+// Chunked: each request checks up to `limit` links not yet checked since `since` (the run's start),
+// and answers with how many are `remaining`, so the caller loops until it reaches 0.
+async function handleCheckPending(req, res) {
+  try {
+    const body = req.body || {};
+    const since = Number(body.since) || Date.now();
+    const limit = Math.min(Math.max(Number(body.limit) || 40, 1), 80);
+    const dry = !!body.dry;
+    const db = getDb();
+
+    const snap = await db.collection('links').where('status', '==', 'pending')
+      .select('linkin', 'linkto', 'anchor', 'project', 'domain', 'builder', 'pendingCheckedAt').get();
+    const checkedAt = d => { const t = d.data().pendingCheckedAt; return t && t.toMillis ? t.toMillis() : 0; };
+    const eligible = snap.docs.filter(d => { const x = d.data(); return /^https?:\/\//i.test(String(x.linkin || '').trim()) && x.linkto && isSafeHost(x.linkin); });
+    const todo = eligible.filter(d => checkedAt(d) < since).sort((a, b) => checkedAt(a) - checkedAt(b));
+    const batch = todo.slice(0, limit);
+
+    const live = [], counts = { live: 0, 'not-found': 0, blocked: 0, error: 0 };
+    const started = Date.now();
+    let next = 0;
+    async function worker() {
+      while (next < batch.length && Date.now() - started < 35000) {
+        const d = batch[next++];
+        const x = d.data();
+        let out;
+        try { out = await checkLink({ linkIn: x.linkin, linkTo: x.linkto, anchor: x.anchor || '' }); }
+        catch (e) { out = { result: '⚠️ Error', ok: null }; }
+        const isLive = out.ok === true && String(out.result || '').includes('Live');
+        const kind = isLive ? 'live' : (out.ok === false ? 'not-found' : (String(out.result || '').includes('Blocked') ? 'blocked' : 'error'));
+        counts[kind]++;
+        if (dry) { if (isLive) live.push({ project: x.project, domain: x.domain, linkin: x.linkin }); continue; }
+        const ts = admin.firestore.FieldValue.serverTimestamp();
+        if (isLive) {
+          live.push({ project: x.project, domain: x.domain, linkin: x.linkin });
+          await d.ref.update({ status: 'live', needsDoubleCheck: true, linkcheck: out.result, pendingCheckedAt: ts, statusSource: 'auto-check', statusSyncedAt: ts });
+          const recipients = new Set(['admin']);
+          const b = String(x.builder || '').trim().toLowerCase();
+          if (b) recipients.add(b);
+          for (const recipient of recipients) {
+            await db.collection('notifications').add({
+              type: 'link-live', recipient, domain: x.domain || '', project: x.project || '', linkin: x.linkin || '',
+              builder: x.builder || '', read: false, createdAt: ts
+            });
+          }
+        } else {
+          await d.ref.update({ pendingCheckedAt: ts, pendingCheck: out.result || '' });
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: 8 }, worker));
+
+    const done = Math.min(next, batch.length);
+    return res.json({ ok: true, dry, pending: snap.size, eligible: eligible.length, checked: done, remaining: Math.max(todo.length - done, 0), counts, live });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 module.exports = async function handler(req, res) {
   // Hobby plan = 12 functions max and all are used, so /api/gmail (rewritten
   // here in vercel.json) shares this one. Gmail auth is its own (Firebase ID
@@ -271,6 +336,7 @@ module.exports = async function handler(req, res) {
   if (req.body && req.body.action === 'ack') return handleSheetAck(req, res);
   if (req.body && req.body.action === 'import-rows') return handleImportRows(req, res);
   if (req.body && req.body.action === 'update-status') return handleUpdateStatus(req, res);
+  if (req.body && req.body.action === 'check-pending') return handleCheckPending(req, res);
 
   const {
     domain, anchor, project, dr, traffic, ss, price,
