@@ -3113,9 +3113,9 @@ function startApp(){
   document.querySelectorAll('.tatev-tool').forEach(el=>el.style.display=isAdminOrTatev()?'block':'none');
   // Projects: admin has its own sidebar item; Tatev (a builder-nav user) gets this one.
   document.querySelectorAll('.tatev-only').forEach(el=>el.style.display=(!isAdmin&&(cu.name||'')==='Tatev')?'block':'none');
-  // Double-check queue nav — admin only
+  // Double-check queue nav — admin + Tatev (Sofya no longer does it)
   document.querySelectorAll('.nav-sofya').forEach(el=>{
-    el.style.display=isAdmin?'block':'none';
+    el.style.display=isAdminOrTatev()?'block':'none';
   });
   // Import CSV in the builder-nav slot — Admin Secretary only, not plain builders
   // (admin already has their own separate Import CSV item outside nav-bld)
@@ -4729,7 +4729,7 @@ function renderActivePageForLinks(){
   });
 }
 
-// ─── NOTIFICATIONS (admin: approvals + anyway-adds · Sofya: double-check) ──
+// ─── NOTIFICATIONS (admin: approvals + anyway-adds · admin + Tatev: newly-live links) ──
 let notifListenerReady=false;
 function listenNotifications(){
   const recipient=cu.role==='admin'?'admin':(cu.name||cu.email||'').trim().toLowerCase();
@@ -6140,7 +6140,7 @@ function linkCheckUpdatePayload(data){
   if(data&&data.ok===true&&result.includes('Live')){
     payload.status='live';
     // Every other path that sets status='live' (updateLinkStatus) flags this
-    // for Sofya's double-check queue — an automated check confirming a link
+    // for the double-check queue (Mika + Tatev) — an automated check confirming a link
     // went live is exactly as reviewable as a manual status change, and was
     // silently skipping the queue before this.
     payload.needsDoubleCheck=true;

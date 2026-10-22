@@ -21,8 +21,8 @@
  *
  * PENDING CHECKER (new): 3x a day LinkBoard itself looks at every PENDING link that has a Link in +
  *   Link to. If the page really links to the target (same test as the "Check link" button) the link
- *   becomes live (goes to Sofya's double-check queue like any newly-live link) and the admin + the
- *   builder get a bell notification. Not found yet / blocked / error -> left pending, untouched.
+ *   becomes live (goes to the double-check queue of Mika + Tatev like any newly-live link) and Mika,
+ *   Tatev and the builder get a bell notification. Not found yet / blocked / error -> left pending, untouched.
  *   Dry run: `pcTest` (checks the first batch, changes nothing). Install: `pcSetup`.
  *
  * SAFE BY DESIGN
