@@ -3146,6 +3146,7 @@ function startApp(){
 
   listenBuilders();listenCapacities();listenLoads();listenKPITargets();listenProjects();listenLinks();listenReqs();listenQualityReqs();listenDomains();listenDomainFolders();listenMyGmail();
   listenNotifications();
+  setTimeout(runPendingCheckIfDue,10000);
   if(isAdmin)listenDCHistory();
   renderCatButtons('');
 
@@ -4730,6 +4731,14 @@ function renderActivePageForLinks(){
 }
 
 // ─── NOTIFICATIONS (admin: approvals + anyway-adds · admin + Tatev: newly-live links) ──
+// Pending links are checked automatically (daily Vercel cron + whenever someone opens the app; the server
+// throttles to one run per ~7h). Newly-live links arrive as bell notifications through the listener below.
+async function runPendingCheckIfDue(){
+  try{
+    if(typeof auth==='undefined'||!auth.currentUser)return;
+    await fetch('/api/pendingcheck',{method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken()}});
+  }catch(e){}
+}
 let notifListenerReady=false;
 function listenNotifications(){
   const recipient=cu.role==='admin'?'admin':(cu.name||cu.email||'').trim().toLowerCase();
