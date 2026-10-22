@@ -19,6 +19,12 @@
  *   the Sheet are sent, so a status someone sets in LinkBoard isn't overwritten again and again.
  *   Dry run: `sbStatusTest` (logs what would change, changes nothing).
  *
+ * PENDING CHECKER (new): 3x a day LinkBoard itself looks at every PENDING link that has a Link in +
+ *   Link to. If the page really links to the target (same test as the "Check link" button) the link
+ *   becomes live (goes to Sofya's double-check queue like any newly-live link) and the admin + the
+ *   builder get a bell notification. Not found yet / blocked / error -> left pending, untouched.
+ *   Dry run: `pcTest` (checks the first batch, changes nothing). Install: `pcSetup`.
+ *
  * SAFE BY DESIGN
  *   - Unknown project (typo'd tab name): reported, never created in LinkBoard.
  *   - Domains already in LinkBoard (including ones the pull script put in the
@@ -311,4 +317,52 @@ function sbSaveStat_(map) {
   const per = 500, n = Math.ceil(all.length / per);
   for (let i = 0; i < n; i++) props.setProperty('sb_stat_' + i, all.slice(i * per, (i + 1) * per).join(','));
   props.setProperty('sb_stat_n', String(n));
+}
+
+// ───────────────────────── pending-link checker ─────────────────────────
+// Uses SB_URL / SB_SECRET above. Hours of the day (script time zone):
+const PC_HOURS = [9, 14, 19];
+const PC_LIMIT = 40; // links checked per request (LinkBoard allows up to 80)
+
+function pcPost_(payload) {
+  const res = UrlFetchApp.fetch(SB_URL, {
+    method: 'post', contentType: 'application/json', headers: { 'X-Webhook-Secret': SB_SECRET },
+    payload: JSON.stringify(payload), muteHttpExceptions: true
+  });
+  if (res.getResponseCode() !== 200) throw new Error('LinkBoard pending check failed: HTTP ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200));
+  return JSON.parse(res.getContentText());
+}
+
+/** Real run: checks all pending links (in batches) and marks the live ones. */
+function pcRun() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return;
+  try {
+    const since = Date.now(); // links already checked in THIS run are skipped
+    const live = []; let checked = 0;
+    for (let round = 0; round < 12; round++) {
+      const r = pcPost_({ action: 'check-pending', since: since, limit: PC_LIMIT });
+      checked += r.checked;
+      (r.live || []).forEach(l => live.push(l.project + ' / ' + l.domain));
+      Logger.log('round %s: checked %s, live %s, not found yet %s, blocked %s, errors %s; %s left', round + 1, r.checked, r.counts.live, r.counts['not-found'], r.counts.blocked, r.counts.error, r.remaining);
+      if (r.remaining <= 0 || r.checked === 0) break;
+    }
+    Logger.log('Pending check done: %s checked, %s now live%s', checked, live.length, live.length ? ': ' + live.join(', ') : '');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Dry run: checks the first batch of pending links and logs what WOULD turn live. Changes nothing. */
+function pcTest() {
+  const r = pcPost_({ action: 'check-pending', since: Date.now(), limit: PC_LIMIT, dry: true });
+  Logger.log('%s pending link(s), %s checkable (have Link in + Link to). First batch of %s: live %s, not found yet %s, blocked %s, errors %s.', r.pending, r.eligible, r.checked, r.counts.live, r.counts['not-found'], r.counts.blocked, r.counts.error);
+  (r.live || []).forEach(l => Logger.log('  would turn live: %s / %s  (%s)', l.project, l.domain, l.linkin));
+}
+
+/** Installs the 3 daily triggers (run once). */
+function pcSetup() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'pcRun').forEach(t => ScriptApp.deleteTrigger(t));
+  PC_HOURS.forEach(h => ScriptApp.newTrigger('pcRun').timeBased().everyDays(1).atHour(h).create());
+  Logger.log('Installed: pcRun runs daily at hours %s.', JSON.stringify(PC_HOURS));
 }
