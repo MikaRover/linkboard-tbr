@@ -173,9 +173,16 @@ function sbScan_(forStatus) {
       const domain = String(get(row, 'domain') || '').trim();
       const a = String(row[dateCol] || '').trim();
       if (!domain) { // a band row: text in column A, nothing in Domain
-        if (a && !(row[dateCol] instanceof Date) && !/^\d/.test(a)) {
+        // Sheets turns a typed "April 2024" band into a real date; a row whose ONLY content is such a date is a month band.
+        let bandText = a;
+        if (row[dateCol] instanceof Date) {
+          const onlyDate = row.every((c, ci) => ci === dateCol || String(c == null ? '' : c).trim() === '');
+          bandText = onlyDate ? Utilities.formatDate(row[dateCol], Session.getScriptTimeZone(), 'MMMM yyyy') : '';
+        }
+        if (/^\s*blog article/i.test(bandText)) continue; // a sub-label inside a section: keeps the section's status
+        if (bandText && !/^\d/.test(bandText)) {
           if (skippedHere) { skippedBands.push({ tab: sh.getName(), band, count: skippedHere }); skippedHere = 0; }
-          band = a; status = sbStatusForBand_(a) || (SB_MONTH_BAND.test(a) ? 'live' : null);
+          band = bandText; status = sbStatusForBand_(bandText) || (SB_MONTH_BAND.test(bandText) ? 'live' : null);
         }
         continue;
       }
