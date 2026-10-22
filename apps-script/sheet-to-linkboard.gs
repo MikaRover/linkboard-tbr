@@ -50,8 +50,8 @@ const SB_SECRET = 'PASTE_THE_SHEETS_WEBHOOK_SECRET_HERE';
 // Only rows dated on/after this day (YYYY-MM-DD) are considered. '' = no limit (the whole history!).
 const SB_FROM_DATE = '';
 
-// Hours of the day (script time zone) the sync runs. 5 times a day:
-const SB_HOURS = [8, 11, 14, 17, 20];
+// Hours of the day (script time zone) the sync runs (new links + status changes). Once a day, 21:00:
+const SB_HOURS = [21];
 
 // Tab name (without trailing count) -> LinkBoard project name, ONLY when they don't match by themselves
 // (matching already ignores case, spaces and punctuation: "Novisign 19" -> NoviSign).
