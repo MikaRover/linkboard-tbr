@@ -66,9 +66,10 @@ const SB_TAB_ALIASES = {
 // so none of their rows are dropped. Exact names only.
 const SB_CREATE_PROJECTS = ['Cloudtalk'];
 
-// Also copy the Sheet's Date onto LinkBoard links when it differs (only dates from the last 62 days). OFF until
-// decided: the two sets of dates differ in BOTH directions, so some links would move out of the current month.
-const SB_SYNC_DATES = false;
+// Also copy the Sheet's Date onto LinkBoard links when it differs (only dates from the last 62 days). The Sheet's
+// Date is the day the builder delivered the link (the Report counts by it, even for a project still on last
+// month's requirement), so the dashboard's "this month's builders" should follow it. The old value is kept in prevDate.
+const SB_SYNC_DATES = true;
 // ───────────────────────────────────────────────────────────
 
 const SB_CHUNK = 400; // rows per request (LinkBoard accepts up to 500)
