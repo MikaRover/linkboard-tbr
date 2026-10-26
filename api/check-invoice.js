@@ -1,3 +1,4 @@
+const { setCors, requireMember } = require('./_lib/auth');
 // Best-effort PayPal invoice payment-status checker — fetches the invoice
 // page (with a bot-bypass fallback, same approach as check-link.js) and
 // looks for paid/unpaid wording in the rendered text. PayPal's hosted
@@ -56,10 +57,9 @@ function detectPaidStatus(text){
 }
 
 module.exports = async function handler(req, res){
-  res.setHeader('Access-Control-Allow-Origin','*');
-  res.setHeader('Access-Control-Allow-Methods','POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers','Content-Type');
-  if(req.method==='OPTIONS') return res.status(200).end();
+  setCors(req, res);
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (!(await requireMember(req, res))) return;
   if(req.method!=='POST') return res.status(405).json({error:'Method not allowed'});
 
   const { invoiceUrl } = req.body || {};

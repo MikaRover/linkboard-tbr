@@ -11,7 +11,7 @@
 // LinkBoard user (Firebase ID token). Env: SAFE_BROWSING_KEY, OPR_API_KEY,
 // APIFLASH_KEY, FIREBASE_SERVICE_ACCOUNT. A missing key only disables that tool.
 
-const admin = require('firebase-admin');
+const admin = require('./firebase-admin');
 const dns = require('dns').promises;
 const { isSafeHost, cleanHost } = require('./security');
 const { normUrl } = require('./linkcheck');

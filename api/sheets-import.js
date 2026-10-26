@@ -4,9 +4,10 @@
 // Firestore using the Admin SDK, bypassing client auth entirely, so it
 // needs its own secret check instead of relying on a logged-in user.
 
-const admin = require('firebase-admin');
+const admin = require('./_lib/firebase-admin');
 const { isSafeHost } = require('./_lib/security');
 const { checkLink } = require('./_lib/linkcheck');
+const { setCors, memberFromRequest } = require('./_lib/auth');
 
 function getDb() {
   if (!admin.apps.length) {
@@ -435,7 +436,9 @@ async function handleAutoPendingCheck(req, res) {
     const db = getDb();
     const isCronCall = !!(process.env.CRON_SECRET && m[1] === process.env.CRON_SECRET);
     if (!isCronCall) {
-      try { await admin.auth().verifyIdToken(m[1]); } catch (e) { return res.status(401).json({ error: 'Unauthorized' }); }
+      // Must be a LinkBoard team member, not just any Firebase account.
+      const member = await memberFromRequest(req).catch(() => null);
+      if (!member) return res.status(401).json({ error: 'Unauthorized' });
     }
     const ref = db.collection('meta').doc('pendingCheck');
     const gap = isCronCall ? 2 * 60 * 60 * 1000 : PENDING_MIN_GAP_MS;
@@ -460,6 +463,30 @@ async function handleAutoPendingCheck(req, res) {
   }
 }
 
+// Public landing-page counters (index.html). Returns ONLY three numbers —
+// never documents — so the landing page keeps its stats while Firestore
+// itself stays closed to anyone who isn't a signed-in team member.
+// Cached per instance for 10 minutes; Firestore count() is cheap anyway.
+let statsCache = null;
+async function handlePublicStats(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  try {
+    if (!statsCache || Date.now() - statsCache.at > 10 * 60 * 1000) {
+      const db = getDb();
+      const [l, p, u] = await Promise.all([
+        db.collection('links').where('status', '==', 'live').count().get(),
+        db.collection('projects').count().get(),
+        db.collection('users').count().get()
+      ]);
+      statsCache = { at: Date.now(), data: { links: l.data().count, projects: p.data().count, team: u.data().count } };
+    }
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    return res.json(statsCache.data);
+  } catch (e) {
+    return res.status(500).json({ error: 'stats unavailable' });
+  }
+}
+
 module.exports = async function handler(req, res) {
   // Hobby plan = 12 functions max and all are used, so /api/gmail (rewritten
   // here in vercel.json) shares this one. Gmail auth is its own (Firebase ID
@@ -468,14 +495,14 @@ module.exports = async function handler(req, res) {
     return require('./_lib/gmail')(req, res);
   }
   if ((req.query && req.query.pendingcheck) || /^\/api\/pendingcheck(\?|$)/.test(req.url || '')) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    setCors(req, res);
     if (req.method === 'OPTIONS') return res.status(200).end();
     return handleAutoPendingCheck(req, res);
   }
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Webhook-Secret');
+  if (req.query && req.query.stats) return handlePublicStats(req, res);
+  // The Sheet webhook is called server-to-server by Apps Script (no browser),
+  // so it needs no CORS at all — only the app's own origin gets headers.
+  setCors(req, res, { headers: 'Content-Type, X-Webhook-Secret' });
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method === 'GET' && req.query && req.query.pull) return handleSheetPull(req, res);
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });

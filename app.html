@@ -2759,6 +2759,26 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// Every /api endpoint now requires a signed-in team member. Rather than edit
+// ~50 fetch() call sites, attach the Firebase ID token here to any same-origin
+// /api/ request that doesn't already carry an Authorization header.
+(function(){
+  const nativeFetch = window.fetch.bind(window);
+  function isApi(u){
+    try{ const x = new URL(u, location.href); return x.origin===location.origin && x.pathname.startsWith('/api/'); }catch(e){ return false; }
+  }
+  window.fetch = async function(input, init){
+    const url = typeof input==='string' ? input : (input && input.url) || '';
+    if(!isApi(url) || !auth.currentUser) return nativeFetch(input, init);
+    init = init || {};
+    const headers = new Headers(init.headers || (input instanceof Request ? input.headers : undefined));
+    if(!headers.has('Authorization')){
+      try{ headers.set('Authorization','Bearer '+await auth.currentUser.getIdToken()); }catch(e){}
+    }
+    return nativeFetch(input, {...init, headers});
+  };
+})();
+
 let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik']; // fallback, updated from Firestore
 const CATEGORIES=['SaaS','Service','Magazine','General','Other'];
 // Shared "copy to clipboard" icon — a plain SVG line-icon (matching the
