@@ -19,7 +19,7 @@
       "maxDuration": 30
     },
     "api/check-link.js": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "api/check-relevancy.js": {
       "maxDuration": 60

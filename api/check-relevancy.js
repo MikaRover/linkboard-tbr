@@ -1,3 +1,4 @@
+const { setCors, requireMember } = require('./_lib/auth');
 // Automatic relevancy check — fetches the page a backlink sits on (linkin) and
 // asks Claude whether it's topically relevant for the anchor/target project,
 // mirroring what "Relevancy checker" meant in the team's old spreadsheet.
@@ -290,10 +291,9 @@ async function handleBulkAI(req, res) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  setCors(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
+  if (!(await requireMember(req, res))) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   if (req.body && req.body.mode === 'bulk-ai') return handleBulkAI(req, res);
