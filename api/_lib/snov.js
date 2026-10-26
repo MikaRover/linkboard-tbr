@@ -24,7 +24,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const isOk = code => code >= 200 && code < 300;
 
 function getAdmin() {
-  const admin = require('firebase-admin');
+  const admin = require('./firebase-admin');
   if (!admin.apps.length) {
     const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT not configured');
