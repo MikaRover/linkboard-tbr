@@ -1,4 +1,3 @@
-const { setCors, requireMember } = require('./_lib/auth');
 // Free email scraping (no paid API) — deep-crawls the target site's homepage
 // plus a handful of likely contact/about/team pages and pulls out real email
 // addresses via several extraction methods, not just a plain-text regex.
@@ -285,9 +284,10 @@ async function fetchPage(url) {
 }
 
 module.exports = async function handler(req, res) {
-  setCors(req, res);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (!(await requireMember(req, res))) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { domain } = req.body || {};

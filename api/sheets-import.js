@@ -4,10 +4,9 @@
 // Firestore using the Admin SDK, bypassing client auth entirely, so it
 // needs its own secret check instead of relying on a logged-in user.
 
-const admin = require('./_lib/firebase-admin');
+const admin = require('firebase-admin');
 const { isSafeHost } = require('./_lib/security');
 const { checkLink } = require('./_lib/linkcheck');
-const { setCors, memberFromRequest } = require('./_lib/auth');
 
 function getDb() {
   if (!admin.apps.length) {
@@ -354,62 +353,6 @@ async function checkPendingChunk(db, { since, limit, dry, budgetMs, concurrency 
   return { pending: snap.size, eligible: eligible.length, checked: done, remaining: Math.max(todo.length - done, 0), counts, live };
 }
 
-// Re-check of LIVE links, so a backlink that was removed after going live gets noticed. Rotates through
-// them oldest-checked first (liveCheckedAt). A "not found / page gone" answer only counts as a strike:
-// two in a row (separate runs, hours apart) flag the link `lostSuspect` and notify Mika + the builder.
-// Status is never changed here — someone confirms with Re-check (which sets lost) or fixes the link.
-// Blocked / server errors are inconclusive and leave the strikes alone; a live answer clears them.
-const LOST_STRIKES = 2;
-async function checkLiveChunk(db, { limit, budgetMs, concurrency }) {
-  const snap = await db.collection('links').where('status', '==', 'live')
-    .select('linkin', 'linkto', 'anchor', 'project', 'domain', 'builder', 'liveCheckedAt', 'lostStrikes', 'lostSuspect').get();
-  const checkedAt = d => { const t = d.data().liveCheckedAt; return t && t.toMillis ? t.toMillis() : 0; };
-  const batch = snap.docs
-    .filter(d => { const x = d.data(); return /^https?:\/\//i.test(String(x.linkin || '').trim()) && x.linkto && isSafeHost(x.linkin); })
-    .sort((a, b) => checkedAt(a) - checkedAt(b))
-    .slice(0, limit);
-
-  const counts = { live: 0, 'not-found': 0, inconclusive: 0, flagged: 0 };
-  const started = Date.now();
-  let next = 0;
-  async function worker() {
-    while (next < batch.length && Date.now() - started < budgetMs) {
-      const d = batch[next++];
-      const x = d.data();
-      let out;
-      try { out = await checkLink({ linkIn: x.linkin, linkTo: x.linkto, anchor: x.anchor || '' }); }
-      catch (e) { out = { result: '⚠️ Error', ok: null }; }
-      const ts = admin.firestore.FieldValue.serverTimestamp();
-      if (out.ok === true) {
-        counts.live++;
-        await d.ref.update({ liveCheckedAt: ts, lostStrikes: 0, lostSuspect: false, linkcheck: out.result });
-      } else if (out.ok === false) {
-        counts['not-found']++;
-        const strikes = (Number(x.lostStrikes) || 0) + 1;
-        const flag = strikes >= LOST_STRIKES;
-        await d.ref.update({ liveCheckedAt: ts, lostStrikes: strikes, lostCheck: out.result || '', ...(flag ? { lostSuspect: true } : {}) });
-        if (flag && !x.lostSuspect) {
-          counts.flagged++;
-          const recipients = new Set(['admin']);
-          const b = String(x.builder || '').trim().toLowerCase();
-          if (b) recipients.add(b);
-          for (const recipient of recipients) {
-            await db.collection('notifications').add({
-              type: 'link-lost', recipient, domain: x.domain || '', project: x.project || '', linkin: x.linkin || '',
-              builder: x.builder || '', reason: out.result || '', read: false, createdAt: ts
-            });
-          }
-        }
-      } else {
-        counts.inconclusive++;
-        await d.ref.update({ liveCheckedAt: ts });
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: concurrency }, worker));
-  return { live: snap.size, checked: Math.min(next, batch.length), counts };
-}
-
 // Apps Script / manual: POST {action:'check-pending'} with the webhook secret (chunked; the caller loops).
 async function handleCheckPending(req, res) {
   try {
@@ -436,9 +379,7 @@ async function handleAutoPendingCheck(req, res) {
     const db = getDb();
     const isCronCall = !!(process.env.CRON_SECRET && m[1] === process.env.CRON_SECRET);
     if (!isCronCall) {
-      // Must be a LinkBoard team member, not just any Firebase account.
-      const member = await memberFromRequest(req).catch(() => null);
-      if (!member) return res.status(401).json({ error: 'Unauthorized' });
+      try { await admin.auth().verifyIdToken(m[1]); } catch (e) { return res.status(401).json({ error: 'Unauthorized' }); }
     }
     const ref = db.collection('meta').doc('pendingCheck');
     const gap = isCronCall ? 2 * 60 * 60 * 1000 : PENDING_MIN_GAP_MS;
@@ -451,39 +392,11 @@ async function handleAutoPendingCheck(req, res) {
       return true;
     });
     if (!claimed) return res.json({ ok: true, skipped: true });
-    const r = await checkPendingChunk(db, { since: now, limit: 150, dry: false, budgetMs: 20000, concurrency: 12 });
-    // What's left of the 60s function goes to re-checking live links. Budget only stops new checks from
-    // starting, and one in flight can take ~30s (fetch retry + bot-bypass), hence the margin.
-    const liveBudget = Math.max(34000 - (Date.now() - now), 0);
-    const lr = liveBudget > 4000 ? await checkLiveChunk(db, { limit: 80, budgetMs: liveBudget, concurrency: 10 }) : null;
-    await ref.set({ lastResult: { checked: r.checked, remaining: r.remaining, live: r.counts.live, liveChecked: lr ? lr.checked : 0, lostFlagged: lr ? lr.counts.flagged : 0, finishedAt: admin.firestore.FieldValue.serverTimestamp() } }, { merge: true });
-    return res.json({ ok: true, ...r, liveRecheck: lr });
+    const r = await checkPendingChunk(db, { since: now, limit: 150, dry: false, budgetMs: 32000, concurrency: 12 });
+    await ref.set({ lastResult: { checked: r.checked, remaining: r.remaining, live: r.counts.live, finishedAt: admin.firestore.FieldValue.serverTimestamp() } }, { merge: true });
+    return res.json({ ok: true, ...r });
   } catch (e) {
     return res.status(500).json({ error: e.message });
-  }
-}
-
-// Public landing-page counters (index.html). Returns ONLY three numbers —
-// never documents — so the landing page keeps its stats while Firestore
-// itself stays closed to anyone who isn't a signed-in team member.
-// Cached per instance for 10 minutes; Firestore count() is cheap anyway.
-let statsCache = null;
-async function handlePublicStats(req, res) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-  try {
-    if (!statsCache || Date.now() - statsCache.at > 10 * 60 * 1000) {
-      const db = getDb();
-      const [l, p, u] = await Promise.all([
-        db.collection('links').where('status', '==', 'live').count().get(),
-        db.collection('projects').count().get(),
-        db.collection('users').count().get()
-      ]);
-      statsCache = { at: Date.now(), data: { links: l.data().count, projects: p.data().count, team: u.data().count } };
-    }
-    res.setHeader('Cache-Control', 'public, max-age=300');
-    return res.json(statsCache.data);
-  } catch (e) {
-    return res.status(500).json({ error: 'stats unavailable' });
   }
 }
 
@@ -495,14 +408,14 @@ module.exports = async function handler(req, res) {
     return require('./_lib/gmail')(req, res);
   }
   if ((req.query && req.query.pendingcheck) || /^\/api\/pendingcheck(\?|$)/.test(req.url || '')) {
-    setCors(req, res);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     if (req.method === 'OPTIONS') return res.status(200).end();
     return handleAutoPendingCheck(req, res);
   }
-  if (req.query && req.query.stats) return handlePublicStats(req, res);
-  // The Sheet webhook is called server-to-server by Apps Script (no browser),
-  // so it needs no CORS at all — only the app's own origin gets headers.
-  setCors(req, res, { headers: 'Content-Type, X-Webhook-Secret' });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Webhook-Secret');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method === 'GET' && req.query && req.query.pull) return handleSheetPull(req, res);
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });

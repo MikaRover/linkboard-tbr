@@ -2759,26 +2759,6 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Every /api endpoint now requires a signed-in team member. Rather than edit
-// ~50 fetch() call sites, attach the Firebase ID token here to any same-origin
-// /api/ request that doesn't already carry an Authorization header.
-(function(){
-  const nativeFetch = window.fetch.bind(window);
-  function isApi(u){
-    try{ const x = new URL(u, location.href); return x.origin===location.origin && x.pathname.startsWith('/api/'); }catch(e){ return false; }
-  }
-  window.fetch = async function(input, init){
-    const url = typeof input==='string' ? input : (input && input.url) || '';
-    if(!isApi(url) || !auth.currentUser) return nativeFetch(input, init);
-    init = init || {};
-    const headers = new Headers(init.headers || (input instanceof Request ? input.headers : undefined));
-    if(!headers.has('Authorization')){
-      try{ headers.set('Authorization','Bearer '+await auth.currentUser.getIdToken()); }catch(e){}
-    }
-    return nativeFetch(input, {...init, headers});
-  };
-})();
-
 let BUILDERS=['Tam','Lusine','Sofya','Vahe','Syuzi','Anna','Liana','Diana H','Armen','Mika','Nick','Diana Y','Rubik']; // fallback, updated from Firestore
 const CATEGORIES=['SaaS','Service','Magazine','General','Other'];
 // Shared "copy to clipboard" icon — a plain SVG line-icon (matching the
@@ -3682,7 +3662,7 @@ function renderDetailLinks(){
     return`<tr class="link-row" data-lid="${escapeHtml(lid)}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${escapeHtml(lid)}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
-      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
+      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
       <td>${drBadge(l.dr)}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td><td>${builderAvatar(l.builder)}</td>
       <td style="white-space:nowrap;">${healthCell(l)}${pendingAgeBadge(l)}</td>
       <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancyRow('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
@@ -3696,7 +3676,6 @@ function renderDetailLinks(){
           ${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
           ${l.linkto?`<a href="${escAttr(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
           <span style="font-size:11px;color:var(--text3);">${l.ss?'SS: '+escapeHtml(l.ss)+' ':''}${l.category?'· '+escapeHtml(l.category)+' ':''}${l.price?'· $'+escapeHtml(String(l.price).replace(/^\$+/,'')):''}</span>
-          ${siteToolsLine(l)}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
           <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${escapeHtml(lid)}" value="${escapeHtml(l.date||'')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
@@ -4856,7 +4835,7 @@ function renderNotifList(){
   if(!allNotifs.length){list.innerHTML='<div style="padding:14px 10px;font-size:12px;color:var(--text3);text-align:center;">No notifications</div>';return;}
   list.innerHTML=allNotifs.map(n=>{
     const when=n.createdAt&&n.createdAt.toDate?n.createdAt.toDate().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
-    const icon=n.type==='approval-needed'?'🔒':n.type==='double-check'?'🔍':n.type==='link-live'?'✅':n.type==='link-lost'?'❌':n.type==='approval-result'?(n.status==='approved'?'✅':'❌'):'⚠️';
+    const icon=n.type==='approval-needed'?'🔒':n.type==='double-check'?'🔍':n.type==='link-live'?'✅':n.type==='approval-result'?(n.status==='approved'?'✅':'❌'):'⚠️';
     const desc=n.type==='anyway-add'
       ? `${escapeHtml(n.builder||'Someone')} added <b>${escapeHtml(n.domain||'—')}</b> without ${escapeHtml(n.missing||'required fields')}`
       : n.type==='approval-needed'
@@ -4865,8 +4844,6 @@ function renderNotifList(){
       ? `<b>${escapeHtml(n.domain||'—')}</b> (${escapeHtml(n.project||'—')}) went live — please double-check`
       : n.type==='link-live'
       ? `<b>${escapeHtml(n.domain||'—')}</b> (${escapeHtml(n.project||'—')}) is live — the link was found on the page and its status was set to live`
-      : n.type==='link-lost'
-      ? `<b>${escapeHtml(n.domain||'—')}</b> (${escapeHtml(n.project||'—')}) may be lost — the link wasn't found on the page in two checks (${escapeHtml(stripStatusEmoji(n.reason||''))})`
       : n.type==='approval-result'
       ? `Your link <b>${escapeHtml(n.domain||'—')}</b> (${escapeHtml(n.project||'—')}) was ${n.status==='approved'?'approved':'rejected and removed'}`
       : escapeHtml(n.message||'');
@@ -5535,7 +5512,7 @@ function renderLinks(){
     return`<tr class="link-row" data-lid="${escapeHtml(lid)}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${escapeHtml(lid)}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
-      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
+      <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(l.domain)}</a></td>
       <td>${drBadge(l.dr)}</td>
       <td>${trafficVal}</td>
       <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td>
@@ -5551,7 +5528,6 @@ function renderLinks(){
           ${l.linkin?`<a href="${escAttr(l.linkin)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link in</a>`:''}
           ${l.linkto?`<a href="${escAttr(l.linkto)}" target="_blank" class="btn-ghost" style="font-size:12px;padding:4px 10px;">↗ Link to</a>`:''}
           <span style="font-size:11px;color:var(--text3);">${ssVal?'SS: '+ssVal:''} ${l.category?'· '+escapeHtml(l.category):''} ${priceVal?'· '+priceVal:''}</span>
-          ${siteToolsLine(l)}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
           <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${escapeHtml(lid)}" value="${escapeHtml(l.date||'')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
@@ -5984,8 +5960,7 @@ function healthCell(l){
   const reason=stripStatusEmoji(l.linkcheck);
   let color='var(--text2)', label='Pending';
   if(l.status==='live'){
-    if(l.lostSuspect){color='#ff6b6b';label='Possibly lost';}
-    else if(String(l.linkcheck||'').includes('⚠️')){color='#f0a500';label='Link Check Issue';}
+    if(String(l.linkcheck||'').includes('⚠️')){color='#f0a500';label='Link Check Issue';}
     else if(String(l.linkcheck||'').includes('🔒')){color='var(--text2)';label='Blocked';}
     else{color='#32d74b';label='Live';}
   } else if(l.status==='lost'){
@@ -5996,7 +5971,7 @@ function healthCell(l){
   } else if(l.status==='rejected'){
     color='var(--text3)';label='Rejected';
   }
-  const title=(l.status==='live'&&l.lostSuspect)?escapeHtml('Auto re-check could not find the link twice: '+stripStatusEmoji(l.lostCheck)+' — Re-check to confirm'):(reason?escapeHtml(reason):'Not checked yet');
+  const title=reason?escapeHtml(reason):'Not checked yet';
   return`<span style="display:inline-flex;align-items:center;gap:6px;color:${color};font-size:12px;font-weight:600;white-space:nowrap;" title="${title}">${statusDot(color)}${escapeHtml(label)}</span>`;
 }
 
@@ -6053,114 +6028,10 @@ function actionsMenu(l,canDelete,editFn){
     <div class="row-menu" id="row-menu-${escAttr(lid)}">
       <button onclick="${ef}('${escAttr(lid)}')">Edit</button>
       <button onclick="quickRecheckLink('${escAttr(lid)}')">Re-check</button>
-      <button onclick="siteCheckLink('${escAttr(lid)}')">Site check</button>
-      <button onclick="captureProof('${escAttr(lid)}')">Screenshot</button>
-      ${l.proofAt?`<button onclick="showProof('${escAttr(lid)}')">View proof</button>`:''}
       <button onclick="promptInvoiceEntry('${escAttr(lid)}')">Invoice</button>
       ${canDelete?`<button class="row-menu-danger" onclick="deleteLink('${escAttr(lid)}','${escAttr(l.domain)}')">Delete</button>`:''}
     </div>
   </div>`;
-}
-
-// ─── SITE TOOLS (/api/check-link {action}) ────────────────
-// Google's favicon service: no key, cached at the edge; a site without one
-// gets a generic globe, and a failed load just hides the image.
-function faviconImg(domain){
-  const d=nd(domain);
-  if(!d)return'';
-  return`<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=32" alt="" width="14" height="14" loading="lazy" onerror="this.style.display='none'" style="vertical-align:-2px;margin-right:6px;border-radius:3px;"/>`;
-}
-async function siteToolCall(body){
-  const h={'Content-Type':'application/json'};
-  if(auth.currentUser)h['Authorization']='Bearer '+await auth.currentUser.getIdToken();
-  const r=await fetch('/api/check-link',{method:'POST',headers:h,body:JSON.stringify(body)});
-  const data=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(data.error||('HTTP '+r.status));
-  return data;
-}
-// Safe Browsing + Open PageRank for the link's domain; either can be
-// unconfigured (no key yet) without blocking the other.
-async function siteCheckLink(id){
-  const l=allLinks.find(x=>x.id===id);
-  if(!l||!nd(l.domain)){showToast('No domain on this link','warn');return;}
-  showToast('Checking site…');
-  const domain=nd(l.domain);
-  const [sb,pr]=await Promise.allSettled([siteToolCall({action:'safety',domain}),siteToolCall({action:'pagerank',domain})]);
-  const upd={siteCheckedAt:firebase.firestore.FieldValue.serverTimestamp()};
-  const notes=[];
-  if(sb.status==='fulfilled'){const x=(sb.value.results||[])[0]||{};upd.safeBrowsing=x.safe?'safe':('flagged: '+(x.threats||[]).join(', '));notes.push(x.safe?'Safe':'⚠ Flagged by Google');}
-  else notes.push('Safety: '+sb.reason.message);
-  if(pr.status==='fulfilled'){const x=(pr.value.results||[])[0]||{};upd.opr=x.pagerank==null?'':x.pagerank;notes.push('PageRank '+(x.pagerank==null?'n/a':x.pagerank));}
-  else notes.push('PageRank: '+pr.reason.message);
-  if(Object.keys(upd).length>1)await db.collection('links').doc(id).update(upd);
-  showToast(notes.join(' · '),(sb.status==='fulfilled'&&upd.safeBrowsing!=='safe')?'err':(sb.status==='rejected'||pr.status==='rejected'?'warn':'ok'));
-}
-// The image goes in its own linkProofs/{linkId} doc — a few hundred KB of
-// base64 on the link itself would ride along in every allLinks snapshot.
-async function captureProof(id){
-  const l=allLinks.find(x=>x.id===id);
-  if(!l||!l.linkin){showToast('Set Link in first (Edit)','warn');return;}
-  showToast('Taking screenshot… (up to ~20s)');
-  try{
-    const data=await siteToolCall({action:'screenshot',linkIn:l.linkin,linkTo:l.linkto||''});
-    await db.collection('linkProofs').doc(id).set({image:data.image,linkin:l.linkin,takenAt:firebase.firestore.FieldValue.serverTimestamp(),takenBy:cu.name||cu.email||''});
-    await db.collection('links').doc(id).update({proofAt:firebase.firestore.FieldValue.serverTimestamp()});
-    showToast('Screenshot saved');
-    showProof(id);
-  }catch(e){showToast('Screenshot failed: '+e.message,'err');}
-}
-async function showProof(id){
-  const l=allLinks.find(x=>x.id===id)||{};
-  let doc;
-  try{doc=await db.collection('linkProofs').doc(id).get();}catch(e){showToast('Could not load proof: '+e.message,'err');return;}
-  if(!doc.exists){showToast('No screenshot yet','warn');return;}
-  const p=doc.data();
-  const when=p.takenAt&&p.takenAt.toDate?p.takenAt.toDate().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
-  document.getElementById('proof-modal')?.remove();
-  const modal=document.createElement('div');
-  modal.id='proof-modal';
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;';
-  modal.onclick=e=>{if(e.target===modal)modal.remove();};
-  modal.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:1000px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);">
-      <div style="min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);">${faviconImg(l.domain)}${escapeHtml(l.domain||'')}</div>
-      <div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.linkin||'')}${when?' · '+escapeHtml(when):''}${p.takenBy?' · '+escapeHtml(p.takenBy):''}</div></div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
-        <a class="btn-ghost" style="font-size:12px;padding:5px 12px;" href="${escAttr(p.image)}" download="${escAttr(nd(l.domain)||'proof')}-proof.jpg">Download</a>
-        <button class="btn-ghost" style="font-size:12px;padding:5px 12px;" onclick="document.getElementById('proof-modal').remove()">Close</button>
-      </div>
-    </div>
-    <div style="overflow:auto;background:var(--bg3);"><img src="${escAttr(p.image)}" alt="Screenshot of the page with the backlink" style="display:block;width:100%;height:auto;"/></div>
-  </div>`;
-  document.body.appendChild(modal);
-}
-function siteToolsLine(l){
-  const bits=[];
-  if(l.safeBrowsing)bits.push(l.safeBrowsing==='safe'
-    ?`<span style="color:var(--teal);">Safe Browsing: clean</span>`
-    :`<span style="color:var(--red);font-weight:600;" title="${escAttr(l.safeBrowsing)}">Flagged by Google Safe Browsing</span>`);
-  if(l.opr!==undefined&&l.opr!=='')bits.push(`<span title="Open PageRank, 0–10">PageRank ${escapeHtml(String(l.opr))}</span>`);
-  if(l.proofAt)bits.push(`<a href="#" onclick="event.preventDefault();showProof('${escAttr(l.id)}')" style="color:var(--teal);text-decoration:none;">Proof screenshot</a>`);
-  return bits.length?`<span style="font-size:11px;color:var(--text3);display:inline-flex;gap:10px;flex-wrap:wrap;">${bits.join('')}</span>`:'';
-}
-// SPF / DKIM / DMARC / MX of the outreach domains the team sends from. Kept in
-// esDnsHtml so the Gmail panel re-rendering on a snapshot doesn't wipe it.
-let esDnsHtml='';
-async function checkSendingDomains(btn){
-  const out=document.getElementById('es-dns');
-  if(!out)return;
-  const domains=[...new Set(allGmailConns.map(c=>String(c.email||'').split('@')[1]).filter(Boolean).map(d=>d.toLowerCase()))];
-  if(!domains.length)domains.push('thebusinessrover.com','thebusinessrover.io');
-  const orig=btn.textContent;btn.disabled=true;btn.textContent='Checking…';
-  const res=await Promise.all(domains.map(d=>siteToolCall({action:'dns',domain:d}).catch(e=>({domain:d,error:e.message}))));
-  btn.disabled=false;btn.textContent=orig;
-  out.innerHTML=esDnsHtml=res.map(r=>`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-    <span style="font-size:12px;font-weight:700;min-width:150px;">${escapeHtml(r.domain)}</span>
-    ${r.error?`<span style="font-size:11px;color:var(--red);">${escapeHtml(r.error)}</span>`:r.checks.map(c=>{
-      const col=c.ok?'var(--teal)':(c.warn?'var(--yellow)':'var(--red)');
-      return`<span title="${escAttr(c.detail)}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:980px;border:1px solid var(--border);color:${col};">${statusDot(col)}${escapeHtml(c.name)}</span>`;
-    }).join('')}
-  </div>`).join('')+`<div style="font-size:11px;color:var(--text3);">Hover a chip for the record. Missing SPF/DKIM/DMARC is the most common reason outreach lands in spam.</div>`;
 }
 
 function toggleAllBuilderChecks(master){
@@ -6282,10 +6153,8 @@ function linkCheckUpdatePayload(data){
     // went live is exactly as reviewable as a manual status change, and was
     // silently skipping the queue before this.
     payload.needsDoubleCheck=true;
-    payload.lostSuspect=false;payload.lostStrikes=0;
   } else if(data&&data.ok===false&&(result.includes('Page gone')||result.includes('not found'))){
     payload.status='lost';
-    payload.lostSuspect=false;payload.lostStrikes=0;
   }
   return payload;
 }
@@ -6651,7 +6520,7 @@ function renderInvoices(){
     return`<tr>
       <td onclick="event.stopPropagation()"><input type="checkbox" class="inv-cb" data-id="${escapeHtml(lid)}" onchange="onInvSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'—')}</td>
-      <td class="domain-teal"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
+      <td class="domain-teal"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${projTag(l.project)}</td>
       <td>${builderAvatar(l.builder)}</td>
       <td style="font-weight:600;">${l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—'}</td>
@@ -7971,12 +7840,8 @@ function renderGmailConnsPanel(){
   el.innerHTML = `<div class="card-body" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
       <div style="font-size:13px;font-weight:700;">Gmail connections — ${allGmailConns.length} mailbox(es)</div>
-      <div style="display:flex;gap:6px;">
-        <button class="btn-ghost" style="padding:6px 14px;font-size:12px;" onclick="checkSendingDomains(this)">Check deliverability</button>
-        <button class="btn-sm" id="es-sync-btn" style="width:auto;padding:6px 14px;font-size:12px;" onclick="syncGmailNow(this)">↻ Sync now</button>
-      </div>
+      <button class="btn-sm" id="es-sync-btn" style="width:auto;padding:6px 14px;font-size:12px;" onclick="syncGmailNow(this)">↻ Sync now</button>
     </div>
-    <div id="es-dns" style="display:flex;flex-direction:column;gap:6px;">${esDnsHtml}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;">${allGmailConns.map(c=>`<span title="${escAttr('synced '+ago(c.lastSyncAt)+(c.truncated?' · more history left to fetch':''))}" style="font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid ${c.lastError?'#ff6b6b':(c.truncated?'#f0a500':'rgba(0,230,118,0.4)')};color:${c.lastError?'#ff6b6b':(c.truncated?'#f0a500':'#00e676')};"><b>${escapeHtml(c.name)}</b> · ${escapeHtml(c.email||'—')}${c.lastError?' ⚠ reconnect':(c.truncated?' ⏳ more history':'')}</span>`).join('')||'<span style="font-size:12px;color:var(--text3);">Nobody has connected yet — each person clicks “Connect Gmail” in the sidebar.</span>'}</div>
     ${missing.length&&allGmailConns.length?`<div style="font-size:11px;color:var(--text3);">Not connected at all: ${missing.map(escapeHtml).join(', ')}</div>`:''}
     <div style="font-size:11px;color:var(--text3);">Most people send from more than one address (e.g. @thebusinessrover.com and .io) — connect each one in the sidebar (up to 5) so all of them count. To see further back than the last sync reached, widen the date range below and click “Sync now” again — “⏳ more history” means one click didn’t finish reaching it yet. Synced automatically every night otherwise.</div>
@@ -10341,7 +10206,7 @@ function renderBuilderDashboard(){
   tb.innerHTML=recent.map(l=>{
     const lid=l.id;
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;" onclick="toggleEditRowById('${escAttr(lid)}',false,event)">
-    <td class="domain-teal" style="font-size:12px;"><a href="https://${escapeHtml(l.domain)}" target="_blank" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none;">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
+    <td class="domain-teal" style="font-size:12px;"><a href="https://${escapeHtml(l.domain)}" target="_blank" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
     <td style="font-size:12px;">${projTag(l.project)}</td>
     <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'#f0a500'};">${escapeHtml(l.status)}</span></td>
     <td><button class="btn-ghost" style="padding:4px 9px;font-size:11px;" onclick="event.stopPropagation();toggleEditRowById('${escAttr(lid)}')">Open →</button></td>
@@ -10477,7 +10342,7 @@ function renderBuilderLinks(){
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="bl-row-check" value="${lid}" onchange="updateBlCheckBtn()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
-      <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
+      <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td onclick="event.stopPropagation()">${projTag(l.project)}</td>
       <td>${drBadge(l.dr)}</td><td>${trafficVal}</td><td>${priceVal}</td><td>${escapeHtml(l.ss||'—')}</td>
       <td onclick="event.stopPropagation()"><span class="rel-tip-wrap"><span class="badge ${l.relevancy==='Relevant'?'b-ok':l.relevancy==='Weak'?'b-warn':''}" style="font-size:10px;">${l.relevancy?escapeHtml(l.relevancy):'—'}</span>${l.relevancyReason?`<span class="rel-tip">${escapeHtml(l.relevancyReason)}</span>`:''}</span><button class="btn-ghost" style="padding:4px 7px;font-size:11px;margin-left:4px;" onclick="checkRelevancy('${escAttr(lid)}',this)" title="Auto-check relevancy">🔍</button></td>
@@ -10572,7 +10437,7 @@ function renderDoubleCheckQueue(){
       :`<span style="color:var(--text3);font-size:11px;">Routine live check</span>`;
     return`<tr id="dc-row-${lid}">
       <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
-      <td class="domain-teal"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
+      <td class="domain-teal"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td>
       <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td>
       <td>${projTag(l.project)}</td>

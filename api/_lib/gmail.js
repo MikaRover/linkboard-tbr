@@ -24,7 +24,7 @@
 // thebusinessrover.io — mail only to these domains is not counted as
 // outreach, since it's the team emailing itself across its two domains).
 
-const admin = require('./firebase-admin');
+const admin = require('firebase-admin');
 const crypto = require('crypto');
 
 const SCOPE = 'https://www.googleapis.com/auth/gmail.metadata';

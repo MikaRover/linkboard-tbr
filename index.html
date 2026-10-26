@@ -567,15 +567,12 @@ const cfg={apiKey:"AIzaSyCrcZvfeT04BASPS7qQ-j0F4x0ukvZaddA",authDomain:"link-boa
 let auth,db;try{firebase.initializeApp(cfg);auth=firebase.auth();db=firebase.firestore();}catch(e){}
 if(auth)auth.onAuthStateChanged(u=>{if(u)window.location.href='/app.html'});
 
-// Counts come from a public endpoint that returns only three numbers —
-// Firestore itself is closed to visitors who aren't signed-in team members.
 async function loadStats(){
+  if(!db)return;
   try{
-    const r=await fetch('/api/sheets-import?stats=1');
-    if(!r.ok)return;
-    const s=await r.json();
-    countUp('k-links',s.links||0);countUp('k-proj',s.projects||0);countUp('k-team',s.team||0);
-    document.getElementById('fc-count').textContent=s.links||0;
+    const[a,b,c]=await Promise.all([db.collection('links').where('status','==','live').get(),db.collection('projects').get(),db.collection('users').get()]);
+    countUp('k-links',a.size);countUp('k-proj',b.size);countUp('k-team',c.size);
+    document.getElementById('fc-count').textContent=a.size;
   }catch(e){}
 }
 function countUp(id,n){

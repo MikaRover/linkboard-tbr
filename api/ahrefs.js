@@ -1,4 +1,3 @@
-const { setCors, requireMember } = require('./_lib/auth');
 // Simple in-memory cache (persists for serverless function lifetime)
 const cache = {};
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
@@ -15,9 +14,10 @@ function cachePrune() {
 }
 
 module.exports = async function handler(req, res) {
-  setCors(req, res);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (!(await requireMember(req, res))) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { domain } = req.body || {};

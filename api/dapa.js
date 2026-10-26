@@ -1,12 +1,12 @@
-const { setCors, requireMember } = require('./_lib/auth');
 function cleanDomain(raw){
   return String(raw||'').trim().replace(/^https?:\/\//i,'').replace(/^www\./i,'').replace(/\/.*$/,'').replace(/\/$/,'').toLowerCase();
 }
 
 module.exports = async function handler(req, res){
-  setCors(req, res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (!(await requireMember(req, res))) return;
+  res.setHeader('Access-Control-Allow-Origin','*');
+  res.setHeader('Access-Control-Allow-Methods','POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers','Content-Type');
+  if(req.method==='OPTIONS') return res.status(200).end();
   if(req.method!=='POST') return res.status(405).json({error:'Method not allowed'});
 
   let { domain, domains } = req.body || {};

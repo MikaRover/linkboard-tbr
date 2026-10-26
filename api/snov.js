@@ -1,4 +1,3 @@
-const { setCors, requireMember } = require('./_lib/auth');
 // ══════════════════════════════════════════════════════════════
 // Snov.io prospecting + email finding — ported 1:1 from the proven
 // Google Apps Script Engine, adapted for Vercel serverless (fetch).
@@ -711,17 +710,19 @@ async function findInternalPages(url) {
 // HANDLER
 // ══════════════════════════════════════════════════════════════
 module.exports = async function handler(req, res) {
-  setCors(req, res);
+  res.setHeader('Access-Control-Allow-Origin','*');
+  res.setHeader('Access-Control-Allow-Methods','POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization');
   if (req.method==='OPTIONS') return res.status(200).end();
   if (req.method!=='POST') return res.status(405).json({error:'Method not allowed'});
 
   const { domain, action, urls, clientId, clientSecret } = req.body || {};
 
-  // Only LinkBoard team members may use this endpoint (it spends Snov
-  // credits). Their own connected Snov account is used if they have one,
-  // otherwise the shared env-var account — see api/_lib/snov.js.
-  const user = await requireMember(req, res);
-  if (!user) return;
+  // Identify who's calling (if the frontend sent a Firebase ID token) so
+  // their own connected Snov account, if any, is used for their own
+  // requests — see api/_lib/snov.js for why. Never required: an anonymous
+  // or not-yet-connected caller still works via the shared env-var account.
+  const user = await userFromRequest(req);
 
   // ── Per-user Snov account connect/disconnect/status — no domain needed ──
   if (action === 'connect-account' || action === 'disconnect-account' || action === 'account-status') {
