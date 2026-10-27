@@ -19,7 +19,8 @@
 // api/sheets-import.js dispatches /api/outreach here.
 //
 // Env: ANTHROPIC_API_KEY, plus everything api/_lib/gmail.js needs.
-// Optional: OUTREACH_DAILY_LIMIT (per mailbox, default 30).
+// Optional: OUTREACH_DAILY_LIMIT (per mailbox, default 30), OUTREACH_MIN_GAP_SEC
+// (minimum seconds between two emails from one mailbox, default 240).
 
 const { setCors, requireMember } = require('./auth');
 const { isSafeHost, cleanHost, browserHeaders } = require('./security');
@@ -31,7 +32,35 @@ const DAILY_LIMIT = Math.max(1, parseInt(process.env.OUTREACH_DAILY_LIMIT, 10) |
 const RECONTACT_DAYS = 90;   // never email the same address or site again within this window
 const TRACK_DAYS = 45;       // stop checking a thread for replies after this long
 const MAX_ROWS = 300;        // per save call
-const OPT_OUT = "P.S. If you'd rather not hear from me, just reply \"no\" and I won't email you again.";
+// Several wordings so the footer isn't an identical fingerprint on every email.
+const OPT_OUTS = [
+  "P.S. If you'd rather not hear from me, just reply \"no\" and I won't email you again.",
+  "If this isn't of interest, just reply \"no\" and I won't follow up.",
+  "Not interested? A quick \"no\" is fine and I won't contact you again.",
+  "If you'd prefer no further emails, simply reply \"no\" and I'll take you off my list."
+];
+const hasOptOut = body => OPT_OUTS.some(o => body.includes(o));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+// Minimum time between two emails from the same mailbox (the page waits a
+// random 4–5 min; this is the hard floor even with two tabs or a single Send).
+const MIN_GAP_MS = Math.max(0, parseInt(process.env.OUTREACH_MIN_GAP_SEC, 10) || 240) * 1000;
+
+// Each draft gets a random angle, greeting and sign-off, so a batch never
+// reads like one template — repeated identical text is a strong spam signal.
+const STYLES = [
+  'Open with one short, specific observation about an article or section of their site, then make the ask.',
+  'Open directly with who you are and why you are writing; brisk and businesslike.',
+  'Open with a short question about their site or audience, then make the ask.',
+  'Very short: 50–80 words, friendly and to the point.',
+  'Warm and conversational; mention their readers and why the article would suit them.',
+  'Structured: one line of context, one line with the request, one closing question.'
+];
+const GREETINGS = ['Hi', 'Hello', 'Hey', 'Good day'];
+const SIGNOFFS = ['Best', 'Thanks', 'Kind regards', 'Cheers', 'Best regards', 'Thank you'];
+const SUBJECT_STYLES = [
+  'a short question', 'a plain statement mentioning their site name', 'two or three words, lowercase is fine',
+  'mention the topic of the article', 'a polite request'
+];
 
 // Fields the browser may set. Status values that mean "an email went out"
 // (sent/replied/bounced) are server-only, so a page can't fake a send.
@@ -143,7 +172,7 @@ async function siteContext(domain) {
   } catch (e) { return ''; }
 }
 
-async function draft(uid, { id, pitch, senderName }) {
+async function draft(uid, { id, pitch, senderName, mode, avoidSubjects }) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
   const ref = db().collection(COLL).doc(String(id || ''));
@@ -154,23 +183,35 @@ async function draft(uid, { id, pitch, senderName }) {
   if (!isSafeHost(row.domain)) throw new Error('Invalid domain');
 
   const ctx = await siteContext(row.domain);
-  const prompt = `You write short, personal link-building outreach emails for a guest post collaboration.
+  const paid = mode !== 'guest';
+  const greeting = pick(GREETINGS);
+  const avoid = (Array.isArray(avoidSubjects) ? avoidSubjects : []).map(oneLine).filter(Boolean).slice(0, 15);
+  const goal = paid
+    ? `This is an inquiry to BUY a paid placement (sponsored article / guest post) on their site. Ask for their price for publishing an article, and briefly ask whether links are dofollow and whether the post is labelled "sponsored". Do not ask for anything free and do not negotiate in this first email.`
+    : `This is a request for a FREE guest post collaboration: offer an original article written for their readers in exchange for one relevant link.`;
+  const prompt = `You write short, personal outreach emails for link building. They must read like one person writing to one person — never like a template.
+
+Goal: ${goal}
 
 Website: ${row.domain}
 ${ctx || '(the homepage could not be read — keep the personal line general but honest)'}
 
 Recipient: ${row.name || 'unknown name'}${row.title ? ', ' + row.title : ''}
 Sender name: ${oneLine(senderName) || 'the sender'}
-What the sender offers / asks for (use this, do not invent other offers):
-${String(pitch || 'A high-quality, original guest article written for their audience, with one relevant link.').slice(0, 1500)}
+Sender's notes (use these, do not invent other offers or facts):
+${String(pitch || '').slice(0, 1500) || '(none)'}
+
+Style for THIS email: ${pick(STYLES)}
+Greeting: "${greeting} ${row.firstName || '[first name]'}," if the first name is known, otherwise "${greeting} there," or "${greeting},".
+Sign-off: "${pick(SIGNOFFS)}," then the sender name.
+Subject style: ${pick(SUBJECT_STYLES)}; under 60 characters, no clickbait, no ALL CAPS, no exclamation marks.
+${avoid.length ? 'Do NOT reuse or closely copy any of these recent subjects:\n- ' + avoid.join('\n- ') : ''}
 
 Rules:
-- Plain text, 70–130 words, no markdown, no links, no placeholders in brackets.
-- Greet by first name if known ("Hi ${row.firstName || '[first name]'},"), otherwise "Hi there,".
+- Plain text, 50–130 words, no markdown, no links, no placeholders in brackets, no emoji.
 - One specific, honest sentence about their site based on the context above — never invent facts.
-- Propose the collaboration clearly, suggest 1–2 topic ideas that fit their site, end with one simple question.
-- Sign off with the sender name only.
-- Subject: under 60 characters, specific, no clickbait, no ALL CAPS.
+- Avoid spam-trigger wording: "free", "guaranteed", "100%", "act now", "limited time", "SEO boost", "backlinks" in the subject, and money symbols in the subject.
+- End with one simple question.
 
 Answer with JSON only: {"subject": "...", "body": "..."}`;
 
@@ -187,7 +228,7 @@ Answer with JSON only: {"subject": "...", "body": "..."}`;
   let out;
   try { out = JSON.parse(m ? m[0] : text); } catch (e) { throw new Error('AI answer was not readable — try again'); }
   const subject = oneLine(out.subject).slice(0, 120);
-  const body = String(out.body || '').trim() + '\n\n' + OPT_OUT;
+  const body = String(out.body || '').trim() + '\n\n' + pick(OPT_OUTS);
   if (!subject || !out.body) throw new Error('AI returned an empty draft — try again');
   await ref.update({ subject, body, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
   return { subject, body };
@@ -259,12 +300,15 @@ async function send(user, { id, email, from }) {
     const cur = await tx.get(ref);
     if (!['draft', 'failed'].includes(cur.data().status)) throw new Error('Already being sent');
     const sentToday = await tx.get(db().collection(COLL).where('sentDay', '==', day));
-    const n = sentToday.docs.filter(d => d.data().fromMailbox === mbId).length;
-    if (n >= DAILY_LIMIT) throw new Error(`Daily limit reached for ${conn.data().email} (${DAILY_LIMIT}/day)`);
+    const mine = sentToday.docs.filter(d => d.data().fromMailbox === mbId);
+    if (mine.length >= DAILY_LIMIT) throw new Error(`Daily limit reached for ${conn.data().email} (${DAILY_LIMIT}/day)`);
+    const last = Math.max(0, ...mine.map(d => d.data().sentAt || 0));
+    const wait = last + MIN_GAP_MS - Date.now();
+    if (wait > 0) throw new Error(`Wait ${Math.ceil(wait / 60000)} min before the next email from ${conn.data().email}`);
     tx.update(ref, { status: 'sending', sentDay: day, fromMailbox: mbId, fromEmail: conn.data().email, sentAt: Date.now() });
   });
 
-  const body = row.body.includes(OPT_OUT) ? row.body : row.body.trim() + '\n\n' + OPT_OUT;
+  const body = hasOptOut(row.body) ? row.body : row.body.trim() + '\n\n' + OPT_OUTS[0];
   try {
     const access = await accessTokenFor(mbId);
     const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
