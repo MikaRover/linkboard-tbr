@@ -177,16 +177,16 @@ async function siteContext(domain) {
 // TEMPLATE_EVERY drafts so no long run of identical emails goes out.
 const TEMPLATE_EVERY = 3;
 const PAID_TEMPLATES = [
-  { subject: 'guest post on {site}?',
-    body: "Hi {name},\n\nI've been reading {site} and would love to contribute an article. We're happy to pay for the placement.\n\nDo you accept guest posts, and if so, what's your rate?\n\n{optout}\n\nThanks,\n{sender}" },
-  { subject: 'question about {site}',
-    body: "Hi {name},\n\nQuick question: do you accept guest articles on {site}? I have a few topic ideas that would suit your readers, and we'd pay a fee for the placement.\n\nWhat would it cost to publish one?\n\n{optout}\n\nBest,\n{sender}" },
-  { subject: 'article for {site}',
-    body: "Hello {name},\n\nI'm {sender}, and I'd like to write an article for {site}. It would be original, written for your audience, and published as a paid placement.\n\nCould you share your price and any guidelines you have?\n\n{optout}\n\nKind regards,\n{sender}" },
-  { subject: 'working together?',
-    body: "Hi {name},\n\nI came across {site} and liked what you publish. Would you be open to a paid guest article? If you'd prefer, a content exchange works for us too.\n\nLet me know what suits you.\n\n{optout}\n\nThanks,\n{sender}" },
-  { subject: 'a paid article on {site}',
-    body: "Hi {name},\n\nI'm reaching out to ask whether {site} takes paid articles. We'd write the piece ourselves and follow your editorial guidelines.\n\nIf you do, could you send me your rates?\n\n{optout}\n\nBest regards,\n{sender}" }
+  { subject: 'quick question about {site}',
+    body: "Hi {name},\n\nI came across {site} and enjoyed reading a few of your recent posts.\n\nI write content for a few brands and would love to work with you. Do you accept articles from outside writers? If so, I'd be glad to hear how it works on your side.\n\n{optout}\n\nThanks,\n{sender}" },
+  { subject: '{site} collaboration',
+    body: "Hello {name},\n\nI write articles for brands, and I think some of our topics would be useful for your readers.\n\nWould you be open to publishing a piece from us? I'm happy to follow your guidelines and talk through the details.\n\n{optout}\n\nBest,\n{sender}" },
+  { subject: 'contributing to {site}',
+    body: "Hi {name},\n\nI've been looking through {site} and like the way you cover your topics.\n\nAre you open to contributor articles? I can send a few topic ideas first so you can see if any of them fit.\n\n{optout}\n\nKind regards,\n{sender}" },
+  { subject: 'a short question',
+    body: "Hi {name},\n\nI'm looking for a few sites to work with on articles, and {site} looks like a good fit.\n\nWould a collaboration be something you'd consider? It could be an article from us or a content exchange, whichever works better for you.\n\n{optout}\n\nThanks,\n{sender}" },
+  { subject: 'an idea for {site}',
+    body: "Hi {name},\n\nI'd like to write an article for {site}, made for your audience and in line with your editorial standards.\n\nIf you take outside articles, could you tell me how it works and what your terms are?\n\n{optout}\n\nBest regards,\n{sender}" }
 ];
 
 async function templateDraft(uid, ref, row, senderName) {
