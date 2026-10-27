@@ -34,10 +34,10 @@ const TRACK_DAYS = 45;       // stop checking a thread for replies after this lo
 const MAX_ROWS = 300;        // per save call
 // Several wordings so the footer isn't an identical fingerprint on every email.
 const OPT_OUTS = [
-  "P.S. If you'd rather not hear from me, just reply \"no\" and I won't email you again.",
-  "If this isn't of interest, just reply \"no\" and I won't follow up.",
-  "Not interested? A quick \"no\" is fine and I won't contact you again.",
-  "If you'd prefer no further emails, simply reply \"no\" and I'll take you off my list."
+  "If this isn't relevant, just let me know and I won't follow up.",
+  "If it's not a fit, a quick \"no\" is totally fine and I won't email again.",
+  "No worries if not; just reply \"no\" and I won't reach out again.",
+  "If you'd rather not get emails like this, just say so and I won't write again."
 ];
 const hasOptOut = body => OPT_OUTS.some(o => body.includes(o));
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -177,16 +177,16 @@ async function siteContext(domain) {
 // TEMPLATE_EVERY drafts so no long run of identical emails goes out.
 const TEMPLATE_EVERY = 3;
 const PAID_TEMPLATES = [
-  { subject: 'Collaboration with {site}',
-    body: "Hi {name},\n\nI'm {sender}, an off-page SEO specialist. I'm interested in a paid collaboration or a content exchange with {site}.\n\nCould you share your price for a guest post and let me know whether links are dofollow?\n\nBest regards,\n{sender}" },
-  { subject: 'Guest post on {site}',
-    body: "Hello {name},\n\nMy name is {sender} and I work as an off-page SEO specialist. I'd like to discuss a paid collaboration or a content exchange on {site}.\n\nWhat is your price for a guest post, and are the links dofollow?\n\nThanks,\n{sender}" },
-  { subject: 'Question about {site}',
-    body: "Hi {name},\n\nI'm an off-page SEO specialist looking for a paid collaboration or a content exchange with {site}.\n\nCould you tell me your rate for a guest post and whether you allow dofollow links?\n\nKind regards,\n{sender}" },
-  { subject: 'Paid collaboration for {site}',
-    body: "Hi {name},\n\nI'm {sender}, an off-page SEO specialist, interested in a paid collaboration or a content exchange with your site.\n\nPlease let me know your price for publishing a guest post and if links are dofollow.\n\nBest,\n{sender}" },
-  { subject: 'Content collaboration with {site}',
-    body: "Hello {name},\n\nI'm {sender} and I work in off-page SEO. I'm interested in a paid guest post or a content exchange with {site}.\n\nWhat would a guest post cost, and are the links dofollow?\n\nThanks in advance,\n{sender}" }
+  { subject: 'guest post on {site}?',
+    body: "Hi {name},\n\nI've been reading {site} and would love to contribute an article. We're happy to pay for the placement.\n\nDo you accept sponsored guest posts, and if so, what's your rate?\n\n{optout}\n\nThanks,\n{sender}" },
+  { subject: 'question about {site}',
+    body: "Hi {name},\n\nQuick question: do you publish sponsored articles on {site}? I have a few topic ideas that would suit your readers, and we'd pay a fee for the placement.\n\nWhat would it cost to publish one?\n\n{optout}\n\nBest,\n{sender}" },
+  { subject: 'article for {site}',
+    body: "Hello {name},\n\nI'm {sender}, and I'd like to write an article for {site}. It would be original, written for your audience, and published as a paid placement.\n\nCould you share your price and any guidelines you have?\n\n{optout}\n\nKind regards,\n{sender}" },
+  { subject: 'working together?',
+    body: "Hi {name},\n\nI came across {site} and liked what you publish. Would you be open to a paid guest article? If you'd prefer, a content exchange works for us too.\n\nLet me know what suits you.\n\n{optout}\n\nThanks,\n{sender}" },
+  { subject: 'a paid article on {site}',
+    body: "Hi {name},\n\nI'm reaching out to ask whether {site} takes paid articles. We'd write the piece ourselves and follow your editorial guidelines.\n\nIf you do, could you send me your rates?\n\n{optout}\n\nBest regards,\n{sender}" }
 ];
 
 async function templateDraft(uid, ref, row, senderName) {
@@ -202,11 +202,12 @@ async function templateDraft(uid, ref, row, senderName) {
   const t = PAID_TEMPLATES[idx];
   const first = oneLine(row.firstName).split(' ')[0];
   const fill = str => str
-    .replace(/\{name\}/g, first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Team')
+    .replace(/\{name\}/g, first ? first.charAt(0).toUpperCase() + first.slice(1) : 'there')
+    .replace(/\{optout\}/g, OPT_OUTS[idx % OPT_OUTS.length])
     .replace(/\{site\}/g, row.domain)
     .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
   const subject = fill(t.subject);
-  const body = fill(t.body) + '\n\n' + OPT_OUTS[idx % OPT_OUTS.length];
+  const body = fill(t.body);
   await ref.update({ subject, body, templateIdx: idx, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
   return { subject, body, templateIdx: idx };
 }
