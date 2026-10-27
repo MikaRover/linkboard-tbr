@@ -172,16 +172,56 @@ async function siteContext(domain) {
   } catch (e) { return ''; }
 }
 
+// Paid mode uses the team's own short templates instead of AI: five light
+// variations, each with its own subject, moving to the next one every
+// TEMPLATE_EVERY drafts so no long run of identical emails goes out.
+const TEMPLATE_EVERY = 3;
+const PAID_TEMPLATES = [
+  { subject: 'Collaboration with {site}',
+    body: "Hi {name},\n\nI'm {sender}, an off-page SEO specialist. I'm interested in a paid collaboration or a content exchange with {site}.\n\nCould you share your price for a guest post and let me know whether links are dofollow?\n\nBest regards,\n{sender}" },
+  { subject: 'Guest post on {site}',
+    body: "Hello {name},\n\nMy name is {sender} and I work as an off-page SEO specialist. I'd like to discuss a paid collaboration or a content exchange on {site}.\n\nWhat is your price for a guest post, and are the links dofollow?\n\nThanks,\n{sender}" },
+  { subject: 'Question about {site}',
+    body: "Hi {name},\n\nI'm an off-page SEO specialist looking for a paid collaboration or a content exchange with {site}.\n\nCould you tell me your rate for a guest post and whether you allow dofollow links?\n\nKind regards,\n{sender}" },
+  { subject: 'Paid collaboration for {site}',
+    body: "Hi {name},\n\nI'm {sender}, an off-page SEO specialist, interested in a paid collaboration or a content exchange with your site.\n\nPlease let me know your price for publishing a guest post and if links are dofollow.\n\nBest,\n{sender}" },
+  { subject: 'Content collaboration with {site}',
+    body: "Hello {name},\n\nI'm {sender} and I work in off-page SEO. I'm interested in a paid guest post or a content exchange with {site}.\n\nWhat would a guest post cost, and are the links dofollow?\n\nThanks in advance,\n{sender}" }
+];
+
+async function templateDraft(uid, ref, row, senderName) {
+  // Rewriting a draft moves it to the next template; a new draft takes the
+  // slot for its place in the sequence (every TEMPLATE_EVERY drafts → next).
+  let idx;
+  if (Number.isInteger(row.templateIdx)) idx = (row.templateIdx + 1) % PAID_TEMPLATES.length;
+  else {
+    const mine = await db().collection(COLL).where('ownerUid', '==', uid).get();
+    const n = mine.docs.filter(d => Number.isInteger(d.data().templateIdx)).length;
+    idx = Math.floor(n / TEMPLATE_EVERY) % PAID_TEMPLATES.length;
+  }
+  const t = PAID_TEMPLATES[idx];
+  const first = oneLine(row.firstName).split(' ')[0];
+  const fill = str => str
+    .replace(/\{name\}/g, first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Team')
+    .replace(/\{site\}/g, row.domain)
+    .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
+  const subject = fill(t.subject);
+  const body = fill(t.body) + '\n\n' + OPT_OUTS[idx % OPT_OUTS.length];
+  await ref.update({ subject, body, templateIdx: idx, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
+  return { subject, body, templateIdx: idx };
+}
+
 async function draft(uid, { id, pitch, senderName, mode, avoidSubjects }) {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
   const ref = db().collection(COLL).doc(String(id || ''));
   const snap = await ref.get();
   if (!snap.exists || snap.data().ownerUid !== uid) throw new Error('Row not found');
   const row = snap.data();
   if (['sent', 'sending', 'replied', 'bounced'].includes(row.status)) throw new Error('Already sent');
   if (!isSafeHost(row.domain)) throw new Error('Invalid domain');
+  if (mode !== 'guest') return templateDraft(uid, ref, row, senderName);
 
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
   const ctx = await siteContext(row.domain);
   const paid = mode !== 'guest';
   const greeting = pick(GREETINGS);
