@@ -1714,7 +1714,10 @@ a{text-underline-offset:2px;}
 <div id="p-checker" class="page">
   <div class="page-top">
     <div class="page-title">Data Checker</div>
-    <button class="btn-sm" onclick="runDataCheck()" style="width:auto;">Scan now</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-ghost" onclick="openDateFix()" style="width:auto;" title="Put every link date in dd/mm/yyyy and repair typos">Fix dates</button>
+      <button class="btn-sm" onclick="runDataCheck()" style="width:auto;">Scan now</button>
+    </div>
   </div>
   <div id="checker-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem;"></div>
   <div class="filters" style="gap:8px;margin-bottom:10px;">
@@ -5872,6 +5875,120 @@ async function addTeamMember(){
   }
 }
 
+// ─── DATE FIX (one-off cleanup, admin) ────────────────────
+// Puts every stored link date in dd/mm/yyyy and repairs typos. Careful by
+// design: a date is only moved when there is a trustworthy reference for it
+// (the link's "June 2026" month field, or createdAt for links added in the app),
+// it never lands in the future, and a guessed date must sit within 6 months of
+// that reference — a fix can't jump a year or ten. Anything else is listed for
+// a manual edit instead of guessed. Old value is kept in prevDate.
+const DF_DAY=86400000, DF_WINDOW=183*DF_DAY;
+let dfPlan=[];
+function dfMonthRef(l){
+  const m=/^([A-Za-z]+)\s+(20\d{2})$/.exec((l.month||'').trim());
+  if(!m) return null;
+  const mi=MONTHS_EN.findIndex(x=>x.toLowerCase()===m[1].toLowerCase());
+  return mi<0?null:new Date(+m[2],mi,15).getTime();
+}
+function dfRefs(l){
+  const monthRef=dfMonthRef(l);
+  const created=l.createdAt&&l.createdAt.toMillis?l.createdAt.toMillis():null;
+  // createdAt only vouches for a date when the link was added in the app; Sheet/CSV
+  // imports carry real old history with a createdAt of the import day.
+  const trusted=monthRef ?? (!l.source&&!l.month?created:null);
+  return {trusted, guess: monthRef ?? created ?? Date.now()};
+}
+function dfFmt(ts){ const d=new Date(ts); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
+// Same day/month in the reference's year or the one either side; closest wins.
+function dfNearYear(day, month, ref){
+  const y=new Date(ref).getFullYear(); let best=null;
+  [y-1,y,y+1].forEach(yy=>{
+    const n=normDate(day+'/'+month+'/'+yy); if(!n) return;
+    const ts=parseDate(n);
+    if(ts>Date.now()+DF_DAY||Math.abs(ts-ref)>DF_WINDOW) return;
+    if(!best||Math.abs(ts-ref)<Math.abs(best.ts-ref)) best={n,ts};
+  });
+  return best&&best.n;
+}
+function dfPlanFor(l){
+  const raw=String(l.date||'').trim();
+  if(!raw) return null;
+  const n=normDate(raw), {trusted, guess}=dfRefs(l);
+  if(n){
+    const ts=parseDate(n);
+    const far=ts>Date.now()+DF_DAY || (trusted!=null && Math.abs(ts-trusted)>DF_WINDOW);
+    if(!far) return n!==raw?{to:n,kind:'format',why:'Same date, one format'}:null;
+    const [d,m]=n.split('/');
+    const fix=dfNearYear(d,m,trusted??Date.now());
+    return fix?{to:fix,kind:'year',why:'Year looked wrong'}:{to:null,kind:'manual',why:ts>Date.now()?'In the future':'Far from its month'};
+  }
+  // Not a real date (e.g. "23.092.206"): keep its day and month, take the year from the reference.
+  const digits=raw.replace(/\D/g,'');
+  const p=raw.split(/[.\-\/\s]+/);
+  const cands=[];
+  if(p.length>=2) cands.push([p[0],p[1].slice(0,2)]);
+  if(digits.length>=4) cands.push([digits.slice(0,2),digits.slice(2,4)]);
+  for(const [d,m] of cands){ const fix=dfNearYear(d,m,guess); if(fix) return {to:fix,kind:'repair',why:'Typo repaired, check it'}; }
+  return {to:null,kind:'manual',why:'Not a date'};
+}
+function openDateFix(){
+  dfPlan=allLinks.map(l=>({l,...(dfPlanFor(l)||{})})).filter(x=>x.kind);
+  const order={repair:0,year:1,manual:2,format:3};
+  dfPlan.sort((a,b)=>order[a.kind]-order[b.kind]);
+  const cnt=k=>dfPlan.filter(x=>x.kind===k).length;
+  const tag={format:'var(--text3)',year:'var(--yellow)',repair:'var(--yellow)',manual:'var(--red)'};
+  let modal=document.getElementById('date-fix-modal');
+  if(!modal){
+    modal=document.createElement('div'); modal.id='date-fix-modal';
+    modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;';
+    modal.onclick=e=>{ if(e.target===modal) modal.remove(); };
+    document.body.appendChild(modal);
+  }
+  const rows=dfPlan.map((x,i)=>`<tr>
+      <td>${x.to?`<input type="checkbox" class="df-cb" data-i="${i}" checked style="width:auto;margin:0;"/>`:''}</td>
+      <td>${escapeHtml(x.l.domain||'')}</td>
+      <td style="color:var(--text3);">${escapeHtml(x.l.builder||'—')}</td>
+      <td style="color:var(--text3);">${escapeHtml(x.l.date||'')}</td>
+      <td style="font-weight:600;">${x.to?escapeHtml(x.to):'—'}</td>
+      <td style="color:${tag[x.kind]};">${x.why}</td></tr>`).join('')
+    ||'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:1rem;">All dates are already clean</td></tr>';
+  modal.innerHTML=`
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:900px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text);">Fix dates</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;">${cnt('format')} format only · <span style="color:var(--yellow);">${cnt('repair')+cnt('year')} repaired</span> · <span style="color:var(--red);">${cnt('manual')} need a manual edit</span> · old value kept in prevDate</div>
+        </div>
+        <button onclick="document.getElementById('date-fix-modal').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1;">×</button>
+      </div>
+      <div style="overflow:auto;padding:8px 22px;">
+        <table class="tbl" style="width:100%;"><thead><tr><th></th><th>Domain</th><th>Builder</th><th>Now</th><th>Becomes</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--border);">
+        <button class="btn-ghost" onclick="document.getElementById('date-fix-modal').remove()" style="width:auto;">Cancel</button>
+        <button class="btn-sm" id="df-apply" onclick="applyDateFix()" style="width:auto;" ${dfPlan.some(x=>x.to)?'':'disabled'}>Apply checked</button>
+      </div>
+    </div>`;
+}
+async function applyDateFix(){
+  const picks=[...document.querySelectorAll('#date-fix-modal .df-cb:checked')].map(cb=>dfPlan[+cb.dataset.i]).filter(x=>x&&x.to);
+  if(!picks.length) return;
+  if(!confirm(`Change the date on ${picks.length} links? The old value is kept in prevDate.`)) return;
+  const btn=document.getElementById('df-apply'); btn.disabled=true; btn.textContent='Saving…';
+  try{
+    for(let i=0;i<picks.length;i+=400){
+      const batch=db.batch();
+      picks.slice(i,i+400).forEach(x=>batch.update(db.collection('links').doc(x.l.id),{date:x.to,prevDate:String(x.l.date||'')}));
+      await batch.commit();
+    }
+    document.getElementById('date-fix-modal')?.remove();
+    showToast(picks.length+' dates fixed');
+  }catch(e){
+    btn.disabled=false; btn.textContent='Apply checked';
+    alert('Error: '+e.message);
+  }
+}
+
 function openBuilderLinks(name){
   const bl = allLinks.filter(l=>{
     const lb=(l.builder||'').trim().toLowerCase();
@@ -6647,6 +6764,9 @@ async function checkRelevancyRow(id, btn){
 async function saveEditRow(id){
   const _rawDate=(document.getElementById('ei-date-'+id)?.value||'').trim();
   const date=normDate(_rawDate)||_rawDate;
+  const _ts=parseDate(date);
+  if(_rawDate && (!normDate(_rawDate) || _ts>Date.now()+86400000 || Date.now()-_ts>365*86400000)
+     && !confirm(`Date "${_rawDate}" looks wrong (not a real date, in the future, or more than a year ago). Save anyway?`)) return;
   const linkin=(document.getElementById('ei-linkin-'+id)?.value||'').trim();
   const linkto=(document.getElementById('ei-linkto-'+id)?.value||'').trim();
   const dr=(document.getElementById('ei-dr-'+id)?.value||'').trim();
