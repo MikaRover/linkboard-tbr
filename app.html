@@ -3975,6 +3975,37 @@ async function checkDetailProjectLinks(btn){
   btn.textContent='✅ Done';setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},2500);
 }
 
+// Reason for a pending approval, spelled out: what kind of problem, then one
+// line per fact. Duplicates list the link(s) already there (who, status, date);
+// quality failures show the link's value against the project's limit, re-read
+// from the current requirements. Falls back to the stored text for anything else.
+function approvalReasonHtml(l){
+  const raw=String(l.approvalReason||'');
+  const kind=/^Duplicate/i.test(raw)?'Duplicate':/^Quality/i.test(raw)?'Quality':'';
+  const lines=[];
+  if(kind==='Duplicate'){
+    const others=allLinks.filter(x=>x.id!==l.id&&nd(x.domain)===nd(l.domain)&&x.project===l.project);
+    others.forEach(x=>lines.push(`Already in <b>${escapeHtml(x.project||'')}</b> · ${escapeHtml(x.builder||'—')} · ${escapeHtml(x.status||'—')} · ${dateCell(x.date,'no date')}`));
+    if(!others.length) lines.push(`The earlier ${escapeHtml(l.project||'')} link is gone, so it's no longer a duplicate`);
+  } else if(kind==='Quality'){
+    const qr=allQualityReqs.find(r=>r.project===l.project)||{};
+    const num=v=>v===''||v==null?null:Number(String(v).replace(/[,%]/g,''));
+    const dr=num(l.dr), tr=num(l.traffic), ss=num(l.ss);
+    if(qr.minDR&&dr!==null&&dr<qr.minDR) lines.push(`DR <b>${dr}</b> · needs ${qr.minDR}+`);
+    if(qr.minTraffic&&tr!==null&&tr<qr.minTraffic) lines.push(`Traffic <b>${tr.toLocaleString()}</b> · needs ${Number(qr.minTraffic).toLocaleString()}+`);
+    if(qr.maxSS!=null&&qr.maxSS!==''&&ss!==null&&ss>qr.maxSS) lines.push(`Spam score <b>${ss}%</b> · max ${qr.maxSS}%`);
+    const cat=/Category "([^"]+)"/.exec(raw);
+    if(cat) lines.push(`Category <b>${escapeHtml(cat[1])}</b> · allowed: ${escapeHtml((qr.allowedCategories||[]).join(', ')||'—')}`);
+    // Requirements changed since, or values missing on the link: show what was recorded.
+    if(!lines.length) raw.replace(/^Quality:\s*/i,'').split(/, (?=[A-Z])/).forEach(t=>lines.push(escapeHtml(t)));
+  } else if(raw){
+    lines.push(escapeHtml(raw));
+  }
+  const col=kind==='Duplicate'?'var(--red)':'var(--yellow)';
+  return (kind?`<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;color:${col};background:color-mix(in srgb, ${col} 14%, transparent);margin-bottom:4px;">${kind}</span>`:'')
+    +lines.map(t=>`<div style="font-size:12px;line-height:1.45;color:var(--text);white-space:normal;">${t}</div>`).join('');
+}
+
 function showPendingApprovals(){
   const pending = allLinks.filter(l=>l.needsApproval && l.approvalStatus==='pending');
   let modal = document.getElementById('approval-modal');
@@ -3992,7 +4023,7 @@ function showPendingApprovals(){
       <td>${projTag(l.project)}</td>
       <td style="font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'')}</td>
       <td style="font-size:12px;">${builderAvatar(l.builder)}</td>
-      <td style="font-size:11px;color:var(--yellow);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(l.approvalReason||'')}</td>
+      <td style="min-width:240px;max-width:340px;">${approvalReasonHtml(l)}</td>
       <td style="white-space:nowrap;">
         <button class="btn-sm" onclick="approveLink('${escAttr(l.id)}')" style="width:auto;font-size:12px;padding:6px 14px;">Approve</button>
         <button class="btn-ghost" onclick="rejectLink('${escAttr(l.id)}')" style="font-size:12px;padding:6px 14px;color:var(--red);">✕ Reject</button>
