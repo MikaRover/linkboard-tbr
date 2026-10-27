@@ -1732,6 +1732,10 @@ a{text-underline-offset:2px;}
       <option value="no-date">No date</option>
       <option value="dup">Duplicate domain</option>
     </select>
+    <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin:0 0 0 auto;cursor:pointer;" title="Issues on links from before 2026 are archived: hidden here and left as they are">
+      <input type="checkbox" id="chk-show-old" onchange="renderCheckerResults()" style="width:auto;margin:0;"/>
+      <span id="chk-old-label">Show archived (before 2026)</span>
+    </label>
   </div>
   <div id="chk-batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="chk-batch-count" style="font-size:13px;color:var(--text2);"></span>
@@ -3649,7 +3653,7 @@ function runDataCheck(){
   checkerResults=allLinks.map(l=>{
     const issues=detectIssues(l);
     if(domainCount[nd(l.domain)+'|'+(l.project||'')]>1)issues.push('dup');
-    return{...l,_issues:[...new Set(issues)]};
+    return{...l,_issues:[...new Set(issues)],_old:chkIsOld(l)};
   }).filter(l=>l._issues.length>0);
 
   const proj=document.getElementById('chk-proj');
@@ -3658,24 +3662,38 @@ function runDataCheck(){
   [...new Set(checkerResults.map(l=>l.project))].sort().forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;proj.appendChild(o);});
   if(_chkPrev && [...proj.options].some(o=>o.value===_chkPrev)) proj.value=_chkPrev;
 
-  const shifted=checkerResults.filter(l=>l._issues.includes('shifted')).length;
-  const missing=checkerResults.filter(l=>l._issues.includes('no-domain')||l._issues.includes('bad-domain')||l._issues.includes('no-anchor')).length;
-  const dups=checkerResults.filter(l=>l._issues.includes('dup')).length;
-  const badDates=checkerResults.filter(l=>l._issues.includes('bad-date')).length;
+  renderCheckerResults();
+}
+
+// Data Checker covers links from 2026 on. Older issues are archived: hidden
+// (not changed) unless "Show archived" is ticked. A link's year comes from its
+// date, or — when the date itself is broken — its month field, then createdAt.
+const CHK_SINCE=new Date(2026,0,1).getTime();
+function chkIsOld(l){
+  let t=normDate(l.date)?parseDate(l.date):null;
+  if(t==null) t=dfMonthRef(l);
+  if(t==null&&l.createdAt&&l.createdAt.toMillis) t=l.createdAt.toMillis();
+  return t!=null&&t<CHK_SINCE; // unknown age stays visible
+}
+function renderCheckerResults(){
+  const proj=document.getElementById('chk-proj').value;
+  const issue=document.getElementById('chk-issue').value;
+  const showOld=document.getElementById('chk-show-old')?.checked;
+  const oldN=checkerResults.filter(l=>l._old).length;
+  const lbl=document.getElementById('chk-old-label'); if(lbl) lbl.textContent=`Show archived (before 2026) · ${oldN}`;
+  const scoped=showOld?checkerResults:checkerResults.filter(l=>!l._old);
+  const shifted=scoped.filter(l=>l._issues.includes('shifted')).length;
+  const missing=scoped.filter(l=>l._issues.includes('no-domain')||l._issues.includes('bad-domain')||l._issues.includes('no-anchor')).length;
+  const dups=scoped.filter(l=>l._issues.includes('dup')).length;
+  const badDates=scoped.filter(l=>l._issues.includes('bad-date')).length;
   document.getElementById('checker-stats').style.gridTemplateColumns='repeat(5,1fr)';
   document.getElementById('checker-stats').innerHTML=`
-    <div class="stat"><div class="stat-l">Total issues</div><div class="stat-v" style="color:var(--red)">${checkerResults.length}</div></div>
+    <div class="stat"><div class="stat-l">Total issues</div><div class="stat-v" style="color:var(--red)">${scoped.length}</div></div>
     <div class="stat"><div class="stat-l">Shifted columns</div><div class="stat-v" style="color:var(--yellow)">${shifted}</div></div>
     <div class="stat"><div class="stat-l">Missing data</div><div class="stat-v" style="color:var(--yellow)">${missing}</div></div>
     <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:var(--red)">${dups}</div></div>
     <div class="stat" onclick="showBrokenDates()" title="Show only broken dates and fix them here"><div class="stat-l">Broken dates</div><div class="stat-v" style="color:var(--red)">${badDates}</div></div>`;
-  renderCheckerResults();
-}
-
-function renderCheckerResults(){
-  const proj=document.getElementById('chk-proj').value;
-  const issue=document.getElementById('chk-issue').value;
-  let fl=checkerResults.filter(l=>{
+  let fl=scoped.filter(l=>{
     if(proj&&l.project!==proj)return false;
     if(issue&&!l._issues.includes(issue))return false;
     return true;
