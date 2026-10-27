@@ -20,7 +20,7 @@
 //
 // Env: ANTHROPIC_API_KEY, plus everything api/_lib/gmail.js needs.
 // Optional: OUTREACH_DAILY_LIMIT (per mailbox, default 30), OUTREACH_MIN_GAP_SEC
-// (minimum seconds between two emails from one mailbox, default 170).
+// (minimum seconds between two emails from one mailbox, default 240).
 
 const { setCors, requireMember } = require('./auth');
 const { isSafeHost, cleanHost, browserHeaders } = require('./security');
@@ -42,8 +42,8 @@ const OPT_OUTS = [
 const hasOptOut = body => OPT_OUTS.some(o => body.includes(o));
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 // Minimum time between two emails from the same mailbox (the page waits a
-// random 3–4 min; this is the hard floor even with two tabs or a single Send).
-const MIN_GAP_MS = Math.max(0, parseInt(process.env.OUTREACH_MIN_GAP_SEC, 10) || 170) * 1000;
+// random 4–5 min; this is the hard floor even with two tabs or a single Send).
+const MIN_GAP_MS = Math.max(0, parseInt(process.env.OUTREACH_MIN_GAP_SEC, 10) || 240) * 1000;
 
 // Each draft gets a random angle, greeting and sign-off, so a batch never
 // reads like one template — repeated identical text is a strong spam signal.
