@@ -178,9 +178,9 @@ async function siteContext(domain) {
 const TEMPLATE_EVERY = 3;
 const PAID_TEMPLATES = [
   { subject: 'guest post on {site}?',
-    body: "Hi {name},\n\nI've been reading {site} and would love to contribute an article. We're happy to pay for the placement.\n\nDo you accept sponsored guest posts, and if so, what's your rate?\n\n{optout}\n\nThanks,\n{sender}" },
+    body: "Hi {name},\n\nI've been reading {site} and would love to contribute an article. We're happy to pay for the placement.\n\nDo you accept guest posts, and if so, what's your rate?\n\n{optout}\n\nThanks,\n{sender}" },
   { subject: 'question about {site}',
-    body: "Hi {name},\n\nQuick question: do you publish sponsored articles on {site}? I have a few topic ideas that would suit your readers, and we'd pay a fee for the placement.\n\nWhat would it cost to publish one?\n\n{optout}\n\nBest,\n{sender}" },
+    body: "Hi {name},\n\nQuick question: do you accept guest articles on {site}? I have a few topic ideas that would suit your readers, and we'd pay a fee for the placement.\n\nWhat would it cost to publish one?\n\n{optout}\n\nBest,\n{sender}" },
   { subject: 'article for {site}',
     body: "Hello {name},\n\nI'm {sender}, and I'd like to write an article for {site}. It would be original, written for your audience, and published as a paid placement.\n\nCould you share your price and any guidelines you have?\n\n{optout}\n\nKind regards,\n{sender}" },
   { subject: 'working together?',
@@ -228,7 +228,7 @@ async function draft(uid, { id, pitch, senderName, mode, avoidSubjects }) {
   const greeting = pick(GREETINGS);
   const avoid = (Array.isArray(avoidSubjects) ? avoidSubjects : []).map(oneLine).filter(Boolean).slice(0, 15);
   const goal = paid
-    ? `The sender is an off-page SEO specialist looking for a paid collaboration (publishing a sponsored guest post on their site) or a content exchange. Follow this shape, in your own words each time:
+    ? `The sender is an off-page SEO specialist looking for a paid collaboration (publishing a paid guest post on their site) or a content exchange. Never use the word "sponsored". Follow this shape, in your own words each time:
   1. Greeting.
   2. One line: who the sender is (off-page SEO specialist) and that they came across the site.
   3. One honest, specific line about the site.
