@@ -9074,7 +9074,7 @@ async function oaDraft(id, btn){
   if(btn){ btn.disabled = true; btn.textContent = 'Writing…'; }
   try{
     const avoidSubjects = oaRows.filter(x=>x.subject && x.id!==id).slice(0,15).map(x=>x.subject);
-    const j = await oaApi('draft',{id, pitch:document.getElementById('oa-pitch').value, senderName:cu?.name||'', mode:oaMode(), avoidSubjects});
+    const j = await oaApi('draft',{id, pitch:document.getElementById('oa-pitch').value, senderName:(cu?.name||'').trim().split(/\s+/)[0]||'', mode:oaMode(), avoidSubjects});
     Object.assign(r, {subject:j.subject, body:j.body, status:'draft'});
     delete oaEdits[id];
     oaRender();
