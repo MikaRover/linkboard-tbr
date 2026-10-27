@@ -1732,6 +1732,10 @@ a{text-underline-offset:2px;}
       <option value="no-date">No date</option>
       <option value="dup">Duplicate domain</option>
     </select>
+    <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin:0 0 0 auto;cursor:pointer;" title="Issues on links from before 2026 are archived: hidden here and left as they are">
+      <input type="checkbox" id="chk-show-old" onchange="renderCheckerResults()" style="width:auto;margin:0;"/>
+      <span id="chk-old-label">Show archived (before 2026)</span>
+    </label>
   </div>
   <div id="chk-batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="chk-batch-count" style="font-size:13px;color:var(--text2);"></span>
@@ -3358,12 +3362,20 @@ function listenProjects(){
   });
 }
 function populateProjectSelects(){
-  const names=allProjects.filter(p=>!p.hidden).map(p=>p.name);
+  const names=allProjects.filter(p=>!projHidden(p)).map(p=>p.name);
+  // Filters and link checking still reach old links: archived (pre-2026) projects
+  // stay listed there, in their own group. Only the add/assign pickers drop them.
+  const archived=allProjects.filter(p=>p.hidden!==true&&projHidden(p)).map(p=>p.name).sort();
   ['f-proj','r-proj','rq-proj','imp-proj','req-imp-proj','ls-p','check-proj-select','bl-p'].forEach(id=>{
     const s=document.getElementById(id);if(!s)return;
     const isFilter=['ls-p','bl-p','check-proj-select'].includes(id);const cur=s.value;
     s.innerHTML=isFilter?'<option value="">All projects</option>':'<option value="">Select project</option>';
     names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});
+    if(isFilter&&archived.length){
+      const g=document.createElement('optgroup'); g.label='Before 2026';
+      archived.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;g.appendChild(o);});
+      s.appendChild(g);
+    }
     if(cur)s.value=cur;
   });
 }
@@ -3373,6 +3385,25 @@ async function addProject(){
   if(allProjects.find(p=>p.name.toLowerCase()===name.toLowerCase())){alert('Project already exists');return;}
   await db.collection('projects').add({name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
   document.getElementById('new-proj-name').value='';
+}
+// Projects with no 2026 work (no link dated 2026+, no 2026 requirement, not
+// created in 2026) are archived automatically: treated like hidden ones. The
+// eye button still wins — showing one writes hidden:false and keeps it visible.
+// Until links have loaded nothing is archived (an empty list would archive all).
+let linksLoaded=false;
+function projIsArchived(p){
+  if(!linksLoaded) return false;
+  const created=p.createdAt&&p.createdAt.toMillis?p.createdAt.toMillis():0;
+  if(created>=CHK_SINCE) return false;
+  if(allReqs.some(r=>r.project===p.name&&/20(2[6-9]|[3-9]\d)/.test(r.month||''))) return false;
+  return !allLinks.some(l=>l.project===p.name&&!chkIsOld(l));
+}
+function projHidden(p){ return p.hidden===true || (p.hidden!==false && projIsArchived(p)); }
+let _projArchSig='';
+function refreshProjectArchive(){
+  const sig=allProjects.filter(projHidden).map(p=>p.name).join('|');
+  if(sig===_projArchSig) return;
+  _projArchSig=sig; populateProjectSelects(); renderProjectsPage();
 }
 async function toggleHideProject(id, currentlyHidden){
   await db.collection('projects').doc(id).update({ hidden: !currentlyHidden });
@@ -3394,14 +3425,14 @@ function renderProjectsPage(){
   const grid=document.getElementById('proj-grid');if(!grid)return;
   if(!allProjects.length){grid.innerHTML='<div style="color:var(--text2);font-size:13px;">No projects yet</div>';return;}
   const showHidden = document.getElementById('show-hidden-projects')?.checked;
-  const filtered = allProjects.filter(p => showHidden ? true : !p.hidden);
+  const filtered = allProjects.filter(p => showHidden ? true : !projHidden(p));
   // "Need to change" is a review-queue number — only Admin and Tatev handle it,
   // so it's hidden for everyone else (client-side only, same caveat as Bulk Relevancy).
   const canSeeNeedsChange = isAdminOrTatev();
 
-  grid.innerHTML = (showHidden && allProjects.some(p=>p.hidden) ? `
+  grid.innerHTML = (showHidden && allProjects.some(projHidden) ? `
     <div style="grid-column:1/-1;font-size:11px;color:var(--text3);padding:4px 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
-      ${filtered.filter(p=>!p.hidden).length} active · ${filtered.filter(p=>p.hidden).length} hidden
+      ${filtered.filter(p=>!projHidden(p)).length} active · ${filtered.filter(p=>p.hidden===true).length} hidden · ${filtered.filter(p=>p.hidden!==true&&projHidden(p)).length} archived (no 2026 links)
     </div>` : '') +
   filtered.map(p=>{
     const count=allLinks.filter(l=>l.project===p.name).length;
@@ -3415,7 +3446,7 @@ function renderProjectsPage(){
     const myNeedsChange=allLinks.filter(l=>l.project===p.name&&l.status==='needs-change'&&(l.builder||'').trim().toLowerCase()===_me).length;
     const sd = p.siteData;
     const scanned = sd && sd.lastScanned;
-    const isHidden = !!p.hidden;
+    const isHidden = projHidden(p);
     const palette=['#0A84FF','#BF5AF2','#5E5CE6','#30D158','#FF375F','#FFD60A','#64D2FF','#FF9F0A','#30B0C7','#AC8E68'];
     let h=0; for(const ch of p.name) h=(h*31+ch.charCodeAt(0))>>>0;
     const col=palette[h%palette.length];
@@ -3600,7 +3631,7 @@ function parseDate(str){
 
 // Flags a pending link that's been sitting too long without going live.
 function pendingAgeBadge(l){
-  if(l.status!=='pending'||!l.date) return '';
+  if(l.status!=='pending'||!l.date||chkIsOld(l)) return '';
   const ts=parseDate(l.date);
   if(!ts) return '';
   const days=Math.floor((Date.now()-ts)/86400000);
@@ -3649,7 +3680,7 @@ function runDataCheck(){
   checkerResults=allLinks.map(l=>{
     const issues=detectIssues(l);
     if(domainCount[nd(l.domain)+'|'+(l.project||'')]>1)issues.push('dup');
-    return{...l,_issues:[...new Set(issues)]};
+    return{...l,_issues:[...new Set(issues)],_old:chkIsOld(l)};
   }).filter(l=>l._issues.length>0);
 
   const proj=document.getElementById('chk-proj');
@@ -3658,24 +3689,38 @@ function runDataCheck(){
   [...new Set(checkerResults.map(l=>l.project))].sort().forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;proj.appendChild(o);});
   if(_chkPrev && [...proj.options].some(o=>o.value===_chkPrev)) proj.value=_chkPrev;
 
-  const shifted=checkerResults.filter(l=>l._issues.includes('shifted')).length;
-  const missing=checkerResults.filter(l=>l._issues.includes('no-domain')||l._issues.includes('bad-domain')||l._issues.includes('no-anchor')).length;
-  const dups=checkerResults.filter(l=>l._issues.includes('dup')).length;
-  const badDates=checkerResults.filter(l=>l._issues.includes('bad-date')).length;
+  renderCheckerResults();
+}
+
+// Data Checker covers links from 2026 on. Older issues are archived: hidden
+// (not changed) unless "Show archived" is ticked. A link's year comes from its
+// date, or — when the date itself is broken — its month field, then createdAt.
+const CHK_SINCE=new Date(2026,0,1).getTime();
+function chkIsOld(l){
+  let t=normDate(l.date)?parseDate(l.date):null;
+  if(t==null) t=dfMonthRef(l);
+  if(t==null&&l.createdAt&&l.createdAt.toMillis) t=l.createdAt.toMillis();
+  return t!=null&&t<CHK_SINCE; // unknown age stays visible
+}
+function renderCheckerResults(){
+  const proj=document.getElementById('chk-proj').value;
+  const issue=document.getElementById('chk-issue').value;
+  const showOld=document.getElementById('chk-show-old')?.checked;
+  const oldN=checkerResults.filter(l=>l._old).length;
+  const lbl=document.getElementById('chk-old-label'); if(lbl) lbl.textContent=`Show archived (before 2026) · ${oldN}`;
+  const scoped=showOld?checkerResults:checkerResults.filter(l=>!l._old);
+  const shifted=scoped.filter(l=>l._issues.includes('shifted')).length;
+  const missing=scoped.filter(l=>l._issues.includes('no-domain')||l._issues.includes('bad-domain')||l._issues.includes('no-anchor')).length;
+  const dups=scoped.filter(l=>l._issues.includes('dup')).length;
+  const badDates=scoped.filter(l=>l._issues.includes('bad-date')).length;
   document.getElementById('checker-stats').style.gridTemplateColumns='repeat(5,1fr)';
   document.getElementById('checker-stats').innerHTML=`
-    <div class="stat"><div class="stat-l">Total issues</div><div class="stat-v" style="color:var(--red)">${checkerResults.length}</div></div>
+    <div class="stat"><div class="stat-l">Total issues</div><div class="stat-v" style="color:var(--red)">${scoped.length}</div></div>
     <div class="stat"><div class="stat-l">Shifted columns</div><div class="stat-v" style="color:var(--yellow)">${shifted}</div></div>
     <div class="stat"><div class="stat-l">Missing data</div><div class="stat-v" style="color:var(--yellow)">${missing}</div></div>
     <div class="stat"><div class="stat-l">Duplicates</div><div class="stat-v" style="color:var(--red)">${dups}</div></div>
     <div class="stat" onclick="showBrokenDates()" title="Show only broken dates and fix them here"><div class="stat-l">Broken dates</div><div class="stat-v" style="color:var(--red)">${badDates}</div></div>`;
-  renderCheckerResults();
-}
-
-function renderCheckerResults(){
-  const proj=document.getElementById('chk-proj').value;
-  const issue=document.getElementById('chk-issue').value;
-  let fl=checkerResults.filter(l=>{
+  let fl=scoped.filter(l=>{
     if(proj&&l.project!==proj)return false;
     if(issue&&!l._issues.includes(issue))return false;
     return true;
@@ -4045,7 +4090,7 @@ function approvalReasonHtml(l){
 }
 
 function showPendingApprovals(){
-  const pending = allLinks.filter(l=>l.needsApproval && l.approvalStatus==='pending');
+  const pending = allLinks.filter(l=>l.needsApproval && l.approvalStatus==='pending' && !chkIsOld(l));
   let modal = document.getElementById('approval-modal');
   if(!modal){
     modal = document.createElement('div');
@@ -4982,7 +5027,9 @@ function renderActivePageForLinks(){
   db.collection('links').orderBy('createdAt','desc').onSnapshot(snap=>{
     allLinks=snap.docs.map(d=>({id:d.id,...d.data()}));
     clearTimeout(_linksRenderTimer);
+    linksLoaded=true;
     _linksRenderTimer=setTimeout(()=>{
+      refreshProjectArchive();
       populateBLMonths();
       updateDoubleCheckBadge();
       renderActivePageForLinks();
@@ -5467,7 +5514,7 @@ function renderDashboard(){
     const ts=parseDate(l.date);
     return ts && Math.floor((Date.now()-ts)/86400000)>=14;
   }).length;
-  const pendApprovalsCount = cu.role==='admin' ? allLinks.filter(l=>l.needsApproval&&l.approvalStatus==='pending').length : 0;
+  const pendApprovalsCount = cu.role==='admin' ? allLinks.filter(l=>l.needsApproval&&l.approvalStatus==='pending'&&!chkIsOld(l)).length : 0;
   const unpaidCount = myLinks.filter(l=>(l.invoice||l.price)&&!l.paid).length;
   const attnTotal = stalePend + pendApprovalsCount + unpaidCount;
   const attnEl = document.getElementById('ds-attn');
@@ -5713,7 +5760,7 @@ function goToMyLinksFromDashboard(filter){
 
 function renderLinks(){
   // Show pending-approval banner for admin
-  const pendApprovals = allLinks.filter(l=>l.needsApproval && l.approvalStatus==='pending');
+  const pendApprovals = allLinks.filter(l=>l.needsApproval && l.approvalStatus==='pending' && !chkIsOld(l));
   const apBanner = document.getElementById('approval-banner');
   if(apBanner){
     if(pendApprovals.length>0){
@@ -6027,7 +6074,10 @@ function openDateFix(){
 }
 function renderDateFix(){
   const modal=document.getElementById('date-fix-modal'); if(!modal) return;
-  const review=dfPlan.map((x,i)=>({...x,i})).filter(x=>x.kind!=='format'&&!x.done);
+  // Pre-2026 links are archived: judged by the trusted reference (month field /
+  // createdAt), not the stored date, so a year typo like 2016-for-2026 still shows.
+  const dfOld=x=>{ const {trusted}=dfRefs(x.l); const t=trusted ?? (normDate(x.l.date)?parseDate(x.l.date):null); return t!=null&&t<CHK_SINCE; };
+  const review=dfPlan.map((x,i)=>({...x,i})).filter(x=>x.kind!=='format'&&!x.done&&!dfOld(x));
   const fmt=dfPlan.filter(x=>x.kind==='format'&&!x.done);
   const col={year:'var(--yellow)',repair:'var(--yellow)',manual:'var(--red)'};
   const rows=review.map(x=>`<tr id="df-row-${x.i}">
@@ -6082,9 +6132,10 @@ async function dfApproveOne(i){
 }
 function dfSkip(i){ if(dfPlan[i]){ dfPlan[i].done=true; renderDateFix(); } }
 async function dfApproveAllSuggested(){
+  // Only rows on screen (archived pre-2026 ones aren't rendered, so they're left alone)
   const items=dfPlan.filter(x=>x.kind!=='format'&&!x.done&&x.to).map(x=>{
     const el=document.getElementById('df-in-'+dfPlan.indexOf(x));
-    const n=normDate(el?el.value:x.to); return n?Object.assign(x,{to:n}):null;
+    const n=el&&normDate(el.value); return n?Object.assign(x,{to:n}):null;
   }).filter(Boolean);
   if(!items.length||!confirm(`Approve ${items.length} suggested dates?`)) return;
   try{ await dfWrite(items); renderDateFix(); showToast(items.length+' dates fixed'); }
@@ -9074,7 +9125,7 @@ function renderAnchors(){
   if(_adminCtl) _adminCtl.style.display = _isBuilder ? 'none' : '';
 
   // Get all projects that have ANY anchors
-  const projsWithReqs = allProjects.filter(p=>!p.hidden);
+  const projsWithReqs = allProjects.filter(p=>!projHidden(p));
   const projList = document.getElementById('anc-proj-list');
 
   if(!projsWithReqs.length){
@@ -10275,7 +10326,7 @@ function initLoadPage(){
   // Project checkboxes — hidden projects excluded, same as everywhere else
   // hidden projects are already filtered out (Requirements, project selects)
   const pwrap = document.getElementById('load-project-checks');
-  if(pwrap) pwrap.innerHTML = allProjects.filter(p=>!p.hidden).map(p => `
+  if(pwrap) pwrap.innerHTML = allProjects.filter(p=>!projHidden(p)).map(p => `
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;transition:all 0.15s;"
       onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
       <input type="checkbox" value="${escapeHtml(p.name)}" onchange="onLoadFilterChange()" style="width:auto;margin:0;cursor:pointer;" ${loadUncheckedProjects.has(p.name)?'':'checked'}/>
@@ -10928,7 +10979,7 @@ function renderBuilderLinks(){
 function updateDoubleCheckBadge(){
   const badge=document.getElementById('dc-nav-badge');
   if(!badge)return;
-  const n=allLinks.filter(l=>l.status==='live'&&l.needsDoubleCheck).length;
+  const n=allLinks.filter(l=>l.status==='live'&&l.needsDoubleCheck&&!chkIsOld(l)).length;
   if(n>0){badge.textContent=n>99?'99+':String(n);badge.style.display='inline-block';}
   else badge.style.display='none';
 }
@@ -10938,7 +10989,7 @@ function renderDoubleCheckQueue(){
   if(!tb)return;
   const s=(document.getElementById('dc-s')?.value||'').toLowerCase();
   let fl=allLinks.filter(l=>{
-    if(l.status!=='live'||!l.needsDoubleCheck)return false;
+    if(l.status!=='live'||!l.needsDoubleCheck||chkIsOld(l))return false; // pre-2026 ones are archived
     if(s&&!(l.domain||'').toLowerCase().includes(s)&&!(l.anchor||'').toLowerCase().includes(s))return false;
     return true;
   });
