@@ -1078,6 +1078,42 @@ a{text-underline-offset:2px;}
   .page-top{flex-wrap:wrap;gap:10px;}
 }
 
+/* Outreach Agent (admin) */
+.oa-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;}
+@media (max-width:860px){.oa-grid{grid-template-columns:1fr;}}
+.oa-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-4);}
+.oa-h{font-size:14px;font-weight:600;color:var(--text);margin-bottom:var(--space-3);}
+.oa-label{display:block;font-size:12px;color:var(--text2);margin:0 0 6px;}
+.oa-help{font-size:12px;color:var(--text3);line-height:1.5;}
+.oa-card textarea,.oa-editor textarea{width:100%;font-family:inherit;line-height:1.5;resize:vertical;margin:0;}
+.oa-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:980px;font-size:12px;background:var(--bg3);color:var(--text2);}
+.oa-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.oa-badge{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:980px;font-size:11px;font-weight:600;white-space:nowrap;}
+.oa-b-neutral{background:var(--bg4);color:var(--text2);}
+.oa-b-blue{background:color-mix(in srgb,var(--accent2) 14%,transparent);color:var(--accent2);}
+.oa-b-green{background:color-mix(in srgb,var(--teal) 14%,transparent);color:var(--teal);}
+.oa-b-amber{background:color-mix(in srgb,var(--yellow) 14%,transparent);color:var(--yellow);}
+.oa-b-red{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red);}
+.oa-tabs{display:flex;gap:6px;flex-wrap:wrap;}
+.oa-tab{padding:5px 12px;border-radius:980px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;}
+.oa-tab.active{background:var(--nav-active);color:var(--text);border-color:var(--border2);}
+.oa-tab b{font-variant-numeric:tabular-nums;margin-left:4px;font-weight:600;color:var(--text);}
+.oa-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--border);}
+.oa-table td{vertical-align:top;white-space:normal;font-size:12px;padding:10px;}
+.oa-table th{text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;color:var(--text2);}
+.oa-row{cursor:pointer;}
+.oa-row:hover td{background:var(--bg3);}
+.oa-row.open td{background:var(--bg3);border-bottom-color:transparent;}
+.oa-edit td{background:var(--bg3);}
+.oa-editor{display:grid;gap:10px;max-width:760px;padding:2px 0 8px;}
+.oa-editor input,.oa-editor select{margin:0;width:100%;}
+.oa-editor textarea{min-height:220px;}
+.oa-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.oa-mono{font-family:var(--font-mono);font-size:12px;}
+.oa-sub{color:var(--text3);font-size:11px;margin-top:2px;}
+.oa-err{color:var(--red);font-size:12px;}
+.oa-progress{font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;}
+
 @media (prefers-reduced-motion: reduce){
   .page.active{animation:none;}
   #app-toast{animation:pageIn 150ms ease !important;}
@@ -1173,6 +1209,7 @@ a{text-underline-offset:2px;}
   <div class="nav" onclick="gotoPage('outreach',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='12' cy='12' r='8' fill='currentColor'/></svg>Outreach</div>
   <div class="nav" onclick="gotoPage('batch',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='11' cy='11' r='7'/><path d='M20 20l-4.35-4.35' stroke-linecap='round'/></svg>Batch Analyze</div>
   <div class="nav" onclick="gotoPage('catcheck',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='3' y='3' width='7' height='7' rx='1' fill='currentColor'/><rect x='14' y='3' width='7' height='7' rx='1' fill='currentColor'/><rect x='3' y='14' width='7' height='7' rx='1' fill='currentColor'/><rect x='14' y='14' width='7' height='7' rx='1' fill='currentColor'/></svg>Category & Email Check</div>
+  <div class="nav adm" onclick="gotoPage('agent',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M22 2L11 13'/><path d='M22 2l-7 20-4-9-9-4 20-7z'/></svg>Outreach agent</div>
   <div class="nav adm" onclick="gotoPage('prospector',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' fill='currentColor'/></svg>AI Prospector</div>
   <div class="nav tatev-tool" style="display:none;" onclick="gotoPage('bulkrel',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1'/><path d='M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1'/></svg>Bulk Relevancy</div>
   <div class="nav-section" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding:14px 16px 4px;opacity:0.6;">Builders</div>
@@ -2077,6 +2114,56 @@ a{text-underline-offset:2px;}
 </div>
 
 <!-- ══ ANALYTICS ══ -->
+<div id="p-agent" class="page">
+  <div class="page-top">
+    <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Outreach agent</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn-ghost" onclick="oaTrack(this)">Check replies</button>
+    </div>
+  </div>
+
+  <div class="oa-card">
+    <div class="oa-h">Sending mailbox</div>
+    <div id="oa-mailboxes" class="oa-help">Loading…</div>
+  </div>
+
+  <div class="oa-grid">
+    <div class="oa-card">
+      <div class="oa-h">1. Websites</div>
+      <label class="oa-label" for="oa-sites">One site per line, or upload a .txt / .csv</label>
+      <textarea id="oa-sites" rows="7" placeholder="example.com&#10;https://another-blog.net/"></textarea>
+      <div class="oa-actions" style="margin-top:10px;">
+        <button class="btn-sm" id="oa-find-btn" onclick="oaFind()">Find contacts</button>
+        <label class="btn-ghost" style="cursor:pointer;">Upload file<input type="file" accept=".txt,.csv,text/plain,text/csv" style="display:none;" onchange="oaReadFile(this)"/></label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;" title="Spends Snov credits — only used when the site itself lists no named editor or owner">
+          <input type="checkbox" id="oa-snov" style="width:auto;margin:0;" onchange="oaSavePrefs()"/> Use Snov when the site lists no person
+        </label>
+      </div>
+      <div id="oa-progress" class="oa-progress" style="margin-top:8px;"></div>
+      <div class="oa-help" style="margin-top:8px;">Sites we already have a link on, contacts already in Domains DB, and anyone emailed in the last 90 days are skipped automatically.</div>
+    </div>
+    <div class="oa-card">
+      <div class="oa-h">2. Your pitch</div>
+      <label class="oa-label" for="oa-pitch">What you offer — the AI personalises each email around this</label>
+      <textarea id="oa-pitch" rows="7" oninput="oaSavePrefs()"></textarea>
+      <div class="oa-help" style="margin-top:8px;">Every email ends with an opt-out line. Nothing is sent until you click Send.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="oa-toolbar">
+      <div class="oa-tabs" id="oa-tabs"></div>
+      <div style="flex:1;"></div>
+      <span id="oa-selcount" class="oa-progress"></span>
+      <button class="btn-ghost" onclick="oaDraftSelected(this)">Write drafts</button>
+      <button class="btn-sm" id="oa-send-sel" onclick="oaSendSelected()">Send selected</button>
+      <button class="btn-ghost" id="oa-stop" style="display:none;" onclick="oaStopQueue()">Stop</button>
+      <button class="btn-ghost" onclick="oaDeleteSelected()">Delete</button>
+    </div>
+    <div class="tbl-wrap" id="oa-table"><div class="loading">Loading…</div></div>
+  </div>
+</div>
+
 <div id="p-emailstats" class="page">
   <div class="page-top">
     <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;">
@@ -4441,6 +4528,7 @@ function gotoPage(name,el){
   if(name==='anchors')initAnchors();
   if(name==='online')initOnlinePage();
   if(name==='emailstats')initEmailStats();
+  if(name==='agent')initAgentPage();
   if(name==='capacity'){listenCapacities();renderCapacityList();}
   if(name==='domains')initDomainsPage();
   if(name==='prospector'){
@@ -8642,6 +8730,402 @@ function renderGmailStrip(){
     </div>
     ${footNote?`<div style="font-size:11px;color:var(--text3);padding:5px 4px 0;line-height:1.4;">${footNote}</div>`:''}`;
 }
+// ── Outreach agent (admin only) ─────────────────────────────
+// Paste sites → find the right person per site (free scrape first, Snov only
+// when the site lists no named person) → AI draft → the admin reviews and
+// clicks Send. Rows live server-side in `outreachAgent` via /api/outreach;
+// sending, quota and "never email twice" checks are enforced there too.
+let oaRows = [], oaMailboxes = [], oaLimit = 30, oaFilter = 'all', oaOpen = null, oaQueue = null;
+const oaSelected = new Set(), oaEdits = {};
+const OA_GAP_MS = 30000; // pause between emails in a batch send
+const OA_DEFAULT_PITCH = "We'd like to contribute a free, original guest article written for your readers, with one natural link to a relevant resource. Happy to follow your editorial guidelines.";
+const OA_STATUS = {
+  found:{label:'Contact found',tone:'neutral'}, nocontact:{label:'No contact',tone:'red'},
+  draft:{label:'Draft ready',tone:'amber'}, sending:{label:'Sending',tone:'blue'},
+  sent:{label:'Sent',tone:'blue'}, replied:{label:'Replied',tone:'green'},
+  bounced:{label:'Bounced',tone:'red'}, failed:{label:'Failed',tone:'red'}, skipped:{label:'Skipped',tone:'neutral'}
+};
+const OA_TABS = [['all','All'],['found','Found'],['draft','Drafts'],['sent','Sent'],['replied','Replied'],['bounced','Bounced'],['nocontact','No contact'],['skipped','Skipped']];
+
+async function oaApi(action, payload){
+  const r = await fetch('/api/outreach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...(payload||{})})});
+  let j = {}; try{ j = await r.json(); }catch(e){}
+  if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+  return j;
+}
+function oaBadge(status){
+  const s = OA_STATUS[status]||{label:status||'—',tone:'neutral'};
+  return `<span class="oa-badge oa-b-${s.tone}"><span class="oa-dot"></span>${escapeHtml(s.label)}</span>`;
+}
+function oaSmtpBadge(smtp){
+  if(smtp==='valid') return '<span class="oa-badge oa-b-green">Verified</span>';
+  if(smtp==='invalid') return '<span class="oa-badge oa-b-red">Invalid</span>';
+  return '<span class="oa-badge oa-b-neutral">Unverified</span>';
+}
+
+function initAgentPage(){
+  if(cu?.role!=='admin') return;
+  try{
+    document.getElementById('oa-pitch').value = localStorage.getItem('oa-pitch') || OA_DEFAULT_PITCH;
+    document.getElementById('oa-snov').checked = localStorage.getItem('oa-snov')==='1';
+  }catch(e){ document.getElementById('oa-pitch').value = OA_DEFAULT_PITCH; }
+  oaLoad(); oaLoadMailboxes();
+}
+function oaSavePrefs(){
+  try{
+    localStorage.setItem('oa-pitch', document.getElementById('oa-pitch').value);
+    localStorage.setItem('oa-snov', document.getElementById('oa-snov').checked?'1':'0');
+  }catch(e){}
+}
+async function oaLoad(){
+  try{ oaRows = (await oaApi('list')).rows||[]; oaRender(); }
+  catch(e){ document.getElementById('oa-table').innerHTML = `<div class="loading">${escapeHtml(e.message)}</div>`; }
+}
+
+// ── mailboxes ──
+async function oaLoadMailboxes(){
+  const el = document.getElementById('oa-mailboxes');
+  try{
+    const j = await oaApi('mailboxes');
+    oaMailboxes = j.mailboxes||[]; oaLimit = j.limit||30;
+  }catch(e){ el.innerHTML = `<span class="oa-err">${escapeHtml(e.message)}</span>`; return; }
+  const senders = oaMailboxes.filter(m=>m.canSend);
+  let saved = ''; try{ saved = localStorage.getItem('oa-from')||''; }catch(e){}
+  const chips = oaMailboxes.map(m=>`<span class="oa-chip" style="color:${m.lastError?'var(--red)':m.canSend?'var(--teal)':'var(--text2)'};"><span class="oa-dot"></span><span style="color:var(--text);">${escapeHtml(m.email)}</span> · ${m.canSend?`${m.sentToday}/${m.limit} today`:'read-only'}${m.lastError?' · reconnect':''}</span>`).join(' ');
+  el.innerHTML = `<div class="oa-actions">
+      ${senders.length?`<label class="oa-label" style="margin:0;" for="oa-from">Send from</label>
+      <select id="oa-from" style="margin:0;width:auto;font-size:12px;padding:6px 10px;" onchange="try{localStorage.setItem('oa-from',this.value)}catch(e){}">
+        ${senders.map(m=>`<option value="${escAttr(m.email)}" ${m.email===saved?'selected':''}>${escapeHtml(m.email)}</option>`).join('')}
+      </select>`:''}
+      ${chips}
+      <button class="btn-ghost" onclick="oaConnectSend()">${senders.length?'Connect another mailbox':'Connect Gmail for sending'}</button>
+    </div>
+    <div class="oa-help" style="margin-top:8px;">${senders.length
+      ? `Up to ${oaLimit} emails per mailbox per day, ${OA_GAP_MS/1000}s apart in a batch. Replies and bounces are checked every night, or with “Check replies”.`
+      : 'Your Gmail is connected for counting only. Connect it once more and allow “Send email on your behalf” so the agent can send the drafts you approve.'}</div>`;
+}
+async function oaConnectSend(){
+  if(!confirm('Connect your Gmail for sending?\n\nGoogle will ask to allow LinkBoard to send email on your behalf. Only the outreach drafts you approve with a click are ever sent.')) return;
+  try{
+    const r = await fetch('/api/gmail?action=connect&send=1&ret='+encodeURIComponent(location.pathname));
+    const j = await r.json();
+    if(!r.ok||!j.url) throw new Error(j.error||'Could not start Gmail connection');
+    location.href = j.url;
+  }catch(e){ showToast(e.message,'warn'); }
+}
+function oaFrom(){ return document.getElementById('oa-from')?.value||''; }
+
+// ── input ──
+function oaParseSites(text){
+  const out = [];
+  String(text||'').split(/[\s,;]+/).forEach(t=>{
+    const d = nd(t.replace(/^["']|["']$/g,''));
+    if(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) && /\.[a-z]{2,}$/.test(d) && !out.includes(d)) out.push(d);
+  });
+  return out;
+}
+function oaReadFile(input){
+  const f = input.files && input.files[0];
+  if(!f) return;
+  const rd = new FileReader();
+  rd.onload = ()=>{
+    const ta = document.getElementById('oa-sites');
+    const sites = oaParseSites(rd.result);
+    ta.value = [ta.value.trim(), ...sites].filter(Boolean).join('\n');
+    showToast(sites.length+' sites read from '+f.name);
+    input.value = '';
+  };
+  rd.readAsText(f);
+}
+
+// ── contact discovery ──
+function oaTitleScore(t){
+  t = String(t||'').toLowerCase();
+  if(!t) return 0;
+  if(/editor|editorial|head of content|content (manager|lead|director|strategist)|publisher|blog (manager|lead)/.test(t)) return 100;
+  if(/founder|owner|\bceo\b|managing director|president/.test(t)) return 80;
+  if(/seo|outreach|partnership|marketing|\bpr\b|communications|community|growth/.test(t)) return 60;
+  return 30;
+}
+function oaScore(c, domain){
+  const local = String(c.email||'').split('@')[0].toLowerCase();
+  let s = c.name ? 20 + oaTitleScore(c.title) : 0;
+  if(/^(editor|editorial|editors|content|submissions?|guest|guestpost|write|writers|contribute|contributors|blog)/.test(local)) s += 70;
+  else if(/^(partner|partnerships|marketing|pr|press|media|collab|sponsor|advertis)/.test(local)) s += 55;
+  else if(/^(hello|hi|contact|info|team|admin|office|mail|enquiries|inquiries)/.test(local)) s += 40;
+  else if(/^(support|help|sales|billing|jobs|careers|privacy|legal|abuse|security|webmaster|newsletter)/.test(local)) s -= 30;
+  if(c.smtp==='valid') s += 20;
+  if(String(c.email).endsWith('@'+domain) || String(c.email).endsWith('.'+domain)) s += 10; else s -= 40;
+  return s;
+}
+async function oaDiscover(domain, useSnov){
+  const byEmail = new Map();
+  const add = c => {
+    const email = String(c.email||'').trim().toLowerCase();
+    if(!email || c.smtp==='invalid' || byEmail.has(email)) return;
+    byEmail.set(email, {...c, email, score: oaScore({...c,email}, domain)});
+  };
+  try{
+    const r = await fetch('/api/scrape-contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain})});
+    const j = await r.json();
+    (j.teamMembers||[]).forEach(t=>{ if(t.email) add({name:t.name||'', firstName:t.firstName||'', title:t.title||'', email:t.email, smtp:t.smtp||'unknown', source:'Team page'}); });
+    (j.emails||[]).forEach(e=>{
+      let src = 'Website'; try{ src = 'Website '+(new URL(e.source).pathname||'/'); }catch(x){}
+      add({name:[e.firstName,e.lastName].filter(Boolean).join(' '), firstName:e.firstName||'', title:'', email:e.email, smtp:e.smtp||'unknown', source:src});
+    });
+  }catch(e){}
+  const best = () => [...byEmail.values()].sort((a,b)=>b.score-a.score)[0];
+  const b0 = best();
+  if(useSnov && (!b0 || !b0.name || oaTitleScore(b0.title) < 60)){
+    try{
+      const r = await fetch('/api/snov',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain, action:'prospects'})});
+      const j = await r.json();
+      (j.prospects||[]).forEach(p=>{
+        if(!p.email) return;
+        add({name:[p.first_name,p.last_name].filter(Boolean).join(' '), firstName:p.first_name||'', title:p.position||'', email:p.email, smtp:p.smtp_status||p.smtp||'unknown', source:'Snov'});
+      });
+    }catch(e){}
+  }
+  const candidates = [...byEmail.values()].sort((a,b)=>b.score-a.score).slice(0,8).map(({score,...c})=>c);
+  return candidates;
+}
+// Why a site/contact shouldn't be pitched, from what LinkBoard already knows.
+function oaKnownReason(domain, email){
+  if(allLinks.some(l=>nd(l.domain)===domain)) return 'We already have a link on this site';
+  const dom = allDomains.find(d=>nd(d.domain)===domain && d.email && (!email || String(d.email).toLowerCase()===email));
+  if(dom) return 'Already in Domains DB ('+dom.email+(dom.addedBy?', '+dom.addedBy:'')+')';
+  return '';
+}
+async function oaFind(){
+  const ta = document.getElementById('oa-sites');
+  const sites = oaParseSites(ta.value);
+  if(!sites.length){ showToast('Paste at least one website','warn'); return; }
+  const listed = new Set(oaRows.map(r=>r.domain));
+  const fresh = sites.filter(d=>!listed.has(d));
+  const btn = document.getElementById('oa-find-btn'), prog = document.getElementById('oa-progress');
+  if(!fresh.length){ prog.textContent = 'All of these sites are already in the list below.'; return; }
+  const useSnov = document.getElementById('oa-snov').checked;
+  btn.disabled = true;
+  let done = 0, found = 0;
+  const step = () => { prog.textContent = `Searching ${done}/${fresh.length} · ${found} with a contact`+(sites.length>fresh.length?` · ${sites.length-fresh.length} already listed`:''); };
+  step();
+  const queue = fresh.slice();
+  const worker = async () => {
+    while(queue.length){
+      const domain = queue.shift();
+      let row;
+      const siteReason = oaKnownReason(domain);
+      if(siteReason && !/Domains DB/.test(siteReason)) row = {domain, status:'skipped', skipReason:siteReason, candidates:[]};
+      else {
+        const candidates = await oaDiscover(domain, useSnov);
+        const c = candidates[0];
+        if(!c) row = {domain, status:'nocontact', candidates:[]};
+        else {
+          const reason = oaKnownReason(domain, c.email);
+          row = {domain, candidates, name:c.name, firstName:c.firstName, title:c.title, email:c.email, smtp:c.smtp, source:c.source,
+            status: reason?'skipped':'found', skipReason: reason||''};
+          if(!reason) found++;
+        }
+      }
+      try{
+        const {ids} = await oaApi('save',{items:[row]});
+        oaRows.unshift({...row, id:ids[0], createdAt:Date.now()});
+      }catch(e){ showToast(domain+': '+e.message,'warn'); }
+      done++; step(); oaRender();
+    }
+  };
+  await Promise.all([worker(),worker(),worker()]);
+  btn.disabled = false;
+  prog.textContent = `Done: ${fresh.length} sites searched, ${found} with a contact to review.`;
+  ta.value = '';
+}
+
+// ── table ──
+function oaVisible(){ return oaFilter==='all' ? oaRows : oaRows.filter(r=>r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')); }
+function oaRender(){
+  const counts = {}; oaRows.forEach(r=>{ counts[r.status]=(counts[r.status]||0)+1; });
+  counts.all = oaRows.length; counts.sent=(counts.sent||0)+(counts.sending||0); counts.draft=(counts.draft||0)+(counts.failed||0);
+  document.getElementById('oa-tabs').innerHTML = OA_TABS.map(([k,l])=>`<button class="oa-tab ${oaFilter===k?'active':''}" onclick="oaFilter='${k}';oaRender()">${l}<b>${counts[k]||0}</b></button>`).join('');
+  const ids = new Set(oaRows.map(r=>r.id)); [...oaSelected].forEach(id=>{ if(!ids.has(id)) oaSelected.delete(id); });
+  document.getElementById('oa-selcount').textContent = oaSelected.size ? oaSelected.size+' selected' : '';
+  const rows = oaVisible();
+  const wrap = document.getElementById('oa-table');
+  if(!rows.length){ wrap.innerHTML = `<div class="loading">${oaRows.length?'Nothing here.':'Paste websites above and click Find contacts.'}</div>`; return; }
+  const allOn = rows.every(r=>oaSelected.has(r.id));
+  wrap.innerHTML = `<table class="oa-table"><thead><tr>
+      <th style="width:28px;"><input type="checkbox" style="width:auto;margin:0;" ${allOn?'checked':''} onclick="oaSelectAll(this.checked)"/></th>
+      <th>Site</th><th>Contact</th><th>Email</th><th>Status</th><th>Subject</th></tr></thead><tbody>
+    ${rows.map(r=>{
+      const open = oaOpen===r.id;
+      const when = r.status==='sent'||r.status==='replied'||r.status==='bounced' ? (r.sentDay||'') : '';
+      return `<tr class="oa-row ${open?'open':''}" onclick="oaToggle('${escAttr(r.id)}',event)">
+        <td onclick="event.stopPropagation()"><input type="checkbox" style="width:auto;margin:0;" ${oaSelected.has(r.id)?'checked':''} onclick="oaSelect('${escAttr(r.id)}',this.checked)"/></td>
+        <td><div class="oa-mono" style="color:var(--text);">${escapeHtml(r.domain)}</div></td>
+        <td>${r.name?`<div style="color:var(--text);">${escapeHtml(r.name)}</div>`:'<div style="color:var(--text3);">—</div>'}${r.title?`<div class="oa-sub">${escapeHtml(r.title)}</div>`:''}</td>
+        <td>${r.email?`<div class="oa-mono">${escapeHtml(r.email)}</div><div style="margin-top:4px;">${oaSmtpBadge(r.smtp)}</div>`:'<span style="color:var(--text3);">—</span>'}</td>
+        <td>${oaBadge(r.status)}${when?`<div class="oa-sub">${escapeHtml(when)}</div>`:''}${r.skipReason&&r.status==='skipped'?`<div class="oa-sub">${escapeHtml(r.skipReason)}</div>`:''}${r.error&&r.status==='failed'?`<div class="oa-sub" style="color:var(--red);">${escapeHtml(r.error)}</div>`:''}</td>
+        <td style="color:var(--text2);max-width:280px;">${escapeHtml(r.subject||'')}</td>
+      </tr>${open?`<tr class="oa-edit"><td></td><td colspan="5">${oaEditor(r)}</td></tr>`:''}`;
+    }).join('')}</tbody></table>`;
+}
+function oaSelect(id,on){ on?oaSelected.add(id):oaSelected.delete(id); document.getElementById('oa-selcount').textContent = oaSelected.size?oaSelected.size+' selected':''; }
+function oaSelectAll(on){ oaVisible().forEach(r=>on?oaSelected.add(r.id):oaSelected.delete(r.id)); oaRender(); }
+function oaToggle(id,ev){
+  if(ev && ev.target.closest('input,button,select,textarea,a')) return;
+  oaOpen = oaOpen===id ? null : id; oaRender();
+}
+function oaSent(r){ return ['sent','sending','replied','bounced'].includes(r.status); }
+function oaEditor(r){
+  const e = oaEdits[r.id]||{};
+  const v = k => e[k]!==undefined ? e[k] : (r[k]||'');
+  const id = escAttr(r.id);
+  if(oaSent(r)) return `<div class="oa-editor">
+      <div class="oa-help">Sent ${escapeHtml(r.sentDay||'')} from ${escapeHtml(r.fromEmail||'')} to <span class="oa-mono">${escapeHtml(r.email)}</span></div>
+      <div style="color:var(--text);font-weight:600;">${escapeHtml(r.subject||'')}</div>
+      <div style="white-space:pre-wrap;color:var(--text2);line-height:1.5;">${escapeHtml(r.body||'')}</div></div>`;
+  const cands = r.candidates||[];
+  return `<div class="oa-editor" onclick="event.stopPropagation()">
+    ${cands.length>1?`<div><label class="oa-label">Contact (best match first)</label>
+      <select onchange="oaPickCandidate('${id}',this.value)">${cands.map((c,i)=>`<option value="${i}" ${c.email===v('email')?'selected':''}>${escapeHtml((c.name||c.email)+(c.title?' — '+c.title:'')+' · '+c.email+' · '+(c.smtp==='valid'?'verified':'unverified')+' · '+(c.source||''))}</option>`).join('')}</select></div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div><label class="oa-label">To</label><input class="oa-mono" value="${escAttr(v('email'))}" oninput="oaEdit('${id}','email',this.value)" placeholder="name@${escAttr(r.domain)}"/></div>
+      <div><label class="oa-label">First name (for the greeting)</label><input value="${escAttr(v('firstName'))}" oninput="oaEdit('${id}','firstName',this.value)"/></div>
+    </div>
+    <div><label class="oa-label">Subject</label><input value="${escAttr(v('subject'))}" oninput="oaEdit('${id}','subject',this.value)"/></div>
+    <div><label class="oa-label">Email</label><textarea oninput="oaEdit('${id}','body',this.value)" placeholder="Click “Write with AI”, or type your own">${escapeHtml(v('body'))}</textarea></div>
+    <div class="oa-actions">
+      <button class="btn-sm" onclick="oaSendOne('${id}',this)" ${v('email')&&v('subject')&&v('body')?'':'disabled'}>Send</button>
+      <button class="btn-ghost" onclick="oaDraft('${id}',this)">${v('body')?'Rewrite with AI':'Write with AI'}</button>
+      <button class="btn-ghost" onclick="oaSaveRow('${id}',this)">Save</button>
+      ${r.status==='skipped'?`<button class="btn-ghost" onclick="oaSetStatus('${id}','${r.subject&&r.body?'draft':'found'}')">Include anyway</button>`:`<button class="btn-ghost" onclick="oaSetStatus('${id}','skipped')">Skip</button>`}
+      <span class="oa-help">${r.source?'Found via '+escapeHtml(r.source):''}</span>
+    </div></div>`;
+}
+function oaEdit(id,k,val){ (oaEdits[id]=oaEdits[id]||{})[k]=val; }
+function oaRow(id){ return oaRows.find(r=>r.id===id); }
+async function oaPickCandidate(id, idx){
+  const r = oaRow(id), c = (r.candidates||[])[+idx];
+  if(!c) return;
+  const reason = oaKnownReason(r.domain, c.email);
+  const patch = {name:c.name, firstName:c.firstName, title:c.title, email:c.email, smtp:c.smtp, source:c.source};
+  if(reason && !confirm(reason+'\n\nUse this contact anyway?')) { oaRender(); return; }
+  delete oaEdits[id];
+  try{ await oaApi('save',{items:[{id,...patch}]}); Object.assign(r, patch); oaRender(); }
+  catch(e){ showToast(e.message,'warn'); }
+}
+// Saves the editor's fields; a row with an address, subject and text becomes a draft.
+async function oaSaveRow(id, btn, quiet){
+  const r = oaRow(id), e = oaEdits[id]||{};
+  const next = {...r, ...e};
+  next.email = String(next.email||'').trim().toLowerCase();
+  // A hand-typed address is a different person: unverified, no known name/title.
+  if(next.email!==r.email){ next.smtp = 'unknown'; next.name = next.firstName||''; next.title = ''; next.source = 'Typed by hand'; }
+  const patch = {id, email:next.email, firstName:next.firstName||'', subject:next.subject||'', body:next.body||'', smtp:next.smtp, name:next.name||'', title:next.title||'', source:next.source||''};
+  if(r.status!=='skipped') patch.status = (patch.email&&patch.subject&&patch.body) ? 'draft' : (patch.email?'found':'nocontact');
+  if(btn) btn.disabled = true;
+  try{
+    await oaApi('save',{items:[patch]});
+    Object.assign(r, patch); delete oaEdits[id];
+    if(!quiet) { showToast('Saved'); oaRender(); }
+    return true;
+  }catch(err){ showToast(err.message,'warn'); return false; }
+  finally{ if(btn) btn.disabled = false; }
+}
+async function oaSetStatus(id, status){
+  try{ await oaApi('save',{items:[{id,status}]}); oaRow(id).status = status; oaRender(); }
+  catch(e){ showToast(e.message,'warn'); }
+}
+async function oaDraft(id, btn){
+  const r = oaRow(id);
+  if(oaEdits[id] && !(await oaSaveRow(id, null, true))) return;
+  if(btn){ btn.disabled = true; btn.textContent = 'Writing…'; }
+  try{
+    const j = await oaApi('draft',{id, pitch:document.getElementById('oa-pitch').value, senderName:cu?.name||''});
+    Object.assign(r, {subject:j.subject, body:j.body, status:'draft'});
+    delete oaEdits[id];
+    oaRender();
+    return true;
+  }catch(e){ showToast(r.domain+': '+e.message,'warn'); if(btn){ btn.disabled=false; btn.textContent='Write with AI'; } return false; }
+}
+async function oaDraftSelected(btn){
+  const ids = [...oaSelected].filter(id=>{ const r=oaRow(id); return r && r.email && ['found','draft','failed'].includes(r.status); });
+  if(!ids.length){ showToast('Select rows that have a contact','warn'); return; }
+  btn.disabled = true;
+  const prog = document.getElementById('oa-progress'); let n = 0;
+  const queue = ids.slice();
+  await Promise.all([0,1].map(async()=>{ while(queue.length){ const id=queue.shift(); await oaDraft(id); n++; prog.textContent=`Drafts written ${n}/${ids.length}`; } }));
+  btn.disabled = false;
+  showToast(n+' drafts ready to review');
+}
+
+// ── sending ──
+async function oaSendRow(id){
+  const r = oaRow(id);
+  const from = oaFrom();
+  if(!from) throw new Error('Connect a Gmail mailbox for sending first');
+  r.status = 'sending'; oaRender();
+  try{ await oaApi('send',{id, email:r.email, from}); }
+  catch(e){ await oaLoad(); throw e; }
+  Object.assign(r, {status:'sent', sentDay:new Date().toISOString().slice(0,10), fromEmail:from});
+  oaRender();
+}
+async function oaSendOne(id, btn){
+  if(oaEdits[id] && !(await oaSaveRow(id, null, true))) return;
+  const r = oaRow(id);
+  if(r.status!=='draft' && r.status!=='failed'){ showToast('Write or save the draft first','warn'); return; }
+  if(!confirm(`Send this email now?\n\nTo: ${r.email}\nFrom: ${oaFrom()||'(no sending mailbox)'}\nSubject: ${r.subject}`)) return;
+  if(btn) btn.disabled = true;
+  try{ await oaSendRow(id); showToast('Sent to '+r.email); oaOpen = null; oaRender(); oaLoadMailboxes(); }
+  catch(e){ showToast(e.message,'warn'); if(btn) btn.disabled = false; }
+}
+async function oaSendSelected(){
+  if(oaQueue) return;
+  const rows = [...oaSelected].map(oaRow).filter(r=>r && (r.status==='draft'||r.status==='failed') && r.email && r.subject && r.body);
+  if(!rows.length){ showToast('Select rows with a finished draft (status “Draft ready”)','warn'); return; }
+  const from = oaFrom();
+  if(!from){ showToast('Connect a Gmail mailbox for sending first','warn'); return; }
+  const mb = oaMailboxes.find(m=>m.email===from);
+  const left = mb ? Math.max(0, mb.limit-mb.sentToday) : 0;
+  const list = rows.slice(0,20).map(r=>`• ${r.email} — ${r.domain}`).join('\n') + (rows.length>20?`\n…and ${rows.length-20} more`:'');
+  if(!confirm(`Send ${rows.length} email${rows.length>1?'s':''} from ${from}?\n\n${list}\n\nOne every ${OA_GAP_MS/1000}s — keep this tab open. ${left} left today on this mailbox.`)) return;
+  oaQueue = {stop:false};
+  document.getElementById('oa-stop').style.display = '';
+  document.getElementById('oa-send-sel').disabled = true;
+  const prog = document.getElementById('oa-progress');
+  let sent = 0;
+  for(let i=0;i<rows.length && !oaQueue.stop;i++){
+    prog.textContent = `Sending ${i+1}/${rows.length} — ${rows[i].email}`;
+    try{ await oaSendRow(rows[i].id); sent++; oaSelected.delete(rows[i].id); }
+    catch(e){ showToast(rows[i].domain+': '+e.message,'warn'); if(/Daily limit|mailbox|Connect/i.test(e.message)) break; }
+    if(i<rows.length-1 && !oaQueue.stop){
+      for(let s=OA_GAP_MS/1000;s>0 && !oaQueue.stop;s--){ prog.textContent = `Sent ${sent}/${rows.length} · next in ${s}s`; await new Promise(res=>setTimeout(res,1000)); }
+    }
+  }
+  prog.textContent = `Sent ${sent} of ${rows.length}`+(oaQueue.stop?' (stopped)':'');
+  oaQueue = null;
+  document.getElementById('oa-stop').style.display = 'none';
+  document.getElementById('oa-send-sel').disabled = false;
+  oaRender(); oaLoadMailboxes();
+}
+function oaStopQueue(){ if(oaQueue) oaQueue.stop = true; }
+async function oaDeleteSelected(){
+  const ids = [...oaSelected].filter(id=>!oaSent(oaRow(id)||{}));
+  const keptN = oaSelected.size - ids.length;
+  if(!ids.length){ if(keptN) showToast('Emailed rows are kept — they stop the agent emailing the same person twice','warn'); return; }
+  if(!confirm(`Remove ${ids.length} row${ids.length>1?'s':''} from the list?`+(keptN?`\n\n${keptN} emailed row${keptN>1?'s are':' is'} kept as a record.`:''))) return;
+  try{
+    const {deleted} = await oaApi('delete',{ids});
+    const gone = new Set(deleted||[]);
+    oaRows = oaRows.filter(r=>!gone.has(r.id)); gone.forEach(id=>oaSelected.delete(id)); oaRender();
+  }catch(e){ showToast(e.message,'warn'); }
+}
+async function oaTrack(btn){
+  btn.disabled = true; const t = btn.textContent; btn.textContent = 'Checking…';
+  try{ const j = await oaApi('track'); showToast(`Checked ${j.checked} sent emails · ${j.replied} new replies · ${j.bounced} bounced`); await oaLoad(); }
+  catch(e){ showToast(e.message,'warn'); }
+  btn.disabled = false; btn.textContent = t;
+}
+
 async function connectGmail(){
   if(!confirm('Connect a Gmail account so LinkBoard can count how many emails you send per day?\n\nOnly counts and recipient domains are read (Google’s “metadata” permission) — never the text of your emails. If you send from more than one address, connect each one (up to '+MAX_GMAIL_MAILBOXES+'); you can disconnect any time.')) return;
   try{

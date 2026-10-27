@@ -28,6 +28,9 @@ const admin = require('./firebase-admin');
 const crypto = require('crypto');
 
 const SCOPE = 'https://www.googleapis.com/auth/gmail.metadata';
+// Only the admin's Outreach Agent asks for this (connect?send=1) — everyone
+// else keeps the metadata-only consent above.
+const SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 const DAY = 86400000;
 const MAX_MESSAGES_PER_USER = 4000;
 const SYNC_BUDGET_MS = 50000;
@@ -325,7 +328,8 @@ module.exports = async function gmailHandler(req, res) {
         // is the mailbox's own address.
         await db.collection('gmailSecrets').doc(id).set({ refreshTokenEnc: encrypt(tok.refresh_token) });
         await db.collection('gmailConnections').doc(id).set({
-          ownerUid: state.uid, name: state.name, email, connectedAt: Date.now(), lastSyncAt: null, lastSyncDay: null, lastError: null
+          ownerUid: state.uid, name: state.name, email, connectedAt: Date.now(), lastSyncAt: null, lastSyncDay: null, lastError: null,
+          canSend: String(tok.scope || '').includes('gmail.send')
         });
         // First data straight away: backfill two weeks so the admin page isn't empty.
         try { await syncAll({ onlyOwnerUid: state.uid, days: 14 }); } catch (e) {}
@@ -338,11 +342,13 @@ module.exports = async function gmailHandler(req, res) {
       if (!u) return res.status(401).json({ error: 'Unauthorized' });
       const db = getAdmin().firestore();
       const existing = await db.collection('gmailConnections').where('ownerUid', '==', u.uid).get();
-      if (existing.size >= MAX_MAILBOXES_PER_PERSON) return res.status(400).json({ error: `You can connect up to ${MAX_MAILBOXES_PER_PERSON} mailboxes` });
+      // Re-consenting an already-connected mailbox for sending isn't a new mailbox.
+      if (existing.size >= MAX_MAILBOXES_PER_PERSON && !(q.send === '1' && u.role === 'admin')) return res.status(400).json({ error: `You can connect up to ${MAX_MAILBOXES_PER_PERSON} mailboxes` });
       const ret = /^\/[^/\\]/.test(q.ret || '') ? q.ret : '/app.html';
+      const wantSend = q.send === '1' && u.role === 'admin';
       const params = new URLSearchParams({
         client_id: need('GOOGLE_CLIENT_ID'), redirect_uri: redirectUri(req), response_type: 'code',
-        scope: SCOPE + ' openid email', access_type: 'offline', prompt: 'consent select_account', include_granted_scopes: 'false',
+        scope: SCOPE + (wantSend ? ' ' + SEND_SCOPE : '') + ' openid email', access_type: 'offline', prompt: 'consent select_account', include_granted_scopes: 'false',
         state: signState({ uid: u.uid, name: u.name, ret, exp: Date.now() + 15 * 60000 })
       });
       return res.json({ url: 'https://accounts.google.com/o/oauth2/v2/auth?' + params });
@@ -374,6 +380,8 @@ module.exports = async function gmailHandler(req, res) {
         if (u.role !== 'admin') onlyOwnerUid = u.uid; // builders can only refresh their own mailbox(es)
       }
       const results = await syncAll({ onlyOwnerUid, days: q.days });
+      // Nightly run also refreshes Outreach Agent reply/bounce statuses.
+      if (isCron(req)) { try { await require('./outreach').trackAll(); } catch (e) {} }
       return res.json({ ok: true, results });
     }
 
@@ -382,3 +390,6 @@ module.exports = async function gmailHandler(req, res) {
     return res.status(500).json({ error: e.message });
   }
 };
+
+// Shared with api/_lib/outreach.js (sending + reply tracking).
+module.exports.internals = { getAdmin, decrypt, tokenRequest, gmailGet, mailboxId };
