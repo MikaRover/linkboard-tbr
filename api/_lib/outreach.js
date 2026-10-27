@@ -187,7 +187,14 @@ async function draft(uid, { id, pitch, senderName, mode, avoidSubjects }) {
   const greeting = pick(GREETINGS);
   const avoid = (Array.isArray(avoidSubjects) ? avoidSubjects : []).map(oneLine).filter(Boolean).slice(0, 15);
   const goal = paid
-    ? `This is an inquiry to BUY a paid placement (sponsored article / guest post) on their site. Ask for their price for publishing an article, and briefly ask whether links are dofollow and whether the post is labelled "sponsored". Do not ask for anything free and do not negotiate in this first email.`
+    ? `The sender is an off-page SEO specialist looking for a paid collaboration (publishing a sponsored guest post on their site) or a content exchange. Follow this shape, in your own words each time:
+  1. Greeting.
+  2. One line: who the sender is (off-page SEO specialist) and that they came across the site.
+  3. One honest, specific line about the site.
+  4. One line: interested in a paid collaboration (guest post on their site) or a content exchange, whichever they prefer.
+  5. Ask for their price for a guest post and whether links are dofollow.
+  6. Sign-off.
+Keep it 45–90 words. Do not negotiate and do not promise anything beyond this.`
     : `This is a request for a FREE guest post collaboration: offer an original article written for their readers in exchange for one relevant link.`;
   const prompt = `You write short, personal outreach emails for link building. They must read like one person writing to one person — never like a template.
 
@@ -202,7 +209,7 @@ Sender's notes (use these, do not invent other offers or facts):
 ${String(pitch || '').slice(0, 1500) || '(none)'}
 
 Style for THIS email: ${pick(STYLES)}
-Greeting: "${greeting} ${row.firstName || '[first name]'}," if the first name is known, otherwise "${greeting} there," or "${greeting},".
+Greeting: "${greeting} ${row.firstName || '[first name]'}," if the first name is known, otherwise "${greeting} team," or "${greeting} ${row.domain} team,".
 Sign-off: "${pick(SIGNOFFS)}," then the sender name.
 Subject style: ${pick(SUBJECT_STYLES)}; under 60 characters, no clickbait, no ALL CAPS, no exclamation marks.
 ${avoid.length ? 'Do NOT reuse or closely copy any of these recent subjects:\n- ' + avoid.join('\n- ') : ''}

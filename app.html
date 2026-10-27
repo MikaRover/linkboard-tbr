@@ -8747,7 +8747,7 @@ const oaSelected = new Set(), oaEdits = {};
 const OA_GAP_MIN_MS = 240000, OA_GAP_MAX_MS = 300000;
 const oaGap = () => OA_GAP_MIN_MS + Math.random()*(OA_GAP_MAX_MS-OA_GAP_MIN_MS);
 const OA_DEFAULT_PITCH = {
-  paid: "We publish sponsored articles for our clients. The article is written by us, original and relevant to your readers, with one link. We'd like your price for one article.",
+  paid: "I'm an off-page SEO specialist, interested in a paid collaboration (a guest post on your site) or a content exchange. Articles are original and written for your readers, with one relevant link. Please share your price for a guest post and whether links are dofollow.",
   guest: "We'd like to contribute a free, original guest article written for your readers, with one natural link to a relevant resource. Happy to follow your editorial guidelines."
 };
 const OA_STATUS = {
@@ -8780,7 +8780,9 @@ function initAgentPage(){
   try{
     mode = localStorage.getItem('oa-mode')==='guest' ? 'guest' : 'paid';
     document.getElementById('oa-mode').value = mode;
-    document.getElementById('oa-pitch').value = localStorage.getItem('oa-pitch-'+mode) || OA_DEFAULT_PITCH[mode];
+    let saved = localStorage.getItem('oa-pitch-'+mode) || '';
+    if(saved.startsWith('We publish sponsored articles for our clients.')) saved = ''; // old default, superseded
+    document.getElementById('oa-pitch').value = saved || OA_DEFAULT_PITCH[mode];
     document.getElementById('oa-snov').checked = localStorage.getItem('oa-snov')==='1';
   }catch(e){ document.getElementById('oa-pitch').value = OA_DEFAULT_PITCH[mode]; }
   oaLoad(); oaLoadMailboxes();
