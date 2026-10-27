@@ -7,6 +7,7 @@
 const admin = require('./_lib/firebase-admin');
 const { isSafeHost } = require('./_lib/security');
 const { checkLink } = require('./_lib/linkcheck');
+const { fillMissingMetrics } = require('./_lib/ahrefs-metrics');
 const { setCors, memberFromRequest } = require('./_lib/auth');
 
 function getDb() {
@@ -177,6 +178,10 @@ async function handleImportRows(req, res) {
       }
     }
 
+    // Rows from the Sheet often have no DR/Traffic — look those up on Ahrefs before saving.
+    let metrics = null;
+    if (!dry) metrics = await fillMissingMetrics(toCreate);
+
     if (!dry) {
       for (let i = 0; i < toCreate.length; i += 400) {
         const batch = db.batch();
@@ -185,7 +190,7 @@ async function handleImportRows(req, res) {
       }
     }
     return res.json({
-      ok: true, dry, scanned: rows.length, created: toCreate.length, skipped,
+      ok: true, dry, scanned: rows.length, created: toCreate.length, skipped, metrics,
       unmatchedProjects: [...unmatched], createdProjects,
       sample: toCreate.slice(0, 15).map(d => ({ project: d.project, domain: d.domain, status: d.status, date: d.date }))
     });
@@ -543,12 +548,16 @@ module.exports = async function handler(req, res) {
       return res.json({ ok: true, skipped: true, reason: 'Already exists', id: existing.id });
     }
 
+    // The Sheet row often has no DR/Traffic — look the missing ones up on Ahrefs.
+    const metrics = { domain: String(domain).trim(), dr: dr || '', traffic: traffic || '' };
+    await fillMissingMetrics([metrics], { budgetMs: 30000 });
+
     const docRef = await db.collection('links').add({
       domain: String(domain).trim(),
       anchor: String(anchor || '').trim(),
       project: projectTrim,
-      dr: dr || '',
-      traffic: traffic || '',
+      dr: metrics.dr,
+      traffic: metrics.traffic,
       ss: ss || '',
       price: String(price || '').replace(/^\$+/, '').trim(),
       linkin: linkin || '',
