@@ -2146,12 +2146,15 @@ a{text-underline-offset:2px;}
       <div class="oa-h">2. Your pitch</div>
       <label class="oa-label" for="oa-mode">Type</label>
       <select id="oa-mode" style="margin:0 0 10px;width:auto;font-size:12px;padding:6px 10px;" onchange="oaModeChanged()">
-        <option value="paid">Paid placement — ask for their price</option>
-        <option value="guest">Free guest post</option>
+        <option value="paid">Paid collaboration — our templates</option>
+        <option value="guest">Free guest post — written by AI</option>
       </select>
-      <label class="oa-label" for="oa-pitch">Notes for the AI — each email is written differently around these</label>
-      <textarea id="oa-pitch" rows="6" oninput="oaSavePrefs()"></textarea>
-      <div class="oa-help" style="margin-top:8px;">Every email gets its own angle, greeting, subject and opt-out line, and goes out 4–5 minutes after the previous one. Nothing is sent until you click Send.</div>
+      <div id="oa-paid-help" class="oa-help">Short, plain emails asking whether they take paid articles and what they charge (dofollow and details come in your reply). Five versions, each with its own subject — the version changes every 3 emails. “Rewrite” moves a draft to the next version.</div>
+      <div id="oa-guest-box">
+        <label class="oa-label" for="oa-pitch">Notes for the AI — each email is written differently around these</label>
+        <textarea id="oa-pitch" rows="6" oninput="oaSavePrefs()"></textarea>
+      </div>
+      <div class="oa-help" style="margin-top:8px;">Emails go out 4–5 minutes apart. Nothing is sent until you click Send.</div>
     </div>
   </div>
 
@@ -8747,7 +8750,7 @@ const oaSelected = new Set(), oaEdits = {};
 const OA_GAP_MIN_MS = 240000, OA_GAP_MAX_MS = 300000;
 const oaGap = () => OA_GAP_MIN_MS + Math.random()*(OA_GAP_MAX_MS-OA_GAP_MIN_MS);
 const OA_DEFAULT_PITCH = {
-  paid: "We publish sponsored articles for our clients. The article is written by us, original and relevant to your readers, with one link. We'd like your price for one article.",
+  paid: "I'm an off-page SEO specialist, interested in a paid collaboration (a guest post on your site) or a content exchange. Articles are original and written for your readers, with one relevant link. Please share your price for a guest post and whether links are dofollow.",
   guest: "We'd like to contribute a free, original guest article written for your readers, with one natural link to a relevant resource. Happy to follow your editorial guidelines."
 };
 const OA_STATUS = {
@@ -8780,15 +8783,24 @@ function initAgentPage(){
   try{
     mode = localStorage.getItem('oa-mode')==='guest' ? 'guest' : 'paid';
     document.getElementById('oa-mode').value = mode;
-    document.getElementById('oa-pitch').value = localStorage.getItem('oa-pitch-'+mode) || OA_DEFAULT_PITCH[mode];
+    let saved = localStorage.getItem('oa-pitch-'+mode) || '';
+    if(saved.startsWith('We publish sponsored articles for our clients.')) saved = ''; // old default, superseded
+    document.getElementById('oa-pitch').value = saved || OA_DEFAULT_PITCH[mode];
     document.getElementById('oa-snov').checked = localStorage.getItem('oa-snov')==='1';
   }catch(e){ document.getElementById('oa-pitch').value = OA_DEFAULT_PITCH[mode]; }
+  oaModeUi();
   oaLoad(); oaLoadMailboxes();
 }
 function oaMode(){ return document.getElementById('oa-mode')?.value==='guest' ? 'guest' : 'paid'; }
 // Each type keeps its own notes, so switching back and forth loses nothing.
+function oaModeUi(){
+  const paid = oaMode()==='paid';
+  document.getElementById('oa-paid-help').style.display = paid ? '' : 'none';
+  document.getElementById('oa-guest-box').style.display = paid ? 'none' : '';
+}
 function oaModeChanged(){
   const mode = oaMode();
+  oaModeUi();
   let saved = ''; try{ localStorage.setItem('oa-mode', mode); saved = localStorage.getItem('oa-pitch-'+mode)||''; }catch(e){}
   document.getElementById('oa-pitch').value = saved || OA_DEFAULT_PITCH[mode];
 }
@@ -9015,10 +9027,10 @@ function oaEditor(r){
       <div><label class="oa-label">First name (for the greeting)</label><input value="${escAttr(v('firstName'))}" oninput="oaEdit('${id}','firstName',this.value)"/></div>
     </div>
     <div><label class="oa-label">Subject</label><input value="${escAttr(v('subject'))}" oninput="oaEdit('${id}','subject',this.value)"/></div>
-    <div><label class="oa-label">Email</label><textarea oninput="oaEdit('${id}','body',this.value)" placeholder="Click “Write with AI”, or type your own">${escapeHtml(v('body'))}</textarea></div>
+    <div><label class="oa-label">Email</label><textarea oninput="oaEdit('${id}','body',this.value)" placeholder="Click “Write draft”, or type your own">${escapeHtml(v('body'))}</textarea></div>
     <div class="oa-actions">
       <button class="btn-sm" onclick="oaSendOne('${id}',this)" ${v('email')&&v('subject')&&v('body')?'':'disabled'}>Send</button>
-      <button class="btn-ghost" onclick="oaDraft('${id}',this)">${v('body')?'Rewrite with AI':'Write with AI'}</button>
+      <button class="btn-ghost" onclick="oaDraft('${id}',this)">${v('body')?(oaMode()==='paid'?'Next version':'Rewrite with AI'):'Write draft'}</button>
       <button class="btn-ghost" onclick="oaSaveRow('${id}',this)">Save</button>
       ${r.status==='skipped'?`<button class="btn-ghost" onclick="oaSetStatus('${id}','${r.subject&&r.body?'draft':'found'}')">Include anyway</button>`:`<button class="btn-ghost" onclick="oaSetStatus('${id}','skipped')">Skip</button>`}
       <span class="oa-help">${r.source?'Found via '+escapeHtml(r.source):''}</span>
@@ -9067,7 +9079,7 @@ async function oaDraft(id, btn){
     delete oaEdits[id];
     oaRender();
     return true;
-  }catch(e){ showToast(r.domain+': '+e.message,'warn'); if(btn){ btn.disabled=false; btn.textContent='Write with AI'; } return false; }
+  }catch(e){ showToast(r.domain+': '+e.message,'warn'); if(btn){ btn.disabled=false; btn.textContent='Write draft'; } return false; }
 }
 async function oaDraftSelected(btn){
   const ids = [...oaSelected].filter(id=>{ const r=oaRow(id); return r && r.email && ['found','draft','failed'].includes(r.status); });
@@ -9075,7 +9087,8 @@ async function oaDraftSelected(btn){
   btn.disabled = true;
   const prog = document.getElementById('oa-progress'); let n = 0;
   const queue = ids.slice();
-  await Promise.all([0,1].map(async()=>{ while(queue.length){ const id=queue.shift(); await oaDraft(id); n++; prog.textContent=`Drafts written ${n}/${ids.length}`; } }));
+  // Templates go one at a time so each draft gets its own slot in the every-3 rotation.
+  await Promise.all((oaMode()==='paid'?[0]:[0,1]).map(async()=>{ while(queue.length){ const id=queue.shift(); await oaDraft(id); n++; prog.textContent=`Drafts written ${n}/${ids.length}`; } }));
   btn.disabled = false;
   showToast(n+' drafts ready to review');
 }

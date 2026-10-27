@@ -34,10 +34,10 @@ const TRACK_DAYS = 45;       // stop checking a thread for replies after this lo
 const MAX_ROWS = 300;        // per save call
 // Several wordings so the footer isn't an identical fingerprint on every email.
 const OPT_OUTS = [
-  "P.S. If you'd rather not hear from me, just reply \"no\" and I won't email you again.",
-  "If this isn't of interest, just reply \"no\" and I won't follow up.",
-  "Not interested? A quick \"no\" is fine and I won't contact you again.",
-  "If you'd prefer no further emails, simply reply \"no\" and I'll take you off my list."
+  "If this isn't relevant, just let me know and I won't follow up.",
+  "If it's not a fit, a quick \"no\" is totally fine and I won't email again.",
+  "No worries if not; just reply \"no\" and I won't reach out again.",
+  "If you'd rather not get emails like this, just say so and I won't write again."
 ];
 const hasOptOut = body => OPT_OUTS.some(o => body.includes(o));
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -172,22 +172,70 @@ async function siteContext(domain) {
   } catch (e) { return ''; }
 }
 
+// Paid mode uses the team's own short templates instead of AI: five light
+// variations, each with its own subject, moving to the next one every
+// TEMPLATE_EVERY drafts so no long run of identical emails goes out.
+const TEMPLATE_EVERY = 3;
+const PAID_TEMPLATES = [
+  { subject: 'guest post on {site}?',
+    body: "Hi {name},\n\nI've been reading {site} and would love to contribute an article. We're happy to pay for the placement.\n\nDo you accept sponsored guest posts, and if so, what's your rate?\n\n{optout}\n\nThanks,\n{sender}" },
+  { subject: 'question about {site}',
+    body: "Hi {name},\n\nQuick question: do you publish sponsored articles on {site}? I have a few topic ideas that would suit your readers, and we'd pay a fee for the placement.\n\nWhat would it cost to publish one?\n\n{optout}\n\nBest,\n{sender}" },
+  { subject: 'article for {site}',
+    body: "Hello {name},\n\nI'm {sender}, and I'd like to write an article for {site}. It would be original, written for your audience, and published as a paid placement.\n\nCould you share your price and any guidelines you have?\n\n{optout}\n\nKind regards,\n{sender}" },
+  { subject: 'working together?',
+    body: "Hi {name},\n\nI came across {site} and liked what you publish. Would you be open to a paid guest article? If you'd prefer, a content exchange works for us too.\n\nLet me know what suits you.\n\n{optout}\n\nThanks,\n{sender}" },
+  { subject: 'a paid article on {site}',
+    body: "Hi {name},\n\nI'm reaching out to ask whether {site} takes paid articles. We'd write the piece ourselves and follow your editorial guidelines.\n\nIf you do, could you send me your rates?\n\n{optout}\n\nBest regards,\n{sender}" }
+];
+
+async function templateDraft(uid, ref, row, senderName) {
+  // Rewriting a draft moves it to the next template; a new draft takes the
+  // slot for its place in the sequence (every TEMPLATE_EVERY drafts → next).
+  let idx;
+  if (Number.isInteger(row.templateIdx)) idx = (row.templateIdx + 1) % PAID_TEMPLATES.length;
+  else {
+    const mine = await db().collection(COLL).where('ownerUid', '==', uid).get();
+    const n = mine.docs.filter(d => Number.isInteger(d.data().templateIdx)).length;
+    idx = Math.floor(n / TEMPLATE_EVERY) % PAID_TEMPLATES.length;
+  }
+  const t = PAID_TEMPLATES[idx];
+  const first = oneLine(row.firstName).split(' ')[0];
+  const fill = str => str
+    .replace(/\{name\}/g, first ? first.charAt(0).toUpperCase() + first.slice(1) : 'there')
+    .replace(/\{optout\}/g, OPT_OUTS[idx % OPT_OUTS.length])
+    .replace(/\{site\}/g, row.domain)
+    .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
+  const subject = fill(t.subject);
+  const body = fill(t.body);
+  await ref.update({ subject, body, templateIdx: idx, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
+  return { subject, body, templateIdx: idx };
+}
+
 async function draft(uid, { id, pitch, senderName, mode, avoidSubjects }) {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
   const ref = db().collection(COLL).doc(String(id || ''));
   const snap = await ref.get();
   if (!snap.exists || snap.data().ownerUid !== uid) throw new Error('Row not found');
   const row = snap.data();
   if (['sent', 'sending', 'replied', 'bounced'].includes(row.status)) throw new Error('Already sent');
   if (!isSafeHost(row.domain)) throw new Error('Invalid domain');
+  if (mode !== 'guest') return templateDraft(uid, ref, row, senderName);
 
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
   const ctx = await siteContext(row.domain);
   const paid = mode !== 'guest';
   const greeting = pick(GREETINGS);
   const avoid = (Array.isArray(avoidSubjects) ? avoidSubjects : []).map(oneLine).filter(Boolean).slice(0, 15);
   const goal = paid
-    ? `This is an inquiry to BUY a paid placement (sponsored article / guest post) on their site. Ask for their price for publishing an article, and briefly ask whether links are dofollow and whether the post is labelled "sponsored". Do not ask for anything free and do not negotiate in this first email.`
+    ? `The sender is an off-page SEO specialist looking for a paid collaboration (publishing a sponsored guest post on their site) or a content exchange. Follow this shape, in your own words each time:
+  1. Greeting.
+  2. One line: who the sender is (off-page SEO specialist) and that they came across the site.
+  3. One honest, specific line about the site.
+  4. One line: interested in a paid collaboration (guest post on their site) or a content exchange, whichever they prefer.
+  5. Ask for their price for a guest post and whether links are dofollow.
+  6. Sign-off.
+Keep it 45–90 words. Do not negotiate and do not promise anything beyond this.`
     : `This is a request for a FREE guest post collaboration: offer an original article written for their readers in exchange for one relevant link.`;
   const prompt = `You write short, personal outreach emails for link building. They must read like one person writing to one person — never like a template.
 
@@ -202,7 +250,7 @@ Sender's notes (use these, do not invent other offers or facts):
 ${String(pitch || '').slice(0, 1500) || '(none)'}
 
 Style for THIS email: ${pick(STYLES)}
-Greeting: "${greeting} ${row.firstName || '[first name]'}," if the first name is known, otherwise "${greeting} there," or "${greeting},".
+Greeting: "${greeting} ${row.firstName || '[first name]'}," if the first name is known, otherwise "${greeting} team," or "${greeting} ${row.domain} team,".
 Sign-off: "${pick(SIGNOFFS)}," then the sender name.
 Subject style: ${pick(SUBJECT_STYLES)}; under 60 characters, no clickbait, no ALL CAPS, no exclamation marks.
 ${avoid.length ? 'Do NOT reuse or closely copy any of these recent subjects:\n- ' + avoid.join('\n- ') : ''}
