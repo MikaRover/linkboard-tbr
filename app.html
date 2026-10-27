@@ -3568,6 +3568,25 @@ function parseDateParts(str){
   // dd.mm.yyyy or dd.mm.yy
   return {day:p[0], month:p[1], year:p[2].length===2?'20'+p[2]:p[2]};
 }
+// One date format everywhere: dd/mm/yyyy (what Add link and the Sheet sync
+// write). Imports and edits arrive as dd.mm.yyyy, dd-mm-yy or yyyy-mm-dd;
+// anything that isn't a real calendar date comes back as null.
+function normDate(str){
+  const raw=String(str||'').trim();
+  if(!/^\d{1,4}[.\-\/]\d{1,2}[.\-\/]\d{2,4}$/.test(raw)) return null;
+  const p=parseDateParts(raw); if(!p) return null;
+  const d=+p.day, m=+p.month, y=+p.year;
+  if(!(y>=2000&&y<=2100&&m>=1&&m<=12&&d>=1&&d<=31)) return null;
+  const dt=new Date(y,m-1,d); if(dt.getMonth()!==m-1) return null;
+  return String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0')+'/'+y;
+}
+// Table cell text for a stored date: normalised, or the raw value marked red
+// so a typo like "23.092.206" is easy to spot and fix.
+function dateCell(str, empty=''){
+  if(!str) return empty;
+  const n=normDate(str);
+  return n ? n : `<span style="color:var(--red);" title="Not a valid date — edit the link to fix">${escapeHtml(str)}</span>`;
+}
 function parseDate(str){
   if(!str)return 0;
   const parts=parseDateParts(str);
@@ -3670,7 +3689,7 @@ function renderCheckerResults(){
     return`<tr style="${l._issues.includes('shifted')?'background:rgba(240,165,0,0.04);':''}">
       <td><input type="checkbox" class="chk-cb" data-id="${escapeHtml(lid)}" onchange="onChkSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
       <td style="min-width:140px;">${issuesHtml}</td>
-      <td style="color:var(--text3);font-size:11px;">${escapeHtml(l.date||'—')}</td>
+      <td style="color:var(--text3);font-size:11px;">${dateCell(l.date,'—')}</td>
       <td class="domain-teal">${escapeHtml(l.domain||'—')}</td>
       <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;color:${l._issues.includes('shifted')?'var(--yellow)':'var(--text2)'};" title="${escapeHtml(l.anchor||'')}">${escapeHtml(ancPreview)}</td>
       <td>${projTag(l.project)}</td>
@@ -3818,7 +3837,7 @@ function renderDetailLinks(){
     const priceVal=l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—';
     return`<tr class="link-row" data-lid="${escapeHtml(lid)}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="pd-cb" data-id="${escapeHtml(lid)}" onchange="onPdRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
+      <td style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${dateCell(l.date)}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
       <td>${drBadge(l.dr)}</td><td>${trafficVal}</td><td>${escapeHtml(l.ss||'—')}</td><td>${priceVal}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td><td>${builderAvatar(l.builder)}</td>
       <td style="white-space:nowrap;">${healthCell(l)}${pendingAgeBadge(l)}</td>
@@ -3836,7 +3855,7 @@ function renderDetailLinks(){
           ${siteToolsLine(l)}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${escapeHtml(lid)}" value="${escapeHtml(l.date||'')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${escapeHtml(lid)}" value="${escapeHtml(l.date||'')}" placeholder="dd/mm/yyyy" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">DR</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-dr-${escapeHtml(lid)}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
           <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-traffic-${escapeHtml(lid)}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
           <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${escapeHtml(lid)}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
@@ -3965,7 +3984,7 @@ function showPendingApprovals(){
   }
   const rows = pending.map(l=>`
     <tr>
-      <td style="font-size:12px;color:var(--text3);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
+      <td style="font-size:12px;color:var(--text3);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${dateCell(l.date)}</td>
       <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);">${escapeHtml(l.domain||'')}</a></td>
       <td>${projTag(l.project)}</td>
       <td style="font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'')}</td>
@@ -5104,6 +5123,7 @@ function getMonthKey(dateStr){
   if(!dateStr)return'Unknown';
   const parts=parseDateParts(dateStr);
   if(parts){
+    if(!normDate(dateStr)) return 'Unknown'; // "23.092.206" -> one "Unknown" group, not "Unknown 206"
     const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
     const month=months[parseInt(parts.month)-1]||'Unknown';
     return`${month} ${parts.year}`;
@@ -5454,7 +5474,7 @@ function renderDashboard(){
           ${cu.role==='admin'?`<td style="color:var(--text2);">${l.builder?escapeHtml(l.builder):'—'}</td>`:''}
           <td style="color:var(--text2);font-family:var(--font-mono);">${escapeHtml(l.dr||'—')} / ${trafficVal}</td>
           <td>${statusPill(l.status)}</td>
-          <td style="color:var(--text2);font-family:var(--font-mono);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
+          <td style="color:var(--text2);font-family:var(--font-mono);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${dateCell(l.date)}</td>
           <td><div class="mac-row-actions">
             <button onclick="event.stopPropagation();navigator.clipboard.writeText('https://${escAttr(l.domain)}');this.textContent='✓';setTimeout(()=>this.textContent='⧉',1200);" title="Copy URL">⧉</button>
             <button onclick="event.stopPropagation();refreshMetricsFromDash('${escAttr(l.id)}',this)" title="Refresh DR &amp; Traffic (Ahrefs)">DR↻</button>
@@ -5671,7 +5691,7 @@ function renderLinks(){
     const ssVal=l.ss?escapeHtml(String(l.ss).replace(/%/g,'')+'%'):'';
     return`<tr class="link-row" data-lid="${escapeHtml(lid)}" style="cursor:pointer;${isDup?'background:rgba(255,107,107,0.05);':''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-id="${escapeHtml(lid)}" onchange="onRowSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
+      <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${dateCell(l.date)}</td>
       <td class="${isDup?'domain-dup':'domain-teal'}" onclick="event.stopPropagation()"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
       <td>${drBadge(l.dr)}</td>
       <td>${trafficVal}</td>
@@ -5691,7 +5711,7 @@ function renderLinks(){
           ${siteToolsLine(l)}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${escapeHtml(lid)}" value="${escapeHtml(l.date||'')}" placeholder="dd.mm.yyyy" style="margin:0;font-size:12px;"/></div>
+          <div><div class="section-label" style="margin-bottom:4px;">Date</div><input id="ei-date-${escapeHtml(lid)}" value="${escapeHtml(l.date||'')}" placeholder="dd/mm/yyyy" style="margin:0;font-size:12px;"/></div>
           <div><div class="section-label" style="margin-bottom:4px;">DR</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-dr-${escapeHtml(lid)}" value="${cleanNum(l.dr)}" type="text" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
           <div><div class="section-label" style="margin-bottom:4px;">Traffic</div><div style="display:flex;gap:4px;align-items:center;"><input id="ei-traffic-${escapeHtml(lid)}" value="${cleanNum(l.traffic)}" type="text" style="margin:0;font-size:12px;flex:1;min-width:0;"/><button class="btn-ghost" style="padding:6px 9px;font-size:11px;white-space:nowrap;" onclick="refreshEditMetrics('${escAttr(lid)}',this)" title="Re-check DR &amp; Traffic (Ahrefs)">↻</button></div></div>
           <div><div class="section-label" style="margin-bottom:4px;">SS %</div><input id="ei-ss-${escapeHtml(lid)}" value="${cleanNum(l.ss)}" type="text" style="margin:0;font-size:12px;"/></div>
@@ -5856,11 +5876,7 @@ function openBuilderLinks(name){
   const bl = allLinks.filter(l=>{
     const lb=(l.builder||'').trim().toLowerCase();
     return lb===(name||'').trim().toLowerCase();
-  }).sort((a,b)=>{
-    const pa=(a.date||'').split(/[.\-\/]/).reverse().join('');
-    const pb=(b.date||'').split(/[.\-\/]/).reverse().join('');
-    return pb.localeCompare(pa);
-  });
+  }).sort((a,b)=>parseDate(b.date)-parseDate(a.date));
 
   let modal = document.getElementById('builder-links-modal');
   if(!modal){
@@ -5874,14 +5890,15 @@ function openBuilderLinks(name){
   const live = bl.filter(l=>(l.status||'').toLowerCase()==='live').length;
   const pend = bl.filter(l=>(l.status||'').toLowerCase()==='pending').length;
 
-  const rows = bl.map(l=>`
+  // Grouped under month headers (newest first), same as the links tables.
+  const rows = renderRowsGrouped(bl, l=>`
     <tr>
-      <td style="color:var(--text3);font-size:11px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
+      <td style="color:var(--text3);font-size:11px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${dateCell(l.date)}</td>
       <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(l.domain||'')}</a></td>
       <td>${projTag(l.project)}</td>
       <td style="font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'')}</td>
       <td>${(l.status||'').toLowerCase()==='live'?'<span style="color:var(--teal);">live</span>':(l.status||'').toLowerCase()==='pending'?'<span style="color:var(--yellow);">pending</span>':escapeHtml(l.status||'')}</td>
-    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1rem;">No links</td></tr>';
+    </tr>`, 5);
 
   modal.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:900px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
@@ -6628,7 +6645,8 @@ async function checkRelevancyRow(id, btn){
 }
 
 async function saveEditRow(id){
-  const date=(document.getElementById('ei-date-'+id)?.value||'').trim();
+  const _rawDate=(document.getElementById('ei-date-'+id)?.value||'').trim();
+  const date=normDate(_rawDate)||_rawDate;
   const linkin=(document.getElementById('ei-linkin-'+id)?.value||'').trim();
   const linkto=(document.getElementById('ei-linkto-'+id)?.value||'').trim();
   const dr=(document.getElementById('ei-dr-'+id)?.value||'').trim();
@@ -6787,7 +6805,7 @@ function renderInvoices(){
     const lid=l.id;
     return`<tr>
       <td onclick="event.stopPropagation()"><input type="checkbox" class="inv-cb" data-id="${escapeHtml(lid)}" onchange="onInvSelect()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${escapeHtml(l.date||'—')}</td>
+      <td style="color:var(--text);font-size:12px;white-space:nowrap;">${dateCell(l.date,'—')}</td>
       <td class="domain-teal"><a href="https://${escAttr(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
       <td>${projTag(l.project)}</td>
       <td>${builderAvatar(l.builder)}</td>
@@ -6889,7 +6907,7 @@ function handleCsvFile(file){
       let linkMonth = currentMonth;
 
       csvRows.push({
-        date:c0,
+        date:normDate(c0)||c0,
         domain:c1,
         dr:(row[2]||'').trim(),
         traffic:(row[3]||'').trim(),
@@ -10620,7 +10638,7 @@ function renderBuilderLinks(){
     const priceVal=l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—';
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="bl-row-check" value="${lid}" onchange="updateBlCheckBtn()" style="width:auto;margin:0;cursor:pointer;"/></td>
-      <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
+      <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${dateCell(l.date)}</td>
       <td class="domain-teal" onclick="event.stopPropagation()"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
       <td onclick="event.stopPropagation()">${projTag(l.project)}</td>
       <td>${drBadge(l.dr)}</td><td>${trafficVal}</td><td>${priceVal}</td><td>${escapeHtml(l.ss||'—')}</td>
@@ -10715,7 +10733,7 @@ function renderDoubleCheckQueue(){
       ?`<span style="color:var(--yellow);font-size:11px;" title="${escapeHtml(reasonText)}">⚠ ${escapeHtml(reasonText)}</span>`
       :`<span style="color:var(--text3);font-size:11px;">Routine live check</span>`;
     return`<tr id="dc-row-${lid}">
-      <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${escapeHtml(l.date||'')}</td>
+      <td style="color:var(--text);font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.date||'')}">${dateCell(l.date)}</td>
       <td class="domain-teal"><a href="https://${escapeHtml(l.domain)}" target="_blank" style="color:inherit;text-decoration:none;">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
       <td>${escapeHtml(l.dr||'—')}</td><td>${trafficVal}</td>
       <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'—')}</td>

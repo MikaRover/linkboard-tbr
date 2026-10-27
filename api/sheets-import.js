@@ -173,7 +173,7 @@ async function handleImportRows(req, res) {
           linkin: r.linkin || '', linkto: r.linkto || '', builder: r.builder || '', status,
           invoice: r.invoice || '', paid: typeof r.paid === 'boolean' ? r.paid : false, comments: r.comments || '',
           relevancy: '', linkcheck: '', check: '', source: 'google-sheets',
-          date: r.date || new Date().toLocaleDateString('en-GB')
+          date: fmtDmy(parseDmy(r.date)) || String(r.date || '').trim() || new Date().toLocaleDateString('en-GB')
         });
       }
     }
@@ -205,7 +205,13 @@ function parseDmy(v) {
   if (!m) return null;
   const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
   const d = new Date(Date.UTC(y, Number(m[2]) - 1, Number(m[1])));
-  return isNaN(d) ? null : d;
+  return isNaN(d) || d.getUTCMonth() !== Number(m[2]) - 1 ? null : d; // 31/02 or month 13 -> null, not a rollover
+}
+// Date -> dd/mm/yyyy, the one format LinkBoard stores (matches Add link and the app's normDate)
+function fmtDmy(d) {
+  if (!d) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return pad(d.getUTCDate()) + '/' + pad(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear();
 }
 const DATE_SYNC_DAYS = 62; // only RECENT sheet dates are copied onto LinkBoard links; old history keeps its dates
 
@@ -271,9 +277,7 @@ async function handleUpdateStatus(req, res) {
           const cur = String(d.data().date || '').trim();
           const cd = parseDmy(cur);
           if (!cd || cd.getTime() !== sd.getTime()) {
-            const sep = /[.]/.test(cur) ? '.' : '/';
-            const pad = n => String(n).padStart(2, '0');
-            newDate = pad(sd.getUTCDate()) + sep + pad(sd.getUTCMonth() + 1) + sep + sd.getUTCFullYear();
+            newDate = fmtDmy(sd);
           }
         }
         const statusChange = from !== r.status && !(!r.delta && from === 'live' && r.status === 'pending');
