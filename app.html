@@ -5931,12 +5931,11 @@ function dfPlanFor(l){
   for(const [d,m] of cands){ const fix=dfNearYear(d,m,guess); if(fix) return {to:fix,kind:'repair',why:'Typo repaired, check it'}; }
   return {to:null,kind:'manual',why:'Not a date'};
 }
+// Two parts: dates that need a human look (typos, wrong years, non-dates) come
+// first, one row each with an editable suggestion and its own Approve; the
+// format-only ones (same date, different separators) go in one bulk click.
 function openDateFix(){
   dfPlan=allLinks.map(l=>({l,...(dfPlanFor(l)||{})})).filter(x=>x.kind);
-  const order={repair:0,year:1,manual:2,format:3};
-  dfPlan.sort((a,b)=>order[a.kind]-order[b.kind]);
-  const cnt=k=>dfPlan.filter(x=>x.kind===k).length;
-  const tag={format:'var(--text3)',year:'var(--yellow)',repair:'var(--yellow)',manual:'var(--red)'};
   let modal=document.getElementById('date-fix-modal');
   if(!modal){
     modal=document.createElement('div'); modal.id='date-fix-modal';
@@ -5944,49 +5943,79 @@ function openDateFix(){
     modal.onclick=e=>{ if(e.target===modal) modal.remove(); };
     document.body.appendChild(modal);
   }
-  const rows=dfPlan.map((x,i)=>`<tr>
-      <td>${x.to?`<input type="checkbox" class="df-cb" data-i="${i}" checked style="width:auto;margin:0;"/>`:''}</td>
-      <td>${escapeHtml(x.l.domain||'')}</td>
-      <td style="color:var(--text3);">${escapeHtml(x.l.builder||'—')}</td>
-      <td style="color:var(--text3);">${escapeHtml(x.l.date||'')}</td>
-      <td style="font-weight:600;">${x.to?escapeHtml(x.to):'—'}</td>
-      <td style="color:${tag[x.kind]};">${x.why}</td></tr>`).join('')
-    ||'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:1rem;">All dates are already clean</td></tr>';
+  renderDateFix();
+}
+function renderDateFix(){
+  const modal=document.getElementById('date-fix-modal'); if(!modal) return;
+  const review=dfPlan.map((x,i)=>({...x,i})).filter(x=>x.kind!=='format'&&!x.done);
+  const fmt=dfPlan.filter(x=>x.kind==='format'&&!x.done);
+  const col={year:'var(--yellow)',repair:'var(--yellow)',manual:'var(--red)'};
+  const rows=review.map(x=>`<tr id="df-row-${x.i}">
+      <td><div style="font-weight:600;">${escapeHtml(x.l.domain||'')}</div><div style="font-size:12px;color:var(--text3);">${escapeHtml(x.l.builder||'—')} · ${escapeHtml(x.l.project||'—')}${x.l.month?' · '+escapeHtml(x.l.month):''}</div></td>
+      <td style="color:var(--text3);white-space:nowrap;">${escapeHtml(x.l.date||'')}</td>
+      <td><input id="df-in-${x.i}" value="${escAttr(x.to||'')}" placeholder="dd/mm/yyyy" onkeydown="if(event.key==='Enter')dfApproveOne(${x.i})" style="margin:0;width:120px;font-size:13px;padding:6px 8px;"/></td>
+      <td style="color:${col[x.kind]};font-size:12px;">${x.why}</td>
+      <td style="white-space:nowrap;text-align:right;">
+        <button class="btn-sm" onclick="dfApproveOne(${x.i})" style="width:auto;padding:6px 12px;">Approve</button>
+        <button class="btn-ghost" onclick="dfSkip(${x.i})" style="width:auto;padding:6px 10px;">Skip</button>
+      </td></tr>`).join('');
   modal.innerHTML=`
-    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:900px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;">
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:960px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);">
         <div>
           <div style="font-size:16px;font-weight:700;color:var(--text);">Fix dates</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:2px;">${cnt('format')} format only · <span style="color:var(--yellow);">${cnt('repair')+cnt('year')} repaired</span> · <span style="color:var(--red);">${cnt('manual')} need a manual edit</span> · old value kept in prevDate</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;">Old value is kept in prevDate</div>
         </div>
         <button onclick="document.getElementById('date-fix-modal').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1;">×</button>
       </div>
-      <div style="overflow:auto;padding:8px 22px;">
-        <table class="tbl" style="width:100%;"><thead><tr><th></th><th>Domain</th><th>Builder</th><th>Now</th><th>Becomes</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--border);">
-        <button class="btn-ghost" onclick="document.getElementById('date-fix-modal').remove()" style="width:auto;">Cancel</button>
-        <button class="btn-sm" id="df-apply" onclick="applyDateFix()" style="width:auto;" ${dfPlan.some(x=>x.to)?'':'disabled'}>Apply checked</button>
+      <div style="overflow:auto;padding:14px 22px 18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">
+          <div style="font-size:14px;font-weight:600;color:var(--text);">Needs your OK <span style="color:var(--text3);font-weight:500;">${review.length}</span></div>
+          ${review.some(x=>x.to)?`<button class="btn-ghost" onclick="dfApproveAllSuggested()" style="width:auto;padding:6px 12px;">Approve all suggestions</button>`:''}
+        </div>
+        ${review.length?`<table class="tbl" style="width:100%;"><thead><tr><th>Link</th><th>Now</th><th>Becomes</th><th>Why</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+          :'<div style="color:var(--text3);font-size:13px;padding:10px 0;">Nothing to review.</div>'}
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);">Format only <span style="color:var(--text3);font-weight:500;">${fmt.length}</span></div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px;">Same date, written as dd/mm/yyyy (e.g. ${escapeHtml(fmt[0]?.l.date||'23.09.2026')} → ${escapeHtml(fmt[0]?.to||'23/09/2026')})</div>
+          </div>
+          <button class="btn-sm" id="df-fmt-btn" onclick="dfApplyFormat()" style="width:auto;" ${fmt.length?'':'disabled'}>Apply all ${fmt.length}</button>
+        </div>
       </div>
     </div>`;
 }
-async function applyDateFix(){
-  const picks=[...document.querySelectorAll('#date-fix-modal .df-cb:checked')].map(cb=>dfPlan[+cb.dataset.i]).filter(x=>x&&x.to);
-  if(!picks.length) return;
-  if(!confirm(`Change the date on ${picks.length} links? The old value is kept in prevDate.`)) return;
-  const btn=document.getElementById('df-apply'); btn.disabled=true; btn.textContent='Saving…';
-  try{
-    for(let i=0;i<picks.length;i+=400){
-      const batch=db.batch();
-      picks.slice(i,i+400).forEach(x=>batch.update(db.collection('links').doc(x.l.id),{date:x.to,prevDate:String(x.l.date||'')}));
-      await batch.commit();
-    }
-    document.getElementById('date-fix-modal')?.remove();
-    showToast(picks.length+' dates fixed');
-  }catch(e){
-    btn.disabled=false; btn.textContent='Apply checked';
-    alert('Error: '+e.message);
+async function dfWrite(items){
+  for(let i=0;i<items.length;i+=400){
+    const batch=db.batch();
+    items.slice(i,i+400).forEach(x=>batch.update(db.collection('links').doc(x.l.id),{date:x.to,prevDate:String(x.l.date||'')}));
+    await batch.commit();
   }
+  items.forEach(x=>x.done=true);
+}
+async function dfApproveOne(i){
+  const x=dfPlan[i], el=document.getElementById('df-in-'+i); if(!x||!el) return;
+  const n=normDate(el.value);
+  if(!n){ el.style.borderColor='var(--red)'; el.focus(); showToast('Type a real date as dd/mm/yyyy','err'); return; }
+  try{ await dfWrite([{...x,to:n}]); x.done=true; renderDateFix(); showToast(`${x.l.domain}: ${n}`); }
+  catch(e){ alert('Error: '+e.message); }
+}
+function dfSkip(i){ if(dfPlan[i]){ dfPlan[i].done=true; renderDateFix(); } }
+async function dfApproveAllSuggested(){
+  const items=dfPlan.filter(x=>x.kind!=='format'&&!x.done&&x.to).map(x=>{
+    const el=document.getElementById('df-in-'+dfPlan.indexOf(x));
+    const n=normDate(el?el.value:x.to); return n?Object.assign(x,{to:n}):null;
+  }).filter(Boolean);
+  if(!items.length||!confirm(`Approve ${items.length} suggested dates?`)) return;
+  try{ await dfWrite(items); renderDateFix(); showToast(items.length+' dates fixed'); }
+  catch(e){ alert('Error: '+e.message); }
+}
+async function dfApplyFormat(){
+  const items=dfPlan.filter(x=>x.kind==='format'&&!x.done);
+  if(!items.length) return;
+  const btn=document.getElementById('df-fmt-btn'); btn.disabled=true; btn.textContent='Saving…';
+  try{ await dfWrite(items); renderDateFix(); showToast(items.length+' dates reformatted'); }
+  catch(e){ btn.disabled=false; btn.textContent='Apply all '+items.length; alert('Error: '+e.message); }
 }
 
 function openBuilderLinks(name){
