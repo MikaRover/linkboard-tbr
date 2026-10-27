@@ -833,7 +833,6 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
 #p-dashboard .mac-builder-card{display:flex;align-items:center;gap:10px;background:transparent;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;transition:background 0.15s ease;}
 #p-dashboard .mac-builder-card:hover{background:var(--bg3);}
-#p-dashboard .mac-builder-card+.mac-builder-card{border-left:1px solid var(--border);}
 #p-dashboard .mac-builder-card:hover{background:var(--bg4);transform:translateY(-1px);}
 #p-dashboard .mac-avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;opacity:0.85;}
 #p-dashboard .mac-builder-name{font-size:13px;font-weight:600;color:var(--text);}
@@ -1246,7 +1245,7 @@ a{text-underline-offset:2px;}
   <div class="card adm" id="ds-leaderboard-card">
     <div class="card-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:-3px;flex-shrink:0;">
       <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>This month's builders <span style="font-size:12px;color:var(--text2)" id="ds-month-label"></span></div>
-    <div id="ds-leaderboard" style="display:flex;flex-wrap:wrap;gap:0;padding:10px 1rem 16px;"></div>
+    <div id="ds-leaderboard" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px 8px;padding:10px 1rem 16px;"></div>
   </div>
 
   <div class="card">
