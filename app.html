@@ -4202,10 +4202,13 @@ function bdQaRenderDup(cleanDomain){
   const dupProjects=[...new Set(dupLinks.map(l=>l.project).filter(Boolean))];
   if(!dupProjects.length){dupEl.style.display='none';return;}
   dupEl.style.display='block';
-  dupEl.innerHTML='<b>Already used in:</b> '
+  const qaProj=(document.getElementById('bd-qa-proj')||{}).value||'';
+  const fromSheet=dupLinks.find(l=>l.project===qaProj&&l.source==='google-sheets');
+  dupEl.innerHTML=(fromSheet?`<b>Already in LinkBoard for ${escapeHtml(qaProj)}</b>, added automatically from Google Sheets. No need to add it again.<br>`:'')
+    +'<b>Already used in:</b> '
     +dupProjects.map(p=>{
       const links=dupLinks.filter(l=>l.project===p);
-      return links.map(link=>`${escapeHtml(p)} (${escapeHtml(link.status)} · ${escapeHtml(link.builder||'—')})`).join(', ');
+      return links.map(link=>`${escapeHtml(p)} (${escapeHtml(linkWho(link))})`).join(', ');
     }).join(', ');
 }
 
@@ -4258,16 +4261,10 @@ async function bdQaSubmit(){
   const dup=document.getElementById('bd-qa-dup');
   dup.style.display='none';
 
-  const existing=allLinks.find(l=>nd(l.domain)===nd(domain)&&l.project===proj);
   let needsApproval=false, approvalReason='';
-  if(existing){
-    if(cu.role==='admin'){
-      if(!confirm('Duplicate! '+domain+' already exists in '+proj+'. Add anyway?'))return;
-    } else {
-      if(!confirm('⚠️ '+domain+' already exists in '+proj+'.\n\nSend to admin for approval?'))return;
-      needsApproval=true; approvalReason='Duplicate: '+domain+' already in '+proj;
-    }
-  }
+  const dg=dupGate(domain, proj);
+  if(dg.stop) return;
+  if(dg.needsApproval){ needsApproval=true; approvalReason='Duplicate: '+domain+' already in '+proj; }
 
   const dr=bdQaMetrics.dr?parseFloat(bdQaMetrics.dr):null;
   const traffic=bdQaMetrics.traffic?parseFloat(bdQaMetrics.traffic):null;
@@ -4381,6 +4378,28 @@ function gotoPage(name,el){
     if(!allowed){ gotoPage('dashboard', document.querySelector('.nav[onclick*="dashboard"]')); return; }
     initBulkRelHistory();
   }
+}
+// "Anna · live · 23/09/2026 · from Google Sheets" — who/what/when for a link
+// that already exists, so a duplicate warning says exactly which link it is.
+function linkWho(l){
+  return [l.builder||'no builder', l.status||'no status', normDate(l.date)||l.date||'no date',
+    l.source==='google-sheets'?'from Google Sheets':''].filter(Boolean).join(' · ');
+}
+// Submit-time duplicate gate shared by both add forms. A link the Sheet sync
+// already created is the same link, not a second one — stop instead of asking
+// an admin to approve a duplicate. Returns {stop, needsApproval}.
+function dupGate(domain, proj){
+  const ex=allLinks.filter(l=>nd(l.domain)===nd(domain)&&l.project===proj);
+  if(!ex.length) return {stop:false, needsApproval:false};
+  const list=ex.map(l=>'• '+linkWho(l)).join('\n');
+  const fromSheet=ex.find(l=>l.source==='google-sheets');
+  if(fromSheet){
+    alert(domain+' is already in LinkBoard for '+proj+'. It was added automatically from Google Sheets:\n\n'+list+'\n\nNo need to add it again.');
+    return {stop:true};
+  }
+  if(cu.role==='admin') return {stop:!confirm('Duplicate! '+domain+' already exists in '+proj+':\n\n'+list+'\n\nAdd anyway?'), needsApproval:false};
+  if(!confirm(domain+' already exists in '+proj+':\n\n'+list+'\n\nSend to admin for approval?')) return {stop:true};
+  return {stop:false, needsApproval:true};
 }
 function nd(d){return(d||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/+$/,'').split('/')[0].trim();}
 
@@ -4497,12 +4516,12 @@ function onDomainInput(){
     const selectedProj=document.getElementById('f-proj')?.value||'';
     const sameProject=selectedProj&&dupProjects.includes(selectedProj);
     dupEl.innerHTML=(sameProject?
-      `<div style="padding:8px 12px;background:rgba(255,107,107,0.15);border:1px solid rgba(255,107,107,0.4);border-radius:8px;margin-bottom:6px;font-size:12px;font-weight:600;color:var(--red);">This domain already exists in ${escapeHtml(selectedProj)}!</div>`
+      `<div style="padding:8px 12px;background:rgba(255,107,107,0.15);border:1px solid rgba(255,107,107,0.4);border-radius:8px;margin-bottom:6px;font-size:12px;font-weight:600;color:var(--red);">${dupLinks.some(l=>l.project===selectedProj&&l.source==='google-sheets')?`Already in LinkBoard for ${escapeHtml(selectedProj)}, added automatically from Google Sheets. No need to add it again.`:`This domain already exists in ${escapeHtml(selectedProj)}!`}</div>`
       :'')+
       '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Already used in</div>'
       +dupProjects.map(p=>{
         const links=dupLinks.filter(l=>l.project===p);
-        return links.map(link=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:var(--red);margin-right:6px;margin-bottom:4px;">❌ ${escapeHtml(p)} <span style="font-weight:400;font-size:11px;color:rgba(255,107,107,0.7);">${escapeHtml(link.status)} · ${escapeHtml(link.builder||'—')}</span></span>`).join('');
+        return links.map(link=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:var(--red);margin-right:6px;margin-bottom:4px;">❌ ${escapeHtml(p)} <span style="font-weight:400;font-size:11px;color:rgba(255,107,107,0.7);">${escapeHtml(linkWho(link))}</span></span>`).join('');
       }).join('');
   } else {
     dupEl.style.display='none';
@@ -4789,17 +4808,9 @@ async function addLink(){
   let needsApproval = false, approvalReason = '';
 
   // Duplicate check per project
-  const existing=allLinks.find(l=>nd(l.domain)===nd(domain)&&l.project===proj);
-  if(existing){
-    if(cu.role==='admin'){
-      if(!confirm('Duplicate! '+domain+' already exists in '+proj+'. Add anyway?'))return;
-    } else {
-      // Builder can't bypass — needs admin approval
-      if(!confirm('⚠️ '+domain+' already exists in '+proj+'.\n\nSend to admin for approval?')) return;
-      needsApproval = true;
-      approvalReason = 'Duplicate: '+domain+' already in '+proj;
-    }
-  }
+  const dg=dupGate(domain, proj);
+  if(dg.stop) return;
+  if(dg.needsApproval){ needsApproval=true; approvalReason='Duplicate: '+domain+' already in '+proj; }
 
   // Quality requirements validation (hard stop)
   const qr=allQualityReqs.find(r=>r.project===proj);
