@@ -2144,12 +2144,14 @@ a{text-underline-offset:2px;}
     </div>
     <div class="oa-card">
       <div class="oa-h">2. Your pitch</div>
+      <label class="oa-label" for="oa-name">Your name — used in “My name is …” and the sign-off</label>
+      <input id="oa-name" type="text" placeholder="Mika" style="margin:0 0 10px;width:auto;font-size:12px;padding:6px 10px;" oninput="oaSavePrefs()">
       <label class="oa-label" for="oa-mode">Type</label>
       <select id="oa-mode" style="margin:0 0 10px;width:auto;font-size:12px;padding:6px 10px;" onchange="oaModeChanged()">
         <option value="paid">Paid collaboration — our templates</option>
         <option value="guest">Free guest post — written by AI</option>
       </select>
-      <div id="oa-paid-help" class="oa-help">Short, plain emails asking whether they take paid articles and what they charge (dofollow and details come in your reply). Five versions, each with its own subject — the version changes every 3 emails. “Rewrite” moves a draft to the next version.</div>
+      <div id="oa-paid-help" class="oa-help">Short, plain emails: who you are, then a content collaboration and a question about their terms. Five versions, each with its own subject — the version changes every 3 emails. “Next version” moves a draft to the next one.</div>
       <div id="oa-guest-box">
         <label class="oa-label" for="oa-pitch">Notes for the AI — each email is written differently around these</label>
         <textarea id="oa-pitch" rows="6" oninput="oaSavePrefs()"></textarea>
@@ -8787,6 +8789,7 @@ function initAgentPage(){
     if(saved.startsWith('We publish sponsored articles for our clients.')) saved = ''; // old default, superseded
     document.getElementById('oa-pitch').value = saved || OA_DEFAULT_PITCH[mode];
     document.getElementById('oa-snov').checked = localStorage.getItem('oa-snov')==='1';
+    document.getElementById('oa-name').value = localStorage.getItem('oa-name') || '';
   }catch(e){ document.getElementById('oa-pitch').value = OA_DEFAULT_PITCH[mode]; }
   oaModeUi();
   oaLoad(); oaLoadMailboxes();
@@ -8808,7 +8811,19 @@ function oaSavePrefs(){
   try{
     localStorage.setItem('oa-pitch-'+oaMode(), document.getElementById('oa-pitch').value);
     localStorage.setItem('oa-snov', document.getElementById('oa-snov').checked?'1':'0');
+    localStorage.setItem('oa-name', document.getElementById('oa-name').value.trim());
   }catch(e){}
+}
+// The name typed on the page wins; otherwise the sending mailbox's first part
+// (mika@… → Mika). The account name is often a role like "Admin", so it's last.
+function oaSenderName(){
+  const typed = document.getElementById('oa-name')?.value.trim();
+  if(typed) return typed;
+  const local = (oaFrom().split('@')[0]||'').split(/[._+-]/)[0];
+  if(/^[a-z]{2,}$/i.test(local) && !/^(admin|info|team|hello|contact|support|sales|office|mail)$/i.test(local))
+    return local.charAt(0).toUpperCase()+local.slice(1).toLowerCase();
+  const acct = (cu?.name||'').trim().split(/\s+/)[0]||'';
+  return /^admin$/i.test(acct) ? '' : acct;
 }
 async function oaLoad(){
   try{ oaRows = (await oaApi('list')).rows||[]; oaRender(); }
@@ -9074,7 +9089,7 @@ async function oaDraft(id, btn){
   if(btn){ btn.disabled = true; btn.textContent = 'Writing…'; }
   try{
     const avoidSubjects = oaRows.filter(x=>x.subject && x.id!==id).slice(0,15).map(x=>x.subject);
-    const j = await oaApi('draft',{id, pitch:document.getElementById('oa-pitch').value, senderName:(cu?.name||'').trim().split(/\s+/)[0]||'', mode:oaMode(), avoidSubjects});
+    const j = await oaApi('draft',{id, pitch:document.getElementById('oa-pitch').value, senderName:oaSenderName(), mode:oaMode(), avoidSubjects});
     Object.assign(r, {subject:j.subject, body:j.body, status:'draft'});
     delete oaEdits[id];
     oaRender();
