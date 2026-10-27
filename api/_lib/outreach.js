@@ -177,16 +177,16 @@ async function siteContext(domain) {
 // TEMPLATE_EVERY drafts so no long run of identical emails goes out.
 const TEMPLATE_EVERY = 3;
 const PAID_TEMPLATES = [
-  { subject: 'guest post on {site}?',
-    body: "Hi {name},\n\nI've been reading {site} and would love to contribute an article. We're happy to pay for the placement.\n\nDo you accept sponsored guest posts, and if so, what's your rate?\n\n{optout}\n\nThanks,\n{sender}" },
-  { subject: 'question about {site}',
-    body: "Hi {name},\n\nQuick question: do you publish sponsored articles on {site}? I have a few topic ideas that would suit your readers, and we'd pay a fee for the placement.\n\nWhat would it cost to publish one?\n\n{optout}\n\nBest,\n{sender}" },
-  { subject: 'article for {site}',
-    body: "Hello {name},\n\nI'm {sender}, and I'd like to write an article for {site}. It would be original, written for your audience, and published as a paid placement.\n\nCould you share your price and any guidelines you have?\n\n{optout}\n\nKind regards,\n{sender}" },
-  { subject: 'working together?',
-    body: "Hi {name},\n\nI came across {site} and liked what you publish. Would you be open to a paid guest article? If you'd prefer, a content exchange works for us too.\n\nLet me know what suits you.\n\n{optout}\n\nThanks,\n{sender}" },
-  { subject: 'a paid article on {site}',
-    body: "Hi {name},\n\nI'm reaching out to ask whether {site} takes paid articles. We'd write the piece ourselves and follow your editorial guidelines.\n\nIf you do, could you send me your rates?\n\n{optout}\n\nBest regards,\n{sender}" }
+  { subject: 'content collaboration with {site}',
+    body: "Hi {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist. I work with brands on content and look for good sites to partner with.\n\nI'd love to do a content collaboration with {site}. Could you let me know your terms?\n\n{optout}\n\nThanks,\n{sender}" },
+  { subject: 'quick question about {site}',
+    body: "Hello {name},\n\nI'm {sender}, an off-page SEO specialist working on content for a few brands.\n\nI came across {site} and would like to do a content collaboration with you. What are your terms?\n\n{optout}\n\nBest,\n{sender}" },
+  { subject: 'collaboration idea',
+    body: "Hi {name},\n\nI'm {sender}. I work in off-page SEO and help brands publish useful content on sites like yours.\n\nI'm interested in a content collaboration with {site}. Could you share your terms?\n\n{optout}\n\nKind regards,\n{sender}" },
+  { subject: 'working together on content',
+    body: "Hi {name},\n\nA quick introduction: I'm {sender}, an off-page SEO specialist.\n\nI'd like to work with {site} on a content collaboration. What terms do you offer?\n\n{optout}\n\nThanks,\n{sender}" },
+  { subject: 'content partnership with {site}',
+    body: "Hello {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist working with several brands.\n\nI'm reaching out because I'd like to set up a content collaboration with {site}. Could you tell me your terms?\n\n{optout}\n\nBest regards,\n{sender}" }
 ];
 
 async function templateDraft(uid, ref, row, senderName) {
@@ -228,7 +228,7 @@ async function draft(uid, { id, pitch, senderName, mode, avoidSubjects }) {
   const greeting = pick(GREETINGS);
   const avoid = (Array.isArray(avoidSubjects) ? avoidSubjects : []).map(oneLine).filter(Boolean).slice(0, 15);
   const goal = paid
-    ? `The sender is an off-page SEO specialist looking for a paid collaboration (publishing a sponsored guest post on their site) or a content exchange. Follow this shape, in your own words each time:
+    ? `The sender is an off-page SEO specialist looking for a paid collaboration (publishing a paid guest post on their site) or a content exchange. Never use the word "sponsored". Follow this shape, in your own words each time:
   1. Greeting.
   2. One line: who the sender is (off-page SEO specialist) and that they came across the site.
   3. One honest, specific line about the site.
