@@ -2140,7 +2140,7 @@ a{text-underline-offset:2px;}
         </label>
       </div>
       <div id="oa-progress" class="oa-progress" style="margin-top:8px;"></div>
-      <div class="oa-help" style="margin-top:8px;">Sites we already have a link on, contacts already in Domains DB, and anyone emailed in the last 90 days are skipped automatically.</div>
+      <div class="oa-help" style="margin-top:8px;">Contacts the team already has in Domains DB are tried first. Sites we already have links on are marked, not skipped. Anyone the agent emailed in the last 90 days is never emailed again. Sites that were skipped or had no contact are searched again.</div>
     </div>
     <div class="oa-card">
       <div class="oa-h">2. Your pitch</div>
@@ -8881,11 +8881,16 @@ function oaScore(c, domain){
 }
 async function oaDiscover(domain, useSnov){
   const byEmail = new Map();
-  const add = c => {
+  const add = (c, bonus) => {
     const email = String(c.email||'').trim().toLowerCase();
     if(!email || c.smtp==='invalid' || byEmail.has(email)) return;
-    byEmail.set(email, {...c, email, score: oaScore({...c,email}, domain)});
+    byEmail.set(email, {...c, email, score: oaScore({...c,email}, domain) + (bonus||0)});
   };
+  // Someone the team already worked with on this site is the best lead there is.
+  allDomains.filter(d=>nd(d.domain)===domain && d.email).forEach(d=>add({
+    name:[d.firstName,d.lastName].filter(Boolean).join(' '), firstName:d.firstName||'', title:d.position||'',
+    email:d.email, smtp:d.smtp||'unknown', source:'Domains DB'+(d.addedBy?' ('+d.addedBy+')':'')
+  }, 80));
   try{
     const r = await fetch('/api/scrape-contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain})});
     const j = await r.json();
@@ -8910,47 +8915,44 @@ async function oaDiscover(domain, useSnov){
   const candidates = [...byEmail.values()].sort((a,b)=>b.score-a.score).slice(0,8).map(({score,...c})=>c);
   return candidates;
 }
-// Why a site/contact shouldn't be pitched, from what LinkBoard already knows.
-function oaKnownReason(domain, email){
-  if(allLinks.some(l=>nd(l.domain)===domain)) return 'We already have a link on this site';
-  const dom = allDomains.find(d=>nd(d.domain)===domain && d.email && (!email || String(d.email).toLowerCase()===email));
-  if(dom) return 'Already in Domains DB ('+dom.email+(dom.addedBy?', '+dom.addedBy:'')+')';
-  return '';
+// What LinkBoard already has on this site — shown next to the domain, never a
+// reason to skip: paid sites are pitched again on purpose. The only hard stop
+// is the server's "emailed by the agent in the last 90 days" check.
+function oaSiteNote(domain){
+  const ls = allLinks.filter(l=>nd(l.domain)===domain);
+  if(!ls.length) return '';
+  const last = ls.map(l=>String(l.date||'')).sort().pop();
+  const projects = [...new Set(ls.map(l=>l.project).filter(Boolean))].slice(0,3);
+  return `${ls.length} link${ls.length>1?'s':''} already`+(last?`, last ${last}`:'')+(projects.length?` · ${projects.join(', ')}`:'');
 }
 async function oaFind(){
   const ta = document.getElementById('oa-sites');
   const sites = oaParseSites(ta.value);
   if(!sites.length){ showToast('Paste at least one website','warn'); return; }
-  const listed = new Set(oaRows.map(r=>r.domain));
-  const fresh = sites.filter(d=>!listed.has(d));
+  // Sites already listed are searched again only if they came up empty or skipped.
+  const byDomain = new Map(oaRows.map(r=>[r.domain, r]));
+  const fresh = sites.filter(d=>!byDomain.has(d) || ['skipped','nocontact'].includes(byDomain.get(d).status));
   const btn = document.getElementById('oa-find-btn'), prog = document.getElementById('oa-progress');
-  if(!fresh.length){ prog.textContent = 'All of these sites are already in the list below.'; return; }
+  if(!fresh.length){ prog.textContent = 'All of these sites are already in the list below with a contact.'; return; }
   const useSnov = document.getElementById('oa-snov').checked;
   btn.disabled = true;
   let done = 0, found = 0;
-  const step = () => { prog.textContent = `Searching ${done}/${fresh.length} · ${found} with a contact`+(sites.length>fresh.length?` · ${sites.length-fresh.length} already listed`:''); };
+  const step = () => { prog.textContent = `Searching ${done}/${fresh.length} · ${found} with a contact`+(sites.length>fresh.length?` · ${sites.length-fresh.length} already in the list with a contact`:''); };
   step();
   const queue = fresh.slice();
   const worker = async () => {
     while(queue.length){
       const domain = queue.shift();
-      let row;
-      const siteReason = oaKnownReason(domain);
-      if(siteReason && !/Domains DB/.test(siteReason)) row = {domain, status:'skipped', skipReason:siteReason, candidates:[]};
-      else {
-        const candidates = await oaDiscover(domain, useSnov);
-        const c = candidates[0];
-        if(!c) row = {domain, status:'nocontact', candidates:[]};
-        else {
-          const reason = oaKnownReason(domain, c.email);
-          row = {domain, candidates, name:c.name, firstName:c.firstName, title:c.title, email:c.email, smtp:c.smtp, source:c.source,
-            status: reason?'skipped':'found', skipReason: reason||''};
-          if(!reason) found++;
-        }
-      }
+      const candidates = await oaDiscover(domain, useSnov);
+      const c = candidates[0];
+      const row = c
+        ? {domain, candidates, name:c.name, firstName:c.firstName, title:c.title, email:c.email, smtp:c.smtp, source:c.source, status:'found', skipReason:'', note:oaSiteNote(domain)}
+        : {domain, candidates:[], name:'', firstName:'', title:'', email:'', smtp:'', source:'', status:'nocontact', skipReason:'', note:oaSiteNote(domain)};
+      if(c) found++;
+      const prev = byDomain.get(domain);
       try{
-        const {ids} = await oaApi('save',{items:[row]});
-        oaRows.unshift({...row, id:ids[0], createdAt:Date.now()});
+        if(prev){ await oaApi('save',{items:[{...row, id:prev.id}]}); Object.assign(prev, row); }
+        else { const {ids} = await oaApi('save',{items:[row]}); oaRows.unshift({...row, id:ids[0], createdAt:Date.now()}); }
       }catch(e){ showToast(domain+': '+e.message,'warn'); }
       done++; step(); oaRender();
     }
@@ -8981,7 +8983,7 @@ function oaRender(){
       const when = r.status==='sent'||r.status==='replied'||r.status==='bounced' ? (r.sentDay||'') : '';
       return `<tr class="oa-row ${open?'open':''}" onclick="oaToggle('${escAttr(r.id)}',event)">
         <td onclick="event.stopPropagation()"><input type="checkbox" style="width:auto;margin:0;" ${oaSelected.has(r.id)?'checked':''} onclick="oaSelect('${escAttr(r.id)}',this.checked)"/></td>
-        <td><div class="oa-mono" style="color:var(--text);">${escapeHtml(r.domain)}</div></td>
+        <td><div class="oa-mono" style="color:var(--text);">${escapeHtml(r.domain)}</div>${r.note?`<div class="oa-sub">${escapeHtml(r.note)}</div>`:''}</td>
         <td>${r.name?`<div style="color:var(--text);">${escapeHtml(r.name)}</div>`:'<div style="color:var(--text3);">—</div>'}${r.title?`<div class="oa-sub">${escapeHtml(r.title)}</div>`:''}</td>
         <td>${r.email?`<div class="oa-mono">${escapeHtml(r.email)}</div><div style="margin-top:4px;">${oaSmtpBadge(r.smtp)}</div>`:'<span style="color:var(--text3);">—</span>'}</td>
         <td>${oaQueued(r.id)&&r.status!=='sending'?'<span class="oa-badge oa-b-blue"><span class="oa-dot"></span>Queued</span>':oaBadge(r.status)}${when?`<div class="oa-sub">${escapeHtml(when)}</div>`:''}${r.skipReason&&r.status==='skipped'?`<div class="oa-sub">${escapeHtml(r.skipReason)}</div>`:''}${r.error&&r.status==='failed'?`<div class="oa-sub" style="color:var(--red);">${escapeHtml(r.error)}</div>`:''}</td>
@@ -9027,9 +9029,7 @@ function oaRow(id){ return oaRows.find(r=>r.id===id); }
 async function oaPickCandidate(id, idx){
   const r = oaRow(id), c = (r.candidates||[])[+idx];
   if(!c) return;
-  const reason = oaKnownReason(r.domain, c.email);
   const patch = {name:c.name, firstName:c.firstName, title:c.title, email:c.email, smtp:c.smtp, source:c.source};
-  if(reason && !confirm(reason+'\n\nUse this contact anyway?')) { oaRender(); return; }
   delete oaEdits[id];
   try{ await oaApi('save',{items:[{id,...patch}]}); Object.assign(r, patch); oaRender(); }
   catch(e){ showToast(e.message,'warn'); }
