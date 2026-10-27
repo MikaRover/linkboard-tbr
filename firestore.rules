@@ -90,6 +90,8 @@ service cloud.firestore {
     // ── encrypted Gmail / Snov tokens: server only, never the browser ──
     match /gmailSecrets/{id} { allow read, write: if false; }
     match /snovSecrets/{id}  { allow read, write: if false; }
+    // Outreach Agent rows — admin-only, read/written only through /api/outreach.
+    match /outreachAgent/{id} { allow read, write: if false; }
 
     // Anything not listed above is closed.
   }

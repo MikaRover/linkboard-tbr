@@ -36,6 +36,10 @@
     {
       "source": "/api/pendingcheck",
       "destination": "/api/sheets-import?pendingcheck=1"
+    },
+    {
+      "source": "/api/outreach",
+      "destination": "/api/sheets-import?outreach=1"
     }
   ],
   "crons": [
