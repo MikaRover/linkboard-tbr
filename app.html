@@ -2154,7 +2154,7 @@ a{text-underline-offset:2px;}
         <label class="oa-label" for="oa-pitch">Notes for the AI — each email is written differently around these</label>
         <textarea id="oa-pitch" rows="6" oninput="oaSavePrefs()"></textarea>
       </div>
-      <div class="oa-help" style="margin-top:8px;">Emails go out 4–5 minutes apart. Nothing is sent until you click Send.</div>
+      <div class="oa-help" style="margin-top:8px;">Emails go out 3–4 minutes apart. Nothing is sent until you click Send.</div>
     </div>
   </div>
 
@@ -8745,9 +8745,9 @@ function renderGmailStrip(){
 // sending, quota and "never email twice" checks are enforced there too.
 let oaRows = [], oaMailboxes = [], oaLimit = 30, oaFilter = 'all', oaOpen = null, oaQueue = null;
 const oaSelected = new Set(), oaEdits = {};
-// Random 4–5 min between emails: a steady, human pace is what keeps a
+// Random 3–4 min between emails: a steady, human pace is what keeps a
 // mailbox out of spam (the server also refuses anything under 4 min).
-const OA_GAP_MIN_MS = 240000, OA_GAP_MAX_MS = 300000;
+const OA_GAP_MIN_MS = 180000, OA_GAP_MAX_MS = 240000;
 const oaGap = () => OA_GAP_MIN_MS + Math.random()*(OA_GAP_MAX_MS-OA_GAP_MIN_MS);
 const OA_DEFAULT_PITCH = {
   paid: "I'm an off-page SEO specialist, interested in a paid collaboration (a guest post on your site) or a content exchange. Articles are original and written for your readers, with one relevant link. Please share your price for a guest post and whether links are dofollow.",
@@ -8834,7 +8834,7 @@ async function oaLoadMailboxes(){
       <button class="btn-ghost" onclick="oaConnectSend()">${senders.length?'Connect another mailbox':'Connect Gmail for sending'}</button>
     </div>
     <div class="oa-help" style="margin-top:8px;">${senders.length
-      ? `Up to ${oaLimit} emails per mailbox per day, one every 4–5 minutes. Replies and bounces are checked every night, or with “Check replies”.`
+      ? `Up to ${oaLimit} emails per mailbox per day, one every 3–4 minutes. Replies and bounces are checked every night, or with “Check replies”.`
       : 'Your Gmail is connected for counting only. Connect it once more and allow “Send email on your behalf” so the agent can send the drafts you approve.'}</div>`;
 }
 async function oaConnectSend(){
@@ -9095,7 +9095,7 @@ async function oaDraftSelected(btn){
 
 // ── sending ──
 // Every send — one row or many — goes through one queue that waits a random
-// 4–5 min between emails. Runs in this tab, so it must stay open.
+// 3–4 min between emails. Runs in this tab, so it must stay open.
 async function oaSendRow(id){
   const r = oaRow(id);
   const from = oaFrom();
@@ -9152,7 +9152,7 @@ async function oaSendOne(id, btn){
   if(r.status!=='draft' && r.status!=='failed'){ showToast('Write or save the draft first','warn'); return; }
   const from = oaFrom();
   if(!from){ showToast('Connect a Gmail mailbox for sending first','warn'); return; }
-  const when = oaQueue ? 'after the '+oaQueue.ids.length+' email(s) already queued, 4–5 min apart' : 'now';
+  const when = oaQueue ? 'after the '+oaQueue.ids.length+' email(s) already queued, 3–4 min apart' : 'now';
   if(!confirm(`Send this email ${when}?\n\nTo: ${r.email}\nFrom: ${from}\nSubject: ${r.subject}`)) return;
   oaOpen = null;
   oaEnqueue([id]);
@@ -9166,7 +9166,7 @@ async function oaSendSelected(){
   const left = mb ? Math.max(0, mb.limit-mb.sentToday) : 0;
   const total = rows.length + (oaQueue ? oaQueue.ids.length : 0);
   const list = rows.slice(0,20).map(r=>`• ${r.email} — ${r.domain}`).join('\n') + (rows.length>20?`\n…and ${rows.length-20} more`:'');
-  if(!confirm(`Queue ${rows.length} email${rows.length>1?'s':''} from ${from}?\n\n${list}\n\nOne every 4–5 minutes — about ${Math.round((total-1)*4.5)} min in total. Keep this tab open. ${left} left today on this mailbox`+(rows.length>left?` — the rest stay as drafts.`:'.'))) return;
+  if(!confirm(`Queue ${rows.length} email${rows.length>1?'s':''} from ${from}?\n\n${list}\n\nOne every 3–4 minutes — about ${Math.round((total-1)*3.5)} min in total. Keep this tab open. ${left} left today on this mailbox`+(rows.length>left?` — the rest stay as drafts.`:'.'))) return;
   oaEnqueue(rows.map(r=>r.id));
 }
 function oaStopQueue(){ if(oaQueue){ oaQueue.stop = true; showToast('Stopped — queued emails stay as drafts'); } }
