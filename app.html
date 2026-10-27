@@ -3363,11 +3363,19 @@ function listenProjects(){
 }
 function populateProjectSelects(){
   const names=allProjects.filter(p=>!projHidden(p)).map(p=>p.name);
+  // Filters and link checking still reach old links: archived (pre-2026) projects
+  // stay listed there, in their own group. Only the add/assign pickers drop them.
+  const archived=allProjects.filter(p=>p.hidden!==true&&projHidden(p)).map(p=>p.name).sort();
   ['f-proj','r-proj','rq-proj','imp-proj','req-imp-proj','ls-p','check-proj-select','bl-p'].forEach(id=>{
     const s=document.getElementById(id);if(!s)return;
     const isFilter=['ls-p','bl-p','check-proj-select'].includes(id);const cur=s.value;
     s.innerHTML=isFilter?'<option value="">All projects</option>':'<option value="">Select project</option>';
     names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});
+    if(isFilter&&archived.length){
+      const g=document.createElement('optgroup'); g.label='Before 2026';
+      archived.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;g.appendChild(o);});
+      s.appendChild(g);
+    }
     if(cur)s.value=cur;
   });
 }
