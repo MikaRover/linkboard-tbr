@@ -17,23 +17,23 @@
   --teal:#32d74b;--teal2:#5fe37f;--teal-glow:rgba(50,215,75,0.15);
   --accent2:#0a84ff;--accent2-2:#3d9eff;--accent2-glow:rgba(10,132,255,0.16);
   --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);
-  --text:#f7f8f8;--text2:#8a8f98;--text3:rgba(255,255,255,0.4);
+  --text:#f7f8f8;--text2:#8a8f98;--text3:rgba(255,255,255,0.5);
   --red:#f4795b;--yellow:#f2b73e;
   --radius:12px;--radius-lg:18px;
   --shadow:0 1px 2px rgba(0,0,0,0.24),0 10px 28px rgba(0,0,0,0.3);
   --shadow-teal:0 4px 24px rgba(50,215,75,0.16);
   --font-mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,monospace;
-  --glass-bg:rgba(20,21,24,0.62);
+  --glass-bg:#0d0e11;
 }
 /* ── SPLASH SCREEN ── */
 #app-splash{position:fixed;inset:0;background:#08090a;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;}
-#app-splash.hide{animation:splashOut 0.5s cubic-bezier(0.4,0,1,1) forwards;}
-@keyframes splashOut{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(1.04);pointer-events:none;}}
-.splash-logo-txt{font-size:64px;font-weight:800;color:#e8f5f2;opacity:0;transform:translateY(16px);animation:logoIn 0.7s 0.3s cubic-bezier(0.22,1,0.36,1) forwards;font-family:"Inter",-apple-system,sans-serif;letter-spacing:-2px;}
+#app-splash.hide{animation:splashOut 0.24s cubic-bezier(0.4,0,1,1) forwards;}
+@keyframes splashOut{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(1.02);pointer-events:none;}}
+.splash-logo-txt{font-size:64px;font-weight:800;color:#e8f5f2;opacity:0;transform:translateY(16px);animation:logoIn 0.4s 0.05s cubic-bezier(0.23,1,0.32,1) forwards;font-family:"Inter",-apple-system,sans-serif;letter-spacing:-2px;}
 .splash-logo-txt span{color:#0a84ff;}
-.splash-sub-txt{font-size:13px;color:#5c6280;letter-spacing:4px;text-transform:uppercase;opacity:0;animation:fadeIn2 0.5s 0.6s ease forwards;margin-top:12px;}
-.splash-bar-wrap{width:200px;height:2px;background:rgba(10,132,255,0.15);border-radius:2px;overflow:hidden;opacity:0;animation:fadeIn2 0.3s 0.8s ease forwards;margin-top:24px;}
-.splash-bar{height:100%;width:0%;background:linear-gradient(90deg,#0a84ff,#3d9eff);border-radius:2px;box-shadow:0 0 10px rgba(10,132,255,0.9);animation:barFill 1.4s 0.9s cubic-bezier(0.4,0,0.2,1) forwards;}
+.splash-sub-txt{font-size:13px;color:#5c6280;letter-spacing:4px;text-transform:uppercase;opacity:0;animation:fadeIn2 0.3s 0.2s ease forwards;margin-top:12px;}
+.splash-bar-wrap{width:200px;height:2px;background:rgba(10,132,255,0.15);border-radius:2px;overflow:hidden;opacity:0;animation:fadeIn2 0.2s 0.3s ease forwards;margin-top:24px;}
+.splash-bar{height:100%;width:0%;background:#0a84ff;border-radius:2px;animation:barFill 0.7s 0.3s cubic-bezier(0.4,0,0.2,1) forwards;}
 #splash-3d-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
 @keyframes logoIn{to{opacity:1;transform:translateY(0);}}
 @keyframes fadeIn2{to{opacity:1;}}
@@ -42,17 +42,14 @@
 /* ── APP OPEN ANIMATION ── */
 #s-app.animating .sidebar{opacity:0;transform:translateX(-20px);}
 #s-app.animating .content{opacity:0;}
-#s-app .sidebar{transition:opacity 0.5s 0.1s ease,transform 0.5s 0.1s cubic-bezier(0.22,1,0.36,1);}
-#s-app .content{transition:opacity 0.4s 0.2s ease;}
+#s-app .sidebar{transition:opacity 0.3s ease,transform 0.3s cubic-bezier(0.23,1,0.32,1);}
+#s-app .content{transition:opacity 0.3s 0.05s ease;}
 #s-app.app-ready .sidebar{opacity:1;transform:translateX(0);}
 #s-app.app-ready .content{opacity:1;}
 .stat{transition:opacity 0.4s ease,transform 0.4s ease;}
 .stat.anim-hidden{opacity:0;transform:translateY(12px);}
 
 body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Inter','Segoe UI',sans-serif;background:var(--bg);letter-spacing:-0.011em;color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
-/* Single static wash — a little atmosphere, no animation, no multi-orb heaviness */
-body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 900px 520px at 12% -8%,rgba(50,215,75,0.09),transparent 60%),radial-gradient(ellipse 700px 520px at 100% 10%,rgba(124,143,255,0.06),transparent 60%);}
-body.light::before{background:radial-gradient(ellipse 900px 520px at 12% -8%,rgba(36,138,61,0.05),transparent 60%),radial-gradient(ellipse 700px 520px at 100% 10%,rgba(88,101,224,0.04),transparent 60%);}
 .app,.login-wrap,#app-splash{position:relative;z-index:1;}
 
 /* ── LIGHT THEME ── */
@@ -61,11 +58,11 @@ body.light{
   --teal:#248a3d;--teal2:#34c759;--teal-glow:rgba(36,138,61,0.08);
   --accent2:#0071e3;--accent2-2:#0077ed;--accent2-glow:rgba(0,113,227,0.10);
   --border:#e5e5ea;--border2:#d2d2d7;
-  --text:#1d1d1f;--text2:#6e6e73;--text3:#86868b;
+  --text:#1d1d1f;--text2:#6e6e73;--text3:#737378;
   --red:#d70015;--yellow:#b25000;
   --shadow:0 1px 2px rgba(0,0,0,0.04),0 6px 24px rgba(0,0,0,0.06);
   --shadow-teal:0 0 0 4px rgba(36,138,61,0.10);
-  --glass-bg:rgba(255,255,255,0.78);
+  --glass-bg:#ffffff;
 }
 body.light input,body.light select,body.light textarea{background:#fff;color:var(--text);border-color:var(--border);box-shadow:0 1px 2px rgba(0,0,0,0.04);}
 body.light select option{background:#fff;color:var(--text);}
@@ -91,8 +88,6 @@ body.light .status-tab{background:var(--bg3);border-color:var(--border2);color:v
 body.light .filters input,body.light .filters select{background:#fff;}
 body.light .compat-pill.no-req{background:var(--bg3);}
 
-/* ── PERF: reduce transitions on scroll ── */
-body,body *{transition:background-color 0.18s ease,color 0.15s ease,border-color 0.15s ease;}
 
 /* ── KEYFRAMES ── */
 @keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
@@ -274,14 +269,14 @@ select option{background:var(--bg2);}
 /* ── COMPAT PILLS ── */
 .compat-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid;cursor:pointer;transition:all 0.15s ease;position:relative;}
 .compat-pill:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,0.2);}
-.compat-pill.ok{background:rgba(50,215,75,0.1);border-color:rgba(50,215,75,0.35);color:#32d74b;}
+.compat-pill.ok{background:rgba(50,215,75,0.1);border-color:rgba(50,215,75,0.35);color:var(--teal);}
 .compat-pill.fail{background:rgba(255,95,95,0.07);border-color:rgba(255,95,95,0.25);color:var(--red);}
 .compat-pill.no-req{background:var(--bg4);border-color:var(--border);color:var(--text3);opacity:0.65;}
 .compat-tooltip{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:100;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;min-width:180px;box-shadow:var(--shadow);animation:fadeIn 0.12s ease;}
 .compat-pill:hover .compat-tooltip{display:block;}
 .compat-tooltip-row{font-size:11px;display:flex;gap:5px;margin-bottom:3px;font-weight:500;}
 .compat-tooltip-row:last-child{margin-bottom:0;}
-.compat-tooltip-row.pass{color:#32d74b;}
+.compat-tooltip-row.pass{color:var(--teal);}
 .compat-tooltip-row.fail-item{color:var(--red);}
 .compat-tooltip-row.neutral{color:var(--text3);}
 
@@ -393,7 +388,7 @@ select option{background:var(--bg2);}
 .login-sub{font-size:13px;color:var(--text2);text-align:center;margin-bottom:2rem;}
 label{font-size:12px;color:var(--text2);margin-bottom:5px;display:block;}
 select option{background:var(--bg2);}
-.err{font-size:12px;color:#ff6b6b;margin-bottom:12px;display:none;padding:8px 12px;background:rgba(255,107,107,0.1);border-radius:6px;animation:slideDown 0.2s ease;}
+.err{font-size:12px;color:var(--red);margin-bottom:12px;display:none;padding:8px 12px;background:rgba(255,107,107,0.1);border-radius:6px;animation:slideDown 0.2s ease;}
 .app{display:flex;min-height:100vh;}
 .sidebar{width:220px;min-width:220px;background:var(--glass-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1.25rem 0;position:fixed;height:100vh;overflow-y:auto;}
 .sb-top{padding:0 1.25rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:10px;}
@@ -406,28 +401,8 @@ select option{background:var(--bg2);}
 .nav.active{color:var(--accent2);background:var(--accent2-glow);border-left-color:var(--accent2);font-weight:600;}
 .sb-bottom{margin-top:auto;padding:1.25rem;}
 .logout{font-size:13px;color:var(--text3);cursor:pointer;}
-.logout:hover{color:#ff6b6b;}
+.logout:hover{color:var(--red);}
 .content{flex:1;min-width:0;margin-left:220px;background:var(--bg);}
-body:not(.light) .content{
-  background:
-    radial-gradient(1900px 1100px at 50% -10%, rgba(10,132,255,0.30), transparent 68%),
-    radial-gradient(1700px 1050px at 65% 55%, rgba(50,215,75,0.22), transparent 72%),
-    var(--bg);
-  /* background-attachment:fixed removed — it forced the browser to
-     repaint this large gradient on every scroll frame, causing severe
-     stutter on any long scrollable table. Scrolls with the page instead. */
-}
-/* Light mode had no ambient background at all, so the translucent "glass"
-   cards (--glass-bg) had nothing behind them to actually blur — they just
-   read as plain flat white boxes. Same two-tone wash as dark mode, at a
-   much lower alpha appropriate for a light canvas, so the glass effect is
-   visible without tinting the page. */
-body.light .content{
-  background:
-    radial-gradient(1900px 1100px at 50% -10%, rgba(10,132,255,0.07), transparent 68%),
-    radial-gradient(1700px 1050px at 65% 55%, rgba(50,215,75,0.06), transparent 72%),
-    var(--bg);
-}
 .page{display:none;padding:1.5rem;}
 .page.active{display:block;}
 .page-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;}
@@ -464,14 +439,14 @@ tr:hover td{background:var(--bg3);}
 #all-tbody td:nth-child(15){width:32px;} /* delete */
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
 .b-live{background:rgba(50,215,75,0.15);color:var(--teal);}
-.b-pend{background:rgba(240,165,0,0.12);color:#f0a500;}
+.b-pend{background:rgba(240,165,0,0.12);color:var(--yellow);}
 .b-ok{background:rgba(50,215,75,0.15);color:var(--teal);}
-.b-dup{background:rgba(255,107,107,0.15);color:#ff6b6b;}
-.b-warn{background:rgba(240,165,0,0.12);color:#f0a500;}
+.b-dup{background:rgba(255,107,107,0.15);color:var(--red);}
+.b-warn{background:rgba(240,165,0,0.12);color:var(--yellow);}
 .b-noreq{background:rgba(120,150,255,0.15);color:var(--accent2);}
 .b-saas{background:rgba(120,150,255,0.15);color:var(--accent2);}
 .b-service{background:rgba(50,215,75,0.15);color:var(--teal);}
-.b-blog{background:rgba(240,165,0,0.12);color:#f0a500;}
+.b-blog{background:rgba(240,165,0,0.12);color:var(--yellow);}
 .b-general{background:rgba(142,142,147,0.16);color:var(--text2);}
 /* My Links "Compact view" — hides the columns least needed at a glance
    (Price/SS/Relevancy/Invoice); everything hidden here is already one
@@ -493,14 +468,14 @@ tr:hover td{background:var(--bg3);}
 }
 .b-other{background:rgba(244,121,91,0.14);color:var(--red);}
 .alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;}
-.a-dup{background:rgba(255,107,107,0.12);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3);}
+.a-dup{background:rgba(255,107,107,0.12);color:var(--red);border:1px solid rgba(255,107,107,0.3);}
 .a-ok{background:rgba(50,215,75,0.1);color:var(--teal);border:1px solid rgba(50,215,75,0.3);}
-.a-warn{background:rgba(240,165,0,0.1);color:#f0a500;border:1px solid rgba(240,165,0,0.3);}
+.a-warn{background:rgba(240,165,0,0.1);color:var(--yellow);border:1px solid rgba(240,165,0,0.3);}
 .filters{display:flex;gap:10px;margin-bottom:1rem;flex-wrap:wrap;}
 .filters input,.filters select{margin-bottom:0;flex:1;min-width:120px;}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .domain-teal{color:var(--text);font-size:13px;}
-.domain-dup{color:#ff6b6b;font-size:13px;font-weight:600;}
+.domain-dup{color:var(--red);font-size:13px;font-weight:600;}
 .loading{text-align:center;padding:2rem;color:var(--text2);font-size:13px;}
 .req-bar-bg{height:5px;background:var(--bg3);border-radius:3px;margin-bottom:3px;}
 .req-bar-fill{height:5px;border-radius:3px;}
@@ -531,18 +506,18 @@ tr:hover td{background:var(--bg3);}
 
 /* ── PROJECT COMPATIBILITY PILLS ── */
 .compat-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid;cursor:pointer;transition:background .22s ease,border-color .22s ease,color .18s ease,box-shadow .25s ease,transform .18s cubic-bezier(.2,.8,.2,1);position:relative;}
-.compat-pill.ok{background:rgba(50,215,75,0.1);border-color:rgba(50,215,75,0.4);color:#32d74b;}
+.compat-pill.ok{background:rgba(50,215,75,0.1);border-color:rgba(50,215,75,0.4);color:var(--teal);}
 .compat-pill.ok:hover{background:rgba(50,215,75,0.18);}
-.compat-pill.fail{background:rgba(255,107,107,0.08);border-color:rgba(255,107,107,0.3);color:#ff6b6b;}
+.compat-pill.fail{background:rgba(255,107,107,0.08);border-color:rgba(255,107,107,0.3);color:var(--red);}
 .compat-pill.fail:hover{background:rgba(255,107,107,0.14);}
 .compat-pill.no-req{background:var(--bg3);border-color:var(--border);color:var(--text3);opacity:0.7;}
 .compat-pill-icon{font-size:13px;}
-.compat-tooltip{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:100;background:#0a1e35;border:1px solid var(--border);border-radius:8px;padding:8px 12px;min-width:180px;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+.compat-tooltip{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:100;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;min-width:180px;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
 .compat-pill:hover .compat-tooltip{display:block;}
 .compat-tooltip-row{font-size:11px;display:flex;align-items:center;gap:5px;margin-bottom:3px;font-weight:400;}
 .compat-tooltip-row:last-child{margin-bottom:0;}
-.compat-tooltip-row.pass{color:#32d74b;}
-.compat-tooltip-row.fail-item{color:#ff6b6b;}
+.compat-tooltip-row.pass{color:var(--teal);}
+.compat-tooltip-row.fail-item{color:var(--red);}
 .compat-tooltip-row.neutral{color:var(--text3);}
 .rel-tip-wrap{position:relative;display:inline-block;}
 .rel-tip{display:none;position:absolute;bottom:calc(100% + 6px);left:0;z-index:100;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;font-size:11px;color:var(--text2);width:200px;white-space:normal;line-height:1.4;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
@@ -556,7 +531,7 @@ tr:hover td{background:var(--bg3);}
 .cat-check-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;}
 .cat-check-item input[type=checkbox]{width:auto;margin:0;cursor:pointer;}
 .det-status{font-size:11px;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;}
-.det-heuristic{background:rgba(240,165,0,0.12);color:#f0a500;}
+.det-heuristic{background:rgba(240,165,0,0.12);color:var(--yellow);}
 .det-gpt{background:rgba(50,215,75,0.12);color:var(--teal);}
 .det-loading{background:rgba(120,150,255,0.12);color:var(--accent2);}
 
@@ -564,7 +539,7 @@ tr:hover td{background:var(--bg3);}
 .nav-bld{display:none;}
 .nav-sofya{display:none;}
 .nav-mgr{display:none;}
-.dc-badge{display:inline-block;min-width:16px;height:16px;padding:0 5px;border-radius:20px;background:#ff5a5a;color:#fff;font-size:11px;font-weight:700;line-height:16px;text-align:center;margin-left:6px;vertical-align:1px;}
+.dc-badge{display:inline-block;min-width:16px;height:16px;padding:0 5px;border-radius:20px;background:var(--red);color:#fff;font-size:11px;font-weight:700;line-height:16px;text-align:center;margin-left:6px;vertical-align:1px;}
 .quota-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:1.5rem;}
 .quota-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;transition:all 0.15s ease;}
 .quota-card:hover{border-color:var(--teal);box-shadow:var(--shadow-teal);}
@@ -641,10 +616,6 @@ tr:hover td{background:var(--bg3);}
    ══════════════════════════════════════════════════════ */
 *{ -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
 
-/* Smooth, springy transitions everywhere */
-button, .nav, .card, .stat, input, select, .proj-card, .status-tab, a{
-  transition: background .22s ease, border-color .22s ease, color .18s ease, box-shadow .25s ease, transform .18s cubic-bezier(.2,.8,.2,1) !important;
-}
 
 /* Headings: tight Apple tracking */
 .page-title, h1, h2{ letter-spacing:-0.02em !important; font-weight:700 !important; }
@@ -959,6 +930,162 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   .modal-overlay-anim>div{transform:none !important;}
   .modal-overlay-anim.mo-show>div{transform:none !important;}
 }
+
+/* ══════════════════════════════════════════════════════
+   Design system v2 (2026-10-27) — see DESIGN.md.
+   Last layer on purpose: it settles the older stacked rules above
+   into one flat, opaque, quiet look. Colour only for status/action,
+   1px borders or a tone step for separation, shadows only on what
+   floats (menus, modals, toasts, batch bars).
+   ══════════════════════════════════════════════════════ */
+:root{
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  --ease-in-out:cubic-bezier(.77,0,.175,1);
+  --dur-1:120ms;--dur-2:180ms;--dur-3:240ms;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;
+  --radius-sm:6px;--radius-ctl:8px;
+  --elev:0 8px 24px rgba(0,0,0,0.32);
+  --nav-active:rgba(255,255,255,0.08);
+}
+body.light{--elev:0 8px 24px rgba(0,0,0,0.10);--nav-active:rgba(0,0,0,0.06);}
+
+/* No glass anywhere: blur under translucent panels was the main source of
+   scroll jank and of the "frosted template" look. Panels are opaque now. */
+*,*::before,*::after{backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}
+
+/* Motion: specific properties only, one curve, short. */
+button,a,.btn,.btn-sm,.btn-ghost,.btn-danger,.nav,.status-tab,.cat-badge,.compat-pill,.ot-vtab,.pj-act,.qa-close{
+  transition:background-color var(--dur-2) var(--ease-out),border-color var(--dur-2) var(--ease-out),color var(--dur-1) ease,opacity var(--dur-2) ease,transform var(--dur-1) var(--ease-out);
+}
+input,select,textarea{transition:border-color var(--dur-1) ease,box-shadow var(--dur-1) ease;}
+.card,.stat,.proj-card,.quota-card,.pj-card,.import-drop,#p-dashboard .mac-stat-card{transition:border-color var(--dur-2) var(--ease-out),background-color var(--dur-2) var(--ease-out);}
+
+/* Surfaces: opaque, flat, no resting shadow, hover = border step only */
+.sidebar,body.light .sidebar{background:var(--bg2) !important;box-shadow:none !important;}
+.card,.stat,.proj-card,.quota-card,body.light .card,body.light .proj-card,body.light .stat{
+  background:var(--bg2) !important;box-shadow:none !important;border:1px solid var(--border) !important;
+}
+.stat::before{display:none;}
+.stat:hover,.stat[onclick]:hover,.proj-card:hover,.quota-card:hover,.card:hover{transform:none;box-shadow:none !important;border-color:var(--border2) !important;}
+.stat[onclick]{cursor:pointer;}
+.stat[onclick]:active{transform:scale(0.99);}
+.login-box,body.light .login-box{box-shadow:none;}
+.theme-switch,.theme-switch.on{box-shadow:none;}
+.theme-switch-knob{box-shadow:0 1px 3px rgba(0,0,0,0.3);}
+.progress-fill{background:var(--teal);}
+.compat-tooltip{background:var(--bg2);border:1px solid var(--border2);box-shadow:var(--elev);}
+.rel-tip{box-shadow:var(--elev);}
+body.light table tbody tr:hover{background:transparent;}
+body.light table thead th{background:transparent;}
+
+/* Labels: sentence case, readable. Small tracked caps read as decoration. */
+.stat-l,.section-label,.dc-title,.dc-label,.req-form-title,.pp-k,#p-dashboard .mac-stat-label,label{
+  text-transform:none !important;letter-spacing:0 !important;
+}
+.stat-l,#p-dashboard .mac-stat-label{font-size:13px !important;font-weight:500 !important;color:var(--text2) !important;}
+label{font-size:12px;font-weight:500;color:var(--text2);}
+.nav-section{text-transform:none !important;letter-spacing:0 !important;font-size:12px !important;font-weight:600 !important;opacity:1 !important;color:var(--text3) !important;padding:16px 20px 6px !important;}
+
+/* Tables: grey sentence-case header, no band, rules only */
+th,#p-b-links th,#p-dashboard .mac-table th{
+  text-transform:none !important;letter-spacing:0 !important;font-size:12px !important;font-weight:500 !important;color:var(--text2) !important;background:transparent !important;
+}
+td{border-bottom-color:var(--border);}
+
+/* Sidebar nav: neutral selection pill (macOS Finder), no coloured bar */
+.nav{border-left:none !important;margin:1px 8px !important;border-radius:var(--radius-ctl) !important;}
+.nav:hover,body.light .nav:hover{background:var(--nav-active) !important;color:var(--text) !important;}
+.nav.active,body.light .nav.active{background:var(--nav-active) !important;color:var(--text) !important;font-weight:600 !important;}
+.nav.active svg{color:var(--accent2);}
+
+/* Buttons: one flat fill, darkens on hover, presses on click. No glow, no lift. */
+.btn,.btn-sm{background:var(--accent2);box-shadow:none !important;}
+.btn:hover,.btn-sm:hover{box-shadow:none !important;transform:none !important;filter:brightness(1.08);}
+.btn:active,.btn-sm:active,.btn-ghost:active,.btn-danger:active,.status-tab:active,.cat-badge:active,.pj-act:active,#p-dashboard .mac-stat-btn:active{transform:scale(0.97) !important;}
+.btn-ghost:hover,body.light .btn-ghost:hover{transform:none;border-color:var(--text3);color:var(--text);background:var(--bg3);}
+.compat-pill:hover{transform:none;box-shadow:none;}
+#p-dashboard .mac-builder-card:hover{transform:none;}
+button:disabled,.btn:disabled,.btn-sm:disabled{opacity:0.5;cursor:not-allowed;filter:none;transform:none !important;}
+
+/* Keyboard focus: visible everywhere, mouse clicks stay clean */
+:where(button,a,.nav,[tabindex],[role="button"]):focus-visible{outline:2px solid var(--accent2);outline-offset:2px;}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;}
+
+/* Floating layers: opaque, one shadow, origin-aware entry */
+.row-menu{background:var(--bg2);box-shadow:var(--elev);transform:scale(0.96);transition:opacity var(--dur-1) ease,transform var(--dur-2) var(--ease-out);}
+.row-menu.open{transform:scale(1);}
+.batch-bar{background:var(--bg2) !important;box-shadow:var(--elev) !important;left:240px !important;transition:opacity var(--dur-2) ease,transform var(--dur-3) var(--ease-out),visibility 0s linear var(--dur-2);}
+.batch-bar.bb-show{transition:opacity var(--dur-2) ease,transform var(--dur-3) var(--ease-out),visibility 0s linear 0s;}
+.modal-overlay-anim>div{transform:scale(0.96);transition:transform var(--dur-3) var(--ease-out);}
+.modal-overlay-anim>div,#prospect-overlay>div{box-shadow:var(--elev);}
+.page.as-modal .card{box-shadow:var(--elev) !important;}
+
+/* Page change happens dozens of times a day (and from the keyboard):
+   a short opacity settle only, no travel. */
+@keyframes pageIn{from{opacity:0;}to{opacity:1;}}
+.page.active{animation:pageIn var(--dur-1) ease-out both;}
+.page.as-modal{animation:pageIn var(--dur-2) var(--ease-out);}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px) scale(0.98);}to{opacity:1;transform:none;}}
+
+/* Modals: exit faster than enter */
+.modal-overlay-anim{transition:opacity 140ms ease,visibility 0s linear 140ms;}
+.modal-overlay-anim.mo-show{transition:opacity var(--dur-2) ease,visibility 0s linear 0s;}
+.modal-overlay-anim>div{transition:transform 140ms ease-out;}
+.modal-overlay-anim.mo-show>div{transition:transform var(--dur-3) var(--ease-out);}
+
+/* Hover colour shifts only where a real pointer exists (no sticky tap-hover) */
+@media (hover:none){
+  .nav:hover:not(.active){background:transparent !important;color:var(--text2) !important;}
+  .btn:hover,.btn-sm:hover{filter:none;}
+}
+
+/* Loading: a calm pulse instead of bare text flashing in */
+.loading{color:var(--text3);}
+
+/* Browser surfaces: themed, not left at UA defaults */
+:root{color-scheme:dark;}
+body.light{color-scheme:light;}
+::selection{background:color-mix(in srgb,var(--accent2) 32%,transparent);color:inherit;}
+input,textarea{caret-color:var(--accent2);}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent2);}
+input::placeholder,textarea::placeholder{color:var(--text3);opacity:1;}
+td,.stat-v,.badge,#p-dashboard .mac-stat-num{font-variant-numeric:tabular-nums;}
+a{text-underline-offset:2px;}
+
+/* Badges: tint + same-hue text, one recipe for every status */
+.badge{font-weight:600;}
+.b-live,.b-ok,.b-service{background:color-mix(in srgb,var(--teal) 14%,transparent);color:var(--teal);}
+.b-pend,.b-warn,.b-blog{background:color-mix(in srgb,var(--yellow) 14%,transparent);color:var(--yellow);}
+.b-dup,.b-other{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red);}
+.b-noreq,.b-saas{background:color-mix(in srgb,var(--accent2) 14%,transparent);color:var(--accent2);}
+
+/* Responsive: three steps, fixed bars follow the sidebar */
+@media (max-width:1100px) and (min-width:861px){
+  .page{padding:1.25rem;}
+  .stats,#pd-stats,#team-stats,#checker-stats,#an-stats,#dom-stats,#inv-stats{gap:10px;}
+}
+@media (max-width:860px){
+  .sidebar,body.light .sidebar{box-shadow:var(--elev) !important;transition:transform 280ms cubic-bezier(.32,.72,0,1) !important;}
+  .batch-bar{left:12px !important;right:12px !important;bottom:12px !important;}
+  .page-top{flex-wrap:wrap;gap:10px;}
+  .page-top>*{flex-wrap:wrap;min-width:0;max-width:100%;}
+  .page-top .btn-sm,.page-top .btn-ghost{padding:9px 16px;font-size:14px;}
+  .card{border-radius:var(--radius) !important;}
+  .tbl-wrap{-webkit-overflow-scrolling:touch;}
+}
+@media (max-width:480px){
+  .stats{grid-template-columns:1fr 1fr;}
+  .page-title{font-size:20px;}
+  .page-top{flex-wrap:wrap;gap:10px;}
+}
+
+@media (prefers-reduced-motion: reduce){
+  .page.active{animation:none;}
+  #app-toast{animation:pageIn 150ms ease !important;}
+  .row-menu,.row-menu.open,.modal-overlay-anim>div{transform:none !important;}
+  .btn:active,.btn-sm:active,.btn-ghost:active,.btn-danger:active,.status-tab:active,.cat-badge:active,.pj-act:active,.stat[onclick]:active{transform:none !important;}
+  #s-app .sidebar,#s-app .content{transition:none;}
+}
 </style>
 </head>
 <body>
@@ -977,7 +1104,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div class="login-logo">Link<span>Board</span></div>
   <div class="login-sub">TBR · Link building management</div>
   <div class="err" id="lerr">Wrong email or password</div>
-  <div class="alert a-ok" id="reset-ok" style="display:none;">✅ Reset email sent! Check your inbox.</div>
+  <div class="alert a-ok" id="reset-ok" style="display:none;">Reset email sent! Check your inbox.</div>
   <label>Email</label><input id="lu" type="email" placeholder="your@email.com"/>
   <label>Password</label><input id="lp" type="password" placeholder="password" onkeydown="if(event.key==='Enter')doLogin()"/>
   <button class="btn" onclick="doLogin()">Sign in →</button>
@@ -1084,7 +1211,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn-sm" onclick="openAddLinkModal()" style="width:auto;">+ Add link</button>
       <button class="btn-sm adm" onclick="bulkRefreshMetrics(6,this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">↺ Refresh DR/Traffic (6mo)</button>
-      <button class="btn-sm" onclick="bulkCheckMyLinks(this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">🔗 Check my links</button>
+      <button class="btn-sm" onclick="bulkCheckMyLinks(this)" style="width:auto;background:transparent;border:1px solid var(--border2);color:var(--text2);">Check my links</button>
     </div>
   </div>
   <div class="mac-stats">
@@ -1140,7 +1267,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <div id="al-ok" class="alert a-ok"></div>
 
       <div style="background:rgba(50,215,75,0.06);border:1px solid rgba(50,215,75,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--text2);line-height:1.5;">
-        💡 Fill in the <b>domain</b> first — metrics (DR, traffic) load automatically. Then pick the <b>project</b>, paste the <b>link in</b> (the page your backlink sits on) and <b>link to</b> (your client's page), and the <b>anchor</b> you used.
+        Fill in the <b>domain</b> first — metrics (DR, traffic) load automatically. Then pick the <b>project</b>, paste the <b>link in</b> (the page your backlink sits on) and <b>link to</b> (your client's page), and the <b>anchor</b> you used.
       </div>
 
       <div class="section-label">Domain</div>
@@ -1199,7 +1326,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       </div>
       <div style="display:flex;gap:8px;margin-top:12px;">
         <button class="btn" onclick="addLink()" style="flex:1;">Add link →</button>
-        <button id="find-anchors-btn" class="btn-ghost" onclick="openProspector()" style="white-space:nowrap;padding:11px 16px;" title="AI finds anchor opportunities">🔍 Find anchors</button>
+        <button id="find-anchors-btn" class="btn-ghost" onclick="openProspector()" style="white-space:nowrap;padding:11px 16px;" title="AI finds anchor opportunities">Find anchors</button>
       </div>
     </div>
   </div>
@@ -1229,9 +1356,9 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div id="batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-sm" onclick="batchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
-    <button class="btn-sm" onclick="batchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
+    <button class="btn-sm" onclick="batchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:var(--yellow);border:1px solid var(--yellow);">→ Pending</button>
     <button class="btn-ghost" onclick="batchCheck(this)">Check selected</button>
-    <button class="btn-ghost" onclick="batchDelete()" style="color:#ff6b6b;border-color:rgba(255,107,107,0.4);">Delete selected</button>
+    <button class="btn-ghost" onclick="batchDelete()" style="color:var(--red);border-color:rgba(255,107,107,0.4);">Delete selected</button>
     <button class="btn-ghost" onclick="clearSelection()" style="margin-left:auto;">Clear</button>
   </div>
   <div class="card">
@@ -1312,7 +1439,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
               <input type="file" accept=".csv" id="req-csv-input" style="display:none;" onchange="importReqFromCsvDirect(this)"/>
               <span class="btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="document.getElementById('req-csv-input').click()">📄 CSV</span>
             </label>
-            <span class="btn-ghost" style="font-size:11px;padding:4px 10px;cursor:pointer;" onclick="togglePasteArea()">📋 Paste</span>
+            <span class="btn-ghost" style="font-size:11px;padding:4px 10px;cursor:pointer;" onclick="togglePasteArea()">Paste</span>
           </div>
         </div>
         <div id="req-img-status" style="display:none;font-size:12px;color:var(--teal);margin-bottom:10px;padding:8px 12px;background:var(--bg4);border-radius:6px;"></div>
@@ -1398,7 +1525,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="btn-ghost" onclick="checkDetailProjectLinks(this)" style="white-space:nowrap;">▶ Check links</button>
       <button class="btn-sm" onclick="openAddLinkModal();setTimeout(()=>{const s=document.getElementById('f-proj');if(s)s.value=currentDetailProject;},60)" style="white-space:nowrap;">+ Add link</button>
-      <button class="btn-danger adm" onclick="clearProjectLinks()" style="white-space:nowrap;padding:6px 12px;font-size:12px;">🗑 Clear all links</button>
+      <button class="btn-danger adm" onclick="clearProjectLinks()" style="white-space:nowrap;padding:6px 12px;font-size:12px;">Clear all links</button>
     </div>
   </div>
   <div id="pd-profile" style="margin-bottom:1rem;"></div>
@@ -1412,8 +1539,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <!-- Pending panel -->
   <div id="pd-pending-panel" style="display:none;margin-bottom:1rem;">
     <div class="card" style="border:1px solid rgba(240,165,0,0.3);">
-      <div class="card-head" style="color:#f0a500;display:flex;justify-content:space-between;align-items:center;">
-        <span>⏳ Pending — <span id="pd-pending-count">0</span> links</span>
+      <div class="card-head" style="color:var(--yellow);display:flex;justify-content:space-between;align-items:center;">
+        <span>Pending — <span id="pd-pending-count">0</span> links</span>
         <button class="btn-ghost" onclick="togglePendingPanel()" style="font-size:11px;padding:3px 8px;">✕ Close</button>
       </div>
       <div class="tbl-wrap"><table>
@@ -1432,8 +1559,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div id="pd-batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="pd-batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-sm" onclick="pdBatchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
-    <button class="btn-sm" onclick="pdBatchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
-    <button class="btn-ghost" onclick="pdBatchDelete()" style="color:#ff6b6b;border-color:rgba(255,107,107,0.4);">Delete</button>
+    <button class="btn-sm" onclick="pdBatchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:var(--yellow);border:1px solid var(--yellow);">→ Pending</button>
+    <button class="btn-ghost" onclick="pdBatchDelete()" style="color:var(--red);border-color:rgba(255,107,107,0.4);">Delete</button>
     <button class="btn-ghost" onclick="pdBatchCheck(this)">Check selected</button>
     <button class="btn-ghost" onclick="clearPdSelection()" style="margin-left:auto;">Clear</button>
   </div>
@@ -1518,7 +1645,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 
   <div id="inv-batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="inv-batch-count" style="font-size:13px;color:var(--text2);"></span>
-    <button class="btn-sm" onclick="invBatchMarkPaid(true)" style="width:auto;padding:6px 14px;">✅ Mark paid</button>
+    <button class="btn-sm" onclick="invBatchMarkPaid(true)" style="width:auto;padding:6px 14px;">Mark paid</button>
     <button class="btn-ghost" onclick="invBatchMarkPaid(false)">Mark unpaid</button>
     <button class="btn-ghost" onclick="clearInvSelection()" style="margin-left:auto;">Clear</button>
   </div>
@@ -1588,7 +1715,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
 <div id="p-checker" class="page">
   <div class="page-top">
     <div class="page-title">Data Checker</div>
-    <button class="btn-sm" onclick="runDataCheck()" style="width:auto;">🔍 Scan now</button>
+    <button class="btn-sm" onclick="runDataCheck()" style="width:auto;">Scan now</button>
   </div>
   <div id="checker-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem;"></div>
   <div class="filters" style="gap:8px;margin-bottom:10px;">
@@ -1605,7 +1732,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   </div>
   <div id="chk-batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="chk-batch-count" style="font-size:13px;color:var(--text2);"></span>
-    <button class="btn-danger" onclick="chkBatchDelete()">🗑 Delete selected</button>
+    <button class="btn-danger" onclick="chkBatchDelete()">Delete selected</button>
     <button class="btn-ghost" onclick="clearChkSelection()" style="margin-left:auto;">Clear</button>
   </div>
   <div class="card">
@@ -1626,7 +1753,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;">
       <path d="M5 20V10M12 20V4M19 20v-7"/></svg>Load Distribution</div>
     <div style="display:flex;gap:8px;">
-      <button class="btn-sm" onclick="fillByCapacity()" style="white-space:nowrap;width:auto;" title="Fill each builder to exactly their monthly capacity">⚡ Fill by capacity</button>
+      <button class="btn-sm" onclick="fillByCapacity()" style="white-space:nowrap;width:auto;" title="Fill each builder to exactly their monthly capacity">Fill by capacity</button>
       <button class="btn-ghost" onclick="exportLoadCSV()" style="white-space:nowrap;">⬇ Export CSV</button>
       <button class="btn-ghost" onclick="initLoadPage()" style="white-space:nowrap;" title="Reload saved data from Firebase">↻ Refresh</button>
       <button class="btn-ghost" onclick="resetLoad()" style="color:var(--red);border-color:rgba(255,107,107,0.4);">↺ Reset</button>
@@ -1773,7 +1900,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <circle cx="12" cy="5" r="2"/><path d="M12 7v14M5 12H2a10 10 0 0 0 20 0h-3M7 15l-2 3M17 15l2 3"/></svg>Anchors</div>
     <div style="display:flex;gap:8px;align-items:center;" id="anchor-admin-controls">
       <button class="btn-sm" onclick="openAddAnchorModal()" style="width:auto;">+ Add anchors</button>
-      <button class="btn-sm" onclick="resetAllAnchors()" style="width:auto;background:transparent;border:1px solid rgba(255,107,107,0.4);color:#ff6b6b;margin-left:8px;">🗑 Reset all</button>
+      <button class="btn-sm" onclick="resetAllAnchors()" style="width:auto;background:transparent;border:1px solid rgba(255,107,107,0.4);color:var(--red);margin-left:8px;">Reset all</button>
     </div>
   </div>
 
@@ -2035,7 +2162,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <!-- Stats row — 3 cards -->
   <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem;">
     <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="View live links"><div class="stat-l">Live this month</div><div class="stat-v" style="color:var(--teal)" id="b-live">—</div><div class="spark" id="b-live-spark"></div></div>
-    <div class="stat" onclick="goToMyLinks('pending')" style="cursor:pointer;" title="View pending links"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500" id="b-pend">—</div><div id="b-pend-hint" style="display:none;font-size:11px;color:var(--text3);margin-top:2px;"></div></div>
+    <div class="stat" onclick="goToMyLinks('pending')" style="cursor:pointer;" title="View pending links"><div class="stat-l">Pending</div><div class="stat-v" style="color:var(--yellow)" id="b-pend">—</div><div id="b-pend-hint" style="display:none;font-size:11px;color:var(--text3);margin-top:2px;"></div></div>
     <div class="stat" onclick="goToMyLinks('live')" style="cursor:pointer;" title="Live links vs your assigned monthly quota"><div class="stat-l">Live / Quota</div><div class="stat-v" id="b-live-pct" style="color:var(--teal)">—</div></div>
   </div>
 
@@ -2097,10 +2224,10 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   </div>
   <div class="link-status-tabs">
     <div class="status-tab active-all" id="tab-all" onclick="setBTab('all',this)">All</div>
-    <div class="status-tab" id="tab-live" onclick="setBTab('live',this)">✅ Live</div>
-    <div class="status-tab" id="tab-pend" onclick="setBTab('pend',this)">⏳ Pending</div>
-    <div class="status-tab" id="tab-needschange" onclick="setBTab('needschange',this)">✏️ Needs change</div>
-    <div class="status-tab" id="tab-lost" onclick="setBTab('lost',this)">❌ Lost</div>
+    <div class="status-tab" id="tab-live" onclick="setBTab('live',this)">Live</div>
+    <div class="status-tab" id="tab-pend" onclick="setBTab('pend',this)">Pending</div>
+    <div class="status-tab" id="tab-needschange" onclick="setBTab('needschange',this)">Needs change</div>
+    <div class="status-tab" id="tab-lost" onclick="setBTab('lost',this)">Lost</div>
   </div>
   <div class="filters" style="gap:6px;margin-bottom:8px;">
     <input id="bl-s" placeholder="Search domain, anchor..." oninput="renderBuilderLinks()" style="flex:2;padding:7px 10px;font-size:12px;margin-bottom:0;"/>
@@ -2114,8 +2241,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div id="bl-batch-bar" class="batch-bar" style="position:fixed;bottom:20px;left:240px;right:20px;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
     <span id="bl-batch-count" style="font-size:13px;color:var(--text2);"></span>
     <button class="btn-sm" onclick="blBatchSetStatus('live')" style="width:auto;padding:6px 14px;">→ Live</button>
-    <button class="btn-sm" onclick="blBatchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:#f0a500;border:1px solid #f0a500;">→ Pending</button>
-    <button class="btn-ghost" id="bl-check-btn" onclick="checkSelectedBuilderLinks(this)" title="Run link checker on selected links">🔍 Check selected</button>
+    <button class="btn-sm" onclick="blBatchSetStatus('pending')" style="width:auto;padding:6px 14px;background:transparent;color:var(--yellow);border:1px solid var(--yellow);">→ Pending</button>
+    <button class="btn-ghost" id="bl-check-btn" onclick="checkSelectedBuilderLinks(this)" title="Run link checker on selected links">Check selected</button>
     <button class="btn-ghost" id="bl-metrics-btn" onclick="checkSelectedBuilderLinksMetrics(this)" title="Fetch DR, Traffic and Spam Score for selected links">📊 Check DR/Traffic</button>
     <button class="btn-danger" onclick="blBatchDelete()">Delete selected</button>
     <button class="btn-ghost" onclick="clearBlSelection()" style="margin-left:auto;">Clear</button>
@@ -2220,7 +2347,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:660px;max-width:96vw;max-height:88vh;overflow-y:auto;padding:1.5rem;position:relative;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
       <div>
-        <div style="font-size:16px;font-weight:800;color:var(--text);">🔍 AI Anchor Prospector</div>
+        <div style="font-size:16px;font-weight:800;color:var(--text);">AI Anchor Prospector</div>
         <div id="prospect-domain-label" style="font-size:12px;color:var(--text3);margin-top:2px;"></div>
       </div>
       <button onclick="document.getElementById('prospect-overlay').style.display='none'" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text2);cursor:pointer;">✕</button>
@@ -2230,7 +2357,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <div style="font-size:13px;">Scanning website and finding anchor opportunities...</div>
       <div style="font-size:11px;color:var(--text3);margin-top:6px;">This may take 10-20 seconds</div>
     </div>
-    <div id="prospect-error" style="display:none;padding:12px;background:rgba(255,107,107,0.1);border-radius:8px;color:#ff6b6b;font-size:13px;margin-bottom:12px;"></div>
+    <div id="prospect-error" style="display:none;padding:12px;background:rgba(255,107,107,0.1);border-radius:8px;color:var(--red);font-size:13px;margin-bottom:12px;"></div>
     <div id="prospect-results" style="display:none;">
       <div id="prospect-suggestions" style="display:flex;flex-direction:column;gap:12px;"></div>
     </div>
@@ -2282,14 +2409,14 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <div style="display:flex;flex-direction:column;gap:4px;">
         <button id="ot-tab-single" onclick="setOtTab('single')" class="ot-vtab active">Single domain</button>
         <button id="ot-tab-bulk" onclick="setOtTab('bulk')" class="ot-vtab">Bulk domains</button>
-        <button id="ot-tab-linkedin" onclick="setOtTab('linkedin')" class="ot-vtab">🔗 From LinkedIn URLs</button>
+        <button id="ot-tab-linkedin" onclick="setOtTab('linkedin')" class="ot-vtab">From LinkedIn URLs</button>
       </div>
 
       <!-- Single domain controls -->
       <div id="ot-single-panel">
         <div class="section-label">Website domain</div>
         <input id="ot-domain" placeholder="e.g. ahrefs.com" style="margin:0 0 10px;width:100%;box-sizing:border-box;" onkeydown="if(event.key==='Enter')runOutreach()"/>
-        <button class="btn-sm" onclick="runOutreach('prospects')" style="width:100%;margin-bottom:8px;">🔍 Find contacts</button>
+        <button class="btn-sm" onclick="runOutreach('prospects')" style="width:100%;margin-bottom:8px;">Find contacts</button>
         <button class="btn-ghost" onclick="runOutreach('scrape')" style="width:100%;">🌐 Scrape emails</button>
         <div id="ot-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
       </div>
@@ -2303,7 +2430,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
         <textarea id="ot-bulk-input" placeholder="ahrefs.com&#10;semrush.com&#10;moz.com&#10;whop.com" oninput="updateBulkDomainCount()"
           style="width:100%;height:110px;padding:10px 12px;font-size:12px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:10px;outline:none;box-sizing:border-box;"
           onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
-        <button class="btn-sm" onclick="runBulkOutreach('prospects')" style="width:100%;margin-bottom:8px;" title="Snov.io + LinkedIn">🔍 Snov.io (all)</button>
+        <button class="btn-sm" onclick="runBulkOutreach('prospects')" style="width:100%;margin-bottom:8px;" title="Snov.io + LinkedIn">Snov.io (all)</button>
         <button class="btn-ghost" onclick="runBulkFreeSearch()" style="width:100%;" title="Free scraper — no credits">🆓 Free (all)</button>
         <div id="ot-bulk-progress" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.4;">Snov.io searches for real contacts via LinkedIn · Free scrapes emails straight off each site, no credits used</div>
@@ -2318,7 +2445,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
         <textarea id="ot-li-input" placeholder="https://www.linkedin.com/in/jane-doe&#10;https://www.linkedin.com/in/john-smith"
           style="width:100%;height:100px;padding:10px 12px;font-size:12px;font-family:monospace;border:1px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);resize:vertical;margin-bottom:10px;outline:none;box-sizing:border-box;"
           onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border2)'"></textarea>
-        <button class="btn-sm" onclick="runLinkedInEnrich()" style="width:100%;">🔍 Resolve contacts</button>
+        <button class="btn-sm" onclick="runLinkedInEnrich()" style="width:100%;">Resolve contacts</button>
         <div id="ot-li-error" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,95,95,0.08);border:1px solid rgba(255,95,95,0.2);border-radius:8px;font-size:12px;color:var(--red);"></div>
       </div>
 
@@ -2352,7 +2479,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
       <div id="ot-results" style="display:none;">
         <div id="ot-contacts" style="display:flex;flex-direction:column;gap:10px;"></div>
         <div id="ot-emails-section" style="display:none;margin-top:1.5rem;">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">📧 Scraped emails</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">Scraped emails</div>
           <div class="card">
             <div class="tbl-wrap"><table>
               <thead><tr><th>Email</th><th>Status</th><th></th></tr></thead>
@@ -2410,8 +2537,8 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
     <input id="dom-search" placeholder="Search domain, email..." oninput="renderDomainsPage()" style="flex:2;margin-bottom:0;font-size:12px;padding:7px 10px;"/>
     <select id="dom-filter-status" onchange="renderDomainsPage()" style="margin-bottom:0;font-size:12px;padding:7px 10px;">
       <option value="">All statuses</option>
-      <option value="valid">✅ Valid email</option>
-      <option value="risky">⚠️ Risky</option>
+      <option value="valid">Valid email</option>
+      <option value="risky">Risky</option>
       <option value="unknown">❓ Unknown</option>
       <option value="no-email">— No email</option>
     </select>
@@ -2486,9 +2613,9 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
         <div class="section-label">Email status</div>
         <select id="dom-f-smtp" style="margin-bottom:12px;">
           <option value="unknown">❓ Unknown</option>
-          <option value="valid">✅ Valid</option>
-          <option value="risky">⚠️ Risky</option>
-          <option value="invalid">❌ Invalid</option>
+          <option value="valid">Valid</option>
+          <option value="risky">Risky</option>
+          <option value="invalid">Invalid</option>
         </select>
       </div>
       <div>
@@ -2659,7 +2786,7 @@ body.light #p-dashboard .mac-stat-label{font-size:13px;font-weight:600;text-tran
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;height:38px;" title="Off (default): fast and cheap model. On: the stronger Sonnet model — slower and ~10x the cost per search, use it when placement quality matters most">
           <input type="checkbox" id="prosp-deep" style="width:auto;margin:0;"/> Deep (Sonnet)
         </label>
-        <button class="btn-sm" onclick="runProspectorPage(this)" style="white-space:nowrap;padding:10px 20px;height:38px;">🔍 Find anchors →</button>
+        <button class="btn-sm" onclick="runProspectorPage(this)" style="white-space:nowrap;padding:10px 20px;height:38px;">Find anchors →</button>
       </div>
       <div id="prosp-anchors-wrap" style="margin-top:12px;display:none;">
         <div class="section-label">This month's anchors</div>
@@ -2782,7 +2909,7 @@ const db = firebase.firestore();
         const txt = await resp.clone().text();
         if(/credit balance is too low/i.test(txt) && Date.now()-(window.__creditWarnAt||0) > 300000){
           window.__creditWarnAt = Date.now();
-          if(typeof showToast==='function') showToast('⚠️ Anthropic credits are exhausted — the AI tools are down until billing is topped up','warn');
+          if(typeof showToast==='function') showToast('Anthropic credits are exhausted — the AI tools are down until billing is topped up','warn');
         }
       }
     }catch(e){}
@@ -2863,9 +2990,9 @@ async function checkInvoiceStatus(id, btn){
     const data=await resp.json();
     if(data.paid===true){
       await db.collection('links').doc(id).update({paid:true});
-      showToast('✅ Marked as paid');
+      showToast('Marked as paid');
     } else if(data.paid===false){
-      showToast('⏳ Invoice not paid yet');
+      showToast('Invoice not paid yet');
     } else {
       showToast(data.result||'Could not determine status — verify manually');
     }
@@ -2898,8 +3025,8 @@ function globalSearch(){
   res.style.display='block';
   res.innerHTML=matches.map(l=>`
     <div onclick="openSearchResult('${escAttr(l.id)}','${escAttr(l.project)}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.1s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
-      <div style="font-size:12px;font-weight:600;color:${allLinks.filter(x=>nd(x.domain)===nd(l.domain)&&x.project===l.project).length>1?'#ff6b6b':'var(--teal)'};">${escapeHtml(l.domain)}</div>
-      <div style="font-size:11px;color:var(--text2);">${escapeHtml(l.project)} · ${escapeHtml(l.builder||'—')} · <span style="color:${l.status==='live'?'var(--teal)':'#f0a500'}">${escapeHtml(l.status)}</span></div>
+      <div style="font-size:12px;font-weight:600;color:${allLinks.filter(x=>nd(x.domain)===nd(l.domain)&&x.project===l.project).length>1?'var(--red)':'var(--teal)'};">${escapeHtml(l.domain)}</div>
+      <div style="font-size:11px;color:var(--text2);">${escapeHtml(l.project)} · ${escapeHtml(l.builder||'—')} · <span style="color:${l.status==='live'?'var(--teal)':'var(--yellow)'}">${escapeHtml(l.status)}</span></div>
       ${l.anchor?`<div style="font-size:11px;color:var(--text3);">${escapeHtml(l.anchor)}</div>`:''}
     </div>
   `).join('');
@@ -3000,10 +3127,10 @@ setTimeout(()=>{
   const splash = document.getElementById('app-splash');
   if(splash && splash.style.display !== 'none'){
     splash.classList.add('hide');
-    if(window._stopSplash3D) setTimeout(window._stopSplash3D, 600);
-    setTimeout(()=>{ splash.style.display='none'; }, 600);
+    if(window._stopSplash3D) setTimeout(window._stopSplash3D, 300);
+    setTimeout(()=>{ splash.style.display='none'; }, 300);
   }
-}, 2000);
+}, 1100);
 
 // ── SPLASH → APP TRANSITION ──
 function showAppWithAnimation(){
@@ -3018,8 +3145,8 @@ function showAppWithAnimation(){
 
   // Hide splash
   splash.classList.add('hide');
-  if(window._stopSplash3D) setTimeout(window._stopSplash3D, 600);
-  setTimeout(()=>{ splash.style.display='none'; }, 600);
+  if(window._stopSplash3D) setTimeout(window._stopSplash3D, 300);
+  setTimeout(()=>{ splash.style.display='none'; }, 300);
 
   // Animate in sidebar + content
   setTimeout(()=>{
@@ -3306,7 +3433,7 @@ function renderProjectsPage(){
     const nicheTip=scanned?[sd.niche,(sd.coreTopics||[]).slice(0,5).join(' · '),'Scanned '+sd.lastScanned].filter(Boolean).join('\n'):'';
     return`<div class="pj-card${isHidden?' pj-hidden':''}">
       <div class="pj-top">
-        <div class="pj-ico" style="background:${col}22;color:${col};">${escapeHtml((p.name||'?').trim().charAt(0).toUpperCase())}</div>
+        <div class="pj-ico" style="background:color-mix(in srgb,${col} 14%,transparent);color:${col};">${escapeHtml((p.name||'?').trim().charAt(0).toUpperCase())}</div>
         <div class="pj-meta" onclick="openProjectDetail('${escAttr(p.name)}')">
           <div class="pj-name" title="${escAttr(p.name)}" style="${isHidden?'text-decoration:line-through;color:var(--text3);':''}">${escapeHtml(p.name)}</div>
           <div class="pj-sub">${count} link${count===1?'':'s'}</div>
@@ -3406,12 +3533,12 @@ async function scanProject(projId, projName, btn){
         siteData: data.siteData,
         website: domain
       });
-      showToast(`✅ ${projName} scanned — ${data.siteData.niche}`);
+      showToast(`${projName} scanned — ${data.siteData.niche}`);
     } else {
-      showToast('❌ Scan failed: ' + (data.error||'Unknown error'), 'warn');
+      showToast('Scan failed: ' + (data.error||'Unknown error'), 'warn');
     }
   } catch(e){
-    showToast('❌ Error: ' + e.message, 'warn');
+    showToast('Error: ' + e.message, 'warn');
   }
 
   btn.classList.remove('pj-busy');
@@ -3529,9 +3656,9 @@ function renderCheckerResults(){
   const tb=document.getElementById('chk-tbody');
   if(!fl.length){tb.innerHTML='<tr><td colspan="8" class="loading">No issues found ✅</td></tr>';return;}
   const iLabel={
-    shifted:'<span style="color:var(--yellow);font-weight:700;">⚠ Shifted</span>',
-    'no-domain':'<span style="color:var(--red);font-weight:700;">❌ No domain</span>',
-    'bad-domain':'<span style="color:var(--red);font-weight:700;">🚫 Malformed domain</span>',
+    shifted:'<span style="color:var(--yellow);font-weight:700;">Shifted</span>',
+    'no-domain':'<span style="color:var(--red);font-weight:700;">No domain</span>',
+    'bad-domain':'<span style="color:var(--red);font-weight:700;">Malformed domain</span>',
     'no-anchor':'<span style="color:var(--text3);">— No anchor</span>',
     'bad-date':'<span style="color:var(--text3);">📅 Bad date</span>',
     'stale-pending':'<span style="color:var(--yellow);font-weight:700;">⏱ Stale pending</span>',
@@ -3589,7 +3716,7 @@ async function clearProjectLinks(){
     links.slice(i,i+BATCH).forEach(l=>batch.delete(db.collection('links').doc(l.id)));
     await batch.commit();
   }
-  showToast(`✅ Deleted ${links.length} links from "${proj}"`);
+  showToast(`Deleted ${links.length} links from "${proj}"`);
 }
 
 function openProjectDetail(projName){
@@ -3666,12 +3793,12 @@ function renderDetailLinks(){
   const dups=projLinks.filter(l=>domainCount[nd(l.domain)]>1).length;
   document.getElementById('pd-stats').innerHTML=`
     <div class="stat" style="border:1px solid rgba(50,215,75,0.2);">
-      <div class="stat-l">✅ Live</div>
+      <div class="stat-l">Live</div>
       <div class="stat-v" style="color:var(--teal);font-size:36px;">${live}</div>
     </div>
     <div class="stat" style="border:1px solid rgba(240,165,0,0.2);cursor:pointer;user-select:none;" onclick="(function(){var p=document.getElementById('pd-pending-panel');if(p){p.style.display=p.style.display==='none'?'block':'none';if(p.style.display==='block')p.scrollIntoView({behavior:'smooth',block:'start'});}})()">
-      <div class="stat-l" style="pointer-events:none;">⏳ Pending <span style="font-size:11px;opacity:0.6;">▼ view</span></div>
-      <div class="stat-v" style="color:#f0a500;font-size:36px;pointer-events:none;">${pend}</div>
+      <div class="stat-l" style="pointer-events:none;">Pending <span style="font-size:11px;opacity:0.6;">▼ view</span></div>
+      <div class="stat-v" style="color:var(--yellow);font-size:36px;pointer-events:none;">${pend}</div>
     </div>
     <div class="stat">
       <div class="stat-l">Total</div>
@@ -3679,7 +3806,7 @@ function renderDetailLinks(){
     </div>
     <div class="stat">
       <div class="stat-l">Duplicates</div>
-      <div class="stat-v" style="color:#ff6b6b;">${dups}</div>
+      <div class="stat-v" style="color:var(--red);">${dups}</div>
     </div>`;
 
   const tb=document.getElementById('pd-tbody');
@@ -3846,7 +3973,7 @@ function showPendingApprovals(){
       <td style="font-size:12px;">${builderAvatar(l.builder)}</td>
       <td style="font-size:11px;color:var(--yellow);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(l.approvalReason||'')}</td>
       <td style="white-space:nowrap;">
-        <button class="btn-sm" onclick="approveLink('${escAttr(l.id)}')" style="width:auto;font-size:12px;padding:6px 14px;">✅ Approve</button>
+        <button class="btn-sm" onclick="approveLink('${escAttr(l.id)}')" style="width:auto;font-size:12px;padding:6px 14px;">Approve</button>
         <button class="btn-ghost" onclick="rejectLink('${escAttr(l.id)}')" style="font-size:12px;padding:6px 14px;color:var(--red);">✕ Reject</button>
       </td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3);">No pending approvals</td></tr>';
@@ -3869,7 +3996,7 @@ async function approveLink(id){
   const l=allLinks.find(x=>x.id===id);
   await db.collection('links').doc(id).update({needsApproval:false, approvalStatus:'approved'});
   if(l)notifyBuilderApprovalResult(l.builder,{domain:l.domain,project:l.project,status:'approved'});
-  showToast('✅ Link approved');
+  showToast('Link approved');
   const modal = document.getElementById('approval-modal');
   if(modal) showPendingApprovals(); // refresh modal
   renderLinks();
@@ -4270,7 +4397,7 @@ async function detectCategory(domain){
     const label=isGpt?`🤖 ${escapeHtml(cat)} (GPT${data.confidence?' '+escapeHtml(data.confidence)+'%':''})`:`⚡ ${escapeHtml(cat)} (heuristic)`;
     statusEl.innerHTML=`<span class="det-status ${isGpt?'det-gpt':'det-heuristic'}">${label}</span>`;
   }catch(e){
-    statusEl.innerHTML='<span class="det-status det-heuristic">⚡ Detection failed</span>';
+    statusEl.innerHTML='<span class="det-status det-heuristic">Detection failed</span>';
   }
 }
 
@@ -4318,12 +4445,12 @@ function onDomainInput(){
     const selectedProj=document.getElementById('f-proj')?.value||'';
     const sameProject=selectedProj&&dupProjects.includes(selectedProj);
     dupEl.innerHTML=(sameProject?
-      `<div style="padding:8px 12px;background:rgba(255,107,107,0.15);border:1px solid rgba(255,107,107,0.4);border-radius:8px;margin-bottom:6px;font-size:12px;font-weight:600;color:#ff6b6b;">⚠️ This domain already exists in ${escapeHtml(selectedProj)}!</div>`
+      `<div style="padding:8px 12px;background:rgba(255,107,107,0.15);border:1px solid rgba(255,107,107,0.4);border-radius:8px;margin-bottom:6px;font-size:12px;font-weight:600;color:var(--red);">This domain already exists in ${escapeHtml(selectedProj)}!</div>`
       :'')+
       '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Already used in</div>'
       +dupProjects.map(p=>{
         const links=dupLinks.filter(l=>l.project===p);
-        return links.map(link=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;margin-right:6px;margin-bottom:4px;">❌ ${escapeHtml(p)} <span style="font-weight:400;font-size:11px;color:rgba(255,107,107,0.7);">${escapeHtml(link.status)} · ${escapeHtml(link.builder||'—')}</span></span>`).join('');
+        return links.map(link=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:var(--red);margin-right:6px;margin-bottom:4px;">❌ ${escapeHtml(p)} <span style="font-weight:400;font-size:11px;color:rgba(255,107,107,0.7);">${escapeHtml(link.status)} · ${escapeHtml(link.builder||'—')}</span></span>`).join('');
       }).join('');
   } else {
     dupEl.style.display='none';
@@ -4680,7 +4807,7 @@ async function addLink(){
     if(needsApproval)notifyAdminApproval({domain,project:proj,reason:approvalReason});
     if(addLinkModalOpen){
       closeAddLinkModal();
-      showToast('✅ Link added!');
+      showToast('Link added!');
     } else {
       const ok=document.getElementById('al-ok');
       ok.style.display='block';ok.textContent='✅ Link added!';
@@ -5245,12 +5372,12 @@ function renderDashboard(){
   const attnChip = document.getElementById('ds-attn-chip');
   if(attnEl) attnEl.textContent = attnTotal;
   if(attnChip){
-    attnChip.style.color = attnTotal>0 ? '#ff6b6b' : 'var(--text3)';
+    attnChip.style.color = attnTotal>0 ? 'var(--red)' : 'var(--text3)';
     attnChip.title = attnTotal>0
       ? [stalePend&&`${stalePend} stale pending (14d+)`, pendApprovalsCount&&`${pendApprovalsCount} awaiting approval`, unpaidCount&&`${unpaidCount} unpaid invoice${unpaidCount!==1?'s':''}`].filter(Boolean).join(' · ')
       : 'Nothing needs action right now';
     const v=attnChip.querySelector('.stat-v');
-    if(v) v.style.color = attnTotal>0 ? '#ff6b6b' : 'var(--text3)';
+    if(v) v.style.color = attnTotal>0 ? 'var(--red)' : 'var(--text3)';
   }
 
   // Duplicates — conditional banner instead of a permanent stat card
@@ -5258,7 +5385,7 @@ function renderDashboard(){
   if(dupBanner){
     if(dupCount>0){
       dupBanner.style.display='block';
-      dupBanner.innerHTML = `⚠️ <b style="color:#ff6b6b;">${dupCount} duplicate domain${dupCount!==1?'s':''}</b> found — review in Data Checker →`;
+      dupBanner.innerHTML = `⚠️ <b style="color:var(--red);">${dupCount} duplicate domain${dupCount!==1?'s':''}</b> found — review in Data Checker →`;
     } else {
       dupBanner.style.display='none';
     }
@@ -5312,9 +5439,9 @@ function renderDashboard(){
       recentEl.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px;">No links yet</div>';
     } else {
       const statusPill=(status)=>{
-        const map={live:['#32d74b','Live'],pending:['#f2b73e','Pending'],'needs-change':['#8b8bf0','Needs change'],lost:['#f4795b','Lost'],rejected:['#8a8f98','Rejected']};
-        const [color,label]=map[status]||['#8a8f98',status||'—'];
-        return `<span class="mac-pill" style="background:${color}22;color:${color};"><span class="dot"></span>${label}</span>`;
+        const map={live:['var(--teal)','Live'],pending:['var(--yellow)','Pending'],'needs-change':['var(--accent2)','Needs change'],lost:['var(--red)','Lost'],rejected:['var(--text2)','Rejected']};
+        const [color,label]=map[status]||['var(--text2)',status||'—'];
+        return `<span class="mac-pill" style="background:color-mix(in srgb,${color} 14%,transparent);color:${color};"><span class="dot"></span>${label}</span>`;
       };
       recentEl.innerHTML = `<div style="overflow-x:auto;"><table class="mac-table"><thead><tr>
         <th style="width:34px;padding-right:0;"><input type="checkbox" id="dash-select-all" onchange="dashToggleAll(this.checked)" title="Select all" style="width:auto;margin:0;cursor:pointer;"/></th>
@@ -5671,7 +5798,7 @@ function renderReqs(){
     return`<tr>
       <td>${escapeHtml(r.project)}</td><td>${escapeHtml(r.month)}</td><td>${escapeHtml(r.anchor)}</td>
       <td>${linktoHtml}</td>
-      <td style="min-width:130px;"><div class="req-bar-bg"><div class="req-bar-fill" style="width:${pct}%;background:${over?'#ff6b6b':'var(--teal)'}"></div></div><span style="font-size:11px;color:${over?'#ff6b6b':'var(--text2)'};">${used}/${r.max}</span></td>
+      <td style="min-width:130px;"><div class="req-bar-bg"><div class="req-bar-fill" style="width:${pct}%;background:${over?'var(--red)':'var(--teal)'}"></div></div><span style="font-size:11px;color:${over?'var(--red)':'var(--text2)'};">${used}/${r.max}</span></td>
       <td>${r.max}</td>
       <td><button onclick="if(confirm('Delete anchor &quot;${escAttr(r.anchor)}&quot;?'))db.collection('requirements').doc('${escAttr(r.id)}').delete()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">✕</button></td>
     </tr>`;
@@ -5754,7 +5881,7 @@ function openBuilderLinks(name){
       <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" style="color:var(--teal);text-decoration:none;">${escapeHtml(l.domain||'')}</a></td>
       <td>${projTag(l.project)}</td>
       <td style="font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.anchor||'')}">${escapeHtml(l.anchor||'')}</td>
-      <td>${(l.status||'').toLowerCase()==='live'?'<span style="color:var(--teal);">✅ live</span>':(l.status||'').toLowerCase()==='pending'?'<span style="color:#f0a500;">⏳ pending</span>':escapeHtml(l.status||'')}</td>
+      <td>${(l.status||'').toLowerCase()==='live'?'<span style="color:var(--teal);">live</span>':(l.status||'').toLowerCase()==='pending'?'<span style="color:var(--yellow);">pending</span>':escapeHtml(l.status||'')}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1rem;">No links</td></tr>';
 
   modal.innerHTML = `
@@ -5762,7 +5889,7 @@ function openBuilderLinks(name){
       <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);">
         <div>
           <div style="font-size:16px;font-weight:800;color:var(--text);">${escapeHtml(name)}'s links</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:2px;">${bl.length} total · <span style="color:var(--teal);">${live} live</span> · <span style="color:#f0a500;">${pend} pending</span></div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;">${bl.length} total · <span style="color:var(--teal);">${live} live</span> · <span style="color:var(--yellow);">${pend} pending</span></div>
         </div>
         <button onclick="document.getElementById('builder-links-modal').remove()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1;">×</button>
       </div>
@@ -5779,7 +5906,7 @@ function renderTeam(){
   if(_ts) _ts.innerHTML=`
     <div class="stat"><div class="stat-l">Total links</div><div class="stat-v" style="color:var(--teal)">${allLinks.length}</div></div>
     <div class="stat"><div class="stat-l">Live</div><div class="stat-v" style="color:var(--teal)">${allLinks.filter(l=>l.status==='live').length}</div></div>
-    <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:#f0a500">${allLinks.filter(l=>l.status==='pending').length}</div></div>`;
+    <div class="stat"><div class="stat-l">Pending</div><div class="stat-v" style="color:var(--yellow)">${allLinks.filter(l=>l.status==='pending').length}</div></div>`;
 
   // Load registered users, then merge with ALL builders found in links
   db.collection('users').get().then(snap=>{
@@ -5866,7 +5993,7 @@ function renderTeam(){
       const targetCell = `<input type="number" min="0" value="${cap}" onchange="event.stopPropagation();setBuilderTarget('${safeName}',this.value)" onclick="event.stopPropagation()" style="width:64px;text-align:center;margin:0;padding:5px;font-size:13px;font-weight:700;"/>`;
       const loadBtn = isInactive
         ? `<button onclick="toggleBuilderLoad('${safeName}')" title="Restore to Load" style="background:none;border:1px solid rgba(50,215,75,0.4);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--teal);white-space:nowrap;">↩ Restore</button>`
-        : `<button onclick="toggleBuilderLoad('${safeName}')" title="Remove from Load distribution" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;white-space:nowrap;" onmouseover="this.style.borderColor='#f0a500';this.style.color='#f0a500'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">🚫 Load</button>`;
+        : `<button onclick="toggleBuilderLoad('${safeName}')" title="Remove from Load distribution" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text3);transition:all 0.15s;white-space:nowrap;" onmouseover="this.style.borderColor='var(--yellow)';this.style.color='var(--yellow)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">Load</button>`;
       return`<tr style="${isInactive?'opacity:0.5;':''}cursor:pointer;" onclick="openBuilderLinks('${safeName}')" title="Click to see ${escapeHtml(r.name)}'s links (${bl.length} total)">
         <td style="font-weight:700;color:var(--teal);">${escapeHtml(r.name)} <span style="color:var(--text3);font-weight:400;font-size:11px;">· ${bl.length} links</span></td>
         <td>${roleBadge}</td>
@@ -5911,13 +6038,13 @@ async function toggleBuilderLoad(name){
     // Restore to load
     try {
       await db.collection('capacities').doc(name).set({inactive:false}, {merge:true});
-      showToast('✅ '+name+' restored to Load');
+      showToast(''+name+' restored to Load');
     } catch(e){ alert('Error: '+e.message); }
   } else {
     if(!confirm(`Remove "${name}" from Load distribution?\n\nThey'll stay in the team list but won't appear in Load/Capacity assignments. You can restore anytime.`)) return;
     try {
       await db.collection('capacities').doc(name).set({inactive:true}, {merge:true});
-      showToast('🚫 '+name+' removed from Load');
+      showToast(''+name+' removed from Load');
     } catch(e){ alert('Error: '+e.message); }
   }
   renderTeam();
@@ -5960,9 +6087,9 @@ function linkCheckBadge(v, linkin, linkto, id){
   // cluttered with every column spelling itself out at full length. Full
   // detail is still one hover away via the title tooltip.
   let color='var(--text2)', label='Checked';
-  if(v.includes('✅')){color='#32d74b';label='OK';}
-  else if(v.includes('❌')){color='#ff6b6b';label='Failed';}
-  else if(v.includes('⚠️')){color='#f0a500';label='Issue';}
+  if(v.includes('✅')){color='var(--teal)';label='OK';}
+  else if(v.includes('❌')){color='var(--red)';label='Failed';}
+  else if(v.includes('⚠️')){color='var(--yellow)';label='Issue';}
   else if(v.includes('🔒')){color='var(--text2)';label='Blocked';}
   const full=escapeHtml(stripStatusEmoji(v));
   return`<span style="display:inline-flex;align-items:center;gap:6px;color:${color};font-size:11px;" title="${full}">${statusDot(color)}${label}</span>`;
@@ -5995,15 +6122,15 @@ function healthCell(l){
   const reason=stripStatusEmoji(l.linkcheck);
   let color='var(--text2)', label='Pending';
   if(l.status==='live'){
-    if(l.lostSuspect){color='#ff6b6b';label='Possibly lost';}
-    else if(String(l.linkcheck||'').includes('⚠️')){color='#f0a500';label='Link Check Issue';}
+    if(l.lostSuspect){color='var(--red)';label='Possibly lost';}
+    else if(String(l.linkcheck||'').includes('⚠️')){color='var(--yellow)';label='Link Check Issue';}
     else if(String(l.linkcheck||'').includes('🔒')){color='var(--text2)';label='Blocked';}
-    else{color='#32d74b';label='Live';}
+    else{color='var(--teal)';label='Live';}
   } else if(l.status==='lost'){
-    color='#ff6b6b';
+    color='var(--red)';
     label=(String(l.linkcheck||'').includes('❌')&&reason)?reason:'Lost';
   } else if(l.status==='needs-change'){
-    color='#f0a500';label='Needs change';
+    color='var(--yellow)';label='Needs change';
   } else if(l.status==='rejected'){
     color='var(--text3)';label='Rejected';
   }
@@ -6233,7 +6360,7 @@ async function checkSelectedBuilderLinks(btn){
   // Uncheck all after run
   document.querySelectorAll('.bl-row-check, #bl-check-all').forEach(cb=>cb.checked=false);
   updateBlCheckBtn();
-  showToast(`✅ Checked ${ids.length} link${ids.length>1?'s':''}`);
+  showToast(`Checked ${ids.length} link${ids.length>1?'s':''}`);
 }
 
 // Refetch DR, Traffic (api/ahrefs) and Spam Score (api/dapa) for the selected
@@ -6622,7 +6749,7 @@ function renderInvoices(){
   document.getElementById('inv-stats').innerHTML=`
     <div class="stat"><div class="stat-l">Total</div><div class="stat-v" style="color:var(--text)">$${total.toLocaleString()}</div></div>
     <div class="stat"><div class="stat-l">Paid</div><div class="stat-v" style="color:var(--teal)">$${paidSum.toLocaleString()}</div></div>
-    <div class="stat"><div class="stat-l">Unpaid</div><div class="stat-v" style="color:#f0a500">$${unpaidSum.toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-l">Unpaid</div><div class="stat-v" style="color:var(--yellow)">$${unpaidSum.toLocaleString()}</div></div>
     <div class="stat"><div class="stat-l">Invoices</div><div class="stat-v" style="color:var(--text2)">${fl.length}</div></div>`;
 
   // Owed-by-builder breakdown (unpaid only, unaffected by the paid filter itself)
@@ -6642,7 +6769,7 @@ function renderInvoices(){
       <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:10px;padding:8px 14px;min-width:140px;">
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--text);">${escapeHtml(name)}</div>
-          <div style="font-size:11px;color:#f0a500;font-weight:600;">$${sum.toLocaleString()} owed</div>
+          <div style="font-size:11px;color:var(--yellow);font-weight:600;">$${sum.toLocaleString()} owed</div>
         </div>
       </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:4px 0;">Nothing owed 🎉</div>';
   }
@@ -6667,7 +6794,7 @@ function renderInvoices(){
       <td>${builderAvatar(l.builder)}</td>
       <td style="font-weight:600;">${l.price?'$'+escapeHtml(String(l.price).replace(/^\$+/,'')):'—'}</td>
       <td>${l.invoice?`<a href="${escapeHtml(l.invoice)}" target="_blank" style="color:var(--teal);">↗ Invoice</a>`:'<span style="color:var(--text3);">—</span>'}</td>
-      <td><button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;background:${l.paid?'linear-gradient(135deg,var(--teal),var(--teal2))':'transparent'};border:${l.paid?'none':'1px solid var(--border2)'};color:${l.paid?'#061520':'var(--text2)'};" onclick="toggleInvoicePaid('${escAttr(lid)}',${!l.paid})">${l.paid?'✅ Paid':'⏳ Unpaid'}</button></td>
+      <td><button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;background:${l.paid?'var(--teal)':'transparent'};border:${l.paid?'none':'1px solid var(--border2)'};color:${l.paid?'#061520':'var(--text2)'};" onclick="toggleInvoicePaid('${escAttr(lid)}',${!l.paid})">${l.paid?'Paid':'Unpaid'}</button></td>
     </tr>`;
   }).join('') + (fl.length>INV_ROW_CAP ? `<tr><td colspan="8" style="text-align:center;color:var(--text3);font-size:12px;padding:14px;">Showing ${INV_ROW_CAP} of ${fl.length} — filter by builder, project, or month to see the rest</td></tr>` : '');
 }
@@ -6791,8 +6918,8 @@ function handleCsvFile(file){
     const live=csvRows.filter(r=>r.status==='live').length;
     const pend=csvRows.filter(r=>r.status==='pending').length;
     document.getElementById('imp-log').innerHTML=
-      `<div style="margin-bottom:6px;"><span style="color:var(--teal);">✅ Live: ${live}</span> &nbsp; <span style="color:#f0a500;">⏳ Pending: ${pend}</span></div>`
-      +csvRows.slice(0,6).map(r=>`<div><span style="color:${r.status==='live'?'var(--teal)':'#f0a500'}">${r.status==='live'?'✅':'⏳'}</span> ${escapeHtml(r.domain)} — ${escapeHtml(r.builder||'?')} ${r.month?'· '+escapeHtml(r.month):''}</div>`).join('')
+      `<div style="margin-bottom:6px;"><span style="color:var(--teal);">Live: ${live}</span> &nbsp; <span style="color:var(--yellow);">Pending: ${pend}</span></div>`
+      +csvRows.slice(0,6).map(r=>`<div><span style="color:${r.status==='live'?'var(--teal)':'var(--yellow)'}">${r.status==='live'?'✅':'⏳'}</span> ${escapeHtml(r.domain)} — ${escapeHtml(r.builder||'?')} ${r.month?'· '+escapeHtml(r.month):''}</div>`).join('')
       +(csvRows.length>6?`<div style="color:var(--text3);">...and ${csvRows.length-6} more</div>`:'');
   };
   reader.readAsText(file);
@@ -6840,7 +6967,7 @@ async function startImport(){
       prog.style.width=pct+'%';
       log.innerHTML+=`<div style="color:var(--teal);">✓ ${i+chunk.length}/${total} (${pct}%)</div>`;
       log.scrollTop=log.scrollHeight;
-    }catch(e){errors++;log.innerHTML+=`<div style="color:#ff6b6b;">✗ ${escapeHtml(e.message)}</div>`;}
+    }catch(e){errors++;log.innerHTML+=`<div style="color:var(--red);">✗ ${escapeHtml(e.message)}</div>`;}
   }
   log.innerHTML+=`<div style="color:var(--teal);font-weight:600;margin-top:6px;">Done! ${created} created, ${updated} updated${errors?' ('+errors+' errors)':''}.</div>`;
 }
@@ -6860,7 +6987,7 @@ function handleReqCsvFile(file){
 
     if(!reqCsvRows.length){
       preview.style.display='block';
-      log.innerHTML='<div style="color:#ff6b6b;">❌ No valid rows found. Check CSV format.</div>';
+      log.innerHTML='<div style="color:var(--red);">No valid rows found. Check CSV format.</div>';
       countEl.textContent='';
       return;
     }
@@ -6965,7 +7092,7 @@ async function startReqImport(){
       }
     }catch(e){
       errors++;
-      log.innerHTML+=`<div style="color:#ff6b6b;">✗ "${escapeHtml(item.anchor)}": ${escapeHtml(e.message)}</div>`;
+      log.innerHTML+=`<div style="color:var(--red);">✗ "${escapeHtml(item.anchor)}": ${escapeHtml(e.message)}</div>`;
     }
   }
 
@@ -7323,8 +7450,8 @@ function rerunHistorySearch(domain){
 
 function smtpBadge(smtp){
   const map = {
-    valid: {bg:'rgba(50,215,75,0.12)',color:'#32d74b',icon:'✅',label:'Valid'},
-    risky: {bg:'rgba(240,165,0,0.1)',color:'#f0a500',icon:'⚠️',label:'Risky'},
+    valid: {bg:'rgba(50,215,75,0.12)',color:'var(--teal)',icon:'✅',label:'Valid'},
+    risky: {bg:'rgba(240,165,0,0.1)',color:'var(--yellow)',icon:'⚠️',label:'Risky'},
     invalid: {bg:'rgba(255,95,95,0.1)',color:'var(--red)',icon:'❌',label:'Invalid'},
     unknown: {bg:'var(--bg4)',color:'var(--text3)',icon:'❓',label:'Unknown'},
     unverifiable: {bg:'var(--bg4)',color:'var(--text3)',icon:'—',label:'Unverifiable'}
@@ -7336,7 +7463,7 @@ function smtpBadge(smtp){
 function roleScore(pos){
   const p=(pos||'').toLowerCase();
   if(p.includes('link build')||p.includes('backlink'))return{color:'#0A84FF',rank:'⭐⭐⭐'};
-  if(p.includes('outreach'))return{color:'#32d74b',rank:'⭐⭐⭐'};
+  if(p.includes('outreach'))return{color:'var(--teal)',rank:'⭐⭐⭐'};
   if(p.includes('off-page')||p.includes('offpage'))return{color:'#5E5CE6',rank:'⭐⭐⭐'};
   if(p.includes('seo'))return{color:'#AC8E68',rank:'⭐⭐'};
   if(p.includes('pr'))return{color:'#64D2FF',rank:'⭐⭐'};
@@ -7413,7 +7540,7 @@ function renderProspects(data, domain){
           <span style="width:14px;height:14px;border-radius:3px;background:#0A66C2;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">in</span>LinkedIn
         </a>
         <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(p.email||'')}',smtp:'${escAttr(p.smtp||'unknown')}',firstName:'${escAttr(p.first_name||'')}',lastName:'${escAttr(p.last_name||'')}',position:'${escAttr(p.position||'')}'});"
-          class="btn-ghost" style="font-size:11px;padding:6px 10px;color:var(--teal);border-color:rgba(50,215,75,0.3);">💾 Save</button>
+          class="btn-ghost" style="font-size:11px;padding:6px 10px;color:var(--teal);border-color:rgba(50,215,75,0.3);">Save</button>
         ${hasEmail?`<button onclick="composeOutreach('${escAttr(p.first_name)}','${escAttr(p.email)}','${escAttr(domain)}')" class="btn-sm" style="font-size:11px;padding:6px 10px;display:flex;align-items:center;gap:6px;">
           <svg width="14" height="10" viewBox="0 0 24 18" style="flex-shrink:0;"><path d="M2 2h20v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2z" fill="#ffffff"/><path d="M2 2l10 8 10-8" fill="none" stroke="#EA4335" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>Template
         </button>`:''}
@@ -7452,7 +7579,7 @@ function renderScrapedEmails(data, domain){
         <button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);"
           class="btn-ghost" style="font-size:11px;padding:3px 10px;">Copy</button>
         <button onclick="saveContactToDB({domain:'${escAttr(domain)}', email:'${escAttr(e.email)}', smtp:'${escAttr(e.smtp||'unknown')}', firstName:'', lastName:'', position:'Scraped'})"
-          class="btn-ghost" style="font-size:11px;padding:3px 10px;color:var(--teal);">💾 Save</button>
+          class="btn-ghost" style="font-size:11px;padding:3px 10px;color:var(--teal);">Save</button>
         ${composeBtn('', e.email, domain)}
       </td>
     </tr>`).join('');
@@ -7517,7 +7644,7 @@ async function saveContactToDB(data){
   };
 
   await db.collection('domains').add(doc);
-  showToast('✅ Saved: '+(data.email||domain), 'ok');
+  showToast('Saved: '+(data.email||domain), 'ok');
 }
 
 function showToast(msg, type='ok'){
@@ -7528,22 +7655,29 @@ function showToast(msg, type='ok'){
     // Clearing its id lets its own pending removal timeout (below) recognize
     // it's already been replaced and skip re-removing it.
     existing.id = '';
-    existing.style.animation = 'fadeSlideOut 180ms ease forwards';
-    setTimeout(()=>existing.remove(), 180);
+    existing.style.animation = 'fadeSlideOut 150ms ease forwards';
+    setTimeout(()=>existing.remove(), 150);
   }
   const t = document.createElement('div');
   t.id = 'app-toast';
-  t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;animation:fadeSlideIn 0.2s ease;box-shadow:0 4px 20px rgba(0,0,0,0.3);
-    background:${type==='ok'?'rgba(50,215,75,0.15)':type==='warn'?'rgba(240,165,0,0.15)':'rgba(255,95,95,0.15)'};
-    border:1px solid ${type==='ok'?'rgba(50,215,75,0.4)':type==='warn'?'rgba(240,165,0,0.4)':'rgba(255,95,95,0.4)'};
-    color:${type==='ok'?'var(--teal)':type==='warn'?'var(--yellow)':'var(--red)'};`;
-  t.textContent = msg;
+  const tone = type==='ok'?'var(--teal)':type==='warn'?'var(--yellow)':'var(--red)';
+  t.setAttribute('role', type==='ok'?'status':'alert');
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;align-items:center;gap:10px;max-width:min(420px,calc(100vw - 32px));padding:11px 16px;border-radius:12px;font-size:13px;font-weight:500;line-height:1.4;background:var(--bg2);border:1px solid var(--border2);color:var(--text);box-shadow:var(--elev);animation:toastIn 220ms var(--ease-out);`;
+  const dot = document.createElement('span');
+  dot.style.cssText = `width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${tone};`;
+  t.appendChild(dot);
+  t.appendChild(document.createTextNode(msg));
   document.body.appendChild(t);
-  setTimeout(()=>{
+  // Hovering a toast holds it open (reading a long message shouldn't race the timer).
+  let left = 3000, started = Date.now(), timer;
+  const dismiss = ()=>{
     if(t.id!=='app-toast')return;
-    t.style.animation = 'fadeSlideOut 180ms ease forwards';
-    setTimeout(()=>t.remove(), 180);
-  }, 3000);
+    t.style.animation = 'fadeSlideOut 150ms ease forwards';
+    setTimeout(()=>t.remove(), 150);
+  };
+  timer = setTimeout(dismiss, left);
+  t.addEventListener('mouseenter', ()=>{ clearTimeout(timer); left -= Date.now()-started; });
+  t.addEventListener('mouseleave', ()=>{ started = Date.now(); timer = setTimeout(dismiss, Math.max(left, 1200)); });
 }
 
 
@@ -7603,7 +7737,7 @@ function renderFreeResults(data, domain){
       <div style="font-size:13px;font-weight:700;color:#0077b5;margin-bottom:8px;">💼 LinkedIn Search</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Search for SEO/outreach contacts at ${escapeHtml(domain)} on LinkedIn</div>
       ${data.linkedinProfiles?.length ? data.linkedinProfiles.map(url=>`<a href="${escAttr(url)}" target="_blank" style="display:block;font-size:11px;color:#0077b5;margin-bottom:4px;text-decoration:none;">↗ ${escapeHtml(url.replace('https://www.linkedin.com/in/',''))}</a>`).join('') : ''}
-      <a href="${escAttr(data.linkedinSearchUrl)}" target="_blank" class="btn-sm" style="display:inline-block;margin-top:8px;text-decoration:none;background:rgba(0,119,181,0.15);color:#0077b5;border:1px solid rgba(0,119,181,0.3);font-size:12px;padding:6px 14px;">🔍 Search on LinkedIn →</a>
+      <a href="${escAttr(data.linkedinSearchUrl)}" target="_blank" class="btn-sm" style="display:inline-block;margin-top:8px;text-decoration:none;background:rgba(0,119,181,0.15);color:#0077b5;border:1px solid rgba(0,119,181,0.3);font-size:12px;padding:6px 14px;">Search on LinkedIn →</a>
     </div>`;
 
   // Emails table
@@ -7621,7 +7755,7 @@ function renderFreeResults(data, domain){
           <td><span style="font-size:11px;padding:2px 7px;border-radius:20px;background:${e.guessed?'rgba(240,165,0,0.1)':'rgba(50,215,75,0.1)'};color:${e.guessed?'var(--yellow)':'var(--teal)'};">${e.guessed?'🎲 Guess':'✅ Found'}</span></td>
           <td style="white-space:nowrap;">
             <button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Copy</button>
-            <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'${escAttr(e.firstName||'')}',lastName:'${escAttr(e.lastName||'')}',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">💾 Save</button>
+            <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'${escAttr(e.firstName||'')}',lastName:'${escAttr(e.lastName||'')}',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">Save</button>
             ${composeBtn(e.firstName, e.email, domain)}
           </td>
         </tr>`).join('')}</tbody>
@@ -7649,7 +7783,7 @@ function renderFreeResults(data, domain){
           <td style="white-space:nowrap;">
             ${t.email?`<button onclick="navigator.clipboard.writeText('${escAttr(t.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Copy</button>`:''}
             <a href="${escAttr(liUrl)}" target="_blank" class="btn-ghost" style="font-size:11px;padding:2px 8px;text-decoration:none;">LI</a>
-            ${t.email?`<button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(t.email)}',smtp:'${escAttr(t.smtp||'unknown')}',firstName:'${escAttr(t.firstName)}',lastName:'${escAttr(t.lastName)}',position:'${escAttr(t.title)}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">💾 Save</button>`:''}
+            ${t.email?`<button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(t.email)}',smtp:'${escAttr(t.smtp||'unknown')}',firstName:'${escAttr(t.firstName)}',lastName:'${escAttr(t.lastName)}',position:'${escAttr(t.title)}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">Save</button>`:''}
             ${t.email?composeBtn(t.firstName, t.email, domain):''}
           </td>
         </tr>`;
@@ -7787,7 +7921,7 @@ function renderLinkedInResults(contacts){
       <td style="white-space:nowrap;">
         ${c.email?`<button onclick="navigator.clipboard.writeText('${escAttr(c.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Copy</button>`:''}
         <a href="${escAttr(c.url)}" target="_blank" class="btn-ghost" style="font-size:11px;padding:2px 8px;text-decoration:none;">LI</a>
-        ${c.email?`<button onclick="saveContactToDB({domain:'${escAttr(c.domain)}',email:'${escAttr(c.email)}',smtp:'${escAttr(c.smtp||'unknown')}',firstName:'${escAttr(c.firstName)}',lastName:'${escAttr(c.lastName)}',position:'${escAttr(c.title)}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">💾 Save</button>`:''}
+        ${c.email?`<button onclick="saveContactToDB({domain:'${escAttr(c.domain)}',email:'${escAttr(c.email)}',smtp:'${escAttr(c.smtp||'unknown')}',firstName:'${escAttr(c.firstName)}',lastName:'${escAttr(c.lastName)}',position:'${escAttr(c.title)}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">Save</button>`:''}
         ${c.email?composeBtn(c.firstName, c.email, c.domain):''}
       </td>
     </tr>`;
@@ -7915,7 +8049,7 @@ function appendBulkError(domain, msg){
 function roleScoreInfo(pos){
   const p=(pos||'').toLowerCase();
   if(p.includes('link build')||p.includes('backlink')) return{color:'#0A84FF',stars:'⭐⭐⭐'};
-  if(p.includes('outreach')) return{color:'#32d74b',stars:'⭐⭐⭐'};
+  if(p.includes('outreach')) return{color:'var(--teal)',stars:'⭐⭐⭐'};
   if(p.includes('off-page')) return{color:'#5E5CE6',stars:'⭐⭐⭐'};
   if(p.includes('seo')) return{color:'#AC8E68',stars:'⭐⭐'};
   if(p.includes('pr')) return{color:'#64D2FF',stars:'⭐⭐'};
@@ -7988,7 +8122,7 @@ function renderGmailConnsPanel(){
       </div>
     </div>
     <div id="es-dns" style="display:flex;flex-direction:column;gap:6px;">${esDnsHtml}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;">${allGmailConns.map(c=>`<span title="${escAttr('synced '+ago(c.lastSyncAt)+(c.truncated?' · more history left to fetch':''))}" style="font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid ${c.lastError?'#ff6b6b':(c.truncated?'#f0a500':'rgba(0,230,118,0.4)')};color:${c.lastError?'#ff6b6b':(c.truncated?'#f0a500':'#00e676')};"><b>${escapeHtml(c.name)}</b> · ${escapeHtml(c.email||'—')}${c.lastError?' ⚠ reconnect':(c.truncated?' ⏳ more history':'')}</span>`).join('')||'<span style="font-size:12px;color:var(--text3);">Nobody has connected yet — each person clicks “Connect Gmail” in the sidebar.</span>'}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">${allGmailConns.map(c=>`<span title="${escAttr('synced '+ago(c.lastSyncAt)+(c.truncated?' · more history left to fetch':''))}" style="font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid ${c.lastError?'var(--red)':(c.truncated?'var(--yellow)':'rgba(0,230,118,0.4)')};color:${c.lastError?'var(--red)':(c.truncated?'var(--yellow)':'#00e676')};"><b>${escapeHtml(c.name)}</b> · ${escapeHtml(c.email||'—')}${c.lastError?' ⚠ reconnect':(c.truncated?' ⏳ more history':'')}</span>`).join('')||'<span style="font-size:12px;color:var(--text3);">Nobody has connected yet — each person clicks “Connect Gmail” in the sidebar.</span>'}</div>
     ${missing.length&&allGmailConns.length?`<div style="font-size:11px;color:var(--text3);">Not connected at all: ${missing.map(escapeHtml).join(', ')}</div>`:''}
     <div style="font-size:11px;color:var(--text3);">Most people send from more than one address (e.g. @thebusinessrover.com and .io) — connect each one in the sidebar (up to 5) so all of them count. To see further back than the last sync reached, widen the date range below and click “Sync now” again — “⏳ more history” means one click didn’t finish reaching it yet. Synced automatically every night otherwise.</div>
   </div>`;
@@ -8093,7 +8227,7 @@ async function renderEmailStats(){
     <div class="stat"><div class="stat-l">Avg / day (team)</div><div class="stat-v" style="color:var(--text2)">${days.length?Math.round(total/days.length*10)/10:0}</div></div>`;
   const cellStyle = n => {
     if(!target) return n?'':'color:var(--text3);';
-    return n>=target?'color:#00e676;font-weight:700;':(n?'color:#f0a500;font-weight:700;':'color:#ff6b6b;');
+    return n>=target?'color:#00e676;font-weight:700;':(n?'color:var(--yellow);font-weight:700;':'color:var(--red);');
   };
   const short = d => d.slice(5).replace('-','/');
   // A day-by-day grid works for a week or two but turns into an endless
@@ -9088,8 +9222,8 @@ function renderAnchorDetail(){
               <div style="font-size:11px;color:var(--text3);white-space:nowrap;">
                 ${pending>0?`<span style="color:var(--yellow);">${pending} pending</span> · `:''}${(function(){
                   const remaining = r.max - used - pending;
-                  if(over) return '<span style="color:var(--red);">⚠️ over</span>';
-                  if(remaining<=0) return '<span style="color:var(--teal);">✅ full</span>';
+                  if(over) return '<span style="color:var(--red);">over</span>';
+                  if(remaining<=0) return '<span style="color:var(--teal);">full</span>';
                   return '<span style="color:var(--teal);">'+remaining+' left</span>';
                 })()}
               </div>
@@ -9259,7 +9393,7 @@ function renderKPI(){
     const rankEmoji = idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':`#${idx+1}`;
     const loadPct = b.loadTarget>0 ? Math.min(100,Math.round(b.links/b.loadTarget*100)) : null;
 
-    return `<div class="quota-card" style="border-color:${b.color}22;position:relative;overflow:hidden;">
+    return `<div class="quota-card" style="border-color:color-mix(in srgb,${b.color} 14%,transparent);position:relative;overflow:hidden;">
       <div style="position:absolute;top:10px;right:12px;font-size:20px;">${rankEmoji}</div>
       <div style="font-size:16px;font-weight:800;color:${b.color};margin-bottom:6px;">${escapeHtml(b.name)}</div>
       <div style="font-size:11px;font-weight:700;color:${badgeColor};margin-bottom:10px;">${badge}</div>
@@ -9643,7 +9777,7 @@ async function checkLCModal(btn){
   const anchor = document.getElementById('lc-anchor').value.trim();
 
   if(!linkin||!linkto){
-    document.getElementById('lc-status').innerHTML = '<span style="color:#f0a500;">⚠️ Fill Link in and Link to first</span>';
+    document.getElementById('lc-status').innerHTML = '<span style="color:var(--yellow);">Fill Link in and Link to first</span>';
     return;
   }
 
@@ -9662,7 +9796,7 @@ async function checkLCModal(btn){
     await db.collection('links').doc(lcCurrentId).update({...linkCheckUpdatePayload(data), linkin, linkto, anchor});
     document.getElementById('lc-status').innerHTML = `<span style="font-size:14px;font-weight:600;">${result}</span>`;
   }catch(e){
-    document.getElementById('lc-status').innerHTML = '<span style="color:#ff6b6b;">⚠️ Error: '+e.message.slice(0,50)+'</span>';
+    document.getElementById('lc-status').innerHTML = '<span style="color:var(--red);">Error: '+e.message.slice(0,50)+'</span>';
   }
   btn.textContent = orig; btn.disabled = false;
 }
@@ -10354,7 +10488,7 @@ function renderBuilderDashboard(){
     return`<tr class="link-row" data-lid="${lid}" style="cursor:pointer;" onclick="toggleEditRowById('${escAttr(lid)}',false,event)">
     <td class="domain-teal" style="font-size:12px;"><a href="https://${escapeHtml(l.domain)}" target="_blank" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none;">${faviconImg(l.domain)}${escapeHtml(l.domain)}</a></td>
     <td style="font-size:12px;">${projTag(l.project)}</td>
-    <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'#f0a500'};">${escapeHtml(l.status)}</span></td>
+    <td><span style="font-size:11px;color:${l.status==='live'?'var(--teal)':'var(--yellow)'};">${escapeHtml(l.status)}</span></td>
     <td><button class="btn-ghost" style="padding:4px 9px;font-size:11px;" onclick="event.stopPropagation();toggleEditRowById('${escAttr(lid)}')">Open →</button></td>
   </tr>
   <tr id="edit-${lid}" style="display:none;background:var(--bg3);">
@@ -10596,7 +10730,7 @@ function renderDoubleCheckQueue(){
       </td>
       <td style="white-space:nowrap;">
         <button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;" onclick="markDoubleChecked('${escAttr(lid)}',this)">✓ Checked</button>
-        <button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;background:transparent;color:#ff6b6b;border:1px solid #ff6b6b;" onclick="rejectDoubleCheck('${escAttr(lid)}',this)">✕ Reject</button>
+        <button class="btn-sm" style="width:auto;padding:6px 14px;font-size:12px;background:transparent;color:var(--red);border:1px solid var(--red);" onclick="rejectDoubleCheck('${escAttr(lid)}',this)">✕ Reject</button>
       </td>
     </tr>`;
   }).join('');
@@ -11144,7 +11278,7 @@ function renderProspectorCards(suggestions, domain, proj, linkTo){
     const copyText = escAttr(displaySentence);
 
     return `<div style="background:var(--bg2);border:1px solid ${full?'rgba(255,95,95,0.3)':hasReq?'rgba(50,215,75,0.25)':'var(--border)'};border-radius:14px;padding:20px;position:relative;overflow:hidden;">
-      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,${full?'var(--red)':'var(--teal)'},transparent);"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:${full?'var(--red)':'var(--teal)'};"></div>
 
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
         <div style="flex:1;min-width:0;">
@@ -11248,7 +11382,7 @@ async function runBatchAnalyze(btn){
       <td style="text-align:center;color:var(--text3);">—</td>
       <td style="text-align:right;color:var(--text3);">—</td>
       <td style="color:var(--text3);">—</td>
-      <td><span style="font-size:11px;color:var(--text3);">⏳ Waiting...</span></td>
+      <td><span style="font-size:11px;color:var(--text3);">Waiting...</span></td>
       <td></td>
     </tr>`).join('');
 
@@ -11263,7 +11397,7 @@ async function runBatchAnalyze(btn){
     await (async (domain)=>{
       const rowId = 'brow-'+domain.replace(/[^a-z0-9]/g,'_');
       const row = document.getElementById(rowId);
-      if(row) row.querySelector('td:last-child').previousElementSibling.innerHTML = '<span style="font-size:11px;color:var(--accent2);">🔄 Fetching...</span>';
+      if(row) row.querySelector('td:last-child').previousElementSibling.innerHTML = '<span style="font-size:11px;color:var(--accent2);">Fetching...</span>';
 
       let dr=null, traffic=null, category='';
       let status = '✅';
@@ -11394,7 +11528,7 @@ async function runCatCheckBatch(btn){
       <td style="color:var(--teal);font-weight:600;">${escapeHtml(d)}</td>
       <td style="color:var(--text3);">—</td>
       <td style="color:var(--text3);">—</td>
-      <td><span style="font-size:11px;color:var(--text3);">⏳ Waiting...</span></td>
+      <td><span style="font-size:11px;color:var(--text3);">Waiting...</span></td>
     </tr>`).join('');
 
   results.style.display = 'block';
@@ -11406,7 +11540,7 @@ async function runCatCheckBatch(btn){
     await Promise.all(batch.map(async(domain)=>{
       const rowId = 'crow-'+domain.replace(/[^a-z0-9]/g,'_');
       const row = document.getElementById(rowId);
-      if(row) row.querySelector('td:last-child').innerHTML = '<span style="font-size:11px;color:var(--accent2);">🔄 Checking...</span>';
+      if(row) row.querySelector('td:last-child').innerHTML = '<span style="font-size:11px;color:var(--accent2);">Checking...</span>';
 
       let category = '';
       let status = '✅';
@@ -11425,7 +11559,7 @@ async function runCatCheckBatch(btn){
       // it's skipped by default unless "Also find email for SaaS" is on.
       const wantsEmail = findEmails && category && category!=='—' && (includeSaas || category!=='SaaS');
       if(wantsEmail){
-        if(row) row.querySelector('td:last-child').innerHTML = '<span style="font-size:11px;color:var(--accent2);">📧 Finding email...</span>';
+        if(row) row.querySelector('td:last-child').innerHTML = '<span style="font-size:11px;color:var(--accent2);">Finding email...</span>';
         try{
           const eResp = await fetch('/api/scrape-contacts',{
             method:'POST', headers:{'Content-Type':'application/json'},
@@ -11734,6 +11868,18 @@ document.addEventListener('click', function(e){
   document.querySelectorAll('[id^="edit-"]').forEach(r=>r.style.display='none');
   if(!isOpen) editRow.style.display='table-row';
 });
+
+// Sidebar items are <div onclick>; make them reachable and usable from the keyboard.
+(function(){
+  document.querySelectorAll('.sidebar .nav').forEach(n=>{
+    n.setAttribute('tabindex','0');
+    n.setAttribute('role','link');
+  });
+  document.addEventListener('keydown',e=>{
+    const n=e.target.closest&&e.target.closest('.sidebar .nav');
+    if(n&&(e.key==='Enter'||e.key===' ')){e.preventDefault();n.click();}
+  });
+})();
 </script>
 </body>
 </html>
