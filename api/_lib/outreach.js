@@ -178,15 +178,15 @@ async function siteContext(domain) {
 const TEMPLATE_EVERY = 3;
 const PAID_TEMPLATES = [
   { subject: 'content collaboration with {site}',
-    body: "Hi {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist. I work with brands on content and look for good sites to partner with.\n\nI'd love to do a content collaboration with {site}. Would you be open to it? I can share the details and a few topic ideas.\n\n{optout}\n\nThanks,\n{sender}" },
+    body: "Hi {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist. I work with brands on content and look for good sites to partner with.\n\nI'd love to do a content collaboration with {site}. Could you let me know your terms?\n\n{optout}\n\nThanks,\n{sender}" },
   { subject: 'quick question about {site}',
-    body: "Hello {name},\n\nI'm {sender}, an off-page SEO specialist working on content for a few brands.\n\nI came across {site} and would like to discuss a content collaboration with you. Is this something you'd consider?\n\n{optout}\n\nBest,\n{sender}" },
+    body: "Hello {name},\n\nI'm {sender}, an off-page SEO specialist working on content for a few brands.\n\nI came across {site} and would like to do a content collaboration with you. What are your terms?\n\n{optout}\n\nBest,\n{sender}" },
   { subject: 'collaboration idea',
-    body: "Hi {name},\n\nI'm {sender}. I work in off-page SEO and help brands publish useful content on sites like yours.\n\nI'm interested in a content collaboration with {site}, either an article from us or a content exchange. Let me know if you'd like to talk about it.\n\n{optout}\n\nKind regards,\n{sender}" },
+    body: "Hi {name},\n\nI'm {sender}. I work in off-page SEO and help brands publish useful content on sites like yours.\n\nI'm interested in a content collaboration with {site}. Could you share your terms?\n\n{optout}\n\nKind regards,\n{sender}" },
   { subject: 'working together on content',
-    body: "Hi {name},\n\nA quick introduction: I'm {sender}, an off-page SEO specialist.\n\nI'd like to work with {site} on a content collaboration. If you're open to it, I'd be happy to send over the details.\n\n{optout}\n\nThanks,\n{sender}" },
+    body: "Hi {name},\n\nA quick introduction: I'm {sender}, an off-page SEO specialist.\n\nI'd like to work with {site} on a content collaboration. What terms do you offer?\n\n{optout}\n\nThanks,\n{sender}" },
   { subject: 'content partnership with {site}',
-    body: "Hello {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist working with several brands.\n\nI'm reaching out because I'd like to set up a content collaboration with {site}. Would you be interested? I can tell you more about how it would work.\n\n{optout}\n\nBest regards,\n{sender}" }
+    body: "Hello {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist working with several brands.\n\nI'm reaching out because I'd like to set up a content collaboration with {site}. Could you tell me your terms?\n\n{optout}\n\nBest regards,\n{sender}" }
 ];
 
 async function templateDraft(uid, ref, row, senderName) {
