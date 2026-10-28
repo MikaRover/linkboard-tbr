@@ -2160,12 +2160,19 @@ a{text-underline-offset:2px;}
       <div class="oa-h">2. Your pitch</div>
       <label class="oa-label" for="oa-name">Your name — used in “My name is …” and the sign-off</label>
       <input id="oa-name" type="text" placeholder="Mika" style="margin:0 0 10px;width:auto;font-size:12px;padding:6px 10px;" oninput="oaSavePrefs()">
+      <label class="oa-label" for="oa-sig">Signature — under “Best regards,” (empty = just your name)</label>
+      <textarea id="oa-sig" rows="2" placeholder="Mika Hovsepyan&#10;Growth Marketing Manager | The Business Rover" style="margin:0 0 10px;" oninput="oaSavePrefs()"></textarea>
       <label class="oa-label" for="oa-mode">Type</label>
       <select id="oa-mode" style="margin:0 0 10px;width:auto;font-size:12px;padding:6px 10px;" onchange="oaModeChanged()">
         <option value="paid">Paid collaboration — our templates</option>
+        <option value="exchange">Link exchange — our templates</option>
         <option value="guest">Free guest post — written by AI</option>
       </select>
-      <div id="oa-paid-help" class="oa-help">Short, plain emails: who you are, then a content collaboration and a question about their terms. Five versions, each with its own subject — the version changes every 3 emails. “Next version” moves a draft to the next one.</div>
+      <div id="oa-paid-help" class="oa-help"><span id="oa-tpl-what"></span> Five versions, each with its own subject — the version changes every 3 emails. “Next version” moves a draft to the next one.</div>
+      <div id="oa-offer-box" style="margin-top:10px;">
+        <label class="oa-label" for="oa-offer">Our sites to offer (optional) — one per line, up to 5 go in the email</label>
+        <textarea id="oa-offer" rows="4" placeholder="oursite.com&#10;another-site.com" oninput="oaSavePrefs()"></textarea>
+      </div>
       <div id="oa-guest-box">
         <label class="oa-label" for="oa-pitch">Notes for the AI — each email is written differently around these</label>
         <textarea id="oa-pitch" rows="6" oninput="oaSavePrefs()"></textarea>
@@ -8778,6 +8785,7 @@ const OA_GAP_MIN_MS = 240000, OA_GAP_MAX_MS = 300000;
 const oaGap = () => OA_GAP_MIN_MS + Math.random()*(OA_GAP_MAX_MS-OA_GAP_MIN_MS);
 const OA_DEFAULT_PITCH = {
   paid: "I'm an off-page SEO specialist, interested in a paid collaboration (a guest post on your site) or a content exchange. Articles are original and written for your readers, with one relevant link. Please share your price for a guest post and whether links are dofollow.",
+  exchange: '',
   guest: "We'd like to contribute a free, original guest article written for your readers, with one natural link to a relevant resource. Happy to follow your editorial guidelines."
 };
 const OA_STATUS = {
@@ -8808,23 +8816,32 @@ function initAgentPage(){
   if(!isAdminOrTatev()) return;
   let mode = 'paid';
   try{
-    mode = localStorage.getItem('oa-mode')==='guest' ? 'guest' : 'paid';
+    mode = oaModeOf(localStorage.getItem('oa-mode'));
     document.getElementById('oa-mode').value = mode;
     let saved = localStorage.getItem('oa-pitch-'+mode) || '';
     if(saved.startsWith('We publish sponsored articles for our clients.')) saved = ''; // old default, superseded
     document.getElementById('oa-pitch').value = saved || OA_DEFAULT_PITCH[mode];
     document.getElementById('oa-snov').checked = localStorage.getItem('oa-snov')==='1';
     document.getElementById('oa-name').value = localStorage.getItem('oa-name') || '';
+    document.getElementById('oa-offer').value = localStorage.getItem('oa-offer') || '';
+    document.getElementById('oa-sig').value = localStorage.getItem('oa-sig') || '';
   }catch(e){ document.getElementById('oa-pitch').value = OA_DEFAULT_PITCH[mode]; }
   oaModeUi();
   oaLoad(); oaLoadMailboxes();
 }
-function oaMode(){ return document.getElementById('oa-mode')?.value==='guest' ? 'guest' : 'paid'; }
+// paid / exchange use the team's fixed template sets; guest is written by AI.
+function oaModeOf(v){ return ['guest','exchange'].includes(v) ? v : 'paid'; }
+function oaMode(){ return oaModeOf(document.getElementById('oa-mode')?.value); }
+function oaIsTemplate(){ return oaMode()!=='guest'; }
 // Each type keeps its own notes, so switching back and forth loses nothing.
 function oaModeUi(){
-  const paid = oaMode()==='paid';
-  document.getElementById('oa-paid-help').style.display = paid ? '' : 'none';
-  document.getElementById('oa-guest-box').style.display = paid ? 'none' : '';
+  const tpl = oaIsTemplate();
+  document.getElementById('oa-paid-help').style.display = tpl ? '' : 'none';
+  document.getElementById('oa-guest-box').style.display = tpl ? 'none' : '';
+  document.getElementById('oa-offer-box').style.display = oaMode()==='exchange' ? '' : 'none';
+  document.getElementById('oa-tpl-what').textContent = oaMode()==='exchange'
+    ? 'Asks if they’re open to a content collaboration, lists the two ways we work (A-B-C content exchange with our SaaS partners, co-created content) and offers to share examples.'
+    : 'Short, plain emails: who you are, then a content collaboration and a question about their terms.';
 }
 function oaModeChanged(){
   const mode = oaMode();
@@ -8837,6 +8854,8 @@ function oaSavePrefs(){
     localStorage.setItem('oa-pitch-'+oaMode(), document.getElementById('oa-pitch').value);
     localStorage.setItem('oa-snov', document.getElementById('oa-snov').checked?'1':'0');
     localStorage.setItem('oa-name', document.getElementById('oa-name').value.trim());
+    localStorage.setItem('oa-offer', document.getElementById('oa-offer').value);
+    localStorage.setItem('oa-sig', document.getElementById('oa-sig').value);
   }catch(e){}
 }
 // The name typed on the page wins; otherwise the sending mailbox's first part
@@ -9123,7 +9142,7 @@ function oaEditor(r){
     <div><label class="oa-label">Email</label><textarea oninput="oaEdit('${id}','body',this.value)" placeholder="Click “Write draft”, or type your own">${escapeHtml(v('body'))}</textarea></div>
     <div class="oa-actions">
       <button class="btn-sm" onclick="oaSendOne('${id}',this)" ${v('email')&&v('subject')&&v('body')?'':'disabled'}>Send</button>
-      <button class="btn-ghost" onclick="oaDraft('${id}',this)">${v('body')?(oaMode()==='paid'?'Next version':'Rewrite with AI'):'Write draft'}</button>
+      <button class="btn-ghost" onclick="oaDraft('${id}',this)">${v('body')?(oaIsTemplate()?'Next version':'Rewrite with AI'):'Write draft'}</button>
       <button class="btn-ghost" onclick="oaSaveRow('${id}',this)">Save</button>
       ${r.status==='skipped'?`<button class="btn-ghost" onclick="oaSetStatus('${id}','${r.subject&&r.body?'draft':'found'}')">Include anyway</button>`:`<button class="btn-ghost" onclick="oaSetStatus('${id}','skipped')">Skip</button>`}
       <span class="oa-help">${r.source?'Found via '+escapeHtml(r.source):''}</span>
@@ -9167,7 +9186,7 @@ async function oaDraft(id, btn){
   if(btn){ btn.disabled = true; btn.textContent = 'Writing…'; }
   try{
     const avoidSubjects = oaRows.filter(x=>x.subject && x.id!==id).slice(0,15).map(x=>x.subject);
-    const j = await oaApi('draft',{id, pitch:document.getElementById('oa-pitch').value, senderName:oaSenderName(), mode:oaMode(), avoidSubjects});
+    const j = await oaApi('draft',{id, pitch:document.getElementById('oa-pitch').value, senderName:oaSenderName(), mode:oaMode(), avoidSubjects, offer:oaParseSites(document.getElementById('oa-offer').value), signature:document.getElementById('oa-sig').value});
     Object.assign(r, {subject:j.subject, body:j.body, status:'draft'});
     delete oaEdits[id];
     oaRender();
@@ -9181,7 +9200,7 @@ async function oaDraftSelected(btn){
   const prog = document.getElementById('oa-progress'); let n = 0;
   const queue = ids.slice();
   // Templates go one at a time so each draft gets its own slot in the every-3 rotation.
-  await Promise.all((oaMode()==='paid'?[0]:[0,1]).map(async()=>{ while(queue.length){ const id=queue.shift(); await oaDraft(id); n++; prog.textContent=`Drafts written ${n}/${ids.length}`; } }));
+  await Promise.all((oaIsTemplate()?[0]:[0,1]).map(async()=>{ while(queue.length){ const id=queue.shift(); await oaDraft(id); n++; prog.textContent=`Drafts written ${n}/${ids.length}`; } }));
   if(btn) btn.disabled = false;
   showToast(n+' drafts ready to review');
 }
@@ -9283,7 +9302,7 @@ function oaCtx(ev, id){
   const cur = one ? (one.folder||'') : null;
   const item = (label, fn, opts={}) => `<button ${opts.disabled?'disabled':''} class="${opts.cls||''}" onclick="oaCtxClose();${fn}">${escapeHtml(label)}${opts.hint?`<span style="color:var(--text3);">${escapeHtml(opts.hint)}</span>`:''}</button>`;
   const q = v => `'${escAttr(v)}'`;
-  const isTpl = oaMode()==='paid';
+  const isTpl = oaIsTemplate();
   const html = [
     one ? item(oaOpen===one.id?'Close details':'Open details', `oaToggle(${q(one.id)})`) : '',
     one ? item('Visit site', `window.open('https://'+${q(one.domain)},'_blank','noopener')`) : '',
