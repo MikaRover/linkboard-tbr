@@ -10,7 +10,9 @@ const { isSafeHost, cleanHost, browserHeaders } = require('./_lib/security');
 const { getSnovToken, verifyEmailsWithSnov } = require('./_lib/snov');
 
 const MAX_EMAILS_PER_DOMAIN = 10;
-const MAX_INTERNAL_PAGES = 6;
+// Role inboxes tried (and verified) only when the site shows no address of its own.
+const GENERIC_INBOXES = ['contact', 'info', 'hello', 'editor'];
+const MAX_INTERNAL_PAGES = 8;
 const PAGE_TIMEOUT_MS = 5000;
 
 // A page whose target site is one of these is never worth scraping for
@@ -251,25 +253,46 @@ function resolveUrl(base, link) {
   } catch (e) { return null; }
 }
 
-// Internal pages worth checking: links on the homepage whose href/text
-// matches a contact-ish keyword, plus a fixed fallback list tried even if
-// nothing matched (many sites have a /contact page with no homepage link).
+// Internal pages worth checking, best first. A homepage link only counts when
+// one of its path segments IS a contact-ish page ("/contact-us/",
+// "/write-for-us") — not an article slug that merely contains the word
+// ("/how-soccer-builds-teamwork/", "/author/jane/"), which used to fill every
+// slot and push /contact out. The fixed fallback paths fill what is left.
+const PAGE_PRIORITY = [
+  /^(contact|contact-us|contactus|get-in-touch)$/,
+  /^(write-for-us|writeforus|contribute|guest-post|guestpost|submit-a-guest-post|advertise|advertising|advertise-with-us|media-kit|mediakit)$/,
+  /^(about|about-us|aboutus|team|our-team|staff|editorial|editorial-team|leadership|people|meet-the-team|masthead)$/,
+  /^(press|authors?)$/
+];
+function pageRank(url) {
+  let path;
+  try { path = new URL(url).pathname.toLowerCase(); } catch (e) { return -1; }
+  const segs = path.split('/').filter(Boolean);
+  if (!segs.length || segs.length > 2) return -1;
+  for (let i = 0; i < PAGE_PRIORITY.length; i++) if (segs.some(sg => PAGE_PRIORITY[i].test(sg))) return i;
+  return -1;
+}
 function findInternalPages(baseUrl, html, host) {
-  const pages = new Set();
+  const seen = new Set(), found = [];
+  const push = (url, rank, order) => {
+    const key = url.replace(/\/+$/, '').toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key); found.push({ url, rank, order });
+  };
   if (html) {
     const linkRe = /href\s*=\s*["']([^"'#?]+)/gi;
-    let m;
+    let m, i = 0;
     while ((m = linkRe.exec(html)) !== null) {
-      const link = String(m[1] || '').trim();
-      const l = link.toLowerCase();
-      if (!LINK_KEYWORDS.some(k => l.includes(k))) continue;
-      const resolved = resolveUrl(baseUrl, link);
-      if (resolved && resolved.toLowerCase().includes(host)) pages.add(resolved);
+      const resolved = resolveUrl(baseUrl, String(m[1] || '').trim());
+      if (!resolved || !resolved.toLowerCase().includes(host)) continue;
+      const rank = pageRank(resolved);
+      if (rank >= 0) push(resolved, rank, i++);
     }
   }
   const trimmedBase = baseUrl.replace(/\/$/, '');
-  CANDIDATE_PATHS.forEach(p => pages.add(trimmedBase + p));
-  return Array.from(pages).slice(0, MAX_INTERNAL_PAGES);
+  // Fallbacks rank just behind a real homepage link of the same kind.
+  CANDIDATE_PATHS.forEach((p, k) => push(trimmedBase + p, pageRank(trimmedBase + p) + 0.5, 1000 + k));
+  return found.sort((a, b) => a.rank - b.rank || a.order - b.order).slice(0, MAX_INTERNAL_PAGES).map(x => x.url);
 }
 
 async function fetchPage(url) {
@@ -362,8 +385,14 @@ module.exports = async function handler(req, res) {
   // status. Best-effort: if Snov creds are missing or the call fails, every
   // email just falls back to 'unknown' rather than blocking the response.
   const token = await getSnovToken();
-  const emailsToVerify = [...sorted.map(([email]) => email), ...team.flatMap(t => t.candidates)];
+  // Contact-form-only sites list no address at all. Try the usual role
+  // inboxes and keep the ones Snov confirms — a real, deliverable address
+  // beats "no contact".
+  const onDomain = sorted.some(([email]) => email.endsWith('@' + host));
+  const generic = onDomain ? [] : GENERIC_INBOXES.map(l => l + '@' + host);
+  const emailsToVerify = [...sorted.map(([email]) => email), ...team.flatMap(t => t.candidates), ...generic];
   const smtpByEmail = await verifyEmailsWithSnov(emailsToVerify, token);
+  generic.filter(e => smtpByEmail.get(e) === 'valid').forEach(e => sorted.push([e, 'guessed']));
 
   const emails = sorted.map(([email, source]) => {
     const { firstName, lastName } = guessNameFromEmail(email);

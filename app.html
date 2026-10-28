@@ -9203,7 +9203,7 @@ async function oaDiscover(domain, useSnov){
     const j = await r.json();
     (j.teamMembers||[]).forEach(t=>{ if(t.email) add({name:t.name||'', firstName:t.firstName||'', title:t.title||'', email:t.email, smtp:t.smtp||'unknown', source:'Team page'}); });
     (j.emails||[]).forEach(e=>{
-      let src = 'Website'; try{ src = 'Website '+(new URL(e.source).pathname||'/'); }catch(x){}
+      let src = 'Website'; if(e.source==='guessed') src = 'Common inbox, verified'; else try{ src = 'Website '+(new URL(e.source).pathname||'/'); }catch(x){}
       add({name:[e.firstName,e.lastName].filter(Boolean).join(' '), firstName:e.firstName||'', title:'', email:e.email, smtp:e.smtp||'unknown', source:src});
     });
   }catch(e){}
