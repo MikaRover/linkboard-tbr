@@ -9016,25 +9016,29 @@ async function oaLoadMailboxes(){
     <div class="oa-from-row"><button class="btn-sm" onclick="oaConnectSend()">Connect Gmail for sending</button></div>`;
   oaRenderStats();
 }
-// Numbers for the current folder; "today" is the chosen mailbox's own count.
+// Everything the agent has done, across all client folders; "today" is the
+// chosen mailbox's own count of agent sends.
 function oaRenderStats(){
   const el = document.getElementById('oa-stats'); if(!el) return;
-  const rows = oaRows.filter(oaInFolder);
+  const rows = oaRows;
   const n = st => rows.filter(r=>st.includes(r.status)).length;
   const sent = n(['sent','sending','replied','bounced']), replied = n(['replied']);
   const mb = oaMailboxes.find(m=>m.email===oaFrom());
-  const today = mb ? mb.sentToday : 0, lim = mb ? mb.limit : oaLimit;
+  const t = oaToday();
+  const today = rows.filter(r=>oaSent(r) && (r.sentDay===t || r.status==='sending')).length, lim = mb ? mb.limit : oaLimit;
   const tile = (filter, inner, title) => `<button class="oa-stat ${oaFilter===filter?'active':''}" onclick="oaShowFilter('${filter}')" title="${title}">${inner}</button>`;
   el.innerHTML =
-    tile('today', `<b>${today}<span style="font-size:13px;font-weight:500;color:var(--text3);">/${lim}</span></b><span>Sent today</span><div class="oa-meter"><i style="width:${Math.min(100,Math.round(today/Math.max(1,lim)*100))}%;"></i></div>`, 'Show emails sent today')
-    + tile('draft', `<b>${n(['draft','failed'])}</b><span>Drafts ready</span>`, 'Show drafts')
-    + tile('sent', `<b>${sent}</b><span>Sent</span>`, 'Show sent emails')
-    + tile('replied', `<b style="color:${replied?'var(--teal)':'var(--text)'};">${replied}</b><span>Replied${sent?` · ${Math.round(replied/sent*100)}%`:''}</span>`, 'Show replies')
-    + tile('bounced', `<b style="color:${n(['bounced'])?'var(--red)':'var(--text)'};">${n(['bounced'])}</b><span>Bounced</span>`, 'Show bounced emails');
+    tile('today', `<b>${today}<span style="font-size:13px;font-weight:500;color:var(--text3);">/${lim}</span></b><span>Sent today</span><div class="oa-meter"><i style="width:${Math.min(100,Math.round(today/Math.max(1,lim)*100))}%;"></i></div>`, 'Emails the agent sent today — click to list them')
+    + tile('draft', `<b>${n(['draft','failed'])}</b><span>Drafts ready</span>`, 'Agent drafts waiting for you — click to list them')
+    + tile('sent', `<b>${sent}</b><span>Sent</span>`, 'All emails the agent sent — click to list them')
+    + tile('replied', `<b style="color:${replied?'var(--teal)':'var(--text)'};">${replied}</b><span>Replied${sent?` · ${Math.round(replied/sent*100)}%`:''}</span>`, 'Replies to agent emails — click to list them')
+    + tile('bounced', `<b style="color:${n(['bounced'])?'var(--red)':'var(--text)'};">${n(['bounced'])}</b><span>Bounced</span>`, 'Agent emails that bounced — click to list them');
 }
 // A number tile filters the list below to those rows; clicking it again shows all.
 function oaShowFilter(f){
   oaFilter = oaFilter===f ? 'all' : f;
+  // The numbers cover every folder, so the list they open does too.
+  if(oaFilter!=='all' && oaFolder){ oaFolder = ''; try{ localStorage.setItem('oa-folder',''); }catch(e){} }
   oaOpen = null; oaRender();
   document.querySelector('#p-agent .oa-list')?.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'});
 }
@@ -9199,7 +9203,7 @@ async function oaDiscover(domain, useSnov){
     const j = await r.json();
     (j.teamMembers||[]).forEach(t=>{ if(t.email) add({name:t.name||'', firstName:t.firstName||'', title:t.title||'', email:t.email, smtp:t.smtp||'unknown', source:'Team page'}); });
     (j.emails||[]).forEach(e=>{
-      let src = 'Website'; try{ src = 'Website '+(new URL(e.source).pathname||'/'); }catch(x){}
+      let src = 'Website'; if(e.source==='guessed') src = 'Common inbox, verified'; else try{ src = 'Website '+(new URL(e.source).pathname||'/'); }catch(x){}
       add({name:[e.firstName,e.lastName].filter(Boolean).join(' '), firstName:e.firstName||'', title:'', email:e.email, smtp:e.smtp||'unknown', source:src});
     });
   }catch(e){}
