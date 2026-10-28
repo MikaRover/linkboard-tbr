@@ -148,7 +148,7 @@ async function mailboxes(uid) {
   const sentToday = await db().collection(COLL).where('sentDay', '==', today()).get();
   const counts = {};
   sentToday.docs.forEach(d => { const m = d.data().fromMailbox; if (m) counts[m] = (counts[m] || 0) + 1; });
-  return snap.docs.map(d => ({ id: d.id, email: d.data().email, canSend: !!d.data().canSend, lastError: d.data().lastError || null, lastSyncAt: d.data().lastSyncAt || null, sentToday: counts[d.id] || 0, limit: DAILY_LIMIT }));
+  return snap.docs.map(d => ({ id: d.id, email: d.data().email, canSend: !!d.data().canSend, lastError: d.data().lastError || null, sentToday: counts[d.id] || 0, limit: DAILY_LIMIT }));
 }
 
 async function accessTokenFor(mailbox) {

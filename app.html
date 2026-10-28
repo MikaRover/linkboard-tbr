@@ -1103,7 +1103,7 @@ a{text-underline-offset:2px;}
 .oa-seg button.active{background:var(--bg2);color:var(--text);box-shadow:0 0 0 1px var(--border2);}
 /* overview: sender + numbers */
 .oa-overview{display:flex;gap:var(--space-5);align-items:center;flex-wrap:wrap;padding:var(--space-4) var(--space-5);}
-.oa-from{display:flex;flex-direction:column;gap:6px;min-width:240px;flex:1 1 260px;}
+.oa-from{display:flex;flex-direction:column;gap:6px;min-width:260px;flex:1 1 300px;}
 .oa-from-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .oa-from select{margin:0;width:auto;font-size:13px;padding:6px 10px;}
 .oa-stats{display:flex;gap:var(--space-2);flex-wrap:wrap;}
@@ -1180,11 +1180,11 @@ a{text-underline-offset:2px;}
 .oa-list-input{font-family:var(--font-mono) !important;font-size:12.5px !important;line-height:1.7 !important;}
 .oa-card .oa-from select{padding:7px 12px;}
 /* overview: one quiet strip of numbers */
-.oa-stats{gap:0;flex:3 1 560px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));background:var(--bg3);border-radius:10px;}
+.oa-stats{gap:0;flex:2 1 460px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:var(--bg3);border-radius:10px;}
 .oa-stat{min-width:0;background:transparent;border-radius:0;padding:12px 16px;border-left:1px solid var(--border);}
 .oa-stat:first-child{border-left:0;}
 .oa-stat b{font-size:22px;}
-@media (max-width:640px){.oa-stats{grid-template-columns:repeat(3,minmax(0,1fr));}.oa-stat:nth-child(4){border-left:0;}.oa-stat:nth-child(n+4){border-top:1px solid var(--border);}button.oa-stat{border-radius:0 !important;}}
+@media (max-width:640px){.oa-stats{grid-template-columns:repeat(3,minmax(0,1fr));}.oa-stat:nth-child(4){border-left:0;}.oa-stat:nth-child(n+4){border-top:1px solid var(--border);}}
 /* table */
 .oa-table td{padding:14px 10px;}
 .oa-table tbody tr:last-child td{border-bottom:0;}
@@ -9004,45 +9004,18 @@ async function oaLoadMailboxes(){
   el.innerHTML = senders.length ? `
     <label class="oa-label" style="margin:0;" for="oa-from">Send from</label>
     <div class="oa-from-row">
-      <select id="oa-from" onchange="try{localStorage.setItem('oa-from',this.value)}catch(e){};oaLoadGmail()">
+      <select id="oa-from" onchange="try{localStorage.setItem('oa-from',this.value)}catch(e){};oaRenderStats()">
         ${senders.map(m=>`<option value="${escAttr(m.email)}" ${m===mb?'selected':''}>${escapeHtml(m.email)}</option>`).join('')}
       </select>
       <button class="btn-ghost" onclick="oaConnectSend()">Add mailbox</button>
     </div>
     ${others.length?`<div class="oa-help">${others.map(m=>`<span style="color:${m.lastError?'var(--red)':'var(--text3)'};">${escapeHtml(m.email)} · ${m.lastError?'reconnect':'counting only'}</span>`).join(' · ')}</div>`:''}
-    <div class="oa-help">One email every 4–5 minutes, up to ${oaLimit} a day per mailbox. <span id="oa-gmail-sync"></span></div>`
+    <div class="oa-help">One email every 4–5 minutes, up to ${oaLimit} a day per mailbox.</div>`
   : `<div class="oa-label" style="margin:0;">Send from</div>
     <div class="oa-help">Connect your Gmail and allow “Send email on your behalf”. Only drafts you approve are ever sent.</div>
     <div class="oa-from-row"><button class="btn-sm" onclick="oaConnectSend()">Connect Gmail for sending</button></div>`;
   oaRenderStats();
-  oaLoadGmail();
 }
-// Real outreach from the mailbox, whatever tool sent it: Gmail's own SENT
-// count of new conversations with outside addresses (emailCounts, written by
-// the Gmail sync). Refreshed from Gmail when the last sync is >10 min old.
-let oaGmail = null; // {today, week, at}
-async function oaLoadGmail(force){
-  const mb = oaMailboxes.find(m=>m.email===oaFrom()) || oaMailboxes[0];
-  if(!mb){ oaGmail = null; oaRenderStats(); return; }
-  const note = document.getElementById('oa-gmail-sync');
-  const read = async () => {
-    const days = [...Array(7)].map((_,i)=>new Date(Date.now()-i*86400000).toISOString().slice(0,10));
-    const docs = await Promise.all(days.map(d=>db.collection('emailCounts').doc(d+'_'+mb.id).get().catch(()=>null)));
-    const v = docs.map(d=>d&&d.exists ? (d.data().newThreads||0) : 0);
-    oaGmail = {today:v[0], week:v.reduce((a,b)=>a+b,0), at:mb.lastSyncAt};
-    oaRenderStats();
-    if(note) note.innerHTML = `Gmail numbers ${oaGmail.at?'updated '+oaAgo(oaGmail.at):'not synced yet'} · <a href="#" onclick="event.preventDefault();oaLoadGmail(true)">Refresh</a>`;
-  };
-  try{ await read(); }catch(e){ return; }
-  if(!force && mb.lastSyncAt && Date.now()-mb.lastSyncAt < 10*60*1000) return;
-  if(note) note.textContent = 'Updating Gmail numbers…';
-  try{
-    const r = await fetch('/api/gmail?action=sync&days=2&uid='+encodeURIComponent(cu.uid),{method:'POST'});
-    if(r.ok) mb.lastSyncAt = Date.now();
-  }catch(e){}
-  try{ await read(); }catch(e){}
-}
-function oaAgo(t){ const m = Math.round((Date.now()-t)/60000); return m<1?'just now':m<60?m+' min ago':Math.round(m/60)+' h ago'; }
 // Numbers for the current folder; "today" is the chosen mailbox's own count.
 function oaRenderStats(){
   const el = document.getElementById('oa-stats'); if(!el) return;
@@ -9053,10 +9026,9 @@ function oaRenderStats(){
   const today = mb ? mb.sentToday : 0, lim = mb ? mb.limit : oaLimit;
   const tile = (filter, inner, title) => `<button class="oa-stat ${oaFilter===filter?'active':''}" onclick="oaShowFilter('${filter}')" title="${title}">${inner}</button>`;
   el.innerHTML =
-    tile('today', `<b>${oaGmail?oaGmail.today:'—'}</b><span>Today</span><div class="oa-sub">Gmail · agent ${today}/${lim}</div><div class="oa-meter"><i style="width:${Math.min(100,Math.round(today/Math.max(1,lim)*100))}%;"></i></div>`, 'New conversations with outside addresses sent from this mailbox today, by any tool (Gmail, LinkBoard, this agent). Click to list what the agent sent today.')
-    + tile('week', `<b>${oaGmail?oaGmail.week:'—'}</b><span>Last 7 days</span><div class="oa-sub">Gmail</div>`, 'New outside conversations from this mailbox in the last 7 days, by any tool. Click to list what the agent sent.')
+    tile('today', `<b>${today}<span style="font-size:13px;font-weight:500;color:var(--text3);">/${lim}</span></b><span>Sent today</span><div class="oa-meter"><i style="width:${Math.min(100,Math.round(today/Math.max(1,lim)*100))}%;"></i></div>`, 'Show emails sent today')
     + tile('draft', `<b>${n(['draft','failed'])}</b><span>Drafts ready</span>`, 'Show drafts')
-    + tile('sent', `<b>${sent}</b><span>Sent</span><div class="oa-sub">by agent</div>`, 'Show emails the agent sent')
+    + tile('sent', `<b>${sent}</b><span>Sent</span>`, 'Show sent emails')
     + tile('replied', `<b style="color:${replied?'var(--teal)':'var(--text)'};">${replied}</b><span>Replied${sent?` · ${Math.round(replied/sent*100)}%`:''}</span>`, 'Show replies')
     + tile('bounced', `<b style="color:${n(['bounced'])?'var(--red)':'var(--text)'};">${n(['bounced'])}</b><span>Bounced</span>`, 'Show bounced emails');
 }
@@ -9308,7 +9280,6 @@ function oaInFolder(r){ return !oaFolder || (oaFolder===OA_NO_FOLDER ? !r.folder
 function oaToday(){ return new Date().toISOString().slice(0,10); } // same UTC day the server stamps on sentDay
 function oaVisible(){
   if(oaFilter==='today'){ const t = oaToday(); return oaRows.filter(r=>oaInFolder(r) && oaSent(r) && (r.sentDay===t || r.status==='sending')); }
-  if(oaFilter==='week'){ const from = new Date(Date.now()-6*86400000).toISOString().slice(0,10); return oaRows.filter(r=>oaInFolder(r) && oaSent(r) && (r.status==='sending' || (r.sentDay||'')>=from)); }
   return oaRows.filter(r=>oaInFolder(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')));
 }
 function oaRender(){
