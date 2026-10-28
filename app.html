@@ -2199,6 +2199,9 @@ a{text-underline-offset:2px;}
         <div class="oa-actions oa-gap">
           <button class="btn-sm" id="oa-emails-btn" onclick="oaAddEmails()">Add emails</button>
           <label class="btn-ghost" style="cursor:pointer;">Upload file<input type="file" accept=".txt,.csv,text/plain,text/csv" style="display:none;" onchange="oaReadEmailsFile(this)"/></label>
+          <label class="oa-check" title="Checks each address with Snov — spends Snov credits">
+            <input type="checkbox" id="oa-verify" onchange="oaSavePrefs()"/> Verify emails
+          </label>
         </div>
         <div class="oa-help oa-gap">Added straight to the list and selected, ready for Write drafts. The site is taken from the email.</div>
       </div>
@@ -2262,6 +2265,7 @@ a{text-underline-offset:2px;}
       <div style="flex:1;"></div>
       <button class="btn-ghost" id="oa-stop" style="display:none;" onclick="oaStopQueue()">Stop sending</button>
       <select id="oa-move" class="oa-select" onchange="oaMoveSelected(this)"></select>
+      <button class="btn-ghost" onclick="oaVerifySelected(this)" title="Check the selected addresses with Snov — spends Snov credits">Verify</button>
       <button class="btn-ghost" onclick="oaDraftSelected(this)">Write drafts</button>
       <button class="btn-sm" id="oa-send-sel" onclick="oaSendSelected()">Send selected</button>
       <button class="btn-ghost oa-danger" onclick="oaDeleteSelected()">Delete</button>
@@ -8890,6 +8894,7 @@ function initAgentPage(){
     if(saved.startsWith('We publish sponsored articles for our clients.')) saved = ''; // old default, superseded
     document.getElementById('oa-pitch').value = saved || OA_DEFAULT_PITCH[mode];
     document.getElementById('oa-snov').checked = localStorage.getItem('oa-snov')==='1';
+    document.getElementById('oa-verify').checked = localStorage.getItem('oa-verify')==='1';
     document.getElementById('oa-name').value = localStorage.getItem('oa-name') || '';
     document.getElementById('oa-offer').value = localStorage.getItem('oa-offer') || '';
     document.getElementById('oa-sig').value = localStorage.getItem('oa-sig') || '';
@@ -8924,6 +8929,7 @@ function oaSavePrefs(){
   try{
     localStorage.setItem('oa-pitch-'+oaMode(), document.getElementById('oa-pitch').value);
     localStorage.setItem('oa-snov', document.getElementById('oa-snov').checked?'1':'0');
+    localStorage.setItem('oa-verify', document.getElementById('oa-verify').checked?'1':'0');
     localStorage.setItem('oa-name', document.getElementById('oa-name').value.trim());
     localStorage.setItem('oa-offer', document.getElementById('oa-offer').value);
     localStorage.setItem('oa-sig', document.getElementById('oa-sig').value);
@@ -9072,8 +9078,15 @@ async function oaAddEmails(){
   oaSelected.clear();
   oaRows.forEach(r=>{ if(emails.has(r.email) && !oaSent(r)) oaSelected.add(r.id); });
   oaFilter = 'all'; oaRender();
-  document.getElementById('oa-progress').textContent = `${m.added} added, ${m.updated} updated`+(m.kept?`, ${m.kept} skipped (already emailed)`:'')+(oaSelected.size?` — ${oaSelected.size} selected, click Write drafts.`:'.');
+  const prog = document.getElementById('oa-progress');
+  prog.textContent = `${m.added} added, ${m.updated} updated`+(m.kept?`, ${m.kept} skipped (already emailed)`:'')+(oaSelected.size?` — ${oaSelected.size} selected, click Write drafts.`:'.');
   if(m.added || m.updated) ta.value = '';
+  if(document.getElementById('oa-verify').checked && oaSelected.size){
+    btn.disabled = true;
+    const v = await oaVerifyIds([...oaSelected]);
+    btn.disabled = false;
+    prog.textContent = `${m.added+m.updated} added · ${oaVerifySummary(v)} — ${oaSelected.size} selected, click Write drafts.`;
+  }
 }
 function oaReadEmailsFile(input){
   const f = input.files && input.files[0];
@@ -9473,6 +9486,34 @@ async function oaSendSelected(){
   if(!confirm(`Queue ${rows.length} email${rows.length>1?'s':''} from ${from}?\n\n${list}\n\nOne every 4–5 minutes — about ${Math.round((total-1)*4.5)} min in total. Keep this tab open. ${left} left today on this mailbox`+(rows.length>left?` — the rest stay as drafts.`:'.'))) return;
   oaEnqueue(rows.map(r=>r.id));
 }
+// ── verify (Snov) ──
+// 30 rows per call (server limit); results land on each row's badge.
+async function oaVerifyIds(ids){
+  ids = ids.filter(id=>{ const r = oaRow(id); return r && r.email && !oaSent(r); });
+  const prog = document.getElementById('oa-progress');
+  const out = {valid:0, invalid:0, unknown:0};
+  for(let i=0;i<ids.length;i+=30){
+    prog.textContent = `Verifying ${Math.min(i+30,ids.length)}/${ids.length}…`;
+    try{
+      const {results} = await oaApi('verify',{ids:ids.slice(i,i+30)});
+      Object.entries(results||{}).forEach(([id,smtp])=>{ const r = oaRow(id); if(r) r.smtp = smtp; out[smtp] = (out[smtp]||0)+1; });
+      oaRender();
+    }catch(e){ showToast(e.message,'warn'); break; }
+  }
+  return out;
+}
+function oaVerifySummary(v){ return `${v.valid} verified, ${v.invalid} invalid`+(v.unknown?`, ${v.unknown} unknown`:''); }
+async function oaVerifySelected(btn){
+  const ids = [...oaSelected].filter(id=>{ const r = oaRow(id); return r && r.email && !oaSent(r); });
+  if(!ids.length){ showToast('Select rows that have an email and were not sent yet','warn'); return; }
+  if(ids.length>10 && !confirm(`Verify ${ids.length} addresses with Snov? This spends Snov credits.`)) return;
+  if(btn) btn.disabled = true;
+  const v = await oaVerifyIds(ids);
+  if(btn) btn.disabled = false;
+  const msg = oaVerifySummary(v);
+  document.getElementById('oa-progress').textContent = 'Verify: '+msg+(v.invalid?' — invalid addresses can’t be sent to.':'.');
+  showToast(msg);
+}
 function oaStopQueue(){ if(oaQueue){ oaQueue.stop = true; showToast('Stopped — queued emails stay as drafts'); } }
 
 // ── right-click menu ──
@@ -9502,6 +9543,7 @@ function oaCtx(ev, id){
     one ? '<hr>' : '',
     item((rows.every(r=>r.subject)&&isTpl?'Next version':'Write draft')+many, 'oaDraftSelected()', {disabled:!draftable.length}),
     item('Send'+(sendable.length>1?` (${sendable.length})`:'')+'…', 'oaSendSelected()', {disabled:!sendable.length}),
+    item('Verify email'+(rows.filter(r=>r.email&&!oaSent(r)).length>1?` (${rows.filter(r=>r.email&&!oaSent(r)).length})`:''), 'oaVerifySelected()', {disabled:!rows.some(r=>r.email&&!oaSent(r))}),
     '<hr>',
     `<div class="oa-mi-sub"><button>Move to folder<span style="color:var(--text3);">›</span></button><div class="oa-menu">
       ${folders.map(f=>item(f, `oaMoveTo(${q(f)})`, {hint:cur===f?'✓':''})).join('')}

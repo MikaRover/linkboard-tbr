@@ -466,6 +466,37 @@ async function trackAll(onlyUid) {
   return { checked: rows.length, replied, bounced };
 }
 
+// ─── verify (Snov SMTP check) ────────────────────────────
+// Checks the addresses on up to VERIFY_MAX of the caller's rows and stores the
+// result on each row (valid / invalid / unknown). Uses the caller's own Snov
+// account if connected, otherwise the shared one — it spends Snov credits.
+const VERIFY_MAX = 30;
+async function verify(uid, ids) {
+  const snov = require('./snov');
+  const refs = [];
+  for (const id of (ids || []).slice(0, VERIFY_MAX)) {
+    const ref = db().collection(COLL).doc(String(id));
+    const cur = await ref.get();
+    if (!cur.exists || cur.data().ownerUid !== uid) continue;
+    const x = cur.data();
+    if (!isEmail(x.email) || ['sent', 'sending', 'replied', 'bounced'].includes(x.status)) continue;
+    refs.push({ ref, email: x.email.toLowerCase() });
+  }
+  if (!refs.length) return { results: {} };
+  const token = await snov.getSnovToken(await snov.getUserSnovCredentials(uid));
+  if (!token) throw new Error('Snov is not connected');
+  const statuses = await snov.verifyEmailsWithSnov([...new Set(refs.map(r => r.email))], token);
+  const results = {};
+  const batch = db().batch();
+  refs.forEach(({ ref, email }) => {
+    const smtp = statuses.get(email) || 'unknown';
+    results[ref.id] = smtp;
+    batch.update(ref, { smtp, verifiedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
+  });
+  await batch.commit();
+  return { results };
+}
+
 // ─── HTTP ────────────────────────────────────────────────
 // Same people as the app's isAdminOrTatev(): admins, plus Tatev by name.
 const canUseAgent = u => u.role === 'admin' || u.name === 'Tatev';
@@ -487,6 +518,7 @@ async function handler(req, res) {
       case 'draft': return res.json(await draft(user.uid, b));
       case 'send': return res.json(await send(user, b));
       case 'track': return res.json(await trackAll(user.uid));
+      case 'verify': return res.json(await verify(user.uid, b.ids));
       default: return res.status(400).json({ error: 'Unknown action' });
     }
   } catch (e) {
