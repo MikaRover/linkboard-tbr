@@ -247,7 +247,7 @@ async function templateDraft(uid, ref, row, senderName, set, offer, signature) {
     .replace(/\{optout\}/g, OPT_OUTS[idx % OPT_OUTS.length])
     .replace(/\{offer\}/g, offerLine(offer, idx))
     .replace(/\{signature\}/g, cleanSignature(signature) || oneLine(senderName) || 'the LinkBoard team')
-    .replace(/\{site\}/g, row.domain)
+    .replace(/\{site\}/g, FREE_MAIL.test(row.domain) ? 'your site' : row.domain)
     .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
   const subject = fill(t.subject);
   const body = fill(t.body);
@@ -344,6 +344,7 @@ function buildMime({ from, fromName, to, subject, body }) {
 }
 
 // Why this address/site must not be emailed again, or '' if it's fine.
+const FREE_MAIL = /^(gmail|googlemail|yahoo|ymail|hotmail|outlook|live|msn|icloud|me|aol|proton|protonmail|gmx|mail|yandex|zoho)\.[a-z.]+$/;
 async function contactBlock(id, email, domain) {
   const since = Date.now() - RECONTACT_DAYS * DAY;
   const out = ['sent', 'sending', 'replied', 'bounced'];
@@ -354,6 +355,8 @@ async function contactBlock(id, email, domain) {
     if (x.status === 'replied' || x.status === 'bounced') return `${email} already ${x.status} to an earlier email`;
     if (out.includes(x.status) && (x.sentAt || 0) >= since) return `${email} was already emailed on ${x.sentDay || 'a recent day'}`;
   }
+  // Free-mail domains (gmail.com…) are many different people, not one site.
+  if (FREE_MAIL.test(domain)) return '';
   const byDomain = await db().collection(COLL).where('domain', '==', domain).get();
   for (const d of byDomain.docs) {
     if (d.id === id) continue;
