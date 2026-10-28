@@ -1169,6 +1169,41 @@ a{text-underline-offset:2px;}
 .oa-sub{color:var(--text3);font-size:11px;margin-top:2px;}
 .oa-err{color:var(--red);font-size:12px;}
 .oa-progress{font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;}
+/* v2 polish */
+.oa-subtitle{margin-top:6px;}
+.oa-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:var(--space-4);}
+.oa-card-head .oa-step,.oa-card-head .oa-seg{margin-bottom:0;}
+.oa-grid>.oa-card{display:flex;flex-direction:column;}
+.oa-card :is(input[type=text],textarea,select){background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;padding:9px 12px;transition:border-color var(--dur-1),box-shadow var(--dur-1);}
+.oa-card :is(input[type=text],textarea,select):focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent2) 40%,transparent);}
+.oa-card textarea::placeholder,.oa-card input::placeholder{color:var(--text3);}
+.oa-list-input{font-family:var(--font-mono) !important;font-size:12.5px !important;line-height:1.7 !important;}
+.oa-card .oa-from select{padding:7px 12px;}
+/* overview: one quiet strip of numbers */
+.oa-stats{gap:0;flex:2 1 460px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:var(--bg3);border-radius:10px;}
+.oa-stat{min-width:0;background:transparent;border-radius:0;padding:12px 16px;border-left:1px solid var(--border);}
+.oa-stat:first-child{border-left:0;}
+.oa-stat b{font-size:22px;}
+@media (max-width:640px){.oa-stats{grid-template-columns:repeat(3,minmax(0,1fr));}.oa-stat:nth-child(4){border-left:0;}.oa-stat:nth-child(n+4){border-top:1px solid var(--border);}}
+/* table */
+.oa-table td{padding:14px 10px;}
+.oa-table tbody tr:last-child td{border-bottom:0;}
+.oa-fav{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);font-size:13px;}
+.oa-site .oa-mono{font-size:12.5px;}
+.oa-selbar{background:transparent;transition:background var(--dur-1);}
+.oa-selbar:not(.empty){background:color-mix(in srgb,var(--accent2) 7%,transparent);}
+.oa-empty::before{content:"";display:block;width:40px;height:40px;margin:0 auto 12px;border-radius:12px;background:var(--bg3) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%238a8f98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2L11 13'/%3E%3Cpath d='M22 2l-7 20-4-9-9-4 20-7z'/%3E%3C/svg%3E") center/20px no-repeat;border:1px solid var(--border);}
+.oa-editor{gap:14px;padding:18px;}
+.oa-editor :is(input,textarea,select){background:var(--bg3);border:1px solid var(--border);border-radius:10px;font-size:13px;padding:9px 12px;}
+.oa-editor :is(input,textarea,select):focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent2) 40%,transparent);}
+.oa-editor textarea{line-height:1.6;}
+#oa-sig{min-height:68px;line-height:1.5;}
+button.oa-stat{display:block;width:100%;text-align:left;font:inherit;color:inherit;border-top:0;border-right:0;border-bottom:0;cursor:pointer;transition:background var(--dur-1);}
+button.oa-stat:first-child{border-radius:10px 0 0 10px;}
+button.oa-stat:last-child{border-radius:0 10px 10px 0;}
+button.oa-stat:hover{background:var(--bg4);}
+button.oa-stat.active{background:var(--nav-active);box-shadow:inset 0 -2px 0 var(--accent2);}
+button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 60%,transparent);outline-offset:-2px;}
 
 @media (prefers-reduced-motion: reduce){
   .page.active{animation:none;}
@@ -2188,17 +2223,19 @@ a{text-underline-offset:2px;}
 
   <div class="oa-grid">
     <div class="oa-card">
-      <div class="oa-step"><span class="oa-step-n">1</span>Who to email</div>
-      <div class="oa-seg" role="tablist">
-        <button class="active" id="oa-src-tab-sites" onclick="oaSource('sites')">Find from websites</button>
-        <button id="oa-src-tab-emails" onclick="oaSource('emails')">I have the emails</button>
+      <div class="oa-card-head">
+        <div class="oa-step"><span class="oa-step-n">1</span>Who to email</div>
+        <div class="oa-seg" role="tablist">
+          <button class="active" id="oa-src-tab-sites" onclick="oaSource('sites')">Websites</button>
+          <button id="oa-src-tab-emails" onclick="oaSource('emails')">I have emails</button>
+        </div>
       </div>
       <div id="oa-src-emails" style="display:none;">
         <label class="oa-label" for="oa-emails">One email per line. Add a name after a comma for the greeting.</label>
-        <textarea id="oa-emails" rows="7" placeholder="anna@another-blog.net, Anna&#10;editor@third-site.com"></textarea>
+        <textarea id="oa-emails" class="oa-list-input" rows="8" placeholder="anna@another-blog.net, Anna&#10;editor@third-site.com"></textarea>
         <div class="oa-actions oa-gap">
           <button class="btn-sm" id="oa-emails-btn" onclick="oaAddEmails()">Add emails</button>
-          <label class="btn-ghost" style="cursor:pointer;">Upload file<input type="file" accept=".txt,.csv,text/plain,text/csv" style="display:none;" onchange="oaReadEmailsFile(this)"/></label>
+          <label class="btn-ghost" style="cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Upload file<input type="file" accept=".txt,.csv,text/plain,text/csv" style="display:none;" onchange="oaReadEmailsFile(this)"/></label>
           <label class="oa-check" title="Checks each address with Snov — spends Snov credits">
             <input type="checkbox" id="oa-verify" onchange="oaSavePrefs()"/> Verify emails
           </label>
@@ -2207,10 +2244,10 @@ a{text-underline-offset:2px;}
       </div>
       <div id="oa-src-sites">
         <label class="oa-label" for="oa-sites">One site per line. Have the email already? Put it on the same line: site, email, name.</label>
-        <textarea id="oa-sites" rows="7" placeholder="example.com&#10;another-blog.net, anna@another-blog.net, Anna&#10;editor@third-site.com"></textarea>
+        <textarea id="oa-sites" class="oa-list-input" rows="8" placeholder="example.com&#10;another-blog.net, anna@another-blog.net, Anna&#10;editor@third-site.com"></textarea>
         <div class="oa-actions oa-gap">
           <button class="btn-sm" id="oa-find-btn" onclick="oaFind()">Find contacts</button>
-          <label class="btn-ghost" style="cursor:pointer;">Upload file<input type="file" accept=".txt,.csv,text/plain,text/csv" style="display:none;" onchange="oaReadFile(this)"/></label>
+          <label class="btn-ghost" style="cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Upload file<input type="file" accept=".txt,.csv,text/plain,text/csv" style="display:none;" onchange="oaReadFile(this)"/></label>
           <label class="oa-check" title="Spends Snov credits — only used when the site itself lists no named editor or owner">
             <input type="checkbox" id="oa-snov" onchange="oaSavePrefs()"/> Use Snov when the site lists no person
           </label>
@@ -2221,11 +2258,13 @@ a{text-underline-offset:2px;}
       <div id="oa-folder-note" class="oa-help oa-gap"></div>
     </div>
     <div class="oa-card">
-      <div class="oa-step"><span class="oa-step-n">2</span>Your pitch</div>
-      <div class="oa-seg" id="oa-mode-seg" role="tablist">
-        <button data-mode="paid" onclick="oaPickMode('paid')">Paid</button>
-        <button data-mode="exchange" onclick="oaPickMode('exchange')">Link exchange</button>
-        <button data-mode="guest" onclick="oaPickMode('guest')">Guest post · AI</button>
+      <div class="oa-card-head">
+        <div class="oa-step"><span class="oa-step-n">2</span>Your pitch</div>
+        <div class="oa-seg" id="oa-mode-seg" role="tablist">
+          <button data-mode="paid" onclick="oaPickMode('paid')">Paid</button>
+          <button data-mode="exchange" onclick="oaPickMode('exchange')">Exchange</button>
+          <button data-mode="guest" onclick="oaPickMode('guest')">Guest · AI</button>
+        </div>
       </div>
       <select id="oa-mode" hidden onchange="oaModeChanged()">
         <option value="paid">Paid collaboration — our templates</option>
@@ -2235,7 +2274,7 @@ a{text-underline-offset:2px;}
       <div id="oa-paid-help" class="oa-help oa-note"><span id="oa-tpl-what"></span> Five versions with their own subjects, changing every 3 emails.</div>
       <div id="oa-offer-box" class="oa-gap">
         <label class="oa-label" for="oa-offer">Our sites to offer (optional, up to 5)</label>
-        <textarea id="oa-offer" rows="3" placeholder="oursite.com&#10;another-site.com" oninput="oaSavePrefs()"></textarea>
+        <textarea id="oa-offer" class="oa-list-input" rows="3" placeholder="oursite.com&#10;another-site.com" oninput="oaSavePrefs()"></textarea>
       </div>
       <div id="oa-guest-box" class="oa-gap">
         <label class="oa-label" for="oa-pitch">Notes for the AI — each email is written differently around these</label>
@@ -8985,12 +9024,19 @@ function oaRenderStats(){
   const sent = n(['sent','sending','replied','bounced']), replied = n(['replied']);
   const mb = oaMailboxes.find(m=>m.email===oaFrom());
   const today = mb ? mb.sentToday : 0, lim = mb ? mb.limit : oaLimit;
-  el.innerHTML = `
-    <div class="oa-stat"><b>${today}<span style="font-size:13px;font-weight:500;color:var(--text3);">/${lim}</span></b><span>Sent today</span><div class="oa-meter"><i style="width:${Math.min(100,Math.round(today/Math.max(1,lim)*100))}%;"></i></div></div>
-    <div class="oa-stat"><b>${n(['draft','failed'])}</b><span>Drafts ready</span></div>
-    <div class="oa-stat"><b>${sent}</b><span>Sent</span></div>
-    <div class="oa-stat"><b style="color:${replied?'var(--teal)':'var(--text)'};">${replied}</b><span>Replied${sent?` · ${Math.round(replied/sent*100)}%`:''}</span></div>
-    <div class="oa-stat"><b style="color:${n(['bounced'])?'var(--red)':'var(--text)'};">${n(['bounced'])}</b><span>Bounced</span></div>`;
+  const tile = (filter, inner, title) => `<button class="oa-stat ${oaFilter===filter?'active':''}" onclick="oaShowFilter('${filter}')" title="${title}">${inner}</button>`;
+  el.innerHTML =
+    tile('today', `<b>${today}<span style="font-size:13px;font-weight:500;color:var(--text3);">/${lim}</span></b><span>Sent today</span><div class="oa-meter"><i style="width:${Math.min(100,Math.round(today/Math.max(1,lim)*100))}%;"></i></div>`, 'Show emails sent today')
+    + tile('draft', `<b>${n(['draft','failed'])}</b><span>Drafts ready</span>`, 'Show drafts')
+    + tile('sent', `<b>${sent}</b><span>Sent</span>`, 'Show sent emails')
+    + tile('replied', `<b style="color:${replied?'var(--teal)':'var(--text)'};">${replied}</b><span>Replied${sent?` · ${Math.round(replied/sent*100)}%`:''}</span>`, 'Show replies')
+    + tile('bounced', `<b style="color:${n(['bounced'])?'var(--red)':'var(--text)'};">${n(['bounced'])}</b><span>Bounced</span>`, 'Show bounced emails');
+}
+// A number tile filters the list below to those rows; clicking it again shows all.
+function oaShowFilter(f){
+  oaFilter = oaFilter===f ? 'all' : f;
+  oaOpen = null; oaRender();
+  document.querySelector('#p-agent .oa-list')?.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'});
 }
 async function oaConnectSend(){
   if(!confirm('Connect your Gmail for sending?\n\nGoogle will ask to allow LinkBoard to send email on your behalf. Only the outreach drafts you approve with a click are ever sent.')) return;
@@ -9231,7 +9277,11 @@ async function oaFind(){
 
 // ── table ──
 function oaInFolder(r){ return !oaFolder || (oaFolder===OA_NO_FOLDER ? !r.folder : r.folder===oaFolder); }
-function oaVisible(){ return oaRows.filter(r=>oaInFolder(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed'))); }
+function oaToday(){ return new Date().toISOString().slice(0,10); } // same UTC day the server stamps on sentDay
+function oaVisible(){
+  if(oaFilter==='today'){ const t = oaToday(); return oaRows.filter(r=>oaInFolder(r) && oaSent(r) && (r.sentDay===t || r.status==='sending')); }
+  return oaRows.filter(r=>oaInFolder(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')));
+}
 function oaRender(){
   oaRenderFolders();
   const inFolder = oaRows.filter(oaInFolder);
