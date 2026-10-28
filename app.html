@@ -1100,6 +1100,17 @@ a{text-underline-offset:2px;}
 .oa-tab b{font-variant-numeric:tabular-nums;margin-left:4px;font-weight:600;color:var(--text);}
 .oa-folders{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--border);}
 .oa-folders select{margin:0;width:auto;font-size:12px;padding:6px 10px;}
+.oa-menu{position:fixed;z-index:2000;min-width:200px;padding:5px;border-radius:10px;background:var(--bg2);border:1px solid var(--border2);box-shadow:var(--elev);font-size:13px;}
+.oa-menu button{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:6px 10px;border:0;border-radius:6px;background:transparent;color:var(--text);font-size:13px;text-align:left;cursor:pointer;}
+.oa-menu button:hover:not(:disabled),.oa-menu .oa-mi-sub:hover>button{background:var(--nav-active);}
+.oa-menu button:disabled{color:var(--text3);cursor:default;}
+.oa-menu .oa-mi-danger{color:var(--red);}
+.oa-menu hr{border:0;border-top:1px solid var(--border);margin:4px 6px;}
+.oa-menu .oa-mi-head{padding:4px 10px 2px;font-size:11px;color:var(--text3);}
+.oa-mi-sub{position:relative;}
+.oa-mi-sub>.oa-menu{display:none;position:absolute;left:100%;top:-6px;max-height:320px;overflow-y:auto;}
+.oa-mi-sub:hover>.oa-menu{display:block;}
+.oa-menu.flip .oa-mi-sub>.oa-menu{left:auto;right:100%;}
 .oa-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--border);}
 .oa-table td{vertical-align:top;white-space:normal;font-size:12px;padding:10px;}
 .oa-table th{text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;color:var(--text2);}
@@ -9028,7 +9039,7 @@ function oaRender(){
     ${rows.map(r=>{
       const open = oaOpen===r.id;
       const when = r.status==='sent'||r.status==='replied'||r.status==='bounced' ? (r.sentDay||'') : '';
-      return `<tr class="oa-row ${open?'open':''}" onclick="oaToggle('${escAttr(r.id)}',event)">
+      return `<tr class="oa-row ${open?'open':''}" onclick="oaToggle('${escAttr(r.id)}',event)" oncontextmenu="oaCtx(event,'${escAttr(r.id)}')">
         <td onclick="event.stopPropagation()"><input type="checkbox" style="width:auto;margin:0;" ${oaSelected.has(r.id)?'checked':''} onclick="oaSelect('${escAttr(r.id)}',this.checked)"/></td>
         <td><div class="oa-mono" style="color:var(--text);">${escapeHtml(r.domain)}</div>${r.note?`<div class="oa-sub">${escapeHtml(r.note)}</div>`:''}</td>
         <td>${r.name?`<div style="color:var(--text);">${escapeHtml(r.name)}</div>`:'<div style="color:var(--text3);">—</div>'}${r.title?`<div class="oa-sub">${escapeHtml(r.title)}</div>`:''}</td>
@@ -9071,8 +9082,8 @@ function oaAskFolder(){
   return name;
 }
 function oaNewFolder(){ const name = oaAskFolder(); if(name) oaSetFolder(name); }
-async function oaMoveSelected(sel){
-  let to = sel.value; sel.value = '';
+function oaMoveSelected(sel){ const to = sel.value; sel.value = ''; return oaMoveTo(to); }
+async function oaMoveTo(to){
   if(!to) return;
   if(to==='__new__'){ to = oaAskFolder(); if(!to){ oaRender(); return; } }
   const folder = to===OA_NO_FOLDER ? '' : to;
@@ -9166,12 +9177,12 @@ async function oaDraft(id, btn){
 async function oaDraftSelected(btn){
   const ids = [...oaSelected].filter(id=>{ const r=oaRow(id); return r && r.email && ['found','draft','failed'].includes(r.status); });
   if(!ids.length){ showToast('Select rows that have a contact','warn'); return; }
-  btn.disabled = true;
+  if(btn) btn.disabled = true;
   const prog = document.getElementById('oa-progress'); let n = 0;
   const queue = ids.slice();
   // Templates go one at a time so each draft gets its own slot in the every-3 rotation.
   await Promise.all((oaMode()==='paid'?[0]:[0,1]).map(async()=>{ while(queue.length){ const id=queue.shift(); await oaDraft(id); n++; prog.textContent=`Drafts written ${n}/${ids.length}`; } }));
-  btn.disabled = false;
+  if(btn) btn.disabled = false;
   showToast(n+' drafts ready to review');
 }
 
@@ -9252,6 +9263,72 @@ async function oaSendSelected(){
   oaEnqueue(rows.map(r=>r.id));
 }
 function oaStopQueue(){ if(oaQueue){ oaQueue.stop = true; showToast('Stopped — queued emails stay as drafts'); } }
+
+// ── right-click menu ──
+// Like Finder: right-clicking a row that isn't selected selects just that row,
+// so every item acts on the selection (one row or many).
+function oaCtxClose(){ document.getElementById('oa-menu')?.remove(); }
+function oaCtx(ev, id){
+  if(ev.target.closest('input,textarea,select,a')) return;
+  ev.preventDefault();
+  if(!oaSelected.has(id)){ oaSelected.clear(); oaSelected.add(id); oaRender(); }
+  const rows = [...oaSelected].map(oaRow).filter(Boolean);
+  const one = rows.length===1 ? rows[0] : null;
+  const many = rows.length>1 ? ` (${rows.length})` : '';
+  const draftable = rows.filter(r=>r.email && ['found','draft','failed'].includes(r.status));
+  const sendable = rows.filter(r=>(r.status==='draft'||r.status==='failed') && r.email && r.subject && r.body && !oaQueued(r.id));
+  const open = rows.filter(r=>!oaSent(r));
+  const skipped = open.filter(r=>r.status==='skipped'), skippable = open.filter(r=>r.status!=='skipped');
+  const folders = oaFolderNames();
+  const cur = one ? (one.folder||'') : null;
+  const item = (label, fn, opts={}) => `<button ${opts.disabled?'disabled':''} class="${opts.cls||''}" onclick="oaCtxClose();${fn}">${escapeHtml(label)}${opts.hint?`<span style="color:var(--text3);">${escapeHtml(opts.hint)}</span>`:''}</button>`;
+  const q = v => `'${escAttr(v)}'`;
+  const isTpl = oaMode()==='paid';
+  const html = [
+    one ? item(oaOpen===one.id?'Close details':'Open details', `oaToggle(${q(one.id)})`) : '',
+    one ? item('Visit site', `window.open('https://'+${q(one.domain)},'_blank','noopener')`) : '',
+    one && one.email ? item('Copy email', `oaCopy(${q(one.email)})`) : '',
+    one ? '<hr>' : '',
+    item((rows.every(r=>r.subject)&&isTpl?'Next version':'Write draft')+many, 'oaDraftSelected()', {disabled:!draftable.length}),
+    item('Send'+(sendable.length>1?` (${sendable.length})`:'')+'…', 'oaSendSelected()', {disabled:!sendable.length}),
+    '<hr>',
+    `<div class="oa-mi-sub"><button>Move to folder<span style="color:var(--text3);">›</span></button><div class="oa-menu">
+      ${folders.map(f=>item(f, `oaMoveTo(${q(f)})`, {hint:cur===f?'✓':''})).join('')}
+      ${folders.length?'<hr>':''}
+      ${item('No folder', `oaMoveTo('${OA_NO_FOLDER}')`, {hint:cur===''?'✓':''})}
+      ${item('New folder…', `oaMoveTo('__new__')`)}
+    </div></div>`,
+    skippable.length ? item('Skip'+(skippable.length>1?` (${skippable.length})`:''), 'oaCtxSkip(true)') : '',
+    skipped.length ? item('Restore'+(skipped.length>1?` (${skipped.length})`:''), 'oaCtxSkip(false)') : '',
+    '<hr>',
+    item('Delete'+(open.length>1?` (${open.length})`:''), 'oaDeleteSelected()', {disabled:!open.length, cls:'oa-mi-danger'})
+  ].join('');
+  oaCtxClose();
+  const m = document.createElement('div');
+  m.id = 'oa-menu'; m.className = 'oa-menu'; m.innerHTML = html;
+  m.addEventListener('contextmenu', e=>e.preventDefault());
+  document.body.appendChild(m);
+  const w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(ev.clientX, innerWidth-w-8))+'px';
+  m.style.top = Math.max(8, Math.min(ev.clientY, innerHeight-h-8))+'px';
+  if(ev.clientX + w + 220 > innerWidth) m.classList.add('flip');
+}
+async function oaCtxSkip(skip){
+  const rows = [...oaSelected].map(oaRow).filter(r=>r && !oaSent(r) && (skip ? r.status!=='skipped' : r.status==='skipped'));
+  const items = rows.map(r=>({id:r.id, status: skip ? 'skipped' : (r.email ? (r.subject&&r.body?'draft':'found') : 'nocontact'), skipReason: skip ? 'Skipped by you' : ''}));
+  try{
+    await oaApi('save',{items});
+    items.forEach(it=>{ const r = oaRow(it.id); r.status = it.status; r.skipReason = it.skipReason; });
+    oaRender();
+  }catch(e){ showToast(e.message,'warn'); }
+}
+function oaCopy(text){
+  navigator.clipboard?.writeText(text).then(()=>showToast('Email copied'), ()=>showToast('Could not copy','warn'));
+}
+document.addEventListener('mousedown', e=>{ if(!e.target.closest('#oa-menu')) oaCtxClose(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') oaCtxClose(); });
+window.addEventListener('scroll', e=>{ if(!(e.target.closest && e.target.closest('#oa-menu'))) oaCtxClose(); }, true);
+window.addEventListener('resize', oaCtxClose);
 async function oaDeleteSelected(){
   const ids = [...oaSelected].filter(id=>!oaSent(oaRow(id)||{}));
   const keptN = oaSelected.size - ids.length;
