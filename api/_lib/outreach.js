@@ -182,30 +182,29 @@ async function siteContext(domain) {
 const TEMPLATE_EVERY = 3;
 const PAID_TEMPLATES = [
   { subject: 'content collaboration with {site}',
-    body: "Hi {name},\n\nMy name is {sender}. I'm an off-page SEO specialist, and I work with brands on content and look for good sites to partner with.\n\nI'd love to do a content collaboration with {site}. Could you let me know your terms?\n\n{optout}\n\nThanks,\n{sender}" },
+    body: "Hi {name},\n\nMy name is {sender}. I'm an off-page SEO specialist, and I work with brands on content and look for good sites to partner with.\n\nI'd love to do a content collaboration with {site}. Could you let me know your terms?\n\n{optout}\n\nThanks,\n{signature}" },
   { subject: 'quick question about {site}',
-    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist working on content for a few brands.\n\nI came across {site} and would like to do a content collaboration with you. What are your terms?\n\n{optout}\n\nBest,\n{sender}" },
+    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist working on content for a few brands.\n\nI came across {site} and would like to do a content collaboration with you. What are your terms?\n\n{optout}\n\nBest,\n{signature}" },
   { subject: 'collaboration idea',
-    body: "Hi {name},\n\nMy name is {sender}. I work in off-page SEO and help brands publish useful content on sites like yours.\n\nI'm interested in a content collaboration with {site}. Could you share your terms?\n\n{optout}\n\nKind regards,\n{sender}" },
+    body: "Hi {name},\n\nMy name is {sender}. I work in off-page SEO and help brands publish useful content on sites like yours.\n\nI'm interested in a content collaboration with {site}. Could you share your terms?\n\n{optout}\n\nKind regards,\n{signature}" },
   { subject: 'working together on content',
-    body: "Hi {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist.\n\nI'd like to work with {site} on a content collaboration. What terms do you offer?\n\n{optout}\n\nThanks,\n{sender}" },
+    body: "Hi {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist.\n\nI'd like to work with {site} on a content collaboration. What terms do you offer?\n\n{optout}\n\nThanks,\n{signature}" },
   { subject: 'content partnership with {site}',
-    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist working with several brands.\n\nI'm reaching out because I'd like to set up a content collaboration with {site}. Could you tell me your terms?\n\n{optout}\n\nBest regards,\n{sender}" }
+    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist working with several brands.\n\nI'm reaching out because I'd like to set up a content collaboration with {site}. Could you tell me your terms?\n\n{optout}\n\nBest regards,\n{signature}" }
 ];
 
-// Link exchange: same voice, offering a mutual mention instead of asking for
-// terms. No "link exchange", "backlink" or "dofollow" in the first email.
+// Link exchange: the team's own wording (two ways we collaborate, offer examples).
 const EXCHANGE_TEMPLATES = [
-  { subject: 'content exchange with {site}',
-    body: "Hi {name},\n\nMy name is {sender}. I'm an off-page SEO specialist, and I manage content for a few sites.\n\nI'd like to suggest a content exchange with {site}: we mention your site in an article on one of ours, and you do the same for us. Would that work for you?\n\n{offer}{optout}\n\nThanks,\n{sender}" },
-  { subject: 'quick idea for {site}',
-    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist working with several sites on related topics.\n\nI came across {site} and thought we could help each other: we feature {site} in one of our articles, and you feature one of our sites in yours. Is this something you'd be open to?\n\n{offer}{optout}\n\nBest,\n{sender}" },
-  { subject: 'working together',
-    body: "Hi {name},\n\nMy name is {sender}. I work in off-page SEO and look after content on a few sites.\n\nWould you be interested in an exchange with {site}? We'd mention you in a relevant article, and you'd mention us in one of yours.\n\n{offer}{optout}\n\nKind regards,\n{sender}" },
-  { subject: 'a mutual mention?',
-    body: "Hi {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist.\n\nI'd like to propose a mutual mention with {site}: each of us references the other in a relevant article. Let me know if that sounds good to you.\n\n{offer}{optout}\n\nThanks,\n{sender}" },
-  { subject: 'exchange idea for {site}',
-    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist and run content for a few sites.\n\nI'm reaching out to see if {site} would be open to a content exchange, where we each feature the other in a relevant article. I'm happy to go first.\n\n{offer}{optout}\n\nBest regards,\n{sender}" }
+  { subject: 'content collaboration?',
+    body: "Hi {name},\n\nI wanted to check if you'd be open to a content collaboration.\n\nWe usually collaborate in two ways:\n\n• A-B-C link exchange with SaaS partners we already work with\n• Co-created content that fits your audience and editorial style\n\n{offer}If this sounds interesting, I'd be happy to share a few examples and see if it could be a good fit ✨\n\n{optout}\n\nBest regards,\n{signature}" },
+  { subject: 'collaboration with {site}',
+    body: "Hello {name},\n\nI'm reaching out to see if {site} would be interested in working together on content.\n\nThere are two ways we usually do this:\n\n• An A-B-C link exchange with SaaS partners we already work with\n• Content we create together, written for your readers and in your editorial style\n\n{offer}If either sounds good, I can send over a few examples so you can see if it's a fit.\n\n{optout}\n\nBest,\n{signature}" },
+  { subject: 'quick question about {site}',
+    body: "Hi {name},\n\nWould you be open to a content collaboration with {site}?\n\nWe normally work with sites in one of two ways:\n\n• A-B-C link exchange through the SaaS partners we already work with\n• Co-written content that suits your audience and style\n\n{offer}Happy to share some examples if you'd like to take a look.\n\n{optout}\n\nKind regards,\n{signature}" },
+  { subject: 'working together on content',
+    body: "Hi {name},\n\nI came across {site} and wanted to ask if you'd be interested in collaborating.\n\nWe usually partner in two ways:\n\n• A-B-C link exchange with our existing SaaS partners\n• Co-created content tailored to your audience and editorial guidelines\n\n{offer}If that sounds interesting, I'd be glad to share a few examples ✨\n\n{optout}\n\nThanks,\n{signature}" },
+  { subject: 'content partnership idea',
+    body: "Hello {name},\n\nI wanted to reach out about a possible content partnership with {site}.\n\nHere's how we usually collaborate:\n\n• A-B-C link exchange with SaaS partners we already work with\n• Content we co-create to match your audience and editorial style\n\n{offer}Let me know if you'd like to see a few examples, and we can see if it's a good fit.\n\n{optout}\n\nBest regards,\n{signature}" }
 ];
 const TEMPLATE_SETS = { paid: PAID_TEMPLATES, exchange: EXCHANGE_TEMPLATES };
 // The sites we can offer in an exchange, phrased a little differently per template.
@@ -216,6 +215,10 @@ const OFFER_LINES = [
   'Our sites: {list}.',
   'You can pick from {list}.'
 ];
+// Up to 4 short lines, e.g. "Mika Hovsepyan / Growth Marketing Manager | Company".
+function cleanSignature(sig) {
+  return String(sig || '').split(/\r?\n/).map(l => l.trim().slice(0, 100)).filter(Boolean).slice(0, 4).join('\n');
+}
 function offerLine(offer, idx) {
   const hosts = [...new Set((Array.isArray(offer) ? offer : String(offer || '').split(/[\s,;]+/))
     .map(cleanHost).filter(h => h && isSafeHost(h)))].slice(0, 5);
@@ -224,7 +227,7 @@ function offerLine(offer, idx) {
   return OFFER_LINES[idx % OFFER_LINES.length].replace('{list}', list) + '\n\n';
 }
 
-async function templateDraft(uid, ref, row, senderName, set, offer) {
+async function templateDraft(uid, ref, row, senderName, set, offer, signature) {
   const list = TEMPLATE_SETS[set] || PAID_TEMPLATES;
   if (!TEMPLATE_SETS[set]) set = 'paid';
   // Rewriting a draft moves it to the next template of the same set; a new
@@ -243,6 +246,7 @@ async function templateDraft(uid, ref, row, senderName, set, offer) {
     .replace(/\{name\}/g, first ? first.charAt(0).toUpperCase() + first.slice(1) : 'there')
     .replace(/\{optout\}/g, OPT_OUTS[idx % OPT_OUTS.length])
     .replace(/\{offer\}/g, offerLine(offer, idx))
+    .replace(/\{signature\}/g, cleanSignature(signature) || oneLine(senderName) || 'the LinkBoard team')
     .replace(/\{site\}/g, row.domain)
     .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
   const subject = fill(t.subject);
@@ -251,14 +255,14 @@ async function templateDraft(uid, ref, row, senderName, set, offer) {
   return { subject, body, templateIdx: idx, templateSet: set };
 }
 
-async function draft(uid, { id, pitch, senderName, mode, avoidSubjects, offer }) {
+async function draft(uid, { id, pitch, senderName, mode, avoidSubjects, offer, signature }) {
   const ref = db().collection(COLL).doc(String(id || ''));
   const snap = await ref.get();
   if (!snap.exists || snap.data().ownerUid !== uid) throw new Error('Row not found');
   const row = snap.data();
   if (['sent', 'sending', 'replied', 'bounced'].includes(row.status)) throw new Error('Already sent');
   if (!isSafeHost(row.domain)) throw new Error('Invalid domain');
-  if (mode !== 'guest') return templateDraft(uid, ref, row, senderName, mode, offer);
+  if (mode !== 'guest') return templateDraft(uid, ref, row, senderName, mode, offer, signature);
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
