@@ -2143,8 +2143,8 @@ a{text-underline-offset:2px;}
   <div class="oa-grid">
     <div class="oa-card">
       <div class="oa-h">1. Websites</div>
-      <label class="oa-label" for="oa-sites">One site per line, or upload a .txt / .csv</label>
-      <textarea id="oa-sites" rows="7" placeholder="example.com&#10;https://another-blog.net/"></textarea>
+      <label class="oa-label" for="oa-sites">One site per line, or upload a .txt / .csv. Already have the email? Add it on the same line: site, email, name</label>
+      <textarea id="oa-sites" rows="7" placeholder="example.com&#10;another-blog.net, anna@another-blog.net, Anna&#10;editor@third-site.com"></textarea>
       <div class="oa-actions" style="margin-top:10px;">
         <button class="btn-sm" id="oa-find-btn" onclick="oaFind()">Find contacts</button>
         <label class="btn-ghost" style="cursor:pointer;">Upload file<input type="file" accept=".txt,.csv,text/plain,text/csv" style="display:none;" onchange="oaReadFile(this)"/></label>
@@ -8916,15 +8916,59 @@ function oaParseSites(text){
   });
   return out;
 }
+// Lines with an email become ready contacts ("site, email, name" in any order,
+// or just the email); everything else is a site to search.
+function oaParseInput(text){
+  const manual = [], rest = [], seen = new Set();
+  String(text||'').split(/\r?\n/).forEach(line=>{
+    const cells = line.split(/[,;\t|]+/).map(c=>c.trim().replace(/^["']|["']$/g,'')).filter(Boolean);
+    const email = cells.find(c=>/^[^\s@<>"']+@[^\s@<>"']+\.[a-z]{2,}$/i.test(c));
+    if(!email){ rest.push(line); return; }
+    const site = cells.map(c=>oaParseSites(c)[0]).find(d=>d && !email.toLowerCase().endsWith('@'+d)) ;
+    const domain = site || nd(email.split('@')[1]);
+    const name = cells.find(c=>c!==email && !oaParseSites(c).length && /^[\p{L}][\p{L}' .-]{0,60}$/u.test(c)) || '';
+    const key = domain+'|'+email.toLowerCase();
+    if(seen.has(key)) return; seen.add(key);
+    manual.push({domain, email:email.toLowerCase(), name, firstName:name.split(/\s+/)[0]||''});
+  });
+  return {manual, sites:oaParseSites(rest.join('\n'))};
+}
+// Rows the user brings with an email: no search, straight to "Contact found".
+async function oaAddManual(manual){
+  const byDomain = new Map(oaRows.map(r=>[r.domain, r]));
+  let added = 0, updated = 0, kept = 0;
+  const items = [];
+  for(const m of manual){
+    const prev = byDomain.get(m.domain);
+    if(prev && oaSent(prev)){ kept++; continue; }
+    const row = {domain:m.domain, email:m.email, name:m.name, firstName:m.firstName, title:'', smtp:'unknown', source:'Added by you', candidates:[], status:'found', skipReason:'', note:oaSiteNote(m.domain)};
+    // A different address than the draft was written for: start the draft over.
+    if(prev){ items.push(prev.email===m.email ? {...row, id:prev.id, status:prev.subject&&prev.body?'draft':'found'} : {...row, id:prev.id, subject:'', body:''}); }
+    else { if(oaFolder && oaFolder!==OA_NO_FOLDER) row.folder = oaFolder; items.push(row); }
+  }
+  for(let i=0;i<items.length;i+=100){
+    const chunk = items.slice(i,i+100);
+    try{
+      const {ids} = await oaApi('save',{items:chunk});
+      chunk.forEach((it,k)=>{
+        if(it.id){ Object.assign(oaRow(it.id)||{}, it); updated++; }
+        else if(ids[k]){ oaRows.unshift({...it, id:ids[k], createdAt:Date.now()}); added++; }
+      });
+    }catch(e){ showToast(e.message,'warn'); }
+  }
+  oaRender();
+  return {added, updated, kept};
+}
 function oaReadFile(input){
   const f = input.files && input.files[0];
   if(!f) return;
   const rd = new FileReader();
   rd.onload = ()=>{
     const ta = document.getElementById('oa-sites');
-    const sites = oaParseSites(rd.result);
-    ta.value = [ta.value.trim(), ...sites].filter(Boolean).join('\n');
-    showToast(sites.length+' sites read from '+f.name);
+    const {manual, sites} = oaParseInput(rd.result);
+    const lines = [...manual.map(m=>[m.domain, m.email, m.firstName].filter(Boolean).join(', ')), ...sites];
+    ta.value = [ta.value.trim(), ...lines].filter(Boolean).join('\n');
+    showToast(`${lines.length} rows read from ${f.name}`+(manual.length?` (${manual.length} with an email)`:''));
     input.value = '';
   };
   rd.readAsText(f);
@@ -8998,8 +9042,14 @@ function oaSiteNote(domain){
 }
 async function oaFind(){
   const ta = document.getElementById('oa-sites');
-  const sites = oaParseSites(ta.value);
-  if(!sites.length){ showToast('Paste at least one website','warn'); return; }
+  const {manual, sites} = oaParseInput(ta.value);
+  if(!sites.length && !manual.length){ showToast('Paste at least one website','warn'); return; }
+  let manualNote = '';
+  if(manual.length){
+    const m = await oaAddManual(manual);
+    manualNote = `${m.added+m.updated} contact${m.added+m.updated===1?'':'s'} added with your email`+(m.kept?`, ${m.kept} skipped (already emailed)`:'');
+    if(!sites.length){ document.getElementById('oa-progress').textContent = manualNote+'. Select them and click Write drafts.'; ta.value = ''; return; }
+  }
   // Sites already listed are searched again only if they came up empty or skipped.
   const byDomain = new Map(oaRows.map(r=>[r.domain, r]));
   const fresh = sites.filter(d=>!byDomain.has(d) || ['skipped','nocontact'].includes(byDomain.get(d).status));
@@ -9033,7 +9083,7 @@ async function oaFind(){
   };
   await Promise.all([worker(),worker(),worker()]);
   btn.disabled = false;
-  prog.textContent = `Done: ${fresh.length} sites searched, ${found} with a contact to review.`;
+  prog.textContent = `Done: ${fresh.length} sites searched, ${found} with a contact to review.`+(manualNote?` ${manualNote}.`:'');
   ta.value = '';
 }
 
