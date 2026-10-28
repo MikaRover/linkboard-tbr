@@ -2167,6 +2167,10 @@ a{text-underline-offset:2px;}
         <option value="guest">Free guest post — written by AI</option>
       </select>
       <div id="oa-paid-help" class="oa-help"><span id="oa-tpl-what"></span> Five versions, each with its own subject — the version changes every 3 emails. “Next version” moves a draft to the next one.</div>
+      <div id="oa-offer-box" style="margin-top:10px;">
+        <label class="oa-label" for="oa-offer">Our sites to offer — one per line, up to 5 go in the email</label>
+        <textarea id="oa-offer" rows="4" placeholder="oursite.com&#10;another-site.com" oninput="oaSavePrefs()"></textarea>
+      </div>
       <div id="oa-guest-box">
         <label class="oa-label" for="oa-pitch">Notes for the AI — each email is written differently around these</label>
         <textarea id="oa-pitch" rows="6" oninput="oaSavePrefs()"></textarea>
@@ -8817,6 +8821,7 @@ function initAgentPage(){
     document.getElementById('oa-pitch').value = saved || OA_DEFAULT_PITCH[mode];
     document.getElementById('oa-snov').checked = localStorage.getItem('oa-snov')==='1';
     document.getElementById('oa-name').value = localStorage.getItem('oa-name') || '';
+    document.getElementById('oa-offer').value = localStorage.getItem('oa-offer') || '';
   }catch(e){ document.getElementById('oa-pitch').value = OA_DEFAULT_PITCH[mode]; }
   oaModeUi();
   oaLoad(); oaLoadMailboxes();
@@ -8830,6 +8835,7 @@ function oaModeUi(){
   const tpl = oaIsTemplate();
   document.getElementById('oa-paid-help').style.display = tpl ? '' : 'none';
   document.getElementById('oa-guest-box').style.display = tpl ? 'none' : '';
+  document.getElementById('oa-offer-box').style.display = oaMode()==='exchange' ? '' : 'none';
   document.getElementById('oa-tpl-what').textContent = oaMode()==='exchange'
     ? 'Short, plain emails: who you are, then a content exchange where each site mentions the other in an article.'
     : 'Short, plain emails: who you are, then a content collaboration and a question about their terms.';
@@ -8845,6 +8851,7 @@ function oaSavePrefs(){
     localStorage.setItem('oa-pitch-'+oaMode(), document.getElementById('oa-pitch').value);
     localStorage.setItem('oa-snov', document.getElementById('oa-snov').checked?'1':'0');
     localStorage.setItem('oa-name', document.getElementById('oa-name').value.trim());
+    localStorage.setItem('oa-offer', document.getElementById('oa-offer').value);
   }catch(e){}
 }
 // The name typed on the page wins; otherwise the sending mailbox's first part
@@ -9175,7 +9182,7 @@ async function oaDraft(id, btn){
   if(btn){ btn.disabled = true; btn.textContent = 'Writing…'; }
   try{
     const avoidSubjects = oaRows.filter(x=>x.subject && x.id!==id).slice(0,15).map(x=>x.subject);
-    const j = await oaApi('draft',{id, pitch:document.getElementById('oa-pitch').value, senderName:oaSenderName(), mode:oaMode(), avoidSubjects});
+    const j = await oaApi('draft',{id, pitch:document.getElementById('oa-pitch').value, senderName:oaSenderName(), mode:oaMode(), avoidSubjects, offer:oaParseSites(document.getElementById('oa-offer').value)});
     Object.assign(r, {subject:j.subject, body:j.body, status:'draft'});
     delete oaEdits[id];
     oaRender();

@@ -197,19 +197,34 @@ const PAID_TEMPLATES = [
 // terms. No "link exchange", "backlink" or "dofollow" in the first email.
 const EXCHANGE_TEMPLATES = [
   { subject: 'content exchange with {site}',
-    body: "Hi {name},\n\nMy name is {sender}. I'm an off-page SEO specialist, and I manage content for a few sites.\n\nI'd like to suggest a content exchange with {site}: we mention your site in an article on one of ours, and you do the same for us. Would that work for you?\n\n{optout}\n\nThanks,\n{sender}" },
+    body: "Hi {name},\n\nMy name is {sender}. I'm an off-page SEO specialist, and I manage content for a few sites.\n\nI'd like to suggest a content exchange with {site}: we mention your site in an article on one of ours, and you do the same for us. Would that work for you?\n\n{offer}{optout}\n\nThanks,\n{sender}" },
   { subject: 'quick idea for {site}',
-    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist working with several sites on related topics.\n\nI came across {site} and thought we could help each other: we feature {site} in one of our articles, and you feature one of our sites in yours. Is this something you'd be open to?\n\n{optout}\n\nBest,\n{sender}" },
+    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist working with several sites on related topics.\n\nI came across {site} and thought we could help each other: we feature {site} in one of our articles, and you feature one of our sites in yours. Is this something you'd be open to?\n\n{offer}{optout}\n\nBest,\n{sender}" },
   { subject: 'working together',
-    body: "Hi {name},\n\nMy name is {sender}. I work in off-page SEO and look after content on a few sites.\n\nWould you be interested in an exchange with {site}? We'd mention you in a relevant article, and you'd mention us in one of yours.\n\n{optout}\n\nKind regards,\n{sender}" },
+    body: "Hi {name},\n\nMy name is {sender}. I work in off-page SEO and look after content on a few sites.\n\nWould you be interested in an exchange with {site}? We'd mention you in a relevant article, and you'd mention us in one of yours.\n\n{offer}{optout}\n\nKind regards,\n{sender}" },
   { subject: 'a mutual mention?',
-    body: "Hi {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist.\n\nI'd like to propose a mutual mention with {site}: each of us references the other in a relevant article. Let me know if that sounds good to you.\n\n{optout}\n\nThanks,\n{sender}" },
+    body: "Hi {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist.\n\nI'd like to propose a mutual mention with {site}: each of us references the other in a relevant article. Let me know if that sounds good to you.\n\n{offer}{optout}\n\nThanks,\n{sender}" },
   { subject: 'exchange idea for {site}',
-    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist and run content for a few sites.\n\nI'm reaching out to see if {site} would be open to a content exchange, where we each feature the other in a relevant article. I'm happy to go first.\n\n{optout}\n\nBest regards,\n{sender}" }
+    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist and run content for a few sites.\n\nI'm reaching out to see if {site} would be open to a content exchange, where we each feature the other in a relevant article. I'm happy to go first.\n\n{offer}{optout}\n\nBest regards,\n{sender}" }
 ];
 const TEMPLATE_SETS = { paid: PAID_TEMPLATES, exchange: EXCHANGE_TEMPLATES };
+// The sites we can offer in an exchange, phrased a little differently per template.
+const OFFER_LINES = [
+  'The sites we can offer are {list}.',
+  'Here are the sites we could feature you on: {list}.',
+  'We can mention you on {list}.',
+  'Our sites: {list}.',
+  'You can pick from {list}.'
+];
+function offerLine(offer, idx) {
+  const hosts = [...new Set((Array.isArray(offer) ? offer : String(offer || '').split(/[\s,;]+/))
+    .map(cleanHost).filter(h => h && isSafeHost(h)))].slice(0, 5);
+  if (!hosts.length) return '';
+  const list = hosts.length === 1 ? hosts[0] : hosts.slice(0, -1).join(', ') + ' and ' + hosts[hosts.length - 1];
+  return OFFER_LINES[idx % OFFER_LINES.length].replace('{list}', list) + '\n\n';
+}
 
-async function templateDraft(uid, ref, row, senderName, set) {
+async function templateDraft(uid, ref, row, senderName, set, offer) {
   const list = TEMPLATE_SETS[set] || PAID_TEMPLATES;
   if (!TEMPLATE_SETS[set]) set = 'paid';
   // Rewriting a draft moves it to the next template of the same set; a new
@@ -227,6 +242,7 @@ async function templateDraft(uid, ref, row, senderName, set) {
   const fill = str => str
     .replace(/\{name\}/g, first ? first.charAt(0).toUpperCase() + first.slice(1) : 'there')
     .replace(/\{optout\}/g, OPT_OUTS[idx % OPT_OUTS.length])
+    .replace(/\{offer\}/g, offerLine(offer, idx))
     .replace(/\{site\}/g, row.domain)
     .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
   const subject = fill(t.subject);
@@ -235,14 +251,14 @@ async function templateDraft(uid, ref, row, senderName, set) {
   return { subject, body, templateIdx: idx, templateSet: set };
 }
 
-async function draft(uid, { id, pitch, senderName, mode, avoidSubjects }) {
+async function draft(uid, { id, pitch, senderName, mode, avoidSubjects, offer }) {
   const ref = db().collection(COLL).doc(String(id || ''));
   const snap = await ref.get();
   if (!snap.exists || snap.data().ownerUid !== uid) throw new Error('Row not found');
   const row = snap.data();
   if (['sent', 'sending', 'replied', 'bounced'].includes(row.status)) throw new Error('Already sent');
   if (!isSafeHost(row.domain)) throw new Error('Invalid domain');
-  if (mode !== 'guest') return templateDraft(uid, ref, row, senderName, mode);
+  if (mode !== 'guest') return templateDraft(uid, ref, row, senderName, mode, offer);
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
