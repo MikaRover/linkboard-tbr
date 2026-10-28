@@ -64,7 +64,7 @@ const SUBJECT_STYLES = [
 
 // Fields the browser may set. Status values that mean "an email went out"
 // (sent/replied/bounced) are server-only, so a page can't fake a send.
-const EDITABLE = ['domain', 'name', 'firstName', 'title', 'email', 'smtp', 'source', 'candidates', 'subject', 'body', 'skipReason', 'note', 'batch'];
+const EDITABLE = ['domain', 'name', 'firstName', 'title', 'email', 'smtp', 'source', 'candidates', 'subject', 'body', 'skipReason', 'note', 'batch', 'folder'];
 const CLIENT_STATUSES = ['found', 'nocontact', 'draft', 'skipped'];
 
 const db = () => getAdmin().firestore();
@@ -80,6 +80,7 @@ function clean(item) {
   if (out.email !== undefined) out.email = String(out.email || '').trim().toLowerCase();
   if (out.candidates !== undefined) out.candidates = (Array.isArray(out.candidates) ? out.candidates : []).slice(0, 12);
   ['subject', 'body', 'name', 'firstName', 'title', 'note', 'skipReason'].forEach(k => { if (out[k] !== undefined) out[k] = String(out[k] || '').slice(0, k === 'body' ? 6000 : 300); });
+  if (out.folder !== undefined) out.folder = oneLine(out.folder).slice(0, 80);
   if (item.status !== undefined && CLIENT_STATUSES.includes(item.status)) out.status = item.status;
   return out;
 }
@@ -106,9 +107,12 @@ async function save(uid, items) {
       const ref = col.doc(String(item.id));
       const cur = await ref.get();
       if (!cur.exists || cur.data().ownerUid !== uid) continue;
-      // A row that already went out is a record — only its note can change.
+      // A row that already went out is a record — only its note and folder can change.
       if (['sent', 'sending', 'replied', 'bounced'].includes(cur.data().status)) {
-        if (data.note !== undefined) batch.update(ref, { note: data.note, updatedAt: now });
+        const keep = {};
+        if (data.note !== undefined) keep.note = data.note;
+        if (data.folder !== undefined) keep.folder = data.folder;
+        if (Object.keys(keep).length) batch.update(ref, { ...keep, updatedAt: now });
         ids.push(ref.id);
         continue;
       }

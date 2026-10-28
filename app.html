@@ -1098,6 +1098,8 @@ a{text-underline-offset:2px;}
 .oa-tab{padding:5px 12px;border-radius:980px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;}
 .oa-tab.active{background:var(--nav-active);color:var(--text);border-color:var(--border2);}
 .oa-tab b{font-variant-numeric:tabular-nums;margin-left:4px;font-weight:600;color:var(--text);}
+.oa-folders{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--border);}
+.oa-folders select{margin:0;width:auto;font-size:12px;padding:6px 10px;}
 .oa-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--border);}
 .oa-table td{vertical-align:top;white-space:normal;font-size:12px;padding:10px;}
 .oa-table th{text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;color:var(--text2);}
@@ -2140,6 +2142,7 @@ a{text-underline-offset:2px;}
         </label>
       </div>
       <div id="oa-progress" class="oa-progress" style="margin-top:8px;"></div>
+      <div id="oa-folder-note" class="oa-help" style="margin-top:8px;"></div>
       <div class="oa-help" style="margin-top:8px;">Contacts the team already has in Domains DB are tried first. Sites we already have links on are marked, not skipped. Anyone the agent emailed in the last 90 days is never emailed again. Sites that were skipped or had no contact are searched again.</div>
     </div>
     <div class="oa-card">
@@ -2161,6 +2164,13 @@ a{text-underline-offset:2px;}
   </div>
 
   <div class="card">
+    <div class="oa-folders">
+      <label class="oa-label" style="margin:0;" for="oa-folder">Client folder</label>
+      <select id="oa-folder" onchange="oaSetFolder(this.value)"></select>
+      <button class="btn-ghost" onclick="oaNewFolder()">New folder</button>
+      <div style="flex:1;"></div>
+      <select id="oa-move" onchange="oaMoveSelected(this)"></select>
+    </div>
     <div class="oa-toolbar">
       <div class="oa-tabs" id="oa-tabs"></div>
       <div style="flex:1;"></div>
@@ -8746,6 +8756,10 @@ function renderGmailStrip(){
 // clicks Send. Rows live server-side in `outreachAgent` via /api/outreach;
 // sending, quota and "never email twice" checks are enforced there too.
 let oaRows = [], oaMailboxes = [], oaLimit = 30, oaFilter = 'all', oaOpen = null, oaQueue = null;
+// Client folder shown: '' = all rows, OA_NO_FOLDER = rows without one, else the folder name.
+const OA_NO_FOLDER = '__none__';
+let oaFolder = '';
+try{ oaFolder = localStorage.getItem('oa-folder') || ''; }catch(e){}
 const oaSelected = new Set(), oaEdits = {};
 // Random 4–5 min between emails: a steady, human pace is what keeps a
 // mailbox out of spam (the server also refuses anything under 4 min).
@@ -8979,7 +8993,10 @@ async function oaFind(){
       const prev = byDomain.get(domain);
       try{
         if(prev){ await oaApi('save',{items:[{...row, id:prev.id}]}); Object.assign(prev, row); }
-        else { const {ids} = await oaApi('save',{items:[row]}); oaRows.unshift({...row, id:ids[0], createdAt:Date.now()}); }
+        else {
+          if(oaFolder && oaFolder!==OA_NO_FOLDER) row.folder = oaFolder;
+          const {ids} = await oaApi('save',{items:[row]}); oaRows.unshift({...row, id:ids[0], createdAt:Date.now()});
+        }
       }catch(e){ showToast(domain+': '+e.message,'warn'); }
       done++; step(); oaRender();
     }
@@ -8991,16 +9008,19 @@ async function oaFind(){
 }
 
 // ── table ──
-function oaVisible(){ return oaFilter==='all' ? oaRows : oaRows.filter(r=>r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')); }
+function oaInFolder(r){ return !oaFolder || (oaFolder===OA_NO_FOLDER ? !r.folder : r.folder===oaFolder); }
+function oaVisible(){ return oaRows.filter(r=>oaInFolder(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed'))); }
 function oaRender(){
-  const counts = {}; oaRows.forEach(r=>{ counts[r.status]=(counts[r.status]||0)+1; });
-  counts.all = oaRows.length; counts.sent=(counts.sent||0)+(counts.sending||0); counts.draft=(counts.draft||0)+(counts.failed||0);
+  oaRenderFolders();
+  const inFolder = oaRows.filter(oaInFolder);
+  const counts = {}; inFolder.forEach(r=>{ counts[r.status]=(counts[r.status]||0)+1; });
+  counts.all = inFolder.length; counts.sent=(counts.sent||0)+(counts.sending||0); counts.draft=(counts.draft||0)+(counts.failed||0);
   document.getElementById('oa-tabs').innerHTML = OA_TABS.map(([k,l])=>`<button class="oa-tab ${oaFilter===k?'active':''}" onclick="oaFilter='${k}';oaRender()">${l}<b>${counts[k]||0}</b></button>`).join('');
   const ids = new Set(oaRows.map(r=>r.id)); [...oaSelected].forEach(id=>{ if(!ids.has(id)) oaSelected.delete(id); });
   document.getElementById('oa-selcount').textContent = oaSelected.size ? oaSelected.size+' selected' : '';
   const rows = oaVisible();
   const wrap = document.getElementById('oa-table');
-  if(!rows.length){ wrap.innerHTML = `<div class="loading">${oaRows.length?'Nothing here.':'Paste websites above and click Find contacts.'}</div>`; return; }
+  if(!rows.length){ wrap.innerHTML = `<div class="loading">${inFolder.length?'Nothing here.':'Paste websites above and click Find contacts.'}</div>`; return; }
   const allOn = rows.every(r=>oaSelected.has(r.id));
   wrap.innerHTML = `<table class="oa-table"><thead><tr>
       <th style="width:28px;"><input type="checkbox" style="width:auto;margin:0;" ${allOn?'checked':''} onclick="oaSelectAll(this.checked)"/></th>
@@ -9017,6 +9037,53 @@ function oaRender(){
         <td style="color:var(--text2);max-width:280px;">${escapeHtml(r.subject||'')}</td>
       </tr>${open?`<tr class="oa-edit"><td></td><td colspan="5">${oaEditor(r)}</td></tr>`:''}`;
     }).join('')}</tbody></table>`;
+}
+// ── client folders ──
+// A folder is just a name on each row. Folders made with "New folder" that hold
+// no rows yet are remembered in this browser until something is put in them.
+function oaFolderNames(){
+  let extra = []; try{ extra = JSON.parse(localStorage.getItem('oa-folders')||'[]'); }catch(e){}
+  const names = new Set([...oaRows.map(r=>r.folder).filter(Boolean), ...extra]);
+  if(oaFolder && oaFolder!==OA_NO_FOLDER) names.add(oaFolder);
+  return [...names].sort((a,b)=>a.localeCompare(b));
+}
+function oaRenderFolders(){
+  const names = oaFolderNames();
+  const n = f => oaRows.filter(r=>f===OA_NO_FOLDER ? !r.folder : r.folder===f).length;
+  const sel = document.getElementById('oa-folder');
+  sel.innerHTML = `<option value="">All folders (${oaRows.length})</option>`
+    + names.map(f=>`<option value="${escAttr(f)}" ${oaFolder===f?'selected':''}>${escapeHtml(f)} (${n(f)})</option>`).join('')
+    + `<option value="${OA_NO_FOLDER}" ${oaFolder===OA_NO_FOLDER?'selected':''}>No folder (${n(OA_NO_FOLDER)})</option>`;
+  document.getElementById('oa-move').innerHTML = `<option value="">Move selected to…</option>`
+    + names.map(f=>`<option value="${escAttr(f)}">${escapeHtml(f)}</option>`).join('')
+    + `<option value="${OA_NO_FOLDER}">No folder</option><option value="__new__">New folder…</option>`;
+  const note = document.getElementById('oa-folder-note');
+  note.textContent = oaFolder && oaFolder!==OA_NO_FOLDER ? `New sites go into the “${oaFolder}” folder.` : 'New sites go into no folder. Pick a client folder below first to file them there.';
+}
+function oaSetFolder(f){
+  oaFolder = f; try{ localStorage.setItem('oa-folder', f); }catch(e){}
+  oaSelected.clear(); oaOpen = null; oaRender();
+}
+function oaAskFolder(){
+  const name = (prompt('Client folder name')||'').replace(/\s+/g,' ').trim().slice(0,80);
+  if(!name) return '';
+  try{ const list = JSON.parse(localStorage.getItem('oa-folders')||'[]'); if(!list.includes(name)){ list.push(name); localStorage.setItem('oa-folders', JSON.stringify(list)); } }catch(e){}
+  return name;
+}
+function oaNewFolder(){ const name = oaAskFolder(); if(name) oaSetFolder(name); }
+async function oaMoveSelected(sel){
+  let to = sel.value; sel.value = '';
+  if(!to) return;
+  if(to==='__new__'){ to = oaAskFolder(); if(!to){ oaRender(); return; } }
+  const folder = to===OA_NO_FOLDER ? '' : to;
+  const ids = [...oaSelected];
+  if(!ids.length){ showToast('Select rows first','warn'); oaRender(); return; }
+  try{
+    await oaApi('save',{items:ids.map(id=>({id, folder}))});
+    ids.forEach(id=>{ const r = oaRow(id); if(r) r.folder = folder; });
+    showToast(`${ids.length} row${ids.length>1?'s':''} moved to ${folder?'“'+folder+'”':'no folder'}`);
+    oaSelected.clear(); oaRender();
+  }catch(e){ showToast(e.message,'warn'); oaRender(); }
 }
 function oaSelect(id,on){ on?oaSelected.add(id):oaSelected.delete(id); document.getElementById('oa-selcount').textContent = oaSelected.size?oaSelected.size+' selected':''; }
 function oaSelectAll(on){ oaVisible().forEach(r=>on?oaSelected.add(r.id):oaSelected.delete(r.id)); oaRender(); }
