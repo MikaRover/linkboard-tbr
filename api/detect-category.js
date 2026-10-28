@@ -20,37 +20,45 @@ module.exports = async function handler(req, res) {
     '/product', '/platform', '/solutions', '/integrations', '/login', '/signup', '/demo',
     '/news', '/articles', '/category', '/plans', '/enterprise', '/contact'];
 
-  let combinedText = '';
-  let fetchedUrls = [];
-  let homepageHtml = '';
-
-  for (const path of paths) {
+  // Fetch all candidate pages in parallel — sequentially, 19 paths × 4s
+  // could blow the function's time budget before Claude was even asked.
+  const pages = await Promise.all(paths.map(async (path) => {
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
       const response = await fetch(base + path, {
         headers: browserHeaders(),
         redirect: 'follow',
-        signal: controller.signal
+        signal: AbortSignal.timeout(5000)
       });
-      clearTimeout(timeout);
-      if (!response.ok) continue;
+      if (!response.ok) return null;
       const html = (await response.text()).slice(0, 40000);
-      if (path === '') homepageHtml = html;
-      const title = extractTitle(html);
-      const meta = extractMeta(html);
-      const text = stripHtml(html).slice(0, 2500);
-      fetchedUrls.push(base + path);
-      combinedText += `\nURL: ${base+path}\nTITLE: ${title}\nMETA: ${meta}\nTEXT: ${text}\n---\n`;
-      if (combinedText.length > 30000) break;
-    } catch(e) {}
-  }
+      return { path, url: base + path, html, title: extractTitle(html), meta: extractMeta(html), text: stripHtml(html).slice(0, 2500) };
+    } catch(e) { return null; }
+  }));
+
+  // Many sites answer every path with the homepage (SPAs, soft 404s). Those
+  // copies used to count as "has /pricing", "has /blog" etc. and pushed real
+  // pages out of the prompt — keep only pages with their own content.
+  const seen = new Set();
+  const realPages = pages.filter(p => {
+    if (!p || !p.text) return false;
+    const key = p.title + '|' + p.text;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const fetchedUrls = realPages.map(p => p.url);
+  // Homepage gets more room than sub-pages — it says the most about what the site is
+  const combinedText = realPages.map((p, i) =>
+    `\nURL: ${p.url}\nTITLE: ${p.title}\nMETA: ${p.meta}\nTEXT: ${p.text.slice(0, i === 0 ? 2500 : 1000)}\n---\n`
+  ).join('').slice(0, 14000);
+  const pageText = realPages.map(p => `${p.title} ${p.meta} ${p.text}`).join(' ');
 
   if (!combinedText.trim()) {
     return res.json({ category: 'Other', method: 'fallback', confidence: 0 });
   }
 
-  const heuristic = heuristicClassify(combinedText, normalizedDomain, homepageHtml);
+  const heuristic = heuristicClassify(pageText, normalizedDomain, fetchedUrls.map(u => u.slice(base.length)));
 
   if (!anthropicKey) {
     return res.json({ category: heuristic.suggestedCategory, method: 'heuristic', confidence: null });
@@ -88,9 +96,9 @@ Domain: ${normalizedDomain}
 Fetched pages: ${fetchedUrls.join(', ')}
 
 Website content:
-${combinedText.slice(0, 8000)}
+${combinedText}
 
-Think step by step through the decision rules above, then return ONLY valid JSON: {"category":"SaaS","confidence":95}
+Apply the decision rules above, then return ONLY valid JSON: {"category":"SaaS","confidence":95}
 No explanation, no markdown, just JSON.`;
 
     const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -102,30 +110,38 @@ No explanation, no markdown, just JSON.`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 100,
+        max_tokens: 200,
+        // Adaptive thinking would eat the whole token budget and leave no
+        // answer block — every call then fell back to the keyword heuristic.
+        thinking: { type: 'disabled' },
         messages: [{ role: 'user', content: prompt }]
       }),
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(20000)
     });
 
     const claudeData = await claudeResp.json();
-    const raw = (claudeData.content?.[0]?.text || '').trim();
-    const obj = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    const textBlock = Array.isArray(claudeData.content) && claudeData.content.find(b => typeof b?.text === 'string');
+    if (!claudeResp.ok || !textBlock) throw new Error(claudeData?.error?.message || `Claude API error (HTTP ${claudeResp.status})`);
+    const m = textBlock.text.match(/\{[\s\S]*\}/);
+    const obj = JSON.parse(m ? m[0] : textBlock.text);
     const CATS = ['SaaS','Service','Magazine','General','Other'];
     const cat = CATS.find(c => c.toLowerCase() === (obj.category||'').toLowerCase()) || heuristic.suggestedCategory;
     return res.json({ category: cat, method: 'claude', confidence: obj.confidence || null });
   } catch(e) {
+    console.error('detect-category: Claude failed for', normalizedDomain, e.message);
     return res.json({ category: heuristic.suggestedCategory, method: 'heuristic', confidence: null });
   }
 };
 
-function heuristicClassify(text, domain, homepageHtml) {
+function heuristicClassify(text, domain, realPaths) {
   const t = text.toLowerCase();
   const d = domain.toLowerCase();
 
   // Strong domain-level signals (News + Blog merged into Magazine)
-  const magazineDomains = ['news','times','post','herald','tribune','journal','daily','gazette','reporter','press','wire','media','blog','magazine','mag','digest','review','guide','tips','tricks','advice','food','recipe','travel','health','fitness','beauty','fashion','lifestyle','finance','money','invest'];
-  const isDomainMagazine = magazineDomains.some(kw => d.includes(kw));
+  // Only unambiguous publishing words — 'mag', 'post', 'health', 'money' etc.
+  // matched inside "image", "postman", "healthcare clinic", "moneygram".
+  const magazineDomains = ['news','times','herald','tribune','journal','daily','gazette','blog','magazine','digest'];
+  const isDomainMagazine = magazineDomains.some(kw => d.split('.')[0].includes(kw));
 
   // SaaS signals — only strong ones
   const strongSaasKw = [
@@ -163,17 +179,12 @@ function heuristicClassify(text, domain, homepageHtml) {
   // Domain bonus
   if (isDomainMagazine) magazineScore += 5;
 
-  // URL structure bonuses
-  if (t.includes('/pricing')) saasScore += 4;
-  if (t.includes('/integrations')) saasScore += 3;
-  if (t.includes('/dashboard')) saasScore += 3;
-  if (t.includes('/api')) saasScore += 2;
-  if (t.includes('/blog')) magazineScore += 2;
-  if (t.includes('/news')) magazineScore += 2;
-  if (t.includes('/articles')) magazineScore += 2;
-  if (t.includes('/category/')) magazineScore += 3;
-  if (t.includes('/tag/')) magazineScore += 2;
-  if (t.includes('/author/')) magazineScore += 2;
+  // URL structure bonuses — only for paths that returned their own page
+  const has = p => realPaths.includes(p);
+  if (has('/pricing') || has('/plans')) saasScore += 4;
+  if (has('/integrations')) saasScore += 3;
+  if (has('/services')) serviceScore += 2;
+  if (has('/news') || has('/articles') || has('/category')) magazineScore += 2;
 
   // Strong SaaS only if clearly a software product
   const strongSaasHits = countHits(t, strongSaasKw);
@@ -198,8 +209,10 @@ function heuristicClassify(text, domain, homepageHtml) {
   return { suggestedCategory: 'General', saasScore, magazineScore, serviceScore };
 }
 
+// Whole-word matching — plain substring matching counted 'app' in "happy",
+// 'tool' in "stool", 'editor' in "creditor", etc.
 function countHits(text, kws) {
-  return kws.filter(k => text.includes(k)).length;
+  return kws.filter(k => new RegExp('(^|[^a-z])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z])').test(text)).length;
 }
 
 function extractTitle(html) {

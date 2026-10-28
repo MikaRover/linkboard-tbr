@@ -12,6 +12,9 @@
     "api/image-req.js": {
       "maxDuration": 60
     },
+    "api/detect-category.js": {
+      "maxDuration": 60
+    },
     "api/dapa.js": {
       "maxDuration": 30
     },
