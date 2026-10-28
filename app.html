@@ -2142,7 +2142,21 @@ a{text-underline-offset:2px;}
 
   <div class="oa-grid">
     <div class="oa-card">
-      <div class="oa-h">1. Websites</div>
+      <div class="oa-h">1. Who to email</div>
+      <div class="oa-tabs" style="margin-bottom:12px;">
+        <button class="oa-tab active" id="oa-src-tab-sites" onclick="oaSource('sites')">Find from websites</button>
+        <button class="oa-tab" id="oa-src-tab-emails" onclick="oaSource('emails')">I have the emails</button>
+      </div>
+      <div id="oa-src-emails" style="display:none;">
+        <label class="oa-label" for="oa-emails">One email per line. Add a name after a comma for the greeting (“Hi Anna”).</label>
+        <textarea id="oa-emails" rows="7" placeholder="anna@another-blog.net, Anna&#10;editor@third-site.com"></textarea>
+        <div class="oa-actions" style="margin-top:10px;">
+          <button class="btn-sm" id="oa-emails-btn" onclick="oaAddEmails()">Add emails</button>
+          <label class="btn-ghost" style="cursor:pointer;">Upload file<input type="file" accept=".txt,.csv,text/plain,text/csv" style="display:none;" onchange="oaReadEmailsFile(this)"/></label>
+        </div>
+        <div class="oa-help" style="margin-top:8px;">No search: each email is added straight to the list below and selected, ready for Write drafts. The site is taken from the email. Anyone the agent emailed in the last 90 days is never emailed again.</div>
+      </div>
+      <div id="oa-src-sites">
       <label class="oa-label" for="oa-sites">One site per line, or upload a .txt / .csv. Already have the email? Add it on the same line: site, email, name</label>
       <textarea id="oa-sites" rows="7" placeholder="example.com&#10;another-blog.net, anna@another-blog.net, Anna&#10;editor@third-site.com"></textarea>
       <div class="oa-actions" style="margin-top:10px;">
@@ -2152,9 +2166,10 @@ a{text-underline-offset:2px;}
           <input type="checkbox" id="oa-snov" style="width:auto;margin:0;" onchange="oaSavePrefs()"/> Use Snov when the site lists no person
         </label>
       </div>
+      <div class="oa-help" style="margin-top:8px;">Contacts the team already has in Domains DB are tried first. Sites we already have links on are marked, not skipped. Anyone the agent emailed in the last 90 days is never emailed again. Sites that were skipped or had no contact are searched again.</div>
+      </div>
       <div id="oa-progress" class="oa-progress" style="margin-top:8px;"></div>
       <div id="oa-folder-note" class="oa-help" style="margin-top:8px;"></div>
-      <div class="oa-help" style="margin-top:8px;">Contacts the team already has in Domains DB are tried first. Sites we already have links on are marked, not skipped. Anyone the agent emailed in the last 90 days is never emailed again. Sites that were skipped or had no contact are searched again.</div>
     </div>
     <div class="oa-card">
       <div class="oa-h">2. Your pitch</div>
@@ -8825,6 +8840,7 @@ function initAgentPage(){
     document.getElementById('oa-name').value = localStorage.getItem('oa-name') || '';
     document.getElementById('oa-offer').value = localStorage.getItem('oa-offer') || '';
     document.getElementById('oa-sig').value = localStorage.getItem('oa-sig') || '';
+    if(localStorage.getItem('oa-src')==='emails') oaSource('emails');
   }catch(e){ document.getElementById('oa-pitch').value = OA_DEFAULT_PITCH[mode]; }
   oaModeUi();
   oaLoad(); oaLoadMailboxes();
@@ -8934,12 +8950,15 @@ function oaParseInput(text){
   return {manual, sites:oaParseSites(rest.join('\n'))};
 }
 // Rows the user brings with an email: no search, straight to "Contact found".
+// Free-mail domains say nothing about the site, so rows there match by email only.
+const OA_FREE_MAIL = /^(gmail|googlemail|yahoo|ymail|hotmail|outlook|live|msn|icloud|me|aol|proton|protonmail|gmx|mail|yandex|zoho)\.[a-z.]+$/;
 async function oaAddManual(manual){
   const byDomain = new Map(oaRows.map(r=>[r.domain, r]));
+  const byEmail = new Map(oaRows.filter(r=>r.email).map(r=>[r.email, r]));
   let added = 0, updated = 0, kept = 0;
   const items = [];
   for(const m of manual){
-    const prev = byDomain.get(m.domain);
+    const prev = byEmail.get(m.email) || (OA_FREE_MAIL.test(m.domain) ? null : byDomain.get(m.domain));
     if(prev && oaSent(prev)){ kept++; continue; }
     const row = {domain:m.domain, email:m.email, name:m.name, firstName:m.firstName, title:'', smtp:'unknown', source:'Added by you', candidates:[], status:'found', skipReason:'', note:oaSiteNote(m.domain)};
     // A different address than the draft was written for: start the draft over.
@@ -8958,6 +8977,42 @@ async function oaAddManual(manual){
   }
   oaRender();
   return {added, updated, kept};
+}
+// ── "I have the emails" ──
+function oaSource(src){
+  ['sites','emails'].forEach(k=>{
+    document.getElementById('oa-src-'+k).style.display = k===src ? '' : 'none';
+    document.getElementById('oa-src-tab-'+k).classList.toggle('active', k===src);
+  });
+  try{ localStorage.setItem('oa-src', src); }catch(e){}
+}
+async function oaAddEmails(){
+  const ta = document.getElementById('oa-emails'), btn = document.getElementById('oa-emails-btn');
+  const {manual} = oaParseInput(ta.value);
+  if(!manual.length){ showToast('Paste at least one email','warn'); return; }
+  btn.disabled = true;
+  const m = await oaAddManual(manual);
+  btn.disabled = false;
+  // Select what was just added or updated so Write drafts / Send act on them.
+  const emails = new Set(manual.map(x=>x.email));
+  oaSelected.clear();
+  oaRows.forEach(r=>{ if(emails.has(r.email) && !oaSent(r)) oaSelected.add(r.id); });
+  oaFilter = 'all'; oaRender();
+  document.getElementById('oa-progress').textContent = `${m.added} added, ${m.updated} updated`+(m.kept?`, ${m.kept} skipped (already emailed)`:'')+(oaSelected.size?` — ${oaSelected.size} selected, click Write drafts.`:'.');
+  if(m.added || m.updated) ta.value = '';
+}
+function oaReadEmailsFile(input){
+  const f = input.files && input.files[0];
+  if(!f) return;
+  const rd = new FileReader();
+  rd.onload = ()=>{
+    const {manual} = oaParseInput(rd.result);
+    const ta = document.getElementById('oa-emails');
+    ta.value = [ta.value.trim(), ...manual.map(m=>[m.email, m.name].filter(Boolean).join(', '))].filter(Boolean).join('\n');
+    showToast(manual.length+' emails read from '+f.name);
+    input.value = '';
+  };
+  rd.readAsText(f);
 }
 function oaReadFile(input){
   const f = input.files && input.files[0];
