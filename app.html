@@ -1198,6 +1198,12 @@ a{text-underline-offset:2px;}
 .oa-editor :is(input,textarea,select):focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent2) 40%,transparent);}
 .oa-editor textarea{line-height:1.6;}
 #oa-sig{min-height:68px;line-height:1.5;}
+button.oa-stat{display:block;width:100%;text-align:left;font:inherit;color:inherit;border-top:0;border-right:0;border-bottom:0;cursor:pointer;transition:background var(--dur-1);}
+button.oa-stat:first-child{border-radius:10px 0 0 10px;}
+button.oa-stat:last-child{border-radius:0 10px 10px 0;}
+button.oa-stat:hover{background:var(--bg4);}
+button.oa-stat.active{background:var(--nav-active);box-shadow:inset 0 -2px 0 var(--accent2);}
+button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 60%,transparent);outline-offset:-2px;}
 
 @media (prefers-reduced-motion: reduce){
   .page.active{animation:none;}
@@ -9018,12 +9024,19 @@ function oaRenderStats(){
   const sent = n(['sent','sending','replied','bounced']), replied = n(['replied']);
   const mb = oaMailboxes.find(m=>m.email===oaFrom());
   const today = mb ? mb.sentToday : 0, lim = mb ? mb.limit : oaLimit;
-  el.innerHTML = `
-    <div class="oa-stat"><b>${today}<span style="font-size:13px;font-weight:500;color:var(--text3);">/${lim}</span></b><span>Sent today</span><div class="oa-meter"><i style="width:${Math.min(100,Math.round(today/Math.max(1,lim)*100))}%;"></i></div></div>
-    <div class="oa-stat"><b>${n(['draft','failed'])}</b><span>Drafts ready</span></div>
-    <div class="oa-stat"><b>${sent}</b><span>Sent</span></div>
-    <div class="oa-stat"><b style="color:${replied?'var(--teal)':'var(--text)'};">${replied}</b><span>Replied${sent?` · ${Math.round(replied/sent*100)}%`:''}</span></div>
-    <div class="oa-stat"><b style="color:${n(['bounced'])?'var(--red)':'var(--text)'};">${n(['bounced'])}</b><span>Bounced</span></div>`;
+  const tile = (filter, inner, title) => `<button class="oa-stat ${oaFilter===filter?'active':''}" onclick="oaShowFilter('${filter}')" title="${title}">${inner}</button>`;
+  el.innerHTML =
+    tile('today', `<b>${today}<span style="font-size:13px;font-weight:500;color:var(--text3);">/${lim}</span></b><span>Sent today</span><div class="oa-meter"><i style="width:${Math.min(100,Math.round(today/Math.max(1,lim)*100))}%;"></i></div>`, 'Show emails sent today')
+    + tile('draft', `<b>${n(['draft','failed'])}</b><span>Drafts ready</span>`, 'Show drafts')
+    + tile('sent', `<b>${sent}</b><span>Sent</span>`, 'Show sent emails')
+    + tile('replied', `<b style="color:${replied?'var(--teal)':'var(--text)'};">${replied}</b><span>Replied${sent?` · ${Math.round(replied/sent*100)}%`:''}</span>`, 'Show replies')
+    + tile('bounced', `<b style="color:${n(['bounced'])?'var(--red)':'var(--text)'};">${n(['bounced'])}</b><span>Bounced</span>`, 'Show bounced emails');
+}
+// A number tile filters the list below to those rows; clicking it again shows all.
+function oaShowFilter(f){
+  oaFilter = oaFilter===f ? 'all' : f;
+  oaOpen = null; oaRender();
+  document.querySelector('#p-agent .oa-list')?.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'});
 }
 async function oaConnectSend(){
   if(!confirm('Connect your Gmail for sending?\n\nGoogle will ask to allow LinkBoard to send email on your behalf. Only the outreach drafts you approve with a click are ever sent.')) return;
@@ -9264,7 +9277,11 @@ async function oaFind(){
 
 // ── table ──
 function oaInFolder(r){ return !oaFolder || (oaFolder===OA_NO_FOLDER ? !r.folder : r.folder===oaFolder); }
-function oaVisible(){ return oaRows.filter(r=>oaInFolder(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed'))); }
+function oaToday(){ return new Date().toISOString().slice(0,10); } // same UTC day the server stamps on sentDay
+function oaVisible(){
+  if(oaFilter==='today'){ const t = oaToday(); return oaRows.filter(r=>oaInFolder(r) && oaSent(r) && (r.sentDay===t || r.status==='sending')); }
+  return oaRows.filter(r=>oaInFolder(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')));
+}
 function oaRender(){
   oaRenderFolders();
   const inFolder = oaRows.filter(oaInFolder);
