@@ -41,6 +41,9 @@ module.exports = async function handler(req, res) {
   const seen = new Set();
   const realPages = pages.filter(p => {
     if (!p || !p.text) return false;
+    // A WordPress admin login (/login → wp-login.php) is not a product login —
+    // it made every WordPress blog look like SaaS.
+    if (/wp-login\.php/i.test(p.html) && /log\s*in/i.test(p.title)) return false;
     const key = p.title + '|' + p.text;
     if (seen.has(key)) return false;
     seen.add(key);
@@ -162,7 +165,9 @@ function heuristicClassify(text, domain, realPaths) {
     'advertise with us', 'write for us', 'submit article',
     'breaking news', 'latest news', 'newsroom', 'press release',
     'journalism', 'reporter', 'editor', 'correspondent', 'wire service',
-    'news agency', 'media company', 'broadcast', 'coverage'
+    'news agency', 'media company', 'broadcast', 'coverage',
+    'recent posts', 'read story', 'posts pagination', 'older posts', 'newer posts',
+    'continue reading', 'leave a comment', 'by admin', 'tips & guides', 'how to'
   ];
 
   // Service signals (Agency folded in — the taxonomy no longer splits them)
@@ -174,6 +179,12 @@ function heuristicClassify(text, domain, realPaths) {
 
   let saasScore = countHits(t, strongSaasKw) * 3 + countHits(t, weakSaasKw);
   let magazineScore = countHits(t, magazineKw) * 2;
+
+  // Article listings: many dated, bylined posts is the clearest sign of a blog
+  const dates = (t.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}, \d{4}\b|\b\d+ (days?|weeks?|months?|years?) ago\b/g) || []).length;
+  const bylines = (t.match(/\bby [a-z][a-z.'-]+( [a-z][a-z.'-]+)?\b/g) || []).length;
+  if (dates >= 3) magazineScore += 4;
+  if (bylines >= 3) magazineScore += 3;
   let serviceScore = countHits(t, serviceKw) * 2;
 
   // Domain bonus
@@ -202,7 +213,9 @@ function heuristicClassify(text, domain, realPaths) {
   if (serviceScore >= saasScore && serviceScore >= magazineScore && serviceScore >= 4) {
     return { suggestedCategory: 'Service', saasScore, magazineScore, serviceScore };
   }
-  if (saasScore >= 6) {
+  // Weak words alone ("platform", "app", "log in") show up in any article —
+  // SaaS needs at least one real product signal.
+  if (saasScore >= 6 && strongSaasHits >= 1) {
     return { suggestedCategory: 'SaaS', saasScore, magazineScore, serviceScore };
   }
 
