@@ -193,17 +193,36 @@ const PAID_TEMPLATES = [
     body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist working with several brands.\n\nI'm reaching out because I'd like to set up a content collaboration with {site}. Could you tell me your terms?\n\n{optout}\n\nBest regards,\n{sender}" }
 ];
 
-async function templateDraft(uid, ref, row, senderName) {
-  // Rewriting a draft moves it to the next template; a new draft takes the
-  // slot for its place in the sequence (every TEMPLATE_EVERY drafts → next).
+// Link exchange: same voice, offering a mutual mention instead of asking for
+// terms. No "link exchange", "backlink" or "dofollow" in the first email.
+const EXCHANGE_TEMPLATES = [
+  { subject: 'content exchange with {site}',
+    body: "Hi {name},\n\nMy name is {sender}. I'm an off-page SEO specialist, and I manage content for a few sites.\n\nI'd like to suggest a content exchange with {site}: we mention your site in an article on one of ours, and you do the same for us. Would that work for you?\n\n{optout}\n\nThanks,\n{sender}" },
+  { subject: 'quick idea for {site}',
+    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist working with several sites on related topics.\n\nI came across {site} and thought we could help each other: we feature {site} in one of our articles, and you feature one of our sites in yours. Is this something you'd be open to?\n\n{optout}\n\nBest,\n{sender}" },
+  { subject: 'working together',
+    body: "Hi {name},\n\nMy name is {sender}. I work in off-page SEO and look after content on a few sites.\n\nWould you be interested in an exchange with {site}? We'd mention you in a relevant article, and you'd mention us in one of yours.\n\n{optout}\n\nKind regards,\n{sender}" },
+  { subject: 'a mutual mention?',
+    body: "Hi {name},\n\nMy name is {sender}, and I'm an off-page SEO specialist.\n\nI'd like to propose a mutual mention with {site}: each of us references the other in a relevant article. Let me know if that sounds good to you.\n\n{optout}\n\nThanks,\n{sender}" },
+  { subject: 'exchange idea for {site}',
+    body: "Hello {name},\n\nMy name is {sender}. I'm an off-page SEO specialist and run content for a few sites.\n\nI'm reaching out to see if {site} would be open to a content exchange, where we each feature the other in a relevant article. I'm happy to go first.\n\n{optout}\n\nBest regards,\n{sender}" }
+];
+const TEMPLATE_SETS = { paid: PAID_TEMPLATES, exchange: EXCHANGE_TEMPLATES };
+
+async function templateDraft(uid, ref, row, senderName, set) {
+  const list = TEMPLATE_SETS[set] || PAID_TEMPLATES;
+  if (!TEMPLATE_SETS[set]) set = 'paid';
+  // Rewriting a draft moves it to the next template of the same set; a new
+  // draft takes the slot for its place in that set's sequence (every
+  // TEMPLATE_EVERY drafts → next). Rows from before sets existed count as paid.
   let idx;
-  if (Number.isInteger(row.templateIdx)) idx = (row.templateIdx + 1) % PAID_TEMPLATES.length;
+  if (Number.isInteger(row.templateIdx) && (row.templateSet || 'paid') === set) idx = (row.templateIdx + 1) % list.length;
   else {
     const mine = await db().collection(COLL).where('ownerUid', '==', uid).get();
-    const n = mine.docs.filter(d => Number.isInteger(d.data().templateIdx)).length;
-    idx = Math.floor(n / TEMPLATE_EVERY) % PAID_TEMPLATES.length;
+    const n = mine.docs.filter(d => Number.isInteger(d.data().templateIdx) && (d.data().templateSet || 'paid') === set).length;
+    idx = Math.floor(n / TEMPLATE_EVERY) % list.length;
   }
-  const t = PAID_TEMPLATES[idx];
+  const t = list[idx];
   const first = oneLine(row.firstName).split(' ')[0];
   const fill = str => str
     .replace(/\{name\}/g, first ? first.charAt(0).toUpperCase() + first.slice(1) : 'there')
@@ -212,8 +231,8 @@ async function templateDraft(uid, ref, row, senderName) {
     .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
   const subject = fill(t.subject);
   const body = fill(t.body);
-  await ref.update({ subject, body, templateIdx: idx, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
-  return { subject, body, templateIdx: idx };
+  await ref.update({ subject, body, templateIdx: idx, templateSet: set, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
+  return { subject, body, templateIdx: idx, templateSet: set };
 }
 
 async function draft(uid, { id, pitch, senderName, mode, avoidSubjects }) {
@@ -223,7 +242,7 @@ async function draft(uid, { id, pitch, senderName, mode, avoidSubjects }) {
   const row = snap.data();
   if (['sent', 'sending', 'replied', 'bounced'].includes(row.status)) throw new Error('Already sent');
   if (!isSafeHost(row.domain)) throw new Error('Invalid domain');
-  if (mode !== 'guest') return templateDraft(uid, ref, row, senderName);
+  if (mode !== 'guest') return templateDraft(uid, ref, row, senderName, mode);
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
