@@ -425,13 +425,16 @@ async function trackAll(onlyUid) {
 }
 
 // ─── HTTP ────────────────────────────────────────────────
+// Same people as the app's isAdminOrTatev(): admins, plus Tatev by name.
+const canUseAgent = u => u.role === 'admin' || u.name === 'Tatev';
+
 async function handler(req, res) {
   setCors(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const user = await requireMember(req, res);
   if (!user) return;
-  if (user.role !== 'admin') return res.status(403).json({ error: 'Outreach Agent is admin-only' });
+  if (!canUseAgent(user)) return res.status(403).json({ error: 'Outreach Agent is for admins and Tatev only' });
   const b = req.body || {};
   try {
     switch (b.action) {
