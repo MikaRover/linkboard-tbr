@@ -12543,7 +12543,8 @@ async function runCatCheckBatch(btn){
   const CONCUR = 3;
   for(let i=0; i<domains.length; i+=CONCUR){
     const batch = domains.slice(i, i+CONCUR);
-    await Promise.all(batch.map(async(domain)=>{
+    await Promise.all(batch.map(async(domain, bi)=>{
+      const order = i+bi; // position in the pasted list — results finish out of order
       const rowId = 'crow-'+domain.replace(/[^a-z0-9]/g,'_');
       const row = document.getElementById(rowId);
       if(row) row.querySelector('td:last-child').innerHTML = '<span style="font-size:11px;color:var(--accent2);">Checking...</span>';
@@ -12576,7 +12577,7 @@ async function runCatCheckBatch(btn){
         }catch(e){}
       }
 
-      catCheckResults.push({domain, category, status, emails});
+      catCheckResults.push({domain, category, status, emails, order});
 
       const existingDom = allDomains.find(d=>d.domain===domain);
       if(saveDB && category && category!=='—'){
@@ -12642,7 +12643,8 @@ async function runCatCheckBatch(btn){
 function exportCatCheckCSV(){
   if(!catCheckResults.length){ alert('No data'); return; }
   const h = ['Domain','Category','Email'];
-  const rows = catCheckResults.map(r=>[r.domain,r.category||'',(r.emails||[]).map(e=>e.email).join('; ')]
+  // Same order as the pasted list (3 run at once, so they finish in any order)
+  const rows = [...catCheckResults].sort((a,b)=>(a.order??0)-(b.order??0)).map(r=>[r.domain,r.category||'',(r.emails||[]).map(e=>e.email).join('; ')]
     .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
