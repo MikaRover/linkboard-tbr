@@ -4784,8 +4784,8 @@ async function detectCategory(domain){
     const cat=normalizeCategory(data.category||'Other');
     renderCatButtons(cat);
     renderCompatCards();
-    const isGpt=data.method==='gpt';
-    const label=isGpt?`🤖 ${escapeHtml(cat)} (GPT${data.confidence?' '+escapeHtml(data.confidence)+'%':''})`:`⚡ ${escapeHtml(cat)} (heuristic)`;
+    const isGpt=data.method==='claude';
+    const label=isGpt?`🤖 ${escapeHtml(cat)} (AI${data.confidence?' '+escapeHtml(data.confidence)+'%':''})`:`⚡ ${escapeHtml(cat)} (heuristic)`;
     statusEl.innerHTML=`<span class="det-status ${isGpt?'det-gpt':'det-heuristic'}">${label}</span>`;
   }catch(e){
     statusEl.innerHTML='<span class="det-status det-heuristic">Detection failed</span>';
