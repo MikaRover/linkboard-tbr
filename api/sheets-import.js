@@ -297,7 +297,7 @@ async function handleUpdateStatus(req, res) {
         const batch = db.batch();
         updates.slice(i, i + 400).forEach(u => {
           const upd = { statusSyncedAt: admin.firestore.FieldValue.serverTimestamp(), statusSource: 'google-sheets' };
-          if (u.status) { upd.status = u.status; upd.prevStatus = u.from; if (u.status === 'live') upd.wentLiveAt = admin.firestore.FieldValue.serverTimestamp(); }
+          if (u.status) { upd.status = u.status; upd.prevStatus = u.from; }
           if (u.date) { upd.date = u.date; upd.prevDate = u.prevDate; }
           batch.update(u.ref, upd);
         });
@@ -343,7 +343,7 @@ async function checkPendingChunk(db, { since, limit, dry, budgetMs, concurrency 
       const ts = admin.firestore.FieldValue.serverTimestamp();
       if (isLive) {
         live.push({ project: x.project, domain: x.domain, linkin: x.linkin });
-        await d.ref.update({ status: 'live', wentLiveAt: ts, prevStatus: 'pending', needsDoubleCheck: true, linkcheck: out.result, pendingCheckedAt: ts, statusSource: 'auto-check', statusSyncedAt: ts });
+        await d.ref.update({ status: 'live', prevStatus: 'pending', needsDoubleCheck: true, linkcheck: out.result, pendingCheckedAt: ts, statusSource: 'auto-check', statusSyncedAt: ts });
         const recipients = new Set(['admin', 'tatev']); // Mika + Tatev do the double-check; recipient = lower-cased name (app.html listenNotifications)
         const b = String(x.builder || '').trim().toLowerCase();
         if (b) recipients.add(b);
