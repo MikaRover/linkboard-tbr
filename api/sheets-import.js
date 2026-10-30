@@ -213,6 +213,7 @@ function fmtDmy(d) {
   const pad = n => String(n).padStart(2, '0');
   return pad(d.getUTCDate()) + '/' + pad(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear();
 }
+const SHEET_LIVE_NOTIFY_MAX = 30; // more pending -> live flips than this in one sync = a catch-up, not news
 const DATE_SYNC_DAYS = 62; // only RECENT sheet dates are copied onto LinkBoard links; old history keeps its dates
 
 // Sheet -> LinkBoard STATUS sync. Only ever changes the `status` field of a link that already
@@ -245,7 +246,7 @@ async function handleUpdateStatus(req, res) {
 
     const updates = []; // { ref, status }
     for (const [project, list] of byProject) {
-      const snap = await db.collection('links').where('project', '==', project).select('domain', 'status', 'anchor', 'linkin', 'date').get();
+      const snap = await db.collection('links').where('project', '==', project).select('domain', 'status', 'anchor', 'linkin', 'date', 'builder', 'project').get();
       const index = new Map();
       snap.docs.forEach(d => {
         const k = normalizeDomain(d.data().domain);
@@ -287,7 +288,7 @@ async function handleUpdateStatus(req, res) {
           continue;
         }
         if (!statusChange && !newDate) { results.push({ ...base, result: 'same', from }); continue; }
-        updates.push({ ref: d.ref, from, ...(statusChange ? { status: r.status } : {}), ...(newDate ? { date: newDate, prevDate: String(d.data().date || '') } : {}) });
+        updates.push({ ref: d.ref, from, ...(statusChange && from === 'pending' && r.status === 'live' ? { wentLive: d.data() } : {}), ...(statusChange ? { status: r.status } : {}), ...(newDate ? { date: newDate, prevDate: String(d.data().date || '') } : {}) });
         results.push({ ...base, result: statusChange ? (dry ? 'would-update' : 'updated') : (dry ? 'would-date' : 'date-updated'), from, to: statusChange ? r.status : from, dateFrom: newDate ? String(d.data().date || '') : undefined, dateTo: newDate || undefined });
       }
     }
@@ -303,12 +304,37 @@ async function handleUpdateStatus(req, res) {
         });
         await batch.commit();
       }
+      // pending -> live from the Sheet: one notification each, unless it's a big catch-up (then a single summary)
+      const wentLive = updates.filter(u => u.wentLive);
+      if (wentLive.length && wentLive.length <= SHEET_LIVE_NOTIFY_MAX) {
+        for (const u of wentLive) await notifyLinkLive(db, u.wentLive, 'google-sheets');
+      } else if (wentLive.length) {
+        const ts = admin.firestore.FieldValue.serverTimestamp();
+        for (const recipient of ['admin', 'tatev']) {
+          await db.collection('notifications').add({ type: 'message', recipient, message: `${wentLive.length} links went live from the Sheet sync`, read: false, createdAt: ts });
+        }
+      }
     }
     const counts = {};
     results.forEach(r => { counts[r.result] = (counts[r.result] || 0) + 1; });
     return res.json({ ok: true, dry, scanned: rows.length, counts, results });
   } catch (e) {
     return res.status(500).json({ error: e.message });
+  }
+}
+
+// Bell notification for a link that just went pending -> live, whichever way it happened: to Mika (admin) and
+// Tatev (they do the double-check) and to the link's builder. Recipient = lower-cased name (app.html listenNotifications).
+async function notifyLinkLive(db, x, source) {
+  const ts = admin.firestore.FieldValue.serverTimestamp();
+  const recipients = new Set(['admin', 'tatev']);
+  const b = String(x.builder || '').trim().toLowerCase();
+  if (b) recipients.add(b);
+  for (const recipient of recipients) {
+    await db.collection('notifications').add({
+      type: 'link-live', source, recipient, domain: x.domain || '', project: x.project || '', linkin: x.linkin || '',
+      builder: x.builder || '', read: false, createdAt: ts
+    });
   }
 }
 
@@ -344,15 +370,7 @@ async function checkPendingChunk(db, { since, limit, dry, budgetMs, concurrency 
       if (isLive) {
         live.push({ project: x.project, domain: x.domain, linkin: x.linkin });
         await d.ref.update({ status: 'live', prevStatus: 'pending', needsDoubleCheck: true, linkcheck: out.result, pendingCheckedAt: ts, statusSource: 'auto-check', statusSyncedAt: ts });
-        const recipients = new Set(['admin', 'tatev']); // Mika + Tatev do the double-check; recipient = lower-cased name (app.html listenNotifications)
-        const b = String(x.builder || '').trim().toLowerCase();
-        if (b) recipients.add(b);
-        for (const recipient of recipients) {
-          await db.collection('notifications').add({
-            type: 'link-live', recipient, domain: x.domain || '', project: x.project || '', linkin: x.linkin || '',
-            builder: x.builder || '', read: false, createdAt: ts
-          });
-        }
+        await notifyLinkLive(db, x, 'auto-check');
       } else {
         await d.ref.update({ pendingCheckedAt: ts, pendingCheck: out.result || '' });
       }

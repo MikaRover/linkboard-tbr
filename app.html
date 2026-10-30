@@ -4259,7 +4259,7 @@ function getPdSelectedIds(){return Array.from(document.querySelectorAll('.pd-cb:
 
 async function pdBatchSetStatus(status){
   const ids=getPdSelectedIds();if(!ids.length)return;
-  for(const id of ids) await db.collection('links').doc(id).update({status});
+  await batchStatusUpdate(ids,status);
   clearPdSelection();
 }
 async function pdBatchDelete(){
@@ -4274,7 +4274,7 @@ async function pdBatchCheck(btn){
   for(const id of ids){
     const l=allLinks.find(x=>x.id===id);
     if(!l?.linkin||!l?.linkto){await db.collection('links').doc(id).update({linkcheck:'⚠️ Link in/out missing'});done++;btn.textContent=`⏳ ${done}/${ids.length}`;continue;}
-    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));}
+    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,id));}
     catch(e){await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});}
     done++;btn.textContent=`⏳ ${done}/${ids.length}`;
   }
@@ -4289,7 +4289,7 @@ async function checkDetailProjectLinks(btn){
   const orig=btn.textContent;btn.disabled=true;let done=0;
   for(const l of toCheck){
     btn.textContent=`⏳ ${done}/${toCheck.length}`;
-    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data));}
+    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data,l.id));}
     catch(e){await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});}
     done++;
   }
@@ -5389,7 +5389,7 @@ function renderNotifList(){
       : n.type==='double-check'
       ? `<b>${escapeHtml(n.domain||'—')}</b> (${escapeHtml(n.project||'—')}) went live — please double-check`
       : n.type==='link-live'
-      ? `<b>${escapeHtml(n.domain||'—')}</b> (${escapeHtml(n.project||'—')}) is live — the link was found on the page and its status was set to live`
+      ? `<b>${escapeHtml(n.domain||'—')}</b> (${escapeHtml(n.project||'—')}) is live — ${n.source==='manual'?`status set to live by ${escapeHtml(n.by||'someone')}`:n.source==='google-sheets'?'marked live in the Sheet':'the link was found on the page and its status was set to live'}`
       : n.type==='link-lost'
       ? `<b>${escapeHtml(n.domain||'—')}</b> (${escapeHtml(n.project||'—')}) may be lost — the link wasn't found on the page in two checks (${escapeHtml(stripStatusEmoji(n.reason||''))})`
       : n.type==='approval-result'
@@ -5950,7 +5950,7 @@ async function checkSingleLinkFromDash(id, btn){
   try{
     const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:link.linkin,linkTo:link.linkto,anchor:link.anchor||''})});
     const data=await resp.json();
-    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,id));
     showToast(data.result||'Checked');
   }catch(e){
     showToast('Error: '+e.message.slice(0,60));
@@ -5972,7 +5972,7 @@ async function checkAllPendingFromDash(btn){
     try{
       const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
       const data=await resp.json();
-      await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data));
+      await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data,l.id));
     }catch(e){
       await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'}).catch(()=>{});
     }
@@ -6680,7 +6680,7 @@ async function quickRecheckLink(id){
   try{
     const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:link.linkin,linkTo:link.linkto,anchor:link.anchor||''})});
     const data=await resp.json();
-    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,id));
     showToast(data.result||'Checked');
   }catch(e){
     showToast('Error: '+e.message.slice(0,60));
@@ -6852,7 +6852,7 @@ function clearBlSelection(){
 async function blBatchSetStatus(status){
   const ids = Array.from(document.querySelectorAll('.bl-row-check:checked')).map(c=>c.value);
   if(!ids.length) return;
-  for(const id of ids) await db.collection('links').doc(id).update({status});
+  await batchStatusUpdate(ids,status);
   clearBlSelection();
 }
 async function blBatchDelete(){
@@ -6882,7 +6882,7 @@ async function checkSelectedBuilderLinks(btn){
         body: JSON.stringify({linkIn:l.linkin, linkTo:l.linkto, anchor:l.anchor||''})
       });
       const data = await resp.json();
-      await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+      await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,id));
     }catch(e){
       await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'}).catch(()=>{});
     }
@@ -6942,10 +6942,13 @@ async function checkSelectedBuilderLinksMetrics(btn){
 // and Link Check never visibly contradict each other in the table.
 // Inconclusive results (blocked, error, unreachable) never touch
 // status — better to leave it alone than guess.
-function linkCheckUpdatePayload(data){
+// `id` is the link being checked: when the check flips a link that wasn't live to live, that is notified
+// here (the one place every re-check path goes through), same as a manual status change.
+function linkCheckUpdatePayload(data,id){
   const result=(data&&data.result)||'⚠️ No response';
   const payload={linkcheck:result};
   if(data&&data.ok===true&&result.includes('Live')){
+    notifyLinkLive(allLinks.find(l=>l.id===id),'check');
     payload.status='live';
     // Every other path that sets status='live' (updateLinkStatus) flags this
     // for the double-check queue (Mika + Tatev) — an automated check confirming a link
@@ -6981,7 +6984,7 @@ async function checkSingleLink(id, _li, _lt, _anc, btn){
       body:JSON.stringify({linkIn,linkTo,anchor})
     });
     const data=await resp.json();
-    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,id));
   }catch(e){
     await db.collection('links').doc(id).update({linkcheck:'⚠️ Error: '+e.message.slice(0,40)});
   }
@@ -7007,7 +7010,7 @@ async function checkProjectLinks(){
       try{
         const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
         const data=await resp.json();
-        await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data));
+        await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data,l.id));
       }catch(e){
         await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});
       }
@@ -7044,7 +7047,7 @@ function clearSelection(){
 }
 async function batchSetStatus(status){
   const ids=getSelectedIds();if(!ids.length)return;
-  for(const id of ids) await db.collection('links').doc(id).update({status});
+  await batchStatusUpdate(ids,status);
   clearSelection();
 }
 async function batchCheck(btn){
@@ -7062,7 +7065,7 @@ async function batchCheck(btn){
     try{
       const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
       const data=await resp.json();
-      await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+      await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,id));
     }catch(e){
       await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});
     }
@@ -7194,8 +7197,31 @@ async function deleteLink(id, domain){
   await db.collection('links').doc(id).delete();
 }
 
+// Bell notification for a link that goes (back) live from this browser — manual status change, batch change
+// or a re-check. Same recipients as the server-side ones (api/sheets-import.js notifyLinkLive): Mika (admin),
+// Tatev for the double-check, and the builder — except whoever just did it.
+function notifyLinkLive(link,source){
+  if(!link||link.status==='live')return;
+  const me=cu.role==='admin'?'admin':(cu.name||cu.email||'').trim().toLowerCase();
+  const recipients=new Set(['admin','tatev']);
+  const b=(link.builder||'').trim().toLowerCase();
+  if(b)recipients.add(b);
+  recipients.delete(me);
+  recipients.forEach(recipient=>db.collection('notifications').add({
+    type:'link-live',source,recipient,by:cu.name||cu.email||'',domain:link.domain||'',project:link.project||'',
+    linkin:link.linkin||'',builder:link.builder||'',read:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(()=>{}));
+}
+// Batch status change: notify for each link that is actually going live.
+function batchStatusUpdate(ids,status){
+  return Promise.all(ids.map(async id=>{
+    if(status==='live')notifyLinkLive(allLinks.find(l=>l.id===id),'manual');
+    await db.collection('links').doc(id).update({status});
+  }));
+}
 async function updateLinkStatus(id, status){
   const update = {status};
+  if(status==='live') notifyLinkLive(allLinks.find(x=>x.id===id),'manual');
   // Flag newly-live links for the double-check queue
   if(status==='live') update.needsDoubleCheck = true;
   await db.collection('links').doc(id).update(update);
@@ -11155,7 +11181,7 @@ async function checkLCModal(btn){
     });
     const data = await resp.json();
     const result = data.result || '⚠️ No response';
-    await db.collection('links').doc(lcCurrentId).update({...linkCheckUpdatePayload(data), linkin, linkto, anchor});
+    await db.collection('links').doc(lcCurrentId).update({...linkCheckUpdatePayload(data,lcCurrentId), linkin, linkto, anchor});
     document.getElementById('lc-status').innerHTML = `<span style="font-size:14px;font-weight:600;">${result}</span>`;
   }catch(e){
     document.getElementById('lc-status').innerHTML = '<span style="color:var(--red);">Error: '+e.message.slice(0,50)+'</span>';
