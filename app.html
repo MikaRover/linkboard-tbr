@@ -5296,7 +5296,10 @@ function listenNotifications(){
     // batch of pre-existing ones loaded when the listener first attaches.
     if(notifListenerReady){
       // One chime per snapshot, not per notification — a Sheet sync can add dozens at once.
-      if(snap.docChanges().some(ch=>ch.type==='added')) playNotifSound();
+      // No chime for plain builders — the bell badge is enough for them. Admin, managers and Tatev (who
+      // does the double-checks) keep it.
+      const silent=cu.role==='builder'&&(cu.name||'').trim().toLowerCase()!=='tatev';
+      if(!silent&&snap.docChanges().some(ch=>ch.type==='added')) playNotifSound();
     }
     allNotifs=snap.docs.map(d=>({id:d.id,...d.data()}))
       .sort((a,b)=>(b.createdAt&&b.createdAt.toMillis?b.createdAt.toMillis():0)-(a.createdAt&&a.createdAt.toMillis?a.createdAt.toMillis():0));
