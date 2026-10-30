@@ -1198,6 +1198,8 @@ a{text-underline-offset:2px;}
 .oa-editor :is(input,textarea,select):focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent2) 40%,transparent);}
 .oa-editor textarea{line-height:1.6;}
 #oa-sig{min-height:68px;line-height:1.5;}
+.oa-smtp{display:flex;flex-direction:column;gap:8px;margin-top:8px;padding:12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);}
+.oa-smtp input{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;color:var(--text);}
 button.oa-stat{display:block;width:100%;text-align:left;font:inherit;color:inherit;border-top:0;border-right:0;border-bottom:0;cursor:pointer;transition:background var(--dur-1);}
 button.oa-stat:first-child{border-radius:10px 0 0 10px;}
 button.oa-stat:last-child{border-radius:0 10px 10px 0;}
@@ -9000,20 +9002,33 @@ async function oaLoadMailboxes(){
   const senders = oaMailboxes.filter(m=>m.canSend);
   let saved = ''; try{ saved = localStorage.getItem('oa-from')||''; }catch(e){}
   const mb = senders.find(m=>m.email===saved) || senders[0];
-  const others = oaMailboxes.filter(m=>!m.canSend || m.lastError);
+  const others = oaMailboxes.filter(m=>m.provider==='gmail' && (!m.canSend || m.lastError));
   el.innerHTML = senders.length ? `
     <label class="oa-label" style="margin:0;" for="oa-from">Send from</label>
     <div class="oa-from-row">
       <select id="oa-from" onchange="try{localStorage.setItem('oa-from',this.value)}catch(e){};oaRenderStats()">
         ${senders.map(m=>`<option value="${escAttr(m.email)}" ${m===mb?'selected':''}>${escapeHtml(m.email)}</option>`).join('')}
       </select>
-      <button class="btn-ghost" onclick="oaConnectSend()">Add mailbox</button>
+      <button class="btn-ghost" onclick="oaAddMailbox(this)">Add mailbox</button>
     </div>
+    ${senders.filter(m=>m.provider!=='gmail').map(m=>`<div class="oa-help">${escapeHtml(m.email)} · Private Email${m.lastError?` · <span style="color:var(--red);">${escapeHtml(m.lastError)}</span>`:''} · <a href="#" onclick="event.preventDefault();oaDisconnectSmtp('${escAttr(m.id)}','${escAttr(m.email)}')">Disconnect</a></div>`).join('')}
     ${others.length?`<div class="oa-help">${others.map(m=>`<span style="color:${m.lastError?'var(--red)':'var(--text3)'};">${escapeHtml(m.email)} · ${m.lastError?'reconnect':'counting only'}</span>`).join(' · ')}</div>`:''}
     <div class="oa-help">One email every 4–5 minutes, up to ${oaLimit} a day per mailbox.</div>`
   : `<div class="oa-label" style="margin:0;">Send from</div>
     <div class="oa-help">Connect your Gmail and allow “Send email on your behalf”. Only drafts you approve are ever sent.</div>
-    <div class="oa-from-row"><button class="btn-sm" onclick="oaConnectSend()">Connect Gmail for sending</button></div>`;
+    <div class="oa-from-row"><button class="btn-sm" onclick="oaConnectSend()">Connect Gmail</button><button class="btn-ghost" onclick="oaSmtpForm(true)">Connect Private Email</button></div>`;
+  el.insertAdjacentHTML('beforeend', `<form id="oa-smtp-form" class="oa-smtp" style="display:none;" onsubmit="event.preventDefault();oaConnectSmtp()">
+      <div class="oa-label" style="margin:0;">Connect a Private Email mailbox (Namecheap)</div>
+      <div class="oa-from-row">
+        <input id="oa-smtp-email" type="email" autocomplete="username" placeholder="you@yourdomain.com" style="margin:0;flex:1 1 200px;">
+        <input id="oa-smtp-pass" type="password" autocomplete="current-password" placeholder="Mailbox password" style="margin:0;flex:1 1 160px;">
+      </div>
+      <div class="oa-from-row">
+        <button class="btn-sm" id="oa-smtp-btn" type="submit">Connect</button>
+        <button class="btn-ghost" type="button" onclick="oaSmtpForm(false)">Cancel</button>
+      </div>
+      <div class="oa-help">The password is checked with a real sign-in, then stored encrypted on the server. Emails go out from this mailbox and a copy is saved in its Sent folder.</div>
+    </form>`);
   oaRenderStats();
 }
 // Everything the agent has done, across all client folders; "today" is the
@@ -9052,6 +9067,40 @@ async function oaConnectSend(){
   }catch(e){ showToast(e.message,'warn'); }
 }
 function oaFrom(){ return document.getElementById('oa-from')?.value||''; }
+// "Add mailbox": Gmail (Google sign-in) or Private Email (address + password).
+function oaAddMailbox(btn){
+  oaCtxClose();
+  const r = btn.getBoundingClientRect();
+  const m = document.createElement('div');
+  m.id = 'oa-menu'; m.className = 'oa-menu';
+  m.innerHTML = `<button onclick="oaCtxClose();oaConnectSend()">Gmail</button><button onclick="oaCtxClose();oaSmtpForm(true)">Private Email (Namecheap)</button>`;
+  document.body.appendChild(m);
+  m.style.left = Math.max(8, Math.min(r.left, innerWidth-m.offsetWidth-8))+'px';
+  m.style.top = (r.bottom+6)+'px';
+}
+function oaSmtpForm(show){
+  const f = document.getElementById('oa-smtp-form'); if(!f) return;
+  f.style.display = show ? '' : 'none';
+  if(show) document.getElementById('oa-smtp-email').focus();
+  else document.getElementById('oa-smtp-pass').value = '';
+}
+async function oaConnectSmtp(){
+  const email = document.getElementById('oa-smtp-email').value.trim(), pass = document.getElementById('oa-smtp-pass');
+  const btn = document.getElementById('oa-smtp-btn');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try{
+    await oaApi('smtp-connect',{email, password:pass.value, provider:'privateemail'});
+    pass.value = '';
+    try{ localStorage.setItem('oa-from', email.toLowerCase()); }catch(e){}
+    showToast(email+' connected');
+    oaLoadMailboxes();
+  }catch(e){ showToast(e.message,'warn'); btn.disabled = false; btn.textContent = 'Connect'; }
+}
+async function oaDisconnectSmtp(id, email){
+  if(!confirm(`Disconnect ${email}? Its stored password is deleted. Emails already sent stay in the list.`)) return;
+  try{ await oaApi('smtp-disconnect',{id}); showToast(email+' disconnected'); oaLoadMailboxes(); }
+  catch(e){ showToast(e.message,'warn'); }
+}
 
 // ── input ──
 function oaParseSites(text){
@@ -9472,7 +9521,7 @@ async function oaSendRow(id){
   const from = oaFrom();
   if(!from) throw new Error('Connect a Gmail mailbox for sending first');
   r.status = 'sending'; oaRender();
-  try{ await oaApi('send',{id, email:r.email, from}); }
+  try{ await oaApi('send',{id, email:r.email, from, fromName:oaSenderName()}); }
   catch(e){ await oaLoad(); throw e; }
   Object.assign(r, {status:'sent', sentDay:new Date().toISOString().slice(0,10), fromEmail:from});
   oaRender();

@@ -148,7 +148,11 @@ async function mailboxes(uid) {
   const sentToday = await db().collection(COLL).where('sentDay', '==', today()).get();
   const counts = {};
   sentToday.docs.forEach(d => { const m = d.data().fromMailbox; if (m) counts[m] = (counts[m] || 0) + 1; });
-  return snap.docs.map(d => ({ id: d.id, email: d.data().email, canSend: !!d.data().canSend, lastError: d.data().lastError || null, sentToday: counts[d.id] || 0, limit: DAILY_LIMIT }));
+  const smtp = await require('./mailsmtp').list(uid);
+  return [
+    ...snap.docs.map(d => ({ id: d.id, email: d.data().email, provider: 'gmail', canSend: !!d.data().canSend, lastError: d.data().lastError || null, sentToday: counts[d.id] || 0, limit: DAILY_LIMIT })),
+    ...smtp.map(c => ({ id: c.id, email: c.email, provider: c.provider, canSend: !!c.canSend, lastError: c.lastError || null, sentToday: counts[c.id] || 0, limit: DAILY_LIMIT }))
+  ];
 }
 
 async function accessTokenFor(mailbox) {
@@ -329,19 +333,21 @@ Answer with JSON only: {"subject": "...", "body": "..."}`;
 function encodeHeader(s) {
   return /^[\x20-\x7e]*$/.test(s) ? s : '=?UTF-8?B?' + Buffer.from(s, 'utf8').toString('base64') + '?=';
 }
-function buildMime({ from, fromName, to, subject, body }) {
+function mimeText({ from, fromName, to, subject, body, messageId }) {
   const lines = [
     `From: ${fromName ? encodeHeader(oneLine(fromName).replace(/["<>]/g, '')) + ' ' : ''}<${from}>`,
     `To: <${to}>`,
     `Subject: ${encodeHeader(oneLine(subject))}`,
+    ...(messageId ? [`Message-ID: ${messageId}`, `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`] : []),
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset=UTF-8',
     'Content-Transfer-Encoding: base64',
     '',
     Buffer.from(body.replace(/\r?\n/g, '\r\n'), 'utf8').toString('base64').replace(/.{76}/g, '$&\r\n')
   ];
-  return Buffer.from(lines.join('\r\n'), 'utf8').toString('base64url');
+  return lines.join('\r\n');
 }
+const buildMime = m => Buffer.from(mimeText(m), 'utf8').toString('base64url');
 
 // Why this address/site must not be emailed again, or '' if it's fine.
 const FREE_MAIL = /^(gmail|googlemail|yahoo|ymail|hotmail|outlook|live|msn|icloud|me|aol|proton|protonmail|gmx|mail|yandex|zoho)\.[a-z.]+$/;
@@ -366,7 +372,9 @@ async function contactBlock(id, email, domain) {
   return '';
 }
 
-async function send(user, { id, email, from }) {
+async function send(user, { id, email, from, fromName }) {
+  // Display name on the From line: the name typed on the page, else the account name unless it's a role like "Admin".
+  const senderName = oneLine(fromName).slice(0, 60) || (/^admin$/i.test(user.name || '') ? '' : user.name);
   const ref = db().collection(COLL).doc(String(id || ''));
   const snap = await ref.get();
   if (!snap.exists || snap.data().ownerUid !== user.uid) throw new Error('Row not found');
@@ -383,7 +391,10 @@ async function send(user, { id, email, from }) {
   if (block) { await ref.update({ status: 'skipped', skipReason: block, updatedAt: FieldValue().serverTimestamp() }); throw new Error(block); }
 
   const mbId = mailboxId(from);
-  const conn = await db().collection('gmailConnections').doc(mbId).get();
+  // Gmail (API) or a Private Email / SMTP mailbox — same quota and pacing.
+  const gconn = await db().collection('gmailConnections').doc(mbId).get();
+  const sconn = gconn.exists ? null : await require('./mailsmtp').get(mbId);
+  const conn = gconn.exists ? gconn : { exists: !!sconn, data: () => sconn || {} };
   if (!conn.exists || conn.data().ownerUid !== user.uid) throw new Error('Pick one of your connected mailboxes');
   if (!conn.data().canSend) throw new Error('This mailbox is connected read-only — click "Connect Gmail for sending"');
 
@@ -404,15 +415,21 @@ async function send(user, { id, email, from }) {
 
   const body = hasOptOut(row.body) ? row.body : row.body.trim() + '\n\n' + OPT_OUTS[0];
   try {
+    if (sconn) {
+      const messageId = `<${require('crypto').randomUUID()}@${sconn.email.split('@')[1]}>`;
+      await require('./mailsmtp').sendRaw(sconn, { to, raw: mimeText({ from: sconn.email, fromName: senderName, to, subject: row.subject, body, messageId }) });
+      await ref.update({ status: 'sent', body, smtpMessageId: messageId, sentAt: Date.now(), sentBy: user.name, error: null, updatedAt: FieldValue().serverTimestamp() });
+    } else {
     const access = await accessTokenFor(mbId);
     const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw: buildMime({ from: conn.data().email, fromName: user.name, to, subject: row.subject, body }) })
+      body: JSON.stringify({ raw: buildMime({ from: conn.data().email, fromName: senderName, to, subject: row.subject, body }) })
     });
     const j = await r.json();
     if (!r.ok) throw new Error((j.error && j.error.message) || ('Gmail HTTP ' + r.status));
     await ref.update({ status: 'sent', body, messageId: j.id, threadId: j.threadId, sentAt: Date.now(), sentBy: user.name, error: null, updatedAt: FieldValue().serverTimestamp() });
+    }
   } catch (e) {
     // Not sent — free the quota slot and let the admin retry.
     await ref.update({ status: 'failed', error: String(e.message || e).slice(0, 300), sentDay: null, sentAt: null, updatedAt: FieldValue().serverTimestamp() });
@@ -463,7 +480,21 @@ async function trackAll(onlyUid) {
       }
     } catch (e) {}
   }
-  return { checked: rows.length, replied, bounced };
+  // Private Email / SMTP mailboxes: read the inbox over IMAP, one login per mailbox.
+  const smtpRows = snap.docs.filter(d => d.data().smtpMessageId && (d.data().sentAt || 0) >= since && (!onlyUid || d.data().ownerUid === onlyUid));
+  const byBox = {};
+  smtpRows.forEach(d => { (byBox[d.data().fromMailbox] = byBox[d.data().fromMailbox] || []).push({ ref: d.ref, data: d.data() }); });
+  const smtp = require('./mailsmtp');
+  for (const [box, list] of Object.entries(byBox)) {
+    if (Date.now() > deadline) break;
+    try {
+      const conn = await smtp.get(box);
+      if (!conn) continue;
+      const r = await smtp.track(conn, list, deadline, (ref, status) => ref.update({ status, [status + 'At']: Date.now(), updatedAt: FieldValue().serverTimestamp() }));
+      replied += r.replied; bounced += r.bounced;
+    } catch (e) {}
+  }
+  return { checked: rows.length + smtpRows.length, replied, bounced };
 }
 
 // ─── verify (Snov SMTP check) ────────────────────────────
@@ -519,6 +550,8 @@ async function handler(req, res) {
       case 'send': return res.json(await send(user, b));
       case 'track': return res.json(await trackAll(user.uid));
       case 'verify': return res.json(await verify(user.uid, b.ids));
+      case 'smtp-connect': return res.json(await require('./mailsmtp').connect(user, b));
+      case 'smtp-disconnect': return res.json(await require('./mailsmtp').disconnect(user, b));
       default: return res.status(400).json({ error: 'Unknown action' });
     }
   } catch (e) {
