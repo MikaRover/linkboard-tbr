@@ -4259,7 +4259,7 @@ function getPdSelectedIds(){return Array.from(document.querySelectorAll('.pd-cb:
 
 async function pdBatchSetStatus(status){
   const ids=getPdSelectedIds();if(!ids.length)return;
-  for(const id of ids) await db.collection('links').doc(id).update({status});
+  for(const id of ids) await db.collection('links').doc(id).update(statusPatch(status));
   clearPdSelection();
 }
 async function pdBatchDelete(){
@@ -4274,7 +4274,7 @@ async function pdBatchCheck(btn){
   for(const id of ids){
     const l=allLinks.find(x=>x.id===id);
     if(!l?.linkin||!l?.linkto){await db.collection('links').doc(id).update({linkcheck:'⚠️ Link in/out missing'});done++;btn.textContent=`⏳ ${done}/${ids.length}`;continue;}
-    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));}
+    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,isLinkLive(id)));}
     catch(e){await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});}
     done++;btn.textContent=`⏳ ${done}/${ids.length}`;
   }
@@ -4289,7 +4289,7 @@ async function checkDetailProjectLinks(btn){
   const orig=btn.textContent;btn.disabled=true;let done=0;
   for(const l of toCheck){
     btn.textContent=`⏳ ${done}/${toCheck.length}`;
-    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data));}
+    try{const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});const data=await resp.json();await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data,isLinkLive(l.id)));}
     catch(e){await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});}
     done++;
   }
@@ -5271,6 +5271,7 @@ function renderActivePageForLinks(){
       refreshProjectArchive();
       populateBLMonths();
       updateDoubleCheckBadge();
+      renderNotifList();
       renderActivePageForLinks();
     },120);
   });
@@ -5378,7 +5379,8 @@ function renderNotifList(){
   const unread=allNotifs.filter(n=>!n.read);
   if(unread.length){badge.textContent=unread.length>99?'99+':String(unread.length);badge.style.display='inline-block';}
   else badge.style.display='none';
-  if(!allNotifs.length){list.innerHTML='<div style="padding:14px 10px;font-size:12px;color:var(--text3);text-align:center;">No notifications</div>';return;}
+  const feed=renderWentLiveFeed();
+  if(!allNotifs.length){list.innerHTML='<div style="padding:14px 10px;font-size:12px;color:var(--text3);text-align:center;">No notifications</div>'+feed;return;}
   list.innerHTML=allNotifs.map(n=>{
     const when=n.createdAt&&n.createdAt.toDate?n.createdAt.toDate().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
     const icon=n.type==='approval-needed'?'🔒':n.type==='double-check'?'🔍':n.type==='link-live'?'✅':n.type==='link-lost'?'❌':n.type==='approval-result'?(n.status==='approved'?'✅':'❌'):'⚠️';
@@ -5397,6 +5399,22 @@ function renderNotifList(){
       : escapeHtml(n.message||'');
     return`<div onclick="markNotifRead('${escAttr(n.id)}')" style="padding:9px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);cursor:pointer;${n.read?'opacity:0.55;':'background:rgba(255,90,90,0.06);'}">
       <div>${icon} ${desc}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px;">${escapeHtml(when)}</div>
+    </div>`;
+  }).join('')+feed;
+}
+// Team-wide "Went live" feed: visible to everyone (all members can read every link), newest first,
+// last 14 days. Read-only and with no read/unread state, so it never touches the badge.
+function renderWentLiveFeed(){
+  const since=Date.now()-14*86400000;
+  const ms=l=>l.wentLiveAt&&l.wentLiveAt.toMillis?l.wentLiveAt.toMillis():0;
+  const items=allLinks.filter(l=>l.status==='live'&&ms(l)>=since).sort((a,b)=>ms(b)-ms(a)).slice(0,30);
+  const head='<div style="padding:12px 10px 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);">Went live · last 14 days</div>';
+  if(!items.length)return head+'<div style="padding:6px 10px 14px;font-size:12px;color:var(--text3);">Nothing yet</div>';
+  return head+items.map(l=>{
+    const when=new Date(ms(l)).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    return`<div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);">
+      <div>✅ <b>${escapeHtml(l.domain||'—')}</b> (${escapeHtml(l.project||'—')}) is live${l.builder?' · '+escapeHtml(l.builder):''}</div>
       <div style="font-size:11px;color:var(--text3);margin-top:3px;">${escapeHtml(when)}</div>
     </div>`;
   }).join('');
@@ -5950,7 +5968,7 @@ async function checkSingleLinkFromDash(id, btn){
   try{
     const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:link.linkin,linkTo:link.linkto,anchor:link.anchor||''})});
     const data=await resp.json();
-    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,isLinkLive(id)));
     showToast(data.result||'Checked');
   }catch(e){
     showToast('Error: '+e.message.slice(0,60));
@@ -5972,7 +5990,7 @@ async function checkAllPendingFromDash(btn){
     try{
       const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
       const data=await resp.json();
-      await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data));
+      await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data,isLinkLive(l.id)));
     }catch(e){
       await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'}).catch(()=>{});
     }
@@ -6680,7 +6698,7 @@ async function quickRecheckLink(id){
   try{
     const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:link.linkin,linkTo:link.linkto,anchor:link.anchor||''})});
     const data=await resp.json();
-    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,isLinkLive(id)));
     showToast(data.result||'Checked');
   }catch(e){
     showToast('Error: '+e.message.slice(0,60));
@@ -6852,7 +6870,7 @@ function clearBlSelection(){
 async function blBatchSetStatus(status){
   const ids = Array.from(document.querySelectorAll('.bl-row-check:checked')).map(c=>c.value);
   if(!ids.length) return;
-  for(const id of ids) await db.collection('links').doc(id).update({status});
+  for(const id of ids) await db.collection('links').doc(id).update(statusPatch(status));
   clearBlSelection();
 }
 async function blBatchDelete(){
@@ -6882,7 +6900,7 @@ async function checkSelectedBuilderLinks(btn){
         body: JSON.stringify({linkIn:l.linkin, linkTo:l.linkto, anchor:l.anchor||''})
       });
       const data = await resp.json();
-      await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+      await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,isLinkLive(id)));
     }catch(e){
       await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'}).catch(()=>{});
     }
@@ -6942,11 +6960,13 @@ async function checkSelectedBuilderLinksMetrics(btn){
 // and Link Check never visibly contradict each other in the table.
 // Inconclusive results (blocked, error, unreachable) never touch
 // status — better to leave it alone than guess.
-function linkCheckUpdatePayload(data){
+const isLinkLive=id=>(allLinks.find(l=>l.id===id)||{}).status==='live';
+function linkCheckUpdatePayload(data,wasLive){
   const result=(data&&data.result)||'⚠️ No response';
   const payload={linkcheck:result};
   if(data&&data.ok===true&&result.includes('Live')){
     payload.status='live';
+    if(!wasLive)payload.wentLiveAt=firebase.firestore.FieldValue.serverTimestamp(); // feed in the notification panel
     // Every other path that sets status='live' (updateLinkStatus) flags this
     // for the double-check queue (Mika + Tatev) — an automated check confirming a link
     // went live is exactly as reviewable as a manual status change, and was
@@ -6981,7 +7001,7 @@ async function checkSingleLink(id, _li, _lt, _anc, btn){
       body:JSON.stringify({linkIn,linkTo,anchor})
     });
     const data=await resp.json();
-    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+    await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,isLinkLive(id)));
   }catch(e){
     await db.collection('links').doc(id).update({linkcheck:'⚠️ Error: '+e.message.slice(0,40)});
   }
@@ -7007,7 +7027,7 @@ async function checkProjectLinks(){
       try{
         const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
         const data=await resp.json();
-        await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data));
+        await db.collection('links').doc(l.id).update(linkCheckUpdatePayload(data,isLinkLive(l.id)));
       }catch(e){
         await db.collection('links').doc(l.id).update({linkcheck:'⚠️ Error'});
       }
@@ -7044,7 +7064,7 @@ function clearSelection(){
 }
 async function batchSetStatus(status){
   const ids=getSelectedIds();if(!ids.length)return;
-  for(const id of ids) await db.collection('links').doc(id).update({status});
+  for(const id of ids) await db.collection('links').doc(id).update(statusPatch(status));
   clearSelection();
 }
 async function batchCheck(btn){
@@ -7062,7 +7082,7 @@ async function batchCheck(btn){
     try{
       const resp=await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
       const data=await resp.json();
-      await db.collection('links').doc(id).update(linkCheckUpdatePayload(data));
+      await db.collection('links').doc(id).update(linkCheckUpdatePayload(data,isLinkLive(id)));
     }catch(e){
       await db.collection('links').doc(id).update({linkcheck:'⚠️ Error'});
     }
@@ -7194,8 +7214,11 @@ async function deleteLink(id, domain){
   await db.collection('links').doc(id).delete();
 }
 
+// Every client path that sets a link's status goes through this, so a link that goes live is always
+// stamped with wentLiveAt — the notification panel's team-wide "Went live" feed reads it.
+const statusPatch=s=>s==='live'?{status:s,wentLiveAt:firebase.firestore.FieldValue.serverTimestamp()}:{status:s};
 async function updateLinkStatus(id, status){
-  const update = {status};
+  const update = statusPatch(status);
   // Flag newly-live links for the double-check queue
   if(status==='live') update.needsDoubleCheck = true;
   await db.collection('links').doc(id).update(update);
@@ -11155,7 +11178,7 @@ async function checkLCModal(btn){
     });
     const data = await resp.json();
     const result = data.result || '⚠️ No response';
-    await db.collection('links').doc(lcCurrentId).update({...linkCheckUpdatePayload(data), linkin, linkto, anchor});
+    await db.collection('links').doc(lcCurrentId).update({...linkCheckUpdatePayload(data,isLinkLive(lcCurrentId)), linkin, linkto, anchor});
     document.getElementById('lc-status').innerHTML = `<span style="font-size:14px;font-weight:600;">${result}</span>`;
   }catch(e){
     document.getElementById('lc-status').innerHTML = '<span style="color:var(--red);">Error: '+e.message.slice(0,50)+'</span>';
