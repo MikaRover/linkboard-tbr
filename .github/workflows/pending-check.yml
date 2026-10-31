@@ -1,0 +1,39 @@
+# Checks every pending link 5 times a day and flips the ones whose backlink is live.
+#
+# Vercel Hobby crons run once a day, so the extra runs come from here. This just calls
+# the same endpoint the Vercel cron calls (/api/pendingcheck, see api/sheets-import.js);
+# the server does the checking and throttles itself (one run per 2h for cron calls),
+# so a double trigger is harmless.
+#
+# Setup (GitHub repo -> Settings -> Secrets and variables -> Actions):
+#   secret   CRON_SECRET          same value as the CRON_SECRET env var on Vercel
+#   variable LINKBOARD_BASE_URL   production URL without trailing slash, e.g. https://your-app.vercel.app
+# Scheduled workflows only run from the default branch (main).
+
+name: Pending links check
+
+on:
+  schedule:
+    # UTC. Armenia (UTC+4): 08:00, 12:00, 16:00, 20:00, 00:00
+    - cron: '0 4 * * *'
+    - cron: '0 8 * * *'
+    - cron: '0 12 * * *'
+    - cron: '0 16 * * *'
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call /api/pendingcheck
+        env:
+          BASE_URL: ${{ vars.LINKBOARD_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "LINKBOARD_BASE_URL variable and CRON_SECRET secret must be set" >&2
+            exit 1
+          fi
+          curl -fsS --max-time 120 -H "Authorization: Bearer $CRON_SECRET" "$BASE_URL/api/pendingcheck"

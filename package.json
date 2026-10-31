@@ -2,6 +2,8 @@
   "name": "linkboard-tbr",
   "private": true,
   "dependencies": {
-    "firebase-admin": "^12.7.0"
+    "firebase-admin": "^12.7.0",
+    "imapflow": "^1.0.171",
+    "nodemailer": "^6.9.16"
   }
 }

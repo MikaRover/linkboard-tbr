@@ -393,4 +393,4 @@ module.exports = async function gmailHandler(req, res) {
 };
 
 // Shared with api/_lib/outreach.js (sending + reply tracking).
-module.exports.internals = { getAdmin, decrypt, tokenRequest, gmailGet, mailboxId };
+module.exports.internals = { getAdmin, encrypt, decrypt, tokenRequest, gmailGet, mailboxId };
