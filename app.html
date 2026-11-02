@@ -2069,11 +2069,33 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
         <option>September</option><option>October</option><option>November</option><option>December</option>
       </select>
       <select id="kpi-year" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderKPI()">
-        <option>2024</option><option>2025</option><option>2026</option>
+        <option>2024</option><option>2025</option><option>2026</option><option>2027</option><option>2028</option>
       </select>
     </div>
   </div>
 
+  <!-- Live links report -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-head">
+      <span>Live links report · <span id="kpi-report-label"></span></span>
+      <span style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-ghost" onclick="kpiReportPrevMonth()" style="padding:5px 10px;font-size:12px;">← Previous month</button>
+        <button class="btn-ghost" onclick="kpiReportCopy()" style="padding:5px 10px;font-size:12px;">Copy</button>
+        <button class="btn-ghost" onclick="kpiReportCSV()" style="padding:5px 10px;font-size:12px;">Download CSV</button>
+      </span>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th style="width:40px;">#</th>
+        <th>Builder</th>
+        <th style="text-align:center;">Live</th>
+        <th style="text-align:center;">Added</th>
+        <th style="text-align:center;">Live %</th>
+      </tr></thead>
+      <tbody id="kpi-report-tbody"></tbody>
+    </table></div>
+    <div style="padding:10px 1.25rem 14px;font-size:11px;color:var(--text3);">Counted by each link's date: links added in the selected month, and how many of them are live now.</div>
+  </div>
   <!-- KPI Targets Settings -->
   <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
     <div class="card-head">
@@ -10675,6 +10697,65 @@ function getKPIBadge(score){
   return {badge:'❌ Off track', cls:'bad', color:'var(--red)'};
 }
 
+// ─── KPI: live links report ───────────────────────────────
+// Per builder, for the month picked at the top: links added that month and how many of them are live.
+// Same date-in-month rule as the rest of the KPI page. Builders are grouped case/space-insensitively
+// and taken from the links themselves, so someone not in BUILDERS (or a blank builder) still shows up.
+let kpiReportRows=[], kpiReportLabel='';
+function renderKPIReport(filtered,month,year){
+  const by=new Map();
+  filtered.forEach(l=>{
+    const raw=(l.builder||'').trim();
+    const key=raw.toLowerCase();
+    if(!by.has(key))by.set(key,{name:raw||'—',total:0,live:0});
+    const r=by.get(key);
+    r.total++;
+    if(l.status==='live')r.live++;
+  });
+  kpiReportRows=[...by.values()].sort((a,b)=>b.live-a.live||b.total-a.total||a.name.localeCompare(b.name));
+  kpiReportLabel=month+' '+year;
+  const pct=(live,total)=>total?Math.round(live/total*100)+'%':'—';
+  const lbl=document.getElementById('kpi-report-label');
+  if(lbl)lbl.textContent=kpiReportLabel;
+  const tb=document.getElementById('kpi-report-tbody');
+  if(!tb)return;
+  if(!kpiReportRows.length){tb.innerHTML='<tr><td colspan="5" class="loading">No links in '+escapeHtml(kpiReportLabel)+'</td></tr>';return;}
+  const totLive=kpiReportRows.reduce((s,r)=>s+r.live,0), totAll=kpiReportRows.reduce((s,r)=>s+r.total,0);
+  tb.innerHTML=kpiReportRows.map((r,i)=>`<tr>
+      <td style="color:var(--text3);">${i+1}</td>
+      <td style="font-weight:600;">${escapeHtml(r.name)}</td>
+      <td style="text-align:center;font-weight:700;color:var(--teal);">${r.live}</td>
+      <td style="text-align:center;">${r.total}</td>
+      <td style="text-align:center;color:var(--text2);">${pct(r.live,r.total)}</td>
+    </tr>`).join('')+`<tr style="border-top:1px solid var(--border2);">
+      <td></td><td style="font-weight:800;">Total</td>
+      <td style="text-align:center;font-weight:800;color:var(--teal);">${totLive}</td>
+      <td style="text-align:center;font-weight:800;">${totAll}</td>
+      <td style="text-align:center;color:var(--text2);">${pct(totLive,totAll)}</td>
+    </tr>`;
+}
+function kpiReportPrevMonth(){
+  const ms=document.getElementById('kpi-month'), ys=document.getElementById('kpi-year');
+  let m=MONTHS_EN.indexOf(ms.value), y=parseInt(ys.value);
+  if(--m<0){m=11;y--;}
+  ms.value=MONTHS_EN[m];ys.value=String(y);
+  renderKPI();
+}
+function kpiReportCSV(){
+  if(!kpiReportRows.length){showToast('Nothing to export','err');return;}
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const rows=[['Builder','Live','Added','Live %'],...kpiReportRows.map(r=>[r.name,r.live,r.total,r.total?Math.round(r.live/r.total*100):0])];
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(q).join(',')).join('\n')],{type:'text/csv'}));
+  a.download='live-links-'+kpiReportLabel.replace(' ','-')+'.csv';a.click();
+}
+async function kpiReportCopy(){
+  if(!kpiReportRows.length){showToast('Nothing to copy','err');return;}
+  const lines=[kpiReportLabel+' — live links',...kpiReportRows.map(r=>`${r.name}: ${r.live} live (${r.total} added)`)];
+  try{await navigator.clipboard.writeText(lines.join('\n'));showToast('Report copied');}
+  catch(e){showToast('Could not copy','err');}
+}
+
 function renderKPI(){
   const month = document.getElementById('kpi-month')?.value;
   const year = document.getElementById('kpi-year')?.value;
@@ -10696,6 +10777,8 @@ function renderKPI(){
     const lYear = p[2].length===2?'20'+p[2]:p[2];
     return lMonth===month && lYear===year;
   });
+
+  renderKPIReport(filtered,month,year);
 
   const t = kpiTargets;
   const hasTargets = t.links||t.dr||t.traffic||t.live;
