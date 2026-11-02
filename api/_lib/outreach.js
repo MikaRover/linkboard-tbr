@@ -351,15 +351,18 @@ const buildMime = m => Buffer.from(mimeText(m), 'utf8').toString('base64url');
 
 // Why this address/site must not be emailed again, or '' if it's fine.
 const FREE_MAIL = /^(gmail|googlemail|yahoo|ymail|hotmail|outlook|live|msn|icloud|me|aol|proton|protonmail|gmx|mail|yandex|zoho)\.[a-z.]+$/;
-async function contactBlock(id, email, domain) {
+// A teammate's row still blocks (the site mustn't get two pitches), but the
+// message never shows their contact address — each person sees only their own.
+async function contactBlock(id, email, domain, uid) {
   const since = Date.now() - RECONTACT_DAYS * DAY;
   const out = ['sent', 'sending', 'replied', 'bounced'];
   const byEmail = await db().collection(COLL).where('email', '==', email).get();
   for (const d of byEmail.docs) {
     if (d.id === id) continue;
     const x = d.data();
-    if (x.status === 'replied' || x.status === 'bounced') return `${email} already ${x.status} to an earlier email`;
-    if (out.includes(x.status) && (x.sentAt || 0) >= since) return `${email} was already emailed on ${x.sentDay || 'a recent day'}`;
+    const who = x.ownerUid === uid ? '' : ' by a teammate';
+    if (x.status === 'replied' || x.status === 'bounced') return `${email} already ${x.status} to an earlier email${who}`;
+    if (out.includes(x.status) && (x.sentAt || 0) >= since) return `${email} was already emailed${who} on ${x.sentDay || 'a recent day'}`;
   }
   // Free-mail domains (gmail.com…) are many different people, not one site.
   if (FREE_MAIL.test(domain)) return '';
@@ -367,7 +370,9 @@ async function contactBlock(id, email, domain) {
   for (const d of byDomain.docs) {
     if (d.id === id) continue;
     const x = d.data();
-    if (out.includes(x.status) && (x.sentAt || 0) >= since) return `${domain} was already emailed on ${x.sentDay || 'a recent day'} (${x.email})`;
+    if (out.includes(x.status) && (x.sentAt || 0) >= since) return x.ownerUid === uid
+      ? `${domain} was already emailed on ${x.sentDay || 'a recent day'} (${x.email})`
+      : `${domain} was already emailed by a teammate on ${x.sentDay || 'a recent day'}`;
   }
   return '';
 }
@@ -387,7 +392,7 @@ async function send(user, { id, email, from, fromName }) {
   if (row.smtp === 'invalid') throw new Error('This address failed verification');
   if (!row.subject || !row.body) throw new Error('Draft is empty');
 
-  const block = await contactBlock(ref.id, to, row.domain);
+  const block = await contactBlock(ref.id, to, row.domain, user.uid);
   if (block) { await ref.update({ status: 'skipped', skipReason: block, updatedAt: FieldValue().serverTimestamp() }); throw new Error(block); }
 
   const mbId = mailboxId(from);
@@ -436,11 +441,11 @@ async function send(user, { id, email, from, fromName }) {
     throw e;
   }
 
-  // Keep the Domains DB as the team's shared "who did we contact" list.
+  // Log it in the sender's own Domains DB row (never a teammate's row).
   try {
     const dom = await db().collection('domains').where('domain', '==', row.domain).get();
     const note = `Outreach Agent: emailed ${to} on ${day}`;
-    const same = dom.docs.find(d => String(d.data().email || '').toLowerCase() === to);
+    const same = dom.docs.find(d => String(d.data().email || '').toLowerCase() === to && d.data().addedBy === (user.name || ''));
     if (same) await same.ref.update({ notes: [same.data().notes, note].filter(Boolean).join(' · ') });
     else await db().collection('domains').add({
       domain: row.domain, email: to, smtp: row.smtp || 'unknown', firstName: row.firstName || '', lastName: '',
