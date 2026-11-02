@@ -9174,21 +9174,22 @@ async function oaLoadMailboxes(){
   let saved = ''; try{ saved = localStorage.getItem('oa-from')||''; }catch(e){}
   const mb = senders.find(m=>m.email===saved) || senders[0];
   const others = oaMailboxes.filter(m=>m.provider==='gmail' && (!m.canSend || m.lastError));
+  const pe = oaCanPrivateEmail();
   el.innerHTML = senders.length ? `
     <label class="oa-label" style="margin:0;" for="oa-from">Send from</label>
     <div class="oa-from-row">
       <select id="oa-from" onchange="try{localStorage.setItem('oa-from',this.value)}catch(e){};oaFromChanged()">
         ${senders.map(m=>`<option value="${escAttr(m.email)}" ${m===mb?'selected':''}>${escapeHtml(m.email)}</option>`).join('')}
       </select>
-      <button class="btn-ghost" onclick="oaAddMailbox(this)">Add mailbox</button>
+      <button class="btn-ghost" onclick="${pe?'oaAddMailbox(this)':'oaConnectSend()'}">Add mailbox</button>
     </div>
     ${senders.filter(m=>m.provider!=='gmail').map(m=>`<div class="oa-help">${escapeHtml(m.email)} · Private Email${m.lastError?` · <span style="color:var(--red);">${escapeHtml(m.lastError)}</span>`:''} · <a href="#" onclick="event.preventDefault();oaDisconnectSmtp('${escAttr(m.id)}','${escAttr(m.email)}')">Disconnect</a></div>`).join('')}
     ${others.length?`<div class="oa-help">${others.map(m=>`<span style="color:${m.lastError?'var(--red)':'var(--text3)'};">${escapeHtml(m.email)} · ${m.lastError?'reconnect':'counting only'}</span>`).join(' · ')}</div>`:''}
     <div class="oa-help">One email every 4–5 minutes, up to ${oaLimit} a day per mailbox.</div>`
   : `<div class="oa-label" style="margin:0;">Send from</div>
     <div class="oa-help">Connect your Gmail and allow “Send email on your behalf”. Only drafts you approve are ever sent.</div>
-    <div class="oa-from-row"><button class="btn-sm" onclick="oaConnectSend()">Connect Gmail</button><button class="btn-ghost" onclick="oaSmtpForm(true)">Connect Private Email</button></div>`;
-  el.insertAdjacentHTML('beforeend', `<form id="oa-smtp-form" class="oa-smtp" style="display:none;" onsubmit="event.preventDefault();oaConnectSmtp()">
+    <div class="oa-from-row"><button class="btn-sm" onclick="oaConnectSend()">Connect Gmail</button>${pe?'<button class="btn-ghost" onclick="oaSmtpForm(true)">Connect Private Email</button>':''}</div>`;
+  if(pe) el.insertAdjacentHTML('beforeend', `<form id="oa-smtp-form" class="oa-smtp" style="display:none;" onsubmit="event.preventDefault();oaConnectSmtp()">
       <div class="oa-label" style="margin:0;">Connect a Private Email mailbox (Namecheap)</div>
       <div class="oa-from-row">
         <input id="oa-smtp-email" type="email" autocomplete="username" placeholder="you@yourdomain.com" style="margin:0;flex:1 1 200px;">
@@ -9249,6 +9250,8 @@ async function oaConnectSend(){
 }
 function oaFrom(){ return document.getElementById('oa-from')?.value||''; }
 function oaFromChanged(){ if(oaMbFilter){ oaOpen = null; oaRender(); } else oaRenderStats(); }
+// Private Email mailboxes are admin-only (same check as the server's smtp-connect).
+function oaCanPrivateEmail(){ return cu?.role==='admin'; }
 // "Add mailbox": Gmail (Google sign-in) or Private Email (address + password).
 function oaAddMailbox(btn){
   oaCtxClose();

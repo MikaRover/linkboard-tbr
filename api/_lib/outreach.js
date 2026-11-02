@@ -589,7 +589,10 @@ async function handler(req, res) {
       case 'verify': return res.json(await verify(user.uid, b.ids));
       case 'templates': return res.json(await getTemplates(user.uid));
       case 'templates-save': return res.json(await saveTemplates(user.uid, b));
-      case 'smtp-connect': return res.json(await require('./mailsmtp').connect(user, b));
+      case 'smtp-connect':
+        // Private Email is the admin's own mailbox type; everyone else sends from Gmail.
+        if (user.role !== 'admin') return res.status(403).json({ error: 'Private Email mailboxes are admin-only' });
+        return res.json(await require('./mailsmtp').connect(user, b));
       case 'smtp-disconnect': return res.json(await require('./mailsmtp').disconnect(user, b));
       default: return res.status(400).json({ error: 'Unknown action' });
     }
