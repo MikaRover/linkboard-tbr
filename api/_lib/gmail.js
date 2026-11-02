@@ -343,7 +343,7 @@ module.exports = async function gmailHandler(req, res) {
       const db = getAdmin().firestore();
       const existing = await db.collection('gmailConnections').where('ownerUid', '==', u.uid).get();
       // Re-consenting an already-connected mailbox for sending isn't a new mailbox.
-      const sendOk = u.role === 'admin' || u.name === 'Tatev'; // Outreach Agent users
+      const sendOk = u.role === 'admin' || u.name === 'Tatev' || u.name === 'Armen'; // Outreach Agent users
       if (existing.size >= MAX_MAILBOXES_PER_PERSON && !(q.send === '1' && sendOk)) return res.status(400).json({ error: `You can connect up to ${MAX_MAILBOXES_PER_PERSON} mailboxes` });
       const ret = /^\/[^/\\]/.test(q.ret || '') ? q.ret : '/app.html';
       const wantSend = q.send === '1' && sendOk;
