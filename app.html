@@ -1197,6 +1197,25 @@ a{text-underline-offset:2px;}
 .oa-editor :is(input,textarea,select){background:var(--bg3);border:1px solid var(--border);border-radius:10px;font-size:13px;padding:9px 12px;}
 .oa-editor :is(input,textarea,select):focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent2) 40%,transparent);}
 .oa-editor textarea{line-height:1.6;}
+.oa-tpl-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
+.oa-tpl-source{font-size:12px;font-weight:600;color:var(--text);}
+.oa-tpl-edit{font-size:12px;padding:3px 10px;}
+.oa-tpl-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;padding:16px;}
+.oa-tpl-modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);box-shadow:var(--elev);width:760px;max-width:100%;max-height:90vh;overflow-y:auto;padding:20px;display:grid;gap:14px;}
+.oa-tpl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.oa-tpl-title{font-size:18px;font-weight:600;color:var(--text);}
+.oa-tpl-modal code{font-family:var(--font-mono);font-size:12px;color:var(--text);}
+.oa-tpl-list{display:grid;gap:12px;}
+.oa-tpl-item{display:grid;gap:8px;padding:14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);}
+.oa-tpl-item-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2);}
+.oa-tpl-item :is(input,textarea){width:100%;margin:0;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;padding:9px 12px;font-family:inherit;}
+.oa-tpl-item textarea{min-height:200px;line-height:1.6;resize:vertical;}
+.oa-tpl-item :is(input,textarea):focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent2) 40%,transparent);}
+.oa-tpl-remove{background:none;border:0;color:var(--red);font-size:12px;cursor:pointer;padding:2px 4px;}
+.oa-tpl-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+.oa-tpl-spacer{flex:1;}
+.oa-tpl-err{font-size:12px;color:var(--red);}
+.oa-tpl-empty{font-size:13px;color:var(--text2);padding:14px;border:1px dashed var(--border2);border-radius:var(--radius);text-align:center;}
 #oa-sig{min-height:68px;line-height:1.5;}
 .oa-smtp{display:flex;flex-direction:column;gap:8px;margin-top:8px;padding:12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);}
 .oa-smtp input{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;color:var(--text);}
@@ -2273,7 +2292,10 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
         <option value="exchange">Link exchange — our templates</option>
         <option value="guest">Free guest post — written by AI</option>
       </select>
-      <div id="oa-paid-help" class="oa-help oa-note"><span id="oa-tpl-what"></span> Five versions with their own subjects, changing every 3 emails.</div>
+      <div id="oa-paid-help" class="oa-help oa-note">
+        <div class="oa-tpl-row"><span id="oa-tpl-source" class="oa-tpl-source">Team templates</span><button class="btn-ghost oa-tpl-edit" onclick="oaOpenTemplates()">Edit templates</button></div>
+        <span id="oa-tpl-what"></span>
+      </div>
       <div id="oa-offer-box" class="oa-gap">
         <label class="oa-label" for="oa-offer">Our sites to offer (optional, up to 5)</label>
         <textarea id="oa-offer" class="oa-list-input" rows="3" placeholder="oursite.com&#10;another-site.com" oninput="oaSavePrefs()"></textarea>
@@ -2291,6 +2313,28 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
           <label class="oa-label" for="oa-sig">Signature</label>
           <textarea id="oa-sig" rows="2" placeholder="Mika Hovsepyan&#10;Growth Marketing Manager | The Business Rover" oninput="oaSavePrefs()"></textarea>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="oa-tpl-overlay" class="modal-overlay-anim oa-tpl-overlay" onclick="if(event.target===this)oaCloseTemplates()">
+    <div class="oa-tpl-modal" role="dialog" aria-modal="true" aria-labelledby="oa-tpl-title">
+      <div class="oa-tpl-head">
+        <div>
+          <div class="oa-tpl-title" id="oa-tpl-title">Your templates</div>
+          <div class="oa-help" id="oa-tpl-sub"></div>
+        </div>
+        <button class="btn-ghost" onclick="oaCloseTemplates()" aria-label="Close">Close</button>
+      </div>
+      <div class="oa-help oa-note">Use <code>{name}</code> first name · <code>{site}</code> their site · <code>{sender}</code> your name · <code>{signature}</code> your signature<span id="oa-tpl-offer-ph"> · <code>{offer}</code> our sites line</span> · <code>{optout}</code> opt-out line. Up to <span id="oa-tpl-max">5</span> versions; drafts move to the next one every 3 emails. If there’s no opt-out line, one is added when it’s sent.</div>
+      <div id="oa-tpl-list" class="oa-tpl-list"></div>
+      <div class="oa-tpl-actions">
+        <button class="btn-ghost" id="oa-tpl-add" onclick="oaTplAdd()">Add version</button>
+        <button class="btn-ghost" onclick="oaTplCopyTeam()">Start from team templates</button>
+        <button class="btn-ghost oa-tpl-reset" id="oa-tpl-reset" onclick="oaTplReset()">Use team templates</button>
+        <span class="oa-tpl-spacer"></span>
+        <span id="oa-tpl-err" class="oa-tpl-err"></span>
+        <button class="btn-sm" id="oa-tpl-save" onclick="oaTplSave()" style="width:auto;">Save</button>
       </div>
     </div>
   </div>
@@ -8991,7 +9035,84 @@ function initAgentPage(){
     if(localStorage.getItem('oa-src')==='emails') oaSource('emails');
   }catch(e){ document.getElementById('oa-pitch').value = OA_DEFAULT_PITCH[mode]; }
   oaModeUi();
-  oaLoad(); oaLoadMailboxes();
+  oaLoad(); oaLoadMailboxes(); oaLoadTemplates();
+}
+
+// ─── Own templates: each person can replace the team's Paid / Exchange set ──
+let oaTpl = null;        // { own:{paid?,exchange?}, team:{paid,exchange}, max }
+let oaTplDraft = [];     // the list being edited in the dialog
+let oaTplSet = 'paid';
+async function oaLoadTemplates(){
+  try{ oaTpl = await oaApi('templates'); }catch(e){ oaTpl = null; }
+  oaTplSourceUi();
+}
+function oaTplSourceUi(){
+  const el = document.getElementById('oa-tpl-source');
+  if(!el) return;
+  const own = oaTpl?.own?.[oaMode()];
+  el.textContent = own ? `Your templates (${own.length})` : 'Team templates';
+  const what = document.getElementById('oa-tpl-what');
+  if(own && what) what.textContent = 'Drafts use the versions you wrote, changing every 3 emails.';
+}
+function oaOpenTemplates(){
+  if(!oaIsTemplate()) return;
+  oaTplSet = oaMode();
+  const own = oaTpl?.own?.[oaTplSet];
+  oaTplDraft = (own||[]).map(t=>({subject:t.subject, body:t.body}));
+  if(!oaTplDraft.length) oaTplDraft = [{subject:'', body:''}];
+  document.getElementById('oa-tpl-title').textContent = oaTplSet==='exchange' ? 'Your exchange templates' : 'Your paid templates';
+  document.getElementById('oa-tpl-sub').textContent = own
+    ? 'Your drafts use these instead of the team’s. Only you see them.'
+    : 'You’re using the team’s templates now. Write your own here; only you see them.';
+  document.getElementById('oa-tpl-offer-ph').style.display = oaTplSet==='exchange' ? '' : 'none';
+  document.getElementById('oa-tpl-max').textContent = oaTpl?.max||5;
+  document.getElementById('oa-tpl-reset').style.display = own ? '' : 'none';
+  document.getElementById('oa-tpl-err').textContent = '';
+  oaTplRender();
+  const ov = document.getElementById('oa-tpl-overlay');
+  if(ov.parentElement!==document.body) document.body.appendChild(ov);
+  toggleModal('oa-tpl-overlay', true);
+  setTimeout(()=>document.querySelector('#oa-tpl-list input')?.focus(), 50);
+}
+function oaCloseTemplates(){ toggleModal('oa-tpl-overlay', false); }
+function oaTplRender(){
+  const max = oaTpl?.max||5;
+  document.getElementById('oa-tpl-list').innerHTML = oaTplDraft.length ? oaTplDraft.map((t,i)=>`
+    <div class="oa-tpl-item">
+      <div class="oa-tpl-item-head"><span>Version ${i+1}</span>${oaTplDraft.length>1?`<button class="oa-tpl-remove" onclick="oaTplRemove(${i})">Remove</button>`:''}</div>
+      <input type="text" placeholder="Subject, e.g. content collaboration with {site}" value="${escAttr(t.subject)}" oninput="oaTplDraft[${i}].subject=this.value" maxlength="150">
+      <textarea placeholder="Hi {name},&#10;&#10;My name is {sender}…&#10;&#10;Best,&#10;{signature}" oninput="oaTplDraft[${i}].body=this.value" maxlength="4000">${escapeHtml(t.body)}</textarea>
+    </div>`).join('') : '<div class="oa-tpl-empty">No versions yet.</div>';
+  document.getElementById('oa-tpl-add').disabled = oaTplDraft.length>=max;
+}
+function oaTplAdd(){ if(oaTplDraft.length<(oaTpl?.max||5)){ oaTplDraft.push({subject:'', body:''}); oaTplRender(); document.querySelectorAll('#oa-tpl-list input')[oaTplDraft.length-1]?.focus(); } }
+function oaTplRemove(i){ oaTplDraft.splice(i,1); oaTplRender(); }
+function oaTplCopyTeam(){
+  const team = oaTpl?.team?.[oaTplSet]||[];
+  const hasText = oaTplDraft.some(t=>t.subject.trim()||t.body.trim());
+  if(hasText && !confirm('Replace what you wrote here with the team’s templates?')) return;
+  oaTplDraft = team.slice(0, oaTpl?.max||5).map(t=>({subject:t.subject, body:t.body}));
+  oaTplRender();
+}
+async function oaTplSave(){
+  const btn = document.getElementById('oa-tpl-save'), err = document.getElementById('oa-tpl-err');
+  const templates = oaTplDraft.map(t=>({subject:t.subject.trim(), body:t.body.trim()})).filter(t=>t.subject||t.body);
+  if(!templates.length){ err.textContent = 'Write at least one version, or use the team templates.'; return; }
+  btn.disabled = true; err.textContent = '';
+  try{
+    oaTpl = await oaApi('templates-save', {set:oaTplSet, templates});
+    oaCloseTemplates(); oaModeUi();
+    showToast('Templates saved — new drafts use them', 'ok');
+  }catch(e){ err.textContent = e.message; }
+  btn.disabled = false;
+}
+async function oaTplReset(){
+  if(!confirm('Go back to the team templates? Your versions here will be deleted.')) return;
+  try{
+    oaTpl = await oaApi('templates-save', {set:oaTplSet, templates:[]});
+    oaCloseTemplates(); oaModeUi();
+    showToast('Using the team templates again', 'ok');
+  }catch(e){ document.getElementById('oa-tpl-err').textContent = e.message; }
 }
 // paid / exchange use the team's fixed template sets; guest is written by AI.
 function oaModeOf(v){ return ['guest','exchange'].includes(v) ? v : 'paid'; }
@@ -9004,9 +9125,10 @@ function oaModeUi(){
   document.getElementById('oa-guest-box').style.display = tpl ? 'none' : '';
   document.getElementById('oa-offer-box').style.display = oaMode()==='exchange' ? '' : 'none';
   document.getElementById('oa-tpl-what').textContent = oaMode()==='exchange'
-    ? 'Asks if they’re open to a content collaboration, lists the two ways we work (A-B-C content exchange with our SaaS partners, co-created content) and offers to share examples.'
-    : 'Short, plain emails: who you are, then a content collaboration and a question about their terms.';
+    ? 'Asks if they’re open to a content collaboration, lists the two ways we work (A-B-C content exchange with our SaaS partners, co-created content) and offers to share examples. Five versions, changing every 3 emails.'
+    : 'Short, plain emails: who you are, then a content collaboration and a question about their terms. Five versions, changing every 3 emails.';
   document.querySelectorAll('#oa-mode-seg button').forEach(b=>b.classList.toggle('active', b.dataset.mode===oaMode()));
+  oaTplSourceUi();
 }
 function oaPickMode(m){ const sel = document.getElementById('oa-mode'); if(sel.value===m) return; sel.value = m; oaModeChanged(); }
 function oaModeChanged(){

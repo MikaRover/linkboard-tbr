@@ -231,9 +231,40 @@ function offerLine(offer, idx) {
   return OFFER_LINES[idx % OFFER_LINES.length].replace('{list}', list) + '\n\n';
 }
 
+// Each person may replace a set with their own templates (outreachTemplates/{uid},
+// server-only like outreachAgent); a set they haven't written uses the team's.
+const TPL_COLL = 'outreachTemplates';
+const MAX_OWN_TEMPLATES = 5;
+async function ownTemplates(uid) {
+  const d = await db().collection(TPL_COLL).doc(uid).get();
+  const x = d.exists ? d.data() : {};
+  const out = {};
+  Object.keys(TEMPLATE_SETS).forEach(set => { if (Array.isArray(x[set]) && x[set].length) out[set] = x[set]; });
+  return out;
+}
+async function getTemplates(uid) {
+  return { own: await ownTemplates(uid), team: TEMPLATE_SETS, max: MAX_OWN_TEMPLATES };
+}
+// templates: [{subject, body}] — an empty list goes back to the team's set.
+async function saveTemplates(uid, { set, templates }) {
+  if (!TEMPLATE_SETS[set]) throw new Error('Unknown template type');
+  const list = (Array.isArray(templates) ? templates : []).map(t => ({
+    subject: oneLine(t && t.subject).slice(0, 150),
+    body: String((t && t.body) || '').replace(/\r\n/g, '\n').trim().slice(0, 4000)
+  })).filter(t => t.subject || t.body);
+  if (list.length > MAX_OWN_TEMPLATES) throw new Error(`Up to ${MAX_OWN_TEMPLATES} templates`);
+  list.forEach((t, i) => {
+    if (!t.subject) throw new Error(`Template ${i + 1}: add a subject`);
+    if (t.body.length < 20) throw new Error(`Template ${i + 1}: the email text is too short`);
+  });
+  await db().collection(TPL_COLL).doc(uid).set({ [set]: list.length ? list : FieldValue().delete(), updatedAt: Date.now() }, { merge: true });
+  return getTemplates(uid);
+}
+
 async function templateDraft(uid, ref, row, senderName, set, offer, signature) {
-  const list = TEMPLATE_SETS[set] || PAID_TEMPLATES;
   if (!TEMPLATE_SETS[set]) set = 'paid';
+  const own = (await ownTemplates(uid))[set];
+  const list = own || TEMPLATE_SETS[set];
   // Rewriting a draft moves it to the next template of the same set; a new
   // draft takes the slot for its place in that set's sequence (every
   // TEMPLATE_EVERY drafts → next). Rows from before sets existed count as paid.
@@ -244,7 +275,7 @@ async function templateDraft(uid, ref, row, senderName, set, offer, signature) {
     const n = mine.docs.filter(d => Number.isInteger(d.data().templateIdx) && (d.data().templateSet || 'paid') === set).length;
     idx = Math.floor(n / TEMPLATE_EVERY) % list.length;
   }
-  const t = list[idx];
+  const t = list[idx % list.length];
   const first = oneLine(row.firstName).split(' ')[0];
   const fill = str => str
     .replace(/\{name\}/g, first ? first.charAt(0).toUpperCase() + first.slice(1) : 'there')
@@ -255,8 +286,8 @@ async function templateDraft(uid, ref, row, senderName, set, offer, signature) {
     .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
   const subject = fill(t.subject);
   const body = fill(t.body);
-  await ref.update({ subject, body, templateIdx: idx, templateSet: set, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
-  return { subject, body, templateIdx: idx, templateSet: set };
+  await ref.update({ subject, body, templateIdx: idx, templateSet: set, templateOwn: !!own, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
+  return { subject, body, templateIdx: idx, templateSet: set, templateOwn: !!own };
 }
 
 async function draft(uid, { id, pitch, senderName, mode, avoidSubjects, offer, signature }) {
@@ -556,6 +587,8 @@ async function handler(req, res) {
       case 'send': return res.json(await send(user, b));
       case 'track': return res.json(await trackAll(user.uid));
       case 'verify': return res.json(await verify(user.uid, b.ids));
+      case 'templates': return res.json(await getTemplates(user.uid));
+      case 'templates-save': return res.json(await saveTemplates(user.uid, b));
       case 'smtp-connect': return res.json(await require('./mailsmtp').connect(user, b));
       case 'smtp-disconnect': return res.json(await require('./mailsmtp').disconnect(user, b));
       default: return res.status(400).json({ error: 'Unknown action' });
