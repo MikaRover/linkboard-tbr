@@ -235,6 +235,11 @@ function offerLine(offer, idx) {
 // server-only like outreachAgent); a set they haven't written uses the team's.
 const TPL_COLL = 'outreachTemplates';
 const MAX_OWN_TEMPLATES = 5;
+// Exchange is different: 5–15 own versions mixed at random, and every email
+// gets an AI-written subject, so a template carries no subject of its own.
+const TPL_LIMITS = { paid: { min: 1, max: 5 }, exchange: { min: 5, max: 15 } };
+const tplMax = set => (TPL_LIMITS[set] || {}).max || MAX_OWN_TEMPLATES;
+const AI_SUBJECT_SETS = ['exchange'];
 async function ownTemplates(uid) {
   const d = await db().collection(TPL_COLL).doc(uid).get();
   const x = d.exists ? d.data() : {};
@@ -243,7 +248,7 @@ async function ownTemplates(uid) {
   return out;
 }
 async function getTemplates(uid) {
-  return { own: await ownTemplates(uid), team: TEMPLATE_SETS, max: MAX_OWN_TEMPLATES };
+  return { own: await ownTemplates(uid), team: TEMPLATE_SETS, limits: TPL_LIMITS, aiSubject: AI_SUBJECT_SETS };
 }
 // templates: [{subject, body}] — an empty list goes back to the team's set.
 async function saveTemplates(uid, { set, templates }) {
@@ -252,9 +257,12 @@ async function saveTemplates(uid, { set, templates }) {
     subject: oneLine(t && t.subject).slice(0, 150),
     body: String((t && t.body) || '').replace(/\r\n/g, '\n').trim().slice(0, 4000)
   })).filter(t => t.subject || t.body);
-  if (list.length > MAX_OWN_TEMPLATES) throw new Error(`Up to ${MAX_OWN_TEMPLATES} templates`);
+  const { min, max } = TPL_LIMITS[set];
+  if (list.length > max) throw new Error(`Up to ${max} templates`);
+  if (list.length && list.length < min) throw new Error(`Add at least ${min} versions (you have ${list.length}) — Generate can write the rest`);
+  const aiSubject = AI_SUBJECT_SETS.includes(set);
   list.forEach((t, i) => {
-    if (!t.subject) throw new Error(`Template ${i + 1}: add a subject`);
+    if (!t.subject && !aiSubject) throw new Error(`Template ${i + 1}: add a subject`);
     if (t.body.length < 20) throw new Error(`Template ${i + 1}: the email text is too short`);
   });
   await db().collection(TPL_COLL).doc(uid).set({ [set]: list.length ? list : FieldValue().delete(), updatedAt: Date.now() }, { merge: true });
@@ -269,9 +277,12 @@ async function templateVariations({ set, templates, count }) {
   if (!TEMPLATE_SETS[set]) throw new Error('Unknown template type');
   const src = (Array.isArray(templates) ? templates : []).map(t => ({
     subject: oneLine(t && t.subject).slice(0, 150), body: String((t && t.body) || '').trim().slice(0, 4000)
-  })).filter(t => t.body.length >= 20).slice(0, MAX_OWN_TEMPLATES);
+  })).filter(t => t.body.length >= 20).slice(0, tplMax(set));
   if (!src.length) throw new Error('Write one version first, then generate more like it');
-  const n = Math.max(1, Math.min(MAX_OWN_TEMPLATES, parseInt(count, 10) || 1));
+  // At most 5 per call keeps one answer short enough to come back whole.
+  const n = Math.max(1, Math.min(5, tplMax(set) - src.length, parseInt(count, 10) || 1));
+  if (tplMax(set) - src.length <= 0) throw new Error(`You already have ${tplMax(set)} versions`);
+  const withSubject = !AI_SUBJECT_SETS.includes(set);
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
   // Placeholders every source uses must stay in every new version.
@@ -279,12 +290,11 @@ async function templateVariations({ set, templates, count }) {
   const prompt = `You help a link-building outreach specialist vary their cold email template, so a batch doesn't send the same text again and again (a spam signal).
 
 Their template${src.length > 1 ? 's' : ''}:
-${src.map((t, i) => `--- Version ${i + 1}\nSubject: ${t.subject}\n${t.body}`).join('\n\n')}
+${src.map((t, i) => `--- Version ${i + 1}\n${withSubject ? `Subject: ${t.subject}\n` : ''}${t.body}`).join('\n\n')}
 
 Write ${n} NEW version${n > 1 ? 's' : ''} of this email.
 - Same meaning, offer, ask, tone, length and structure as theirs; it must still sound like the same person. Reword sentences, reorder where natural, vary the greeting and sign-off words.
-- Every version gets its own subject line in the same style as theirs, different from theirs and from each other; under 60 characters, no clickbait, no ALL CAPS, no exclamation marks.
-- Keep these placeholders exactly as written, curly braces included, each in every version: ${keep.length ? keep.join(' ') : '(none)'}. Do not add other placeholders or brackets.
+${withSubject ? '- Every version gets its own subject line in the same style as theirs, different from theirs and from each other; under 60 characters, no clickbait, no ALL CAPS, no exclamation marks.\n' : '- Each version must differ clearly from theirs and from the others (not just one swapped word). No subject lines are needed: set "subject" to "".\n'}- Keep these placeholders exactly as written, curly braces included, each in every version: ${keep.length ? keep.join(' ') : '(none)'}. Do not add other placeholders or brackets.
 - Do not invent facts, prices, sites, numbers or promises that aren't in theirs. No links, no markdown.
 - Avoid spam wording: "free", "guaranteed", "100%", "act now", "limited time", "SEO boost".
 - Plain text with blank lines between paragraphs, like theirs. Keep bullets if theirs has bullets.
@@ -307,26 +317,62 @@ Answer with JSON only: {"versions": [{"subject": "...", "body": "..."}]}`;
   const versions = (Array.isArray(out.versions) ? out.versions : []).map(v => ({
     subject: oneLine(v && v.subject).slice(0, 150), body: String((v && v.body) || '').replace(/\r\n/g, '\n').trim().slice(0, 4000)
   })).filter(v => {
-    if (!v.subject || v.body.length < 20 || seen.has(v.subject.toLowerCase())) return false;
+    if (withSubject && (!v.subject || seen.has(v.subject.toLowerCase()))) return false;
+    if (v.body.length < 20) return false;
+    if (!withSubject) v.subject = '';
     if (!keep.every(p => v.body.includes(p))) return false;           // lost a placeholder
     if (/\{(?!name\}|site\}|sender\}|signature\}|offer\}|optout\})[^}]*\}/.test(v.body)) return false; // made one up
     if (!srcBrackets && /\[[^\]]*\]/.test(v.body)) return false;    // "[Your name]"-style gaps
-    seen.add(v.subject.toLowerCase());
+    if (withSubject) seen.add(v.subject.toLowerCase());
     return true;
   }).slice(0, n);
   if (!versions.length) throw new Error('The AI versions didn\'t keep your placeholders — try again');
   return { versions };
 }
 
-async function templateDraft(uid, ref, row, senderName, set, offer, signature) {
+// One subject line written for this email (exchange). Returns '' when the AI
+// isn't reachable, so the draft still gets made with a fallback subject.
+const FALLBACK_SUBJECTS = ['content collaboration?', 'quick question', 'collaboration idea', 'working together on content', 'a content idea for {site}'];
+async function aiSubject(body, domain, avoid) {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return '';
+  const recent = (Array.isArray(avoid) ? avoid : []).map(oneLine).filter(Boolean).slice(0, 15);
+  const prompt = `Write the subject line for this cold outreach email to the website ${domain}.
+
+${body.slice(0, 2500)}
+
+Rules: under 60 characters; plain and personal, like one person writing to another; style: ${pick(SUBJECT_STYLES)}; no clickbait, no ALL CAPS, no exclamation marks, no emoji, no quotes; avoid spam words ("free", "guaranteed", "SEO", "backlinks", "offer").
+${recent.length ? 'Must be clearly different from these recent subjects:\n- ' + recent.join('\n- ') + '\n' : ''}
+Answer with the subject line only.`;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-haiku-5-5', max_tokens: 100, thinking: { type: 'disabled' }, messages: [{ role: 'user', content: prompt }] }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!r.ok) return '';
+    const j = await r.json();
+    const s = oneLine((j.content || []).filter(c => c.type === 'text').map(c => c.text).join('')).replace(/^subject:\s*/i, '').replace(/^["'“”]+|["'“”]+$/g, '').trim();
+    return s.length >= 3 && s.length <= 90 && !/[{}[\]]/.test(s) ? s : '';
+  } catch (e) { return ''; }
+}
+
+async function templateDraft(uid, ref, row, senderName, set, offer, signature, avoidSubjects) {
   if (!TEMPLATE_SETS[set]) set = 'paid';
   const own = (await ownTemplates(uid))[set];
   const list = own || TEMPLATE_SETS[set];
+  const mixed = AI_SUBJECT_SETS.includes(set);
   // Rewriting a draft moves it to the next template of the same set; a new
   // draft takes the slot for its place in that set's sequence (every
   // TEMPLATE_EVERY drafts → next). Rows from before sets existed count as paid.
   let idx;
-  if (Number.isInteger(row.templateIdx) && (row.templateSet || 'paid') === set) idx = (row.templateIdx + 1) % list.length;
+  if (mixed) {
+    // Exchange: a random version each time; "Next version" never gives the same one back.
+    const cur = Number.isInteger(row.templateIdx) && row.templateSet === set ? row.templateIdx : -1;
+    const pool = list.map((_, i) => i).filter(i => i !== cur);
+    idx = pool.length ? pick(pool) : 0;
+  } else if (Number.isInteger(row.templateIdx) && (row.templateSet || 'paid') === set) idx = (row.templateIdx + 1) % list.length;
   else {
     const mine = await db().collection(COLL).where('ownerUid', '==', uid).get();
     const n = mine.docs.filter(d => Number.isInteger(d.data().templateIdx) && (d.data().templateSet || 'paid') === set).length;
@@ -341,8 +387,10 @@ async function templateDraft(uid, ref, row, senderName, set, offer, signature) {
     .replace(/\{signature\}/g, cleanSignature(signature) || oneLine(senderName) || 'the LinkBoard team')
     .replace(/\{site\}/g, FREE_MAIL.test(row.domain) ? 'your site' : row.domain)
     .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
-  const subject = fill(t.subject);
   const body = fill(t.body);
+  const subject = mixed
+    ? (await aiSubject(body, row.domain, avoidSubjects)) || fill(t.subject || pick(FALLBACK_SUBJECTS))
+    : fill(t.subject);
   await ref.update({ subject, body, templateIdx: idx, templateSet: set, templateOwn: !!own, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
   return { subject, body, templateIdx: idx, templateSet: set, templateOwn: !!own };
 }
@@ -354,7 +402,7 @@ async function draft(uid, { id, pitch, senderName, mode, avoidSubjects, offer, s
   const row = snap.data();
   if (['sent', 'sending', 'replied', 'bounced'].includes(row.status)) throw new Error('Already sent');
   if (!isSafeHost(row.domain)) throw new Error('Invalid domain');
-  if (mode !== 'guest') return templateDraft(uid, ref, row, senderName, mode, offer, signature);
+  if (mode !== 'guest') return templateDraft(uid, ref, row, senderName, mode, offer, signature, avoidSubjects);
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
