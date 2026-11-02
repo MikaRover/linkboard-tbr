@@ -2323,10 +2323,11 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
         <div>
           <div class="oa-tpl-title" id="oa-tpl-title">Your templates</div>
           <div class="oa-help" id="oa-tpl-sub"></div>
+          <div class="oa-help" id="oa-tpl-count"></div>
         </div>
         <button class="btn-ghost" onclick="oaCloseTemplates()" aria-label="Close">Close</button>
       </div>
-      <div class="oa-help oa-note">Use <code>{name}</code> first name · <code>{site}</code> their site · <code>{sender}</code> your name · <code>{signature}</code> your signature<span id="oa-tpl-offer-ph"> · <code>{offer}</code> our sites line</span> · <code>{optout}</code> opt-out line. Up to <span id="oa-tpl-max">5</span> versions; drafts move to the next one every 3 emails. If there’s no opt-out line, one is added when it’s sent.</div>
+      <div class="oa-help oa-note">Use <code>{name}</code> first name · <code>{site}</code> their site · <code>{sender}</code> your name · <code>{signature}</code> your signature<span id="oa-tpl-offer-ph"> · <code>{offer}</code> our sites line</span> · <code>{optout}</code> opt-out line. <span id="oa-tpl-rule"></span> If there’s no opt-out line, one is added when it’s sent.</div>
       <div id="oa-tpl-list" class="oa-tpl-list"></div>
       <div class="oa-tpl-actions">
         <button class="btn-ghost" id="oa-tpl-add" onclick="oaTplAdd()">Add version</button>
@@ -9043,6 +9044,10 @@ function initAgentPage(){
 let oaTpl = null;        // { own:{paid?,exchange?}, team:{paid,exchange}, max }
 let oaTplDraft = [];     // the list being edited in the dialog
 let oaTplSet = 'paid';
+// Per type: paid 1–5 versions rotating with their own subjects; exchange 5–15
+// mixed at random, with an AI-written subject per email (no subject field).
+function oaTplLim(set){ return oaTpl?.limits?.[set||oaTplSet] || {min:1, max:5}; }
+function oaTplAiSubject(set){ return (oaTpl?.aiSubject||['exchange']).includes(set||oaTplSet); }
 async function oaLoadTemplates(){
   try{ oaTpl = await oaApi('templates'); }catch(e){ oaTpl = null; }
   oaTplSourceUi();
@@ -9053,7 +9058,9 @@ function oaTplSourceUi(){
   const own = oaTpl?.own?.[oaMode()];
   el.textContent = own ? `Your templates (${own.length})` : 'Team templates';
   const what = document.getElementById('oa-tpl-what');
-  if(own && what) what.textContent = 'Drafts use the versions you wrote, changing every 3 emails.';
+  if(!what) return;
+  if(oaTplAiSubject(oaMode())) what.textContent = (own ? `Your ${own.length} versions` : 'The team’s versions')+' are mixed at random, and AI writes a new subject line for every email.';
+  else if(own) what.textContent = 'Drafts use the versions you wrote, changing every 3 emails.';
 }
 function oaOpenTemplates(){
   if(!oaIsTemplate()) return;
@@ -9066,35 +9073,40 @@ function oaOpenTemplates(){
     ? 'Your drafts use these instead of the team’s. Only you see them.'
     : 'You’re using the team’s templates now. Write your own here; only you see them.';
   document.getElementById('oa-tpl-offer-ph').style.display = oaTplSet==='exchange' ? '' : 'none';
-  document.getElementById('oa-tpl-max').textContent = oaTpl?.max||5;
+  const lim = oaTplLim();
+  document.getElementById('oa-tpl-rule').textContent = oaTplAiSubject()
+    ? `Write ${lim.min}–${lim.max} versions. They’re mixed at random, and AI writes a different subject line for each email, so no subject here.`
+    : `Up to ${lim.max} versions; drafts move to the next one every 3 emails.`;
   document.getElementById('oa-tpl-reset').style.display = own ? '' : 'none';
   document.getElementById('oa-tpl-err').textContent = '';
   oaTplRender();
   const ov = document.getElementById('oa-tpl-overlay');
   if(ov.parentElement!==document.body) document.body.appendChild(ov);
   toggleModal('oa-tpl-overlay', true);
-  setTimeout(()=>document.querySelector('#oa-tpl-list input')?.focus(), 50);
+  setTimeout(()=>document.querySelector('#oa-tpl-list :is(input,textarea)')?.focus(), 50);
 }
 function oaCloseTemplates(){ toggleModal('oa-tpl-overlay', false); }
 function oaTplRender(){
-  const max = oaTpl?.max||5;
+  const {min, max} = oaTplLim(), aiSubj = oaTplAiSubject();
   document.getElementById('oa-tpl-list').innerHTML = oaTplDraft.length ? oaTplDraft.map((t,i)=>`
     <div class="oa-tpl-item">
       <div class="oa-tpl-item-head"><span>Version ${i+1}</span>${oaTplDraft.length>1?`<button class="oa-tpl-remove" onclick="oaTplRemove(${i})">Remove</button>`:''}</div>
-      <input type="text" placeholder="Subject, e.g. content collaboration with {site}" value="${escAttr(t.subject)}" oninput="oaTplDraft[${i}].subject=this.value" maxlength="150">
+      ${aiSubj?'':`<input type="text" placeholder="Subject, e.g. content collaboration with {site}" value="${escAttr(t.subject)}" oninput="oaTplDraft[${i}].subject=this.value" maxlength="150">`}
       <textarea placeholder="Hi {name},&#10;&#10;My name is {sender}…&#10;&#10;Best,&#10;{signature}" oninput="oaTplDraft[${i}].body=this.value" maxlength="4000">${escapeHtml(t.body)}</textarea>
     </div>`).join('') : '<div class="oa-tpl-empty">No versions yet.</div>';
   document.getElementById('oa-tpl-add').disabled = oaTplDraft.length>=max;
   const gen = document.getElementById('oa-tpl-gen');
   if(!gen.dataset.busy) gen.disabled = oaTplDraft.length>=max;
+  const n = oaTplDraft.filter(t=>t.body.trim().length>=20).length;
+  document.getElementById('oa-tpl-count').textContent = `${n} of ${min}–${max}` + (n<min ? ` · ${min-n} more needed` : '');
 }
 // AI fills the free slots with versions in the style of what's written; they
 // land in the editor to review and edit, and are only kept when you Save.
 async function oaTplGenerate(){
-  const max = oaTpl?.max||5, err = document.getElementById('oa-tpl-err'), btn = document.getElementById('oa-tpl-gen');
+  const {max} = oaTplLim(), err = document.getElementById('oa-tpl-err'), btn = document.getElementById('oa-tpl-gen');
   const written = oaTplDraft.map(t=>({subject:t.subject.trim(), body:t.body.trim()})).filter(t=>t.body.length>=20);
-  if(!written.length){ err.textContent = 'Write one version first (subject and email), then generate more like it.'; return; }
-  const count = max - written.length;
+  if(!written.length){ err.textContent = 'Write one version first, then generate more like it.'; return; }
+  const count = Math.min(5, max - written.length); // up to 5 per click
   if(count<=0){ err.textContent = `You already have ${max} versions.`; return; }
   err.textContent = ''; btn.disabled = true; btn.dataset.busy = '1'; btn.textContent = 'Writing…';
   try{
@@ -9105,19 +9117,21 @@ async function oaTplGenerate(){
   }catch(e){ err.textContent = e.message; }
   delete btn.dataset.busy; btn.textContent = 'Generate versions like mine'; oaTplRender();
 }
-function oaTplAdd(){ if(oaTplDraft.length<(oaTpl?.max||5)){ oaTplDraft.push({subject:'', body:''}); oaTplRender(); document.querySelectorAll('#oa-tpl-list input')[oaTplDraft.length-1]?.focus(); } }
+function oaTplAdd(){ if(oaTplDraft.length<oaTplLim().max){ oaTplDraft.push({subject:'', body:''}); oaTplRender(); document.querySelectorAll('#oa-tpl-list :is(input,textarea)')[oaTplAiSubject()?oaTplDraft.length-1:(oaTplDraft.length-1)*2]?.focus(); } }
 function oaTplRemove(i){ oaTplDraft.splice(i,1); oaTplRender(); }
 function oaTplCopyTeam(){
   const team = oaTpl?.team?.[oaTplSet]||[];
   const hasText = oaTplDraft.some(t=>t.subject.trim()||t.body.trim());
   if(hasText && !confirm('Replace what you wrote here with the team’s templates?')) return;
-  oaTplDraft = team.slice(0, oaTpl?.max||5).map(t=>({subject:t.subject, body:t.body}));
+  oaTplDraft = team.slice(0, oaTplLim().max).map(t=>({subject:oaTplAiSubject()?'':t.subject, body:t.body}));
   oaTplRender();
 }
 async function oaTplSave(){
   const btn = document.getElementById('oa-tpl-save'), err = document.getElementById('oa-tpl-err');
   const templates = oaTplDraft.map(t=>({subject:t.subject.trim(), body:t.body.trim()})).filter(t=>t.subject||t.body);
   if(!templates.length){ err.textContent = 'Write at least one version, or use the team templates.'; return; }
+  const {min} = oaTplLim();
+  if(templates.length<min){ err.textContent = `Add at least ${min} versions (you have ${templates.length}) — Generate can write the rest.`; return; }
   btn.disabled = true; err.textContent = '';
   try{
     oaTpl = await oaApi('templates-save', {set:oaTplSet, templates});
