@@ -3496,8 +3496,9 @@ function hideEmptyNavSections(){
 // Client-side gating only. NOTE: startApp's `isAdmin` is a local const, so
 // anything outside startApp must use this helper instead of referencing it.
 function isAdminOrTatev(){ return cu?.role==='admin' || (cu?.name||'')==='Tatev'; }
-// Outreach agent: admins, Tatev and Armen (same list as the server's canUseAgent).
-function canUseAgent(){ return isAdminOrTatev() || (cu?.name||'')==='Armen'; }
+// Outreach agent: admins, Tatev and the builders below (same list as the server's AGENT_USERS).
+const AGENT_USERS = ['Armen','Tam','Nick','Syuzi','Sofya'];
+function canUseAgent(){ return isAdminOrTatev() || AGENT_USERS.includes(cu?.name||''); }
 
 function startApp(){
   showAppWithAnimation();
