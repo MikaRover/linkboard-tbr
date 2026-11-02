@@ -2793,6 +2793,9 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
     <select id="dom-filter-folder" onchange="renderDomainsPage()" style="margin-bottom:0;font-size:12px;padding:7px 10px;">
       <option value="">All folders</option>
     </select>
+    <select id="dom-filter-by" class="adm" onchange="renderDomainsPage()" style="display:none;margin-bottom:0;font-size:12px;padding:7px 10px;">
+      <option value="">Everyone</option>
+    </select>
   </div>
 
   <!-- Stats -->
@@ -8023,6 +8026,7 @@ function isPersonalLinkedInUrl(url){
 
 function renderProspects(data, domain){
   const prospects = data.prospects||[];
+  autoSaveFoundEmails(prospects.map(p=>({domain, email:p.email, smtp:p.smtp, firstName:p.first_name, lastName:p.last_name, position:p.position})));
   const withEmail = prospects.filter(p=>p.email&&p.smtp!=='invalid');
   const verified = prospects.filter(p=>p.smtp==='valid');
 
@@ -8096,6 +8100,7 @@ function renderProspects(data, domain){
 
 function renderScrapedEmails(data, domain){
   const emails = data.emails||[];
+  autoSaveFoundEmails(emails.map(e=>({domain, email:e.email, smtp:e.smtp, position:'Scraped'})));
   document.getElementById('ot-summary').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:baseline;">
       <span style="font-size:11px;color:var(--text2);">Emails scraped</span>
@@ -8161,6 +8166,33 @@ function composeBtn(firstName, email, domain){
 }
 
 
+
+// Every email a finder returns goes straight into the finder's own Domains DB
+// (addedBy = them), so nothing depends on clicking Save; admin sees everyone's
+// there. Skipped: invalid addresses, and pattern guesses that aren't verified.
+// One doc per (person, email) — the id makes a repeat search a no-op.
+const autoSavedEmails = new Set();
+function autoSaveFoundEmails(list){
+  const me = cu?.name||cu?.email||'';
+  if(!me || !Array.isArray(list)) return;
+  const mine = new Set(allDomains.filter(d=>d.addedBy===me && d.email).map(d=>String(d.email).toLowerCase()));
+  for(const c of list){
+    const email = String(c?.email||'').trim().toLowerCase();
+    const domain = String(c?.domain||'').replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').trim().toLowerCase();
+    if(!email || !domain || !email.includes('@')) continue;
+    if(c.smtp==='invalid' || (c.guessed && c.smtp!=='valid')) continue;
+    if(mine.has(email) || autoSavedEmails.has(email)) continue;
+    autoSavedEmails.add(email);
+    const id = ('auto_'+me+'_'+email).toLowerCase().replace(/[^a-z0-9@._-]/g,'_');
+    db.collection('domains').doc(id).set({
+      domain, email, smtp:c.smtp||'unknown',
+      firstName:c.firstName||'', lastName:c.lastName||'', position:c.position||'',
+      dr:'', traffic:'', project:'', notes:'', source:'auto',
+      addedBy: me,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(()=>autoSavedEmails.delete(email));
+  }
+}
 
 async function saveContactToDB(data){
   if(!data) return;
@@ -8255,6 +8287,10 @@ function renderFreeResults(data, domain){
   const all = [...(data.emails||[]), ...(data.guessedEmails||[])];
 
   const team = data.teamMembers||[];
+  autoSaveFoundEmails([
+    ...all.map(e=>({domain, email:e.email, smtp:e.smtp, guessed:e.guessed, firstName:e.firstName, lastName:e.lastName, position:e.guessed?'Pattern guess':'Scraped'})),
+    ...team.map(t=>({domain, email:t.email, smtp:t.smtp, firstName:t.firstName, lastName:t.lastName, position:t.title}))
+  ]);
 
   document.getElementById('ot-summary').innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;">
@@ -8359,6 +8395,7 @@ async function runBulkFreeSearch(){
       const resp = await fetch('/api/scrape-contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain})});
       const data = await resp.json();
       const all = [...(data.emails||[]),...(data.guessedEmails||[])];
+      autoSaveFoundEmails(all.map(e=>({domain, email:e.email, smtp:e.smtp, guessed:e.guessed, firstName:e.firstName, lastName:e.lastName, position:e.guessed?'Pattern guess':'Scraped'})));
       all.forEach(e=>{
         allOutreachData.push({domain, firstName:e.firstName||'',lastName:e.lastName||'',position:e.guessed?'Pattern guess':'Scraped',email:e.email,smtp:e.smtp||'unknown',score:0,type:'free'});
       });
@@ -8444,6 +8481,7 @@ async function runLinkedInEnrich(){
 
 function renderLinkedInResults(contacts){
   document.getElementById('ot-li-results').style.display='block';
+  autoSaveFoundEmails(contacts.filter(c=>c.found).map(c=>({domain:c.domain, email:c.email, smtp:c.smtp, firstName:c.firstName, lastName:c.lastName, position:c.title})));
   if(!contacts.length){
     document.getElementById('ot-li-tbody').innerHTML = '<tr><td colspan="6" style="color:var(--text3);">No profiles resolved.</td></tr>';
     return;
@@ -8541,6 +8579,9 @@ async function runBulkOutreach(action='prospects'){
 
 function renderBulkRow(domain, data, action){
   const tb = document.getElementById('ot-bulk-tbody');
+  autoSaveFoundEmails(action==='prospects'
+    ? (data.prospects||[]).map(p=>({domain, email:p.email, smtp:p.smtp, firstName:p.first_name, lastName:p.last_name, position:p.position}))
+    : (data.emails||[]).map(e=>({domain, email:e.email, smtp:e.smtp, position:'Scraped'})));
   if(action==='prospects'){
     const prospects = (data.prospects||[]).filter(p=>p.email||p.first_name);
     if(!prospects.length){
@@ -12327,7 +12368,26 @@ function initDomainsPage(){
   }
   const ff = document.getElementById('dom-filter-folder');
   if(ff) populateFolderSelect(ff, ff.value, true);
+  // Admin: whose emails to show — everyone who has added anything.
+  const bf = document.getElementById('dom-filter-by');
+  if(bf && cu?.role==='admin'){
+    const cur = bf.value;
+    const names = [...new Set(allDomains.map(d=>d.addedBy||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    bf.innerHTML = '<option value="">Everyone</option>' + names.map(n=>`<option value="${escAttr(n)}">${escapeHtml(n)}</option>`).join('');
+    if(names.includes(cur)) bf.value = cur;
+  }
   renderDomainsPage();
+}
+
+// Only the rows this person may see: admin sees everyone's, the rest their own
+// (addedBy, with the old notes-as-owner fallback for rows saved before addedBy).
+function visibleDomains(){
+  if(cu?.role==='admin'){
+    const by = document.getElementById('dom-filter-by')?.value||'';
+    return by ? allDomains.filter(d=>(d.addedBy||'')===by) : allDomains;
+  }
+  const myName = cu?.name||cu?.email||'';
+  return allDomains.filter(d=>(d.addedBy===myName)||((!d.addedBy)&&d.notes===myName));
 }
 
 function toggleDomSort(field){
@@ -12346,9 +12406,8 @@ function renderDomainsPage(){
   const proj=document.getElementById('dom-filter-proj')?.value||'';
   const folder=document.getElementById('dom-filter-folder')?.value||'';
 
-  const isAdminD = cu?.role==='admin';
   const myName = cu?.name||cu?.email||'';
-  let fl=(isAdminD?allDomains:allDomains.filter(d=>(d.addedBy===myName)||((!d.addedBy)&&d.notes===myName))).filter(d=>{
+  let fl=visibleDomains().filter(d=>{
     if(s&&!(d.domain||'').toLowerCase().includes(s)&&!(d.email||'').toLowerCase().includes(s)&&
       !(d.firstName||'').toLowerCase().includes(s)&&!(d.lastName||'').toLowerCase().includes(s))return false;
     if(proj&&d.project!==proj)return false;
@@ -12369,7 +12428,7 @@ function renderDomainsPage(){
   });
 
   // Base list for stats = my domains (before search/filter)
-  const myDomains = isAdminD ? allDomains : allDomains.filter(d=>(d.addedBy===myName)||((!d.addedBy)&&d.notes===myName));
+  const myDomains = visibleDomains();
   const withEmail=myDomains.filter(d=>d.email).length;
   const verified=myDomains.filter(d=>d.smtp==='valid').length;
   const domStats=document.getElementById('dom-stats');
@@ -12457,7 +12516,6 @@ async function saveDomain(){
     project:document.getElementById('dom-f-proj').value||'',
     folder:document.getElementById('dom-f-folder').value||'',
     notes:document.getElementById('dom-f-notes').value.trim()||'',
-    addedBy:cu?.name||cu?.email||'',
     updatedAt:firebase.firestore.FieldValue.serverTimestamp()
   };
   if(!id) data.addedBy = cu?.name||cu?.email||'';
@@ -12473,7 +12531,7 @@ async function deleteDomain(id,domain){
 
 function exportDomainsCSV(){
   const h=['Domain','DR','Traffic','Email','Email Status','First Name','Last Name','Position','Project','Folder','Added By','Notes'];
-  const rows=allDomains.map(d=>[d.domain,d.dr,d.traffic,d.email,d.smtp,d.firstName,d.lastName,d.position,d.project,d.folder,d.addedBy,d.notes]
+  const rows=visibleDomains().map(d=>[d.domain,d.dr,d.traffic,d.email,d.smtp,d.firstName,d.lastName,d.position,d.project,d.folder,d.addedBy,d.notes]
     .map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'}));
