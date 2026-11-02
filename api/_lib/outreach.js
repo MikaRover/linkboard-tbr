@@ -261,6 +261,63 @@ async function saveTemplates(uid, { set, templates }) {
   return getTemplates(uid);
 }
 
+// Writes new versions in the style of the templates someone typed, each with
+// its own subject, so their rotation isn't one email sent over and over.
+// Nothing is saved here: the page shows them in the editor for review.
+const PLACEHOLDERS = ['{name}', '{site}', '{sender}', '{signature}', '{offer}', '{optout}'];
+async function templateVariations({ set, templates, count }) {
+  if (!TEMPLATE_SETS[set]) throw new Error('Unknown template type');
+  const src = (Array.isArray(templates) ? templates : []).map(t => ({
+    subject: oneLine(t && t.subject).slice(0, 150), body: String((t && t.body) || '').trim().slice(0, 4000)
+  })).filter(t => t.body.length >= 20).slice(0, MAX_OWN_TEMPLATES);
+  if (!src.length) throw new Error('Write one version first, then generate more like it');
+  const n = Math.max(1, Math.min(MAX_OWN_TEMPLATES, parseInt(count, 10) || 1));
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
+  // Placeholders every source uses must stay in every new version.
+  const keep = PLACEHOLDERS.filter(p => src.every(t => t.body.includes(p)));
+  const prompt = `You help a link-building outreach specialist vary their cold email template, so a batch doesn't send the same text again and again (a spam signal).
+
+Their template${src.length > 1 ? 's' : ''}:
+${src.map((t, i) => `--- Version ${i + 1}\nSubject: ${t.subject}\n${t.body}`).join('\n\n')}
+
+Write ${n} NEW version${n > 1 ? 's' : ''} of this email.
+- Same meaning, offer, ask, tone, length and structure as theirs; it must still sound like the same person. Reword sentences, reorder where natural, vary the greeting and sign-off words.
+- Every version gets its own subject line in the same style as theirs, different from theirs and from each other; under 60 characters, no clickbait, no ALL CAPS, no exclamation marks.
+- Keep these placeholders exactly as written, curly braces included, each in every version: ${keep.length ? keep.join(' ') : '(none)'}. Do not add other placeholders or brackets.
+- Do not invent facts, prices, sites, numbers or promises that aren't in theirs. No links, no markdown.
+- Avoid spam wording: "free", "guaranteed", "100%", "act now", "limited time", "SEO boost".
+- Plain text with blank lines between paragraphs, like theirs. Keep bullets if theirs has bullets.
+
+Answer with JSON only: {"versions": [{"subject": "...", "body": "..."}]}`;
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-haiku-5-5', max_tokens: 4000, thinking: { type: 'disabled' }, messages: [{ role: 'user', content: prompt }] }),
+    signal: AbortSignal.timeout(50000)
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error((j.error && j.error.message) || ('Anthropic HTTP ' + r.status));
+  const text = (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
+  const m = text.match(/\{[\s\S]*\}/);
+  let out;
+  try { out = JSON.parse(m ? m[0] : text); } catch (e) { throw new Error('AI answer was not readable — try again'); }
+  const seen = new Set(src.map(t => t.subject.toLowerCase()));
+  const srcBrackets = src.some(t => /\[[^\]]*\]/.test(t.body));
+  const versions = (Array.isArray(out.versions) ? out.versions : []).map(v => ({
+    subject: oneLine(v && v.subject).slice(0, 150), body: String((v && v.body) || '').replace(/\r\n/g, '\n').trim().slice(0, 4000)
+  })).filter(v => {
+    if (!v.subject || v.body.length < 20 || seen.has(v.subject.toLowerCase())) return false;
+    if (!keep.every(p => v.body.includes(p))) return false;           // lost a placeholder
+    if (/\{(?!name\}|site\}|sender\}|signature\}|offer\}|optout\})[^}]*\}/.test(v.body)) return false; // made one up
+    if (!srcBrackets && /\[[^\]]*\]/.test(v.body)) return false;    // "[Your name]"-style gaps
+    seen.add(v.subject.toLowerCase());
+    return true;
+  }).slice(0, n);
+  if (!versions.length) throw new Error('The AI versions didn\'t keep your placeholders — try again');
+  return { versions };
+}
+
 async function templateDraft(uid, ref, row, senderName, set, offer, signature) {
   if (!TEMPLATE_SETS[set]) set = 'paid';
   const own = (await ownTemplates(uid))[set];
@@ -589,6 +646,7 @@ async function handler(req, res) {
       case 'verify': return res.json(await verify(user.uid, b.ids));
       case 'templates': return res.json(await getTemplates(user.uid));
       case 'templates-save': return res.json(await saveTemplates(user.uid, b));
+      case 'templates-generate': return res.json(await templateVariations(b));
       case 'smtp-connect':
         // Private Email is the admin's own mailbox type; everyone else sends from Gmail.
         if (user.role !== 'admin') return res.status(403).json({ error: 'Private Email mailboxes are admin-only' });

@@ -2352,6 +2352,7 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
       <div id="oa-tpl-list" class="oa-tpl-list"></div>
       <div class="oa-tpl-actions">
         <button class="btn-ghost" id="oa-tpl-add" onclick="oaTplAdd()">Add version</button>
+        <button class="btn-ghost" id="oa-tpl-gen" onclick="oaTplGenerate()" title="AI writes new versions like yours, each with its own subject">Generate versions like mine</button>
         <button class="btn-ghost" onclick="oaTplCopyTeam()">Start from team templates</button>
         <button class="btn-ghost oa-tpl-reset" id="oa-tpl-reset" onclick="oaTplReset()">Use team templates</button>
         <span class="oa-tpl-spacer"></span>
@@ -9106,6 +9107,25 @@ function oaTplRender(){
       <textarea placeholder="Hi {name},&#10;&#10;My name is {sender}…&#10;&#10;Best,&#10;{signature}" oninput="oaTplDraft[${i}].body=this.value" maxlength="4000">${escapeHtml(t.body)}</textarea>
     </div>`).join('') : '<div class="oa-tpl-empty">No versions yet.</div>';
   document.getElementById('oa-tpl-add').disabled = oaTplDraft.length>=max;
+  const gen = document.getElementById('oa-tpl-gen');
+  if(!gen.dataset.busy) gen.disabled = oaTplDraft.length>=max;
+}
+// AI fills the free slots with versions in the style of what's written; they
+// land in the editor to review and edit, and are only kept when you Save.
+async function oaTplGenerate(){
+  const max = oaTpl?.max||5, err = document.getElementById('oa-tpl-err'), btn = document.getElementById('oa-tpl-gen');
+  const written = oaTplDraft.map(t=>({subject:t.subject.trim(), body:t.body.trim()})).filter(t=>t.body.length>=20);
+  if(!written.length){ err.textContent = 'Write one version first (subject and email), then generate more like it.'; return; }
+  const count = max - written.length;
+  if(count<=0){ err.textContent = `You already have ${max} versions.`; return; }
+  err.textContent = ''; btn.disabled = true; btn.dataset.busy = '1'; btn.textContent = 'Writing…';
+  try{
+    const j = await oaApi('templates-generate', {set:oaTplSet, templates:written, count});
+    oaTplDraft = [...written, ...(j.versions||[])].slice(0, max);
+    oaTplRender();
+    showToast(`${(j.versions||[]).length} new version${(j.versions||[]).length===1?'':'s'} added — check them, then Save`, 'ok');
+  }catch(e){ err.textContent = e.message; }
+  delete btn.dataset.busy; btn.textContent = 'Generate versions like mine'; oaTplRender();
 }
 function oaTplAdd(){ if(oaTplDraft.length<(oaTpl?.max||5)){ oaTplDraft.push({subject:'', body:''}); oaTplRender(); document.querySelectorAll('#oa-tpl-list input')[oaTplDraft.length-1]?.focus(); } }
 function oaTplRemove(i){ oaTplDraft.splice(i,1); oaTplRender(); }
