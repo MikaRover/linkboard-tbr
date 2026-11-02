@@ -9199,7 +9199,7 @@ async function oaLoadMailboxes(){
   el.innerHTML = senders.length ? `
     <label class="oa-label" style="margin:0;" for="oa-from">Send from</label>
     <div class="oa-from-row">
-      <select id="oa-from" onchange="try{localStorage.setItem('oa-from',this.value)}catch(e){};oaRenderStats()">
+      <select id="oa-from" onchange="try{localStorage.setItem('oa-from',this.value)}catch(e){};oaFromChanged()">
         ${senders.map(m=>`<option value="${escAttr(m.email)}" ${m===mb?'selected':''}>${escapeHtml(m.email)}</option>`).join('')}
       </select>
       <button class="btn-ghost" onclick="oaAddMailbox(this)">Add mailbox</button>
@@ -9224,11 +9224,18 @@ async function oaLoadMailboxes(){
     </form>`);
   oaRenderStats();
 }
-// Everything the agent has done, across all client folders; "today" is the
-// chosen mailbox's own count of agent sends.
+// Was this row sent from the mailbox picked in "Send from"? Matched by address,
+// or by mailbox id for rows sent before fromEmail was stored.
+function oaFromPicked(r){
+  const from = oaFrom(); if(!from) return true;
+  const mb = oaMailboxes.find(m=>m.email===from);
+  return r.fromEmail ? r.fromEmail===from : !!(mb && r.fromMailbox===mb.id);
+}
+// The number tiles: sent / replied / bounced are the picked mailbox's own
+// (across all client folders); drafts aren't tied to a mailbox until sent.
 function oaRenderStats(){
   const el = document.getElementById('oa-stats'); if(!el) return;
-  const rows = oaRows;
+  const rows = oaRows.filter(r=>!oaSent(r) || oaFromPicked(r));
   const n = st => rows.filter(r=>st.includes(r.status)).length;
   const sent = n(['sent','sending','replied','bounced']), replied = n(['replied']);
   const mb = oaMailboxes.find(m=>m.email===oaFrom());
@@ -9242,9 +9249,12 @@ function oaRenderStats(){
     + tile('replied', `<b style="color:${replied?'var(--teal)':'var(--text)'};">${replied}</b><span>Replied${sent?` · ${Math.round(replied/sent*100)}%`:''}</span>`, 'Replies to agent emails — click to list them')
     + tile('bounced', `<b style="color:${n(['bounced'])?'var(--red)':'var(--text)'};">${n(['bounced'])}</b><span>Bounced</span>`, 'Agent emails that bounced — click to list them');
 }
-// A number tile filters the list below to those rows; clicking it again shows all.
+// A number tile filters the list below to those rows (the picked mailbox's,
+// like the number); clicking it again shows all.
+let oaMbFilter = false;
 function oaShowFilter(f){
   oaFilter = oaFilter===f ? 'all' : f;
+  oaMbFilter = oaFilter!=='all' && oaFilter!=='draft';
   // The numbers cover every folder, so the list they open does too.
   if(oaFilter!=='all' && oaFolder){ oaFolder = ''; try{ localStorage.setItem('oa-folder',''); }catch(e){} }
   oaOpen = null; oaRender();
@@ -9260,6 +9270,7 @@ async function oaConnectSend(){
   }catch(e){ showToast(e.message,'warn'); }
 }
 function oaFrom(){ return document.getElementById('oa-from')?.value||''; }
+function oaFromChanged(){ if(oaMbFilter){ oaOpen = null; oaRender(); } else oaRenderStats(); }
 // "Add mailbox": Gmail (Google sign-in) or Private Email (address + password).
 function oaAddMailbox(btn){
   oaCtxClose();
@@ -9525,15 +9536,16 @@ async function oaFind(){
 function oaInFolder(r){ return !oaFolder || (oaFolder===OA_NO_FOLDER ? !r.folder : r.folder===oaFolder); }
 function oaToday(){ return new Date().toISOString().slice(0,10); } // same UTC day the server stamps on sentDay
 function oaVisible(){
-  if(oaFilter==='today'){ const t = oaToday(); return oaRows.filter(r=>oaInFolder(r) && oaSent(r) && (r.sentDay===t || r.status==='sending')); }
-  return oaRows.filter(r=>oaInFolder(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')));
+  const mbOk = r => !oaMbFilter || oaFilter==='all' || oaFilter==='draft' || oaFromPicked(r);
+  if(oaFilter==='today'){ const t = oaToday(); return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && oaSent(r) && (r.sentDay===t || r.status==='sending')); }
+  return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')));
 }
 function oaRender(){
   oaRenderFolders();
   const inFolder = oaRows.filter(oaInFolder);
   const counts = {}; inFolder.forEach(r=>{ counts[r.status]=(counts[r.status]||0)+1; });
   counts.all = inFolder.length; counts.sent=(counts.sent||0)+(counts.sending||0); counts.draft=(counts.draft||0)+(counts.failed||0);
-  document.getElementById('oa-tabs').innerHTML = OA_TABS.map(([k,l])=>`<button class="oa-tab ${oaFilter===k?'active':''}" onclick="oaFilter='${k}';oaRender()">${l}<b>${counts[k]||0}</b></button>`).join('');
+  document.getElementById('oa-tabs').innerHTML = OA_TABS.map(([k,l])=>`<button class="oa-tab ${oaFilter===k?'active':''}" onclick="oaFilter='${k}';oaMbFilter=false;oaRender()">${l}<b>${counts[k]||0}</b></button>`).join('');
   const ids = new Set(oaRows.map(r=>r.id)); [...oaSelected].forEach(id=>{ if(!ids.has(id)) oaSelected.delete(id); });
   oaSelUi(); oaRenderStats();
   const rows = oaVisible();
