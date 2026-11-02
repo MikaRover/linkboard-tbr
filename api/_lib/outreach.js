@@ -529,8 +529,9 @@ async function verify(uid, ids) {
 }
 
 // ─── HTTP ────────────────────────────────────────────────
-// Same people as the app's canUseAgent(): admins, plus Tatev and Armen by name.
-const canUseAgent = u => u.role === 'admin' || u.name === 'Tatev' || u.name === 'Armen';
+// Same people as the app's canUseAgent(): admins, plus Tatev and these builders by name.
+const AGENT_USERS = ['Tatev', 'Armen', 'Tam', 'Nick', 'Syuzi', 'Sofya'];
+const canUseAgent = u => u.role === 'admin' || AGENT_USERS.includes(u.name);
 
 async function handler(req, res) {
   setCors(req, res);
@@ -538,7 +539,7 @@ async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const user = await requireMember(req, res);
   if (!user) return;
-  if (!canUseAgent(user)) return res.status(403).json({ error: 'Outreach Agent is for admins, Tatev and Armen only' });
+  if (!canUseAgent(user)) return res.status(403).json({ error: 'Outreach Agent is not enabled for your account' });
   const b = req.body || {};
   try {
     switch (b.action) {
