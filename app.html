@@ -1246,6 +1246,44 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
 .lb-flags{margin:0;padding-left:16px;line-height:1.7;font-size:12px;}
 .lb-link{padding:8px 0;border-top:1px solid var(--border);}
 .lb-link:first-of-type{border-top:0;}
+#lb-report{position:fixed;inset:0;z-index:2000;background:var(--bg);display:none;flex-direction:column;}
+.lbr-bar-top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--bg2);}
+.lbr-doc{flex:1;overflow:auto;padding:24px;display:flex;flex-direction:column;align-items:center;gap:24px;}
+.lbr-slide{width:min(1120px,100%);aspect-ratio:16/9;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:48px 56px;display:flex;flex-direction:column;gap:14px;flex-shrink:0;}
+.lbr-slide h1{font-size:44px;font-weight:700;letter-spacing:-.02em;line-height:1.1;color:var(--text);margin:0;}
+.lbr-slide h2{font-size:30px;font-weight:700;letter-spacing:-.015em;color:var(--text);margin:0 0 6px;}
+.lbr-cover{justify-content:center;gap:20px;}
+.lbr-kicker{font-size:13px;font-weight:600;color:var(--accent2);}
+.lbr-lead{font-size:20px;color:var(--text2);line-height:1.45;max-width:820px;margin:0;}
+.lbr-meta,.lbr-sub{font-size:14px;color:var(--text2);margin:0;}
+.lbr-note{font-size:13px;color:var(--text3);margin:8px 0 0;}
+.lbr-muted{color:var(--text3);font-size:12px;}
+.lbr-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:8px;flex:1;align-content:center;}
+.lbr-tile{background:var(--bg3);border-radius:var(--radius);padding:22px 24px;}
+.lbr-tile-v{font-size:40px;font-weight:700;letter-spacing:-.02em;color:var(--text);font-variant-numeric:tabular-nums;}
+.lbr-tile-l{font-size:13px;color:var(--text2);margin-top:4px;}
+.lbr-two{display:grid;grid-template-columns:1fr 1fr;gap:40px;flex:1;align-content:start;margin-top:6px;}
+.lbr-chart-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;}
+.lbr-bars{display:flex;flex-direction:column;gap:14px;margin-top:10px;}
+.lbr-bar{display:grid;grid-template-columns:minmax(140px,34%) 1fr 72px;align-items:center;gap:14px;font-size:15px;}
+.lbr-bar-label{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lbr-bar-track{height:22px;}
+.lbr-bar-fill{display:block;height:22px;background:var(--accent2);border-radius:0 4px 4px 0;}
+.lbr-bar-val{color:var(--text);font-variant-numeric:tabular-nums;}
+.lbr-table{width:100%;border-collapse:collapse;font-size:12px;}
+.lbr-table th{text-align:left;font-weight:500;color:var(--text2);padding:6px 8px;border-bottom:1px solid var(--border2);}
+.lbr-table td{padding:7px 8px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;line-height:1.4;}
+.lbr-steps{margin:8px 0 0;padding-left:22px;display:flex;flex-direction:column;gap:12px;font-size:17px;line-height:1.45;color:var(--text);}
+body.lbr-open{overflow:hidden;}
+@media print{
+  body.lbr-printing > *:not(#lb-report){display:none !important;}
+  body.lbr-printing #lb-report{position:static;display:block !important;background:#fff;
+    --bg:#fff;--bg2:#fff;--bg3:#f5f5f7;--bg4:#ececee;--border:#e5e5ea;--border2:#d2d2d7;--text:#1d1d1f;--text2:#55555a;--text3:#737378;--accent2:#0071e3;}
+  body.lbr-printing .lbr-bar-top{display:none;}
+  body.lbr-printing .lbr-doc{overflow:visible;padding:0;gap:0;display:block;}
+  body.lbr-printing .lbr-slide{width:100%;height:100vh;aspect-ratio:auto;border:0;border-radius:0;break-after:page;page-break-after:always;padding:40px 48px;}
+  @page{size:A4 landscape;margin:0;}
+}
 
 @media (prefers-reduced-motion: reduce){
   .page.active{animation:none;}
@@ -9410,9 +9448,113 @@ function lbRender(){
       <div style="min-width:0;"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><span class="oa-mono" style="font-size:15px;color:var(--text);">${escapeHtml(j.client)}</span>${lbBadge(j.status)}</div>
       ${j.niche?`<div class="oa-help" style="margin-top:4px;">${escapeHtml(j.niche)}</div>`:''}
       <div class="oa-help" style="margin-top:2px;">${escapeHtml(reqLine)}${cu?.role==='admin'&&j.unitsSpent!=null?` · ${lbNum(j.unitsSpent)} Ahrefs units spent`:''}</div></div>
-      <button class="btn-ghost" onclick="lbDelete()">Delete</button>
+      <div style="display:flex;gap:8px;">${lbRows.some(x=>x.state)&&!LB_RUNNING.includes(j.status)?'<button class="btn-sm" onclick="lbOpenReport()">Report</button>':''}<button class="btn-ghost" onclick="lbDelete()">Delete</button></div>
     </div>${body}`;
 }
+
+// ── research report ──
+// A presentation-style report of one research: key numbers, the funnel, why
+// sites were dropped, the opportunity mix, quality profile, competitor
+// coverage, the top prospects with pitch angles and next steps. Each section
+// prints as its own landscape page (Save as PDF from the print dialog).
+const LB_DROP_GROUPS = [
+  [/links to the client/i, 'Already link to the client'], [/in LinkBoard/i, 'Already in LinkBoard'], [/Emailed/i, 'Emailed in the last 90 days'],
+  [/link farm|PBN|outgoing links/i, 'Link farm / PBN signs'], [/director|SEO site/i, 'Directories & SEO sites'], [/traffic down/i, 'Organic traffic falling'],
+  [/No new posts/i, 'Inactive (no posts for a year)'], [/Spam topics/i, 'Spam topics'], [/Not in /i, 'Wrong language'],
+  [/AI: (forum|directory)/i, 'Forums & directories'], [/did not load/i, 'Site did not load'], [/^AI:/i, 'Not worth pitching (AI)']
+];
+function lbDropGroup(reason){ const g = LB_DROP_GROUPS.find(([re])=>re.test(reason||'')); return g ? g[1] : 'Other'; }
+function lbCountBy(list, fn){ const m = new Map(); list.forEach(x=>{ const k = fn(x); if(k!=null) m.set(k, (m.get(k)||0)+1); }); return m; }
+// Horizontal bars, one series: label · bar · value at the tip.
+function lbBars(items, fmt){
+  items = items.filter(([,v])=>v>0);
+  if(!items.length) return '<div class="oa-help">No data</div>';
+  const max = Math.max(...items.map(([,v])=>v));
+  return `<div class="lbr-bars">${items.map(([label,v,hint])=>`<div class="lbr-bar" title="${escAttr(label+': '+(fmt?fmt(v):lbNum(v))+(hint?' — '+hint:''))}">
+    <span class="lbr-bar-label">${escapeHtml(label)}</span>
+    <span class="lbr-bar-track"><span class="lbr-bar-fill" style="width:${Math.max(1.5, v/max*100)}%"></span></span>
+    <span class="lbr-bar-val">${fmt?fmt(v):lbNum(v)}</span></div>`).join('')}</div>`;
+}
+const lbMedian = a => { if(!a.length) return null; const s = a.slice().sort((x,y)=>x-y), m = Math.floor(s.length/2); return s.length%2 ? s[m] : Math.round((s[m-1]+s[m])/2); };
+
+function lbOpenReport(){
+  if(!lbJob) return;
+  const j = lbJob, r = j.req||{}, rows = lbRows;
+  const kept = rows.filter(x=>x.state==='kept'), dropped = rows.filter(x=>x.state==='excluded');
+  const checked = rows.filter(x=>x.checked);
+  const rec = kept.filter(x=>x.ai&&(x.ai.verdict==='strong'||x.ai.verdict==='good'));
+  const strong = kept.filter(x=>x.ai&&x.ai.verdict==='strong');
+  const quickPassed = rows.length - dropped.filter(x=>!x.checked).length;
+  const date = new Date().toLocaleDateString([], {year:'numeric', month:'long', day:'numeric'});
+  const country = (r.country||'').toUpperCase();
+  const drs = kept.map(x=>x.dr||0), traffic = kept.map(x=>x.traffic||0);
+  const top = kept.slice().sort((a,b)=>(b.score||0)-(a.score||0)).slice(0, 12);
+  const opp = [...lbCountBy(kept.filter(x=>x.ai&&x.ai.opportunity), x=>LB_OPP[x.ai.opportunity]||x.ai.opportunity)].sort((a,b)=>b[1]-a[1]);
+  const drops = [...lbCountBy(dropped, x=>lbDropGroup(x.reason))].sort((a,b)=>b[1]-a[1]);
+  const drBuckets = [[0,29],[30,39],[40,49],[50,59],[60,69],[70,79],[80,100]].map(([a,b])=>[`DR ${a}–${b}`, drs.filter(d=>d>=a&&d<=b).length]);
+  const trBuckets = [[0,999,'< 1K'],[1000,4999,'1K–5K'],[5000,19999,'5K–20K'],[20000,99999,'20K–100K'],[100000,Infinity,'100K+']].map(([a,b,l])=>[l, traffic.filter(t=>t>=a&&t<=b).length]);
+  const compCover = (j.picked||[]).map(c=>[c, kept.filter(x=>(x.comps||[]).includes(c)).length]).sort((a,b)=>b[1]-a[1]);
+  const inter = [['Link to 1 competitor', kept.filter(x=>(x.comps||[]).length===1).length], ['Link to 2 competitors', kept.filter(x=>(x.comps||[]).length===2).length], ['Link to 3 or more', kept.filter(x=>(x.comps||[]).length>=3).length]];
+  const shares = checked.filter(x=>x.state==='kept'&&x.deep&&x.deep.countryShare!=null).map(x=>x.deep.countryShare);
+  const growing = checked.filter(x=>x.state==='kept'&&x.deep&&x.deep.trendPct!=null&&x.deep.trendPct>0).length;
+  const wfu = rec.filter(x=>x.writeForUs).length;
+  const oppCount = k => rec.filter(x=>x.ai.opportunity===k).length;
+  const pct = (a,b) => b ? Math.round(a/b*100)+'%' : '—';
+  const slide = (title, kicker, inner) => `<section class="lbr-slide"><div class="lbr-kicker">${escapeHtml(kicker)}</div><h2>${escapeHtml(title)}</h2>${inner}</section>`;
+  const tile = (v, l) => `<div class="lbr-tile"><div class="lbr-tile-v">${v}</div><div class="lbr-tile-l">${escapeHtml(l)}</div></div>`;
+  const steps = [
+    strong.length ? `Start with the ${strong.length} strong prospect${strong.length>1?'s':''} — each has a pitch angle ready.` : '',
+    oppCount('listicle') ? `${oppCount('listicle')} are list articles that already feature competitors: ask to be added.` : '',
+    oppCount('guest_post') ? `${oppCount('guest_post')} take guest posts${wfu?`; ${wfu} recommended sites have a “write for us” page`:''}.` : '',
+    oppCount('resource_page') ? `${oppCount('resource_page')} resource pages: offer the client’s most useful page as an addition.` : '',
+    oppCount('review') ? `${oppCount('review')} review sites: offer a trial or demo for a review.` : '',
+    inter[2][1] ? `${inter[2][1]} site${inter[2][1]>1?'s':''} link to 3+ competitors — the warmest audience for this niche.` : '',
+    'Send the recommended list to Outreach agent, then track replies there.'
+  ].filter(Boolean);
+  const html = `<div class="lbr-bar-top">
+      <span class="oa-mono" style="color:var(--text);">${escapeHtml(j.client)} · report</span>
+      <div style="display:flex;gap:8px;"><button class="btn-sm" onclick="lbPrintReport()">Save as PDF</button><button class="btn-ghost" onclick="lbCloseReport()">Close</button></div>
+    </div>
+    <div class="lbr-doc">
+    <section class="lbr-slide lbr-cover">
+      <div class="lbr-kicker">Link-building research</div>
+      <h1>Link opportunities for ${escapeHtml(j.client)}</h1>
+      ${j.niche?`<p class="lbr-lead">${escapeHtml(j.niche)}</p>`:''}
+      <div class="lbr-meta">${escapeHtml(date)} · ${(j.picked||[]).length} competitors analysed · ${escapeHtml([`DR ${r.drMin}–${r.drMax}`, r.trafficMin?`traffic ${lbNum(r.trafficMin)}+/mo`:'', country?`market ${country}`:'', r.language||''].filter(Boolean).join(' · '))}</div>
+    </section>
+    ${slide('The result in numbers', 'Summary', `<div class="lbr-tiles">
+      ${tile(lbNum(rows.length), 'sites linking to competitors, reviewed')}
+      ${tile(lbNum(kept.length), 'fit the requirements')}
+      ${tile(lbNum(rec.length), 'recommended (strong or good)')}
+      ${tile(lbNum(strong.length), 'strong prospects')}
+      ${tile(drs.length?lbNum(lbMedian(drs)):'—', 'median DR of fitting sites')}
+      ${tile(shares.length?lbMedian(shares)+'%':'—', `median traffic share from ${escapeHtml(country||'the market')}`)}
+    </div>`)}
+    ${slide('From every link to the ones worth pitching', 'Funnel', `<p class="lbr-sub">Each step removes sites that would waste a pitch or carry risk.</p>${lbBars([
+      ['Sites linking to competitors', rows.length], ['Passed quality filters', quickPassed], ['Deep-checked', checked.length], ['Recommended', rec.length]
+    ])}<p class="lbr-note">${pct(rec.length, rows.length)} of all sites linking to the competitors made the recommended list.</p>`)}
+    ${slide('Why sites were left out', 'Filtering', `<p class="lbr-sub">${lbNum(dropped.length)} sites dropped. Every one has its reason in the full list.</p>${lbBars(drops)}`)}
+    ${slide('How these links can be won', 'Opportunity mix', `<p class="lbr-sub">How each deep-checked site most likely links to the competitors.</p>${lbBars(opp)}`)}
+    ${slide('Quality of the fitting sites', 'Profile', `<div class="lbr-two">
+      <div><div class="lbr-chart-title">Domain Rating</div>${lbBars(drBuckets)}</div>
+      <div><div class="lbr-chart-title">Organic traffic / month</div>${lbBars(trBuckets)}</div>
+    </div><p class="lbr-note">${growing} of ${lbNum(checked.filter(x=>x.state==='kept').length)} deep-checked sites grew their organic traffic over the last 12 months.</p>`)}
+    ${slide('Where the competitors get their links', 'Competitors', `<div class="lbr-two">
+      <div><div class="lbr-chart-title">Fitting sites per competitor</div>${lbBars(compCover)}</div>
+      <div><div class="lbr-chart-title">Link intersect</div>${lbBars(inter)}<p class="lbr-note">Sites that link to several competitors but not to ${escapeHtml(j.client)} are the strongest gap to close.</p></div>
+    </div>`)}
+    ${slide('Top prospects', 'Shortlist', `<table class="lbr-table"><thead><tr><th>Site</th><th>Verdict</th><th>DR</th><th>Traffic</th><th>Opportunity</th><th style="width:42%;">Pitch angle</th></tr></thead><tbody>
+      ${top.map(x=>{ const ai = x.ai||{}, v = LB_VERDICT[ai.verdict]; return `<tr><td class="oa-mono">${escapeHtml(x.domain)}</td><td>${v?escapeHtml(v.label)+(ai.score!=null?' · '+ai.score:''):'—'}</td><td>${lbNum(x.dr)}</td><td>${lbNum(x.traffic)}${x.deep&&x.deep.trendPct!=null?` <span class="lbr-muted">${x.deep.trendPct>=0?'↑':'↓'}${Math.abs(x.deep.trendPct)}%</span>`:''}</td><td>${ai.opportunity?escapeHtml(LB_OPP[ai.opportunity]||ai.opportunity):'—'}</td><td>${escapeHtml(ai.pitch||ai.why||'')}</td></tr>`; }).join('') || '<tr><td colspan="6">No fitting sites.</td></tr>'}
+    </tbody></table>`)}
+    ${slide('Next steps', 'Plan', `<ol class="lbr-steps">${steps.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ol>`)}
+    </div>`;
+  let el = document.getElementById('lb-report');
+  if(!el){ el = document.createElement('div'); el.id = 'lb-report'; document.body.appendChild(el); }
+  el.innerHTML = html; el.style.display = 'flex';
+  document.body.classList.add('lbr-open');
+}
+function lbCloseReport(){ const el = document.getElementById('lb-report'); if(el) el.style.display = 'none'; document.body.classList.remove('lbr-open'); }
+function lbPrintReport(){ document.body.classList.add('lbr-printing'); window.print(); setTimeout(()=>document.body.classList.remove('lbr-printing'), 500); }
 
 function initAgentPage(){
   if(!canUseAgent()) return;
