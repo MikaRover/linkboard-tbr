@@ -9379,13 +9379,17 @@ function oaParseInput(text){
 // Free-mail domains say nothing about the site, so rows there match by email only.
 const OA_FREE_MAIL = /^(gmail|googlemail|yahoo|ymail|hotmail|outlook|live|msn|icloud|me|aol|proton|protonmail|gmx|mail|yandex|zoho)\.[a-z.]+$/;
 async function oaAddManual(manual){
-  const byDomain = new Map(oaRows.map(r=>[r.domain, r]));
+  // A site can have several contacts: a new address gets its own row, except
+  // where the site's row is still waiting for a contact.
   const byEmail = new Map(oaRows.filter(r=>r.email).map(r=>[r.email, r]));
+  const used = new Set();
+  const emptyRow = d => OA_FREE_MAIL.test(d) ? null : oaRows.find(r=>r.domain===d && !r.email && !oaSent(r) && !used.has(r.id));
   let added = 0, updated = 0, kept = 0;
   const items = [];
   for(const m of manual){
-    const prev = byEmail.get(m.email) || (OA_FREE_MAIL.test(m.domain) ? null : byDomain.get(m.domain));
+    const prev = byEmail.get(m.email) || emptyRow(m.domain);
     if(prev && oaSent(prev)){ kept++; continue; }
+    if(prev) used.add(prev.id);
     const row = {domain:m.domain, email:m.email, name:m.name, firstName:m.firstName, title:'', smtp:'unknown', source:'Added by you', candidates:[], status:'found', skipReason:'', note:oaSiteNote(m.domain)};
     // A different address than the draft was written for: start the draft over.
     if(prev){ items.push(prev.email===m.email ? {...row, id:prev.id, status:prev.subject&&prev.body?'draft':'found'} : {...row, id:prev.id, subject:'', body:''}); }
