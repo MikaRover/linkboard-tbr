@@ -770,9 +770,10 @@ async function handler(req, res) {
     try {
       const t0 = Date.now();
       const out = await tick();
-      // Spare time goes to AI Link Builder research left running with the page
-      // closed — kept short so the timer's 30s request limit is never hit.
-      if (Date.now() - t0 < 8000) out.linkBuilder = await require('./linkbuilder').tick(12000).catch(e => ({ error: String(e.message || e) }));
+      // AI Link Builder research left running with the page closed: its steps
+      // can take most of a minute, so they run in their own request (the
+      // timer's own request has a 30s limit).
+      if (Date.now() - t0 < 15000) out.linkBuilder = await require('./linkbuilder').kick(req).catch(e => ({ error: String(e.message || e) }));
       return res.json(out);
     } catch (e) { return res.status(500).json({ error: String(e.message || e) }); }
   }
@@ -811,4 +812,3 @@ async function handler(req, res) {
 
 module.exports = handler;
 module.exports.trackAll = trackAll;
-module.exports.canUseAgent = canUseAgent;
