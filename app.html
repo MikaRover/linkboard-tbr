@@ -1240,6 +1240,12 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
 .lb-bar{height:4px;background:var(--bg4);border-radius:980px;overflow:hidden;margin-top:8px;}
 .lb-bar span{display:block;height:100%;background:var(--accent2);transition:width var(--dur-2) var(--ease-out);}
 .lb-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:var(--space-3);}
+.lb-details{padding:4px 0 8px;font-size:12px;}
+.lb-pitch{display:flex;flex-direction:column;gap:4px;padding:12px 14px;background:var(--bg3);border-radius:var(--radius-ctl);color:var(--text);font-size:13px;line-height:1.5;margin-bottom:var(--space-3);}
+.lb-dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-4);}
+.lb-flags{margin:0;padding-left:16px;line-height:1.7;font-size:12px;}
+.lb-link{padding:8px 0;border-top:1px solid var(--border);}
+.lb-link:first-of-type{border-top:0;}
 
 @media (prefers-reduced-motion: reduce){
   .page.active{animation:none;}
@@ -1337,7 +1343,7 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
   <div class="nav" onclick="gotoPage('batch',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='11' cy='11' r='7'/><path d='M20 20l-4.35-4.35' stroke-linecap='round'/></svg>Batch Analyze</div>
   <div class="nav" onclick="gotoPage('catcheck',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='3' y='3' width='7' height='7' rx='1' fill='currentColor'/><rect x='14' y='3' width='7' height='7' rx='1' fill='currentColor'/><rect x='3' y='14' width='7' height='7' rx='1' fill='currentColor'/><rect x='14' y='14' width='7' height='7' rx='1' fill='currentColor'/></svg>Category & Email Check</div>
   <div class="nav agent-tool" style="display:none;" onclick="gotoPage('agent',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M22 2L11 13'/><path d='M22 2l-7 20-4-9-9-4 20-7z'/></svg>Outreach agent</div>
-  <div class="nav agent-tool" style="display:none;" onclick="gotoPage('linkbuilder',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7'/><path d='M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7'/></svg>AI Link Builder</div>
+  <div class="nav lb-tool" style="display:none;" onclick="gotoPage('linkbuilder',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7'/><path d='M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7'/></svg>AI Link Builder</div>
   <div class="nav adm" onclick="gotoPage('prospector',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' fill='currentColor'/></svg>AI Prospector</div>
   <div class="nav tatev-tool" style="display:none;" onclick="gotoPage('bulkrel',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1'/><path d='M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1'/></svg>Bulk Relevancy</div>
   <div class="nav-section" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding:14px 16px 4px;opacity:0.6;">Builders</div>
@@ -2266,7 +2272,7 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
       <div><label class="oa-label" for="lb-drmax">DR to</label><input type="text" inputmode="numeric" id="lb-drmax"/></div>
       <div><label class="oa-label" for="lb-traffic">Min traffic / month</label><input type="text" inputmode="numeric" id="lb-traffic"/></div>
       <div><label class="oa-label" for="lb-percomp">Sites per competitor</label><input type="text" inputmode="numeric" id="lb-percomp"/></div>
-      <div><label class="oa-label" for="lb-aitop">AI check top</label><input type="text" inputmode="numeric" id="lb-aitop"/></div>
+      <div><label class="oa-label" for="lb-aitop">Deep check top</label><input type="text" inputmode="numeric" id="lb-aitop"/></div>
       <div><label class="oa-label" for="lb-country">Competitors in</label><select id="lb-country" style="width:100%;margin:0;"><option value="us">United States</option><option value="gb">United Kingdom</option><option value="ca">Canada</option><option value="au">Australia</option><option value="de">Germany</option><option value="fr">France</option><option value="in">India</option></select></div>
       <div><label class="oa-label" for="lb-lang">Site language</label><input type="text" id="lb-lang" placeholder="Any"/></div>
     </div>
@@ -3622,6 +3628,8 @@ function startApp(){
   // hides every non-nav-bld item, which used to hide this one from Tatev too.
   document.querySelectorAll('.tatev-tool').forEach(el=>el.style.display=isAdminOrTatev()?'block':'none');
   document.querySelectorAll('.agent-tool').forEach(el=>el.style.display=canUseAgent()?'block':'none');
+  // AI Link Builder: the admin and Tatev only, for now (the server checks the same).
+  document.querySelectorAll('.lb-tool').forEach(el=>el.style.display=isAdminOrTatev()?'block':'none');
   // Projects: admin has its own sidebar item; Tatev (a builder-nav user) gets this one.
   document.querySelectorAll('.tatev-only').forEach(el=>el.style.display=(!isAdmin&&(cu.name||'')==='Tatev')?'block':'none');
   // Double-check queue nav — admin + Tatev (Sofya no longer does it)
@@ -9097,7 +9105,9 @@ function oaSmtpBadge(smtp){
 // drives the steps; the server's send timer finishes a research with the
 // page closed. Nothing is emailed from here — picked sites go to Outreach agent.
 let lbJobs = [], lbJob = null, lbRows = [], lbTab = 'kept', lbSort = {key:'', dir:1}, lbDriving = null;
-const lbSel = new Set();
+const lbSel = new Set(), lbOpenRows = new Set();
+const LB_OPP = {guest_post:'Guest post', listicle:'Listicle', resource_page:'Resource page', review:'Review', news:'News / PR', interview:'Interview', integration:'Integration page', paid:'Paid', directory:'Directory', other:'Other'};
+const LB_VERDICT = {strong:{label:'Strong',tone:'green'}, good:{label:'Good',tone:'blue'}, maybe:{label:'Maybe',tone:'amber'}, skip:{label:'Skip',tone:'red'}};
 const LB_RUNNING = ['collect','filter','check'];
 const LB_STATUS = {
   pick:{label:'Pick competitors',tone:'amber'}, collect:{label:'Collecting',tone:'blue'}, filter:{label:'Filtering',tone:'blue'},
@@ -9123,7 +9133,7 @@ function lbFillForm(r){
 }
 
 async function initLinkBuilder(){
-  if(!canUseAgent()) return;
+  if(!isAdminOrTatev()) return;
   try{
     const j = await lbApi('list');
     lbJobs = j.jobs||[];
@@ -9230,8 +9240,43 @@ async function lbDelete(){
 // Column sort, like the Outreach list: A→Z, Z→A, then back to best first.
 const LB_SORT_KEYS = {
   site: r => r.domain||'', dr: r => r.dr||0, traffic: r => r.traffic||0,
-  count: r => (r.comps||[]).length, relevance: r => r.ai&&r.ai.relevance!=null ? r.ai.relevance : -1
+  count: r => (r.comps||[]).length, score: r => r.ai&&r.ai.score!=null ? r.ai.score : -1
 };
+function lbToggleRow(domain, ev){
+  if(ev && ev.target.closest('input,a,button')) return;
+  lbOpenRows.has(domain) ? lbOpenRows.delete(domain) : lbOpenRows.add(domain);
+  lbRender();
+}
+function lbTrend(d){
+  if(!d || d.trendPct==null) return '';
+  const up = d.trendPct >= 0;
+  return `<div class="oa-sub" style="color:${d.trendPct<=-30?'var(--red)':up?'var(--teal)':'var(--text3)'};">${up?'↑':'↓'} ${Math.abs(d.trendPct)}% in 12 mo</div>`;
+}
+// Everything the deep check found, under the row.
+function lbDetails(x){
+  const d = x.deep||{}, ai = x.ai||{};
+  const flags = (list, color) => list&&list.length ? `<ul class="lb-flags" style="color:${color};">${list.map(f=>`<li>${escapeHtml(f)}</li>`).join('')}</ul>` : '<div class="oa-help">—</div>';
+  const links = (x.links||[]).map(l=>`<div class="lb-link">
+      <div><span class="oa-help">to ${escapeHtml(l.comp)} ·</span> <a href="${escAttr(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.title||l.url)}</a></div>
+      <div class="oa-help">Anchor “${escapeHtml(l.anchor||'—')}” · ${l.inContent?'in the article':'outside the article'}${l.sponsored?' · sponsored':''}${l.pageType?' · '+escapeHtml(l.pageType.split(',')[0].replace(/^\//,'').replace(/_/g,' ')):''}${l.published?' · '+escapeHtml(String(l.published).slice(0,10)):''}${l.extLinks!=null?' · '+l.extLinks+' outgoing links':''}</div>
+    </div>`).join('') || '<div class="oa-help">—</div>';
+  return `<div class="lb-details">
+    ${ai.pitch?`<div class="lb-pitch"><span class="oa-label" style="margin:0;">Pitch angle</span>${escapeHtml(ai.pitch)}</div>`:''}
+    <div class="lb-dgrid">
+      <div><div class="oa-label">Why it fits</div>${flags(ai.greenFlags,'var(--text)')}</div>
+      <div><div class="oa-label">Risks</div>${flags(ai.redFlags,'var(--red)')}</div>
+      <div><div class="oa-label">Site health</div><div class="oa-help" style="color:var(--text2);line-height:1.7;">
+        ${d.countryShare!=null?`${d.countryShare}% of traffic from ${escapeHtml(((lbJob&&lbJob.req&&lbJob.req.country)||'').toUpperCase())}${d.topCountries&&d.topCountries.length?' · top '+escapeHtml(d.topCountries.join(', ')):''}<br>`:''}
+        ${d.trendPct!=null?`Traffic ${d.trendPct>=0?'+':''}${d.trendPct}% over 12 months${d.fromPeakPct!=null&&d.fromPeakPct<-20?` · ${-d.fromPeakPct}% below peak`:''}<br>`:''}
+        ${d.lastPost?`Last post ${new Date(d.lastPost).toLocaleDateString([], {year:'numeric',month:'short',day:'numeric'})}<br>`:''}
+        ${x.keywords!=null?`Ranks for ${lbNum(x.keywords)} keywords · links out to ${lbNum(x.linkedDomains)} sites<br>`:''}
+        ${d.advertise?`<a href="${escAttr(d.advertise)}" target="_blank" rel="noopener">Advertise page</a> `:''}${x.writeForUs?`<a href="${escAttr(x.writeForUs)}" target="_blank" rel="noopener">Write for us</a>`:''}
+      </div></div>
+    </div>
+    <div class="oa-label oa-gap">How it links to the competitors</div>${links}
+    ${d.recent&&d.recent.length?`<div class="oa-label oa-gap">Recent posts</div><div class="oa-help" style="line-height:1.7;">${d.recent.map(t=>escapeHtml(t)).join('<br>')}</div>`:''}
+  </div>`;
+}
 function lbSortBy(k){
   lbSort = lbSort.key!==k ? {key:k, dir:k==='site'?1:-1} : lbSort.dir===(k==='site'?1:-1) ? {key:k, dir:-lbSort.dir} : {key:'', dir:1};
   lbRender();
@@ -9259,8 +9304,8 @@ function lbCopy(){
 }
 function lbCsv(){
   const q = v => `"${String(v??'').replace(/"/g,'""')}"`;
-  const head = ['domain','dr','traffic','competitors','relevance','type','language','write_for_us','state','reason'];
-  const lines = lbPicked().map(r=>[r.domain, r.dr, r.traffic, (r.comps||[]).join(' '), r.ai?.relevance, r.ai?.type, r.ai?.language, r.writeForUs, r.state, r.reason].map(q).join(','));
+  const head = ['domain','verdict','score','relevance','opportunity','pitch','dr','traffic','traffic_trend_12mo','country_share','competitors','linking_page','type','language','write_for_us','red_flags','state','reason'];
+  const lines = lbPicked().map(r=>[r.domain, r.ai?.verdict, r.ai?.score, r.ai?.relevance, r.ai?.opportunity, r.ai?.pitch, r.dr, r.traffic, r.deep?.trendPct, r.deep?.countryShare, (r.comps||[]).join(' '), (r.links||[])[0]?.url, r.ai?.type, r.ai?.language, r.writeForUs, (r.ai?.redFlags||[]).join('; '), r.state, r.reason].map(q).join(','));
   const blob = new Blob([[head.join(','), ...lines].join('\n')], {type:'text/csv'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `link-builder-${lbJob.client}.csv`; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
@@ -9325,15 +9370,18 @@ function lbRender(){
       </div></div>
     <div class="tbl-wrap"><table class="oa-table"><thead><tr>
       <th><input type="checkbox" style="width:auto;margin:0;" ${allOn?'checked':''} onclick="lbSelectAll(this.checked)" aria-label="Select all"/></th>
-      ${lbTh('site','Site')}${lbTh('dr','DR')}${lbTh('traffic','Traffic')}${lbTh('count','Competitors')}${lbTh('relevance','Relevance')}<th>Write for us</th></tr></thead><tbody>
-      ${rows.map(x=>`<tr>
+      ${lbTh('site','Site')}${lbTh('score','Verdict')}${lbTh('dr','DR')}${lbTh('traffic','Traffic')}${lbTh('count','Competitors')}<th>Opportunity</th></tr></thead><tbody>
+      ${rows.map(x=>{
+        const ai = x.ai||{}, v = LB_VERDICT[ai.verdict], open = lbOpenRows.has(x.domain);
+        return `<tr class="oa-row ${open?'open':''}" onclick="lbToggleRow('${escAttr(x.domain)}',event)" style="cursor:pointer;">
         <td><input type="checkbox" style="width:auto;margin:0;" ${lbSel.has(x.domain)?'checked':''} onclick="lbSelect('${escAttr(x.domain)}',this.checked)"/></td>
-        <td><a class="oa-mono" style="color:var(--text);" href="https://${escAttr(x.domain)}" target="_blank" rel="noopener">${escapeHtml(x.domain)}</a>${x.reason?`<div class="oa-sub">${escapeHtml(x.reason)}</div>`:x.ai&&x.ai.why?`<div class="oa-sub">${escapeHtml(x.ai.why)}</div>`:''}</td>
-        <td>${lbNum(x.dr)}</td><td>${lbNum(x.traffic)}</td>
+        <td><a class="oa-mono" style="color:var(--text);" href="https://${escAttr(x.domain)}" target="_blank" rel="noopener">${escapeHtml(x.domain)}</a>${x.reason?`<div class="oa-sub">${escapeHtml(x.reason)}</div>`:ai.why?`<div class="oa-sub">${escapeHtml(ai.why)}</div>`:''}</td>
+        <td>${v?`<span class="oa-badge oa-b-${v.tone}">${v.label}${ai.score!=null?' · '+ai.score:''}</span>${ai.relevance!=null?`<div class="oa-sub">Relevance ${ai.relevance}</div>`:''}`:x.toCheck&&!x.checked?'<span class="oa-help">Checking…</span>':'<span class="oa-help">Not checked</span>'}</td>
+        <td>${lbNum(x.dr)}</td><td>${lbNum(x.traffic)}${lbTrend(x.deep)}</td>
         <td title="${escAttr((x.comps||[]).join(', '))}">${(x.comps||[]).length} of ${(j.picked||[]).length}</td>
-        <td>${x.ai&&x.ai.relevance!=null?`${x.ai.relevance}<div class="oa-sub">${escapeHtml(x.ai.type||'')}</div>`:x.toCheck&&!x.checked?'<span class="oa-help">Checking…</span>':'<span class="oa-help">—</span>'}</td>
-        <td>${x.writeForUs?`<a href="${escAttr(x.writeForUs)}" target="_blank" rel="noopener">Open</a>`:'<span class="oa-help">—</span>'}</td>
-      </tr>`).join('') || '<tr><td></td><td colspan="6" class="oa-help">Nothing here.</td></tr>'}
+        <td>${ai.opportunity?escapeHtml(LB_OPP[ai.opportunity]||ai.opportunity):'<span class="oa-help">—</span>'}${x.writeForUs?`<div class="oa-sub"><a href="${escAttr(x.writeForUs)}" target="_blank" rel="noopener">Write for us</a></div>`:''}</td>
+      </tr>${open?`<tr class="oa-edit"><td></td><td colspan="6">${lbDetails(x)}</td></tr>`:''}`;
+      }).join('') || '<tr><td></td><td colspan="6" class="oa-help">Nothing here.</td></tr>'}
     </tbody></table></div>`;
   }
   el.innerHTML = `<div class="oa-card-head" style="margin-bottom:var(--space-2);">
