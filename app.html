@@ -1149,6 +1149,9 @@ a{text-underline-offset:2px;}
 .oa-table{width:100%;}
 .oa-table td{vertical-align:top;white-space:normal;font-size:12px;padding:12px 10px;}
 .oa-table th{text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;color:var(--text2);padding:10px;}
+.oa-table th.oa-sort{cursor:pointer;user-select:none;}
+.oa-table th.oa-sort:hover,.oa-table th.oa-sort.on{color:var(--text);}
+.oa-sort-arrow{display:inline-block;width:10px;margin-left:4px;color:var(--text3);}
 .oa-table td:first-child,.oa-table th:first-child{padding-left:16px;width:28px;}
 .oa-row{cursor:pointer;transition:background var(--dur-1);}
 .oa-row:hover td{background:var(--bg3);}
@@ -8986,6 +8989,8 @@ let oaRows = [], oaMailboxes = [], oaLimit = 30, oaFilter = 'all', oaOpen = null
 // Client folder shown: '' = all rows, OA_NO_FOLDER = rows without one, else the folder name.
 const OA_NO_FOLDER = '__none__';
 let oaFolder = '';
+let oaSort = {key:'', dir:1}; // '' = newest first, as loaded
+try{ oaSort = JSON.parse(localStorage.getItem('oa-sort')||'null') || oaSort; }catch(e){}
 try{ oaFolder = localStorage.getItem('oa-folder') || ''; }catch(e){}
 const oaSelected = new Set(), oaEdits = {};
 // Random 4–5 min between emails: a steady, human pace is what keeps a
@@ -9565,6 +9570,33 @@ function oaVisible(){
   if(oaFilter==='today'){ const t = oaToday(); return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && oaSent(r) && (r.sentDay===t || r.status==='sending')); }
   return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')));
 }
+// Column sort: click a header for A→Z, again for Z→A, a third time for newest first.
+const OA_STATUS_ORDER = ['draft','failed','found','sending','sent','replied','bounced','skipped','nocontact'];
+const OA_SORT_KEYS = {
+  site: r => r.domain||'',
+  contact: r => !r.email ? 3 : r.smtp==='valid' ? 0 : r.smtp==='invalid' ? 2 : 1,
+  status: r => { const i = OA_STATUS_ORDER.indexOf(r.status); return i<0 ? 99 : i; },
+  subject: r => r.subject||''
+};
+function oaSorted(rows){
+  const key = OA_SORT_KEYS[oaSort.key]; if(!key) return rows;
+  return rows.slice().sort((a,b)=>{
+    const x = key(a), y = key(b);
+    // Empty subjects stay last either way.
+    if(oaSort.key==='subject' && !x !== !y) return !x ? 1 : -1;
+    const c = typeof x==='number' ? x-y : x.localeCompare(y);
+    return (c || (a.domain||'').localeCompare(b.domain||'')) * (c ? oaSort.dir : 1);
+  });
+}
+function oaSortBy(k){
+  oaSort = oaSort.key!==k ? {key:k, dir:1} : oaSort.dir===1 ? {key:k, dir:-1} : {key:'', dir:1};
+  try{ localStorage.setItem('oa-sort', JSON.stringify(oaSort)); }catch(e){}
+  oaRender();
+}
+function oaTh(k, label){
+  const on = oaSort.key===k;
+  return `<th class="oa-sort ${on?'on':''}" onclick="oaSortBy('${k}')" aria-sort="${on?(oaSort.dir===1?'ascending':'descending'):'none'}">${label}<span class="oa-sort-arrow">${on?(oaSort.dir===1?'↑':'↓'):''}</span></th>`;
+}
 function oaRender(){
   oaRenderFolders();
   const inFolder = oaRows.filter(oaInFolder);
@@ -9573,7 +9605,7 @@ function oaRender(){
   document.getElementById('oa-tabs').innerHTML = OA_TABS.map(([k,l])=>`<button class="oa-tab ${oaFilter===k?'active':''}" onclick="oaFilter='${k}';oaMbFilter=false;oaRender()">${l}<b>${counts[k]||0}</b></button>`).join('');
   const ids = new Set(oaRows.map(r=>r.id)); [...oaSelected].forEach(id=>{ if(!ids.has(id)) oaSelected.delete(id); });
   oaSelUi(); oaRenderStats();
-  const rows = oaVisible();
+  const rows = oaSorted(oaVisible());
   const wrap = document.getElementById('oa-table');
   if(!rows.length){ wrap.innerHTML = inFolder.length
       ? `<div class="oa-empty"><b>Nothing here</b>No rows with this status${oaFolder?' in this folder':''}.</div>`
@@ -9581,7 +9613,7 @@ function oaRender(){
   const allOn = rows.every(r=>oaSelected.has(r.id));
   wrap.innerHTML = `<table class="oa-table"><thead><tr>
       <th><input type="checkbox" style="width:auto;margin:0;" ${allOn?'checked':''} onclick="oaSelectAll(this.checked)" aria-label="Select all"/></th>
-      <th>Site</th><th>Contact</th><th>Status</th><th>Subject</th></tr></thead><tbody>
+      ${oaTh('site','Site')}${oaTh('contact','Contact')}${oaTh('status','Status')}${oaTh('subject','Subject')}</tr></thead><tbody>
     ${rows.map(r=>{
       const open = oaOpen===r.id;
       const when = r.status==='sent'||r.status==='replied'||r.status==='bounced' ? (r.sentDay||'') : '';
