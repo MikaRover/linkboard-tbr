@@ -9266,6 +9266,11 @@ function oaFromPicked(r){
   const mb = oaMailboxes.find(m=>m.email===from);
   return r.fromEmail ? r.fromEmail===from : !!(mb && r.fromMailbox===mb.id);
 }
+// The mailbox a sent row went out from (older rows only stored its id).
+function oaSentFrom(r){
+  if(!['sending','sent','replied','bounced'].includes(r.status)) return '';
+  return r.fromEmail || (oaMailboxes.find(m=>m.id===r.fromMailbox)||{}).email || '';
+}
 // The number tiles: sent / replied / bounced are the picked mailbox's own
 // (across all client folders); drafts aren't tied to a mailbox until sent.
 function oaRenderStats(){
@@ -9601,7 +9606,7 @@ function oaRender(){
         <td onclick="event.stopPropagation()"><input type="checkbox" style="width:auto;margin:0;" ${oaSelected.has(r.id)?'checked':''} onclick="oaSelect('${escAttr(r.id)}',this.checked)"/></td>
         <td><div class="oa-site"><span class="oa-fav">${escapeHtml((r.domain||'?').charAt(0))}</span><div style="min-width:0;"><div class="oa-mono" style="color:var(--text);">${escapeHtml(r.domain)}</div>${r.note?`<div class="oa-sub">${escapeHtml(r.note)}</div>`:''}${!oaFolder&&r.folder?`<span class="oa-tag">${escapeHtml(r.folder)}</span>`:''}</div></div></td>
         <td>${r.email
-          ? `${r.name?`<div style="color:var(--text);font-weight:500;">${escapeHtml(r.name)}${r.title?` <span style="color:var(--text3);font-weight:400;">· ${escapeHtml(r.title)}</span>`:''}</div>`:''}<div class="oa-mono" style="${r.name?'color:var(--text2);margin-top:2px;':'color:var(--text);'}">${escapeHtml(r.email)}</div><div style="margin-top:5px;">${oaSmtpBadge(r.smtp)}</div>`
+          ? `${r.name?`<div style="color:var(--text);font-weight:500;">${escapeHtml(r.name)}${r.title?` <span style="color:var(--text3);font-weight:400;">· ${escapeHtml(r.title)}</span>`:''}</div>`:''}<div class="oa-mono" style="${r.name?'color:var(--text2);margin-top:2px;':'color:var(--text);'}">${escapeHtml(r.email)}</div><div style="margin-top:5px;">${oaSmtpBadge(r.smtp)}</div>${oaSentFrom(r)?`<div class="oa-sub">Sent from ${escapeHtml(oaSentFrom(r))}</div>`:''}`
           : '<span style="color:var(--text3);">No contact found</span>'}</td>
         <td>${oaQueued(r.id)&&r.status!=='sending'?'<span class="oa-badge oa-b-blue"><span class="oa-dot"></span>Queued</span>':oaBadge(r.status)}${when?`<div class="oa-sub">${escapeHtml(when)}</div>`:''}${r.skipReason&&r.status==='skipped'?`<div class="oa-sub">${escapeHtml(r.skipReason)}</div>`:''}${r.error&&r.status==='failed'?`<div class="oa-sub" style="color:var(--red);">${escapeHtml(r.error)}</div>`:''}</td>
         <td><div class="oa-subj" title="${escAttr(r.subject||'')}">${escapeHtml(r.subject||'')||'<span style="color:var(--text3);">—</span>'}</div></td>
