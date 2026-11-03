@@ -2345,6 +2345,7 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
     <div class="oa-toolbar">
       <select id="oa-folder" class="oa-select" onchange="oaSetFolder(this.value)" title="Client folder"></select>
       <button class="btn-ghost" onclick="oaNewFolder()">New folder</button>
+      <button class="btn-ghost" id="oa-del-folder" style="display:none;" onclick="oaDeleteFolder()">Delete folder</button>
       <div class="oa-tabs" id="oa-tabs"></div>
     </div>
     <div class="oa-selbar" id="oa-selbar">
@@ -9610,6 +9611,7 @@ function oaRenderFolders(){
   document.getElementById('oa-move').innerHTML = `<option value="">Move selected to…</option>`
     + names.map(f=>`<option value="${escAttr(f)}">${escapeHtml(f)}</option>`).join('')
     + `<option value="${OA_NO_FOLDER}">No folder</option><option value="__new__">New folder…</option>`;
+  document.getElementById('oa-del-folder').style.display = oaFolder && oaFolder!==OA_NO_FOLDER ? '' : 'none';
   const note = document.getElementById('oa-folder-note');
   note.textContent = oaFolder && oaFolder!==OA_NO_FOLDER ? `New sites go into the “${oaFolder}” folder.` : 'New sites go into no folder. Pick a client folder below first to file them there.';
 }
@@ -9624,6 +9626,19 @@ function oaAskFolder(){
   return name;
 }
 function oaNewFolder(){ const name = oaAskFolder(); if(name) oaSetFolder(name); }
+// Deleting a folder never deletes its contacts: they move to "No folder".
+async function oaDeleteFolder(){
+  const f = oaFolder; if(!f || f===OA_NO_FOLDER) return;
+  const ids = oaRows.filter(r=>r.folder===f).map(r=>r.id);
+  if(!confirm(ids.length ? `Delete the “${f}” folder? Its ${ids.length} contact${ids.length>1?'s':''} move to No folder — nothing is deleted.` : `Delete the empty “${f}” folder?`)) return;
+  try{
+    for(let i=0;i<ids.length;i+=300) await oaApi('save',{items:ids.slice(i,i+300).map(id=>({id, folder:''}))});
+    ids.forEach(id=>{ const r = oaRow(id); if(r) r.folder = ''; });
+    try{ const list = JSON.parse(localStorage.getItem('oa-folders')||'[]').filter(n=>n!==f); localStorage.setItem('oa-folders', JSON.stringify(list)); }catch(e){}
+    showToast(`Folder “${f}” deleted`);
+    oaSetFolder('');
+  }catch(e){ showToast(e.message,'warn'); oaRender(); }
+}
 function oaMoveSelected(sel){ const to = sel.value; sel.value = ''; return oaMoveTo(to); }
 async function oaMoveTo(to){
   if(!to) return;
