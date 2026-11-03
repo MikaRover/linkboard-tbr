@@ -1757,6 +1757,12 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
   <!-- Stats -->
   <div class="stats" id="team-stats" style="grid-template-columns:repeat(3,1fr);"></div>
 
+  <!-- Ahrefs API units: LinkBoard's own key vs the whole workspace -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-head">Ahrefs API usage</div>
+    <div class="card-body" id="ahrefs-usage" style="font-size:13px;color:var(--text2);">Loading…</div>
+  </div>
+
   <!-- Team Table -->
   <div class="card">
     <div class="card-head" style="display:flex;justify-content:space-between;align-items:center;">
@@ -4727,7 +4733,7 @@ function gotoPage(name,el){
   }
   if(name==='doublecheck')renderDoubleCheckQueue();
   if(name==='dc-history')renderDCHistory();
-  if(name==='team')renderTeam();
+  if(name==='team'){ renderTeam(); loadAhrefsUsage(); }
   if(name==='catcheck'){const cf=document.getElementById('catcheck-folder');if(cf)populateFolderSelect(cf,cf.value,false);}
   if(name==='invoices')initInvoicesPage();
   if(name==='load')initLoadPage();
@@ -6494,6 +6500,23 @@ function openBuilderLinks(name){
     </div>`;
 }
 
+async function loadAhrefsUsage(){
+  const el = document.getElementById('ahrefs-usage');
+  if(!el) return;
+  const n = v => v==null ? '—' : Number(v).toLocaleString();
+  try{
+    const r = await fetch('/api/ahrefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'usage'})});
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+    const left = j.workspaceLimit!=null && j.workspaceUsed!=null ? j.workspaceLimit-j.workspaceUsed : null;
+    const reset = j.resetAt ? new Date(j.resetAt).toLocaleDateString([], {month:'short', day:'numeric'}) : '—';
+    el.innerHTML = `<div style="display:flex;gap:32px;flex-wrap:wrap;">
+      <div><div class="section-label">LinkBoard used this month</div><div style="font-size:22px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">${n(j.keyUsed)}</div></div>
+      <div><div class="section-label">Workspace used (all keys)</div><div style="font-size:22px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">${n(j.workspaceUsed)} <span style="font-size:13px;color:var(--text3);font-weight:400;">of ${n(j.workspaceLimit)}</span></div></div>
+      <div><div class="section-label">Left until ${escapeHtml(reset)}</div><div style="font-size:22px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">${n(left)}</div></div>
+    </div>${j.subscription?`<div style="margin-top:10px;font-size:12px;color:var(--text3);">${escapeHtml(j.subscription)} · checking this spends no units</div>`:''}`;
+  }catch(e){ el.textContent = 'Could not load Ahrefs usage: '+e.message; }
+}
 function renderTeam(){
   const _ts=document.getElementById('team-stats');
   if(_ts) _ts.innerHTML=`

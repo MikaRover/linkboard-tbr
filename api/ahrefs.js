@@ -17,8 +17,30 @@ function cachePrune() {
 module.exports = async function handler(req, res) {
   setCors(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (!(await requireMember(req, res))) return;
+  const user = await requireMember(req, res);
+  if (!user) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Admin only: this key's and the whole workspace's API units this month.
+  // The subscription endpoint itself is free (spends no units).
+  if ((req.body || {}).action === 'usage') {
+    if (user.role !== 'admin') return res.status(403).json({ error: 'Admins only' });
+    if (!process.env.AHREFS_API_KEY) return res.status(500).json({ error: 'Ahrefs API key not configured' });
+    try {
+      const r = await fetch('https://api.ahrefs.com/v3/subscription-info/limits-and-usage', {
+        headers: { Authorization: `Bearer ${process.env.AHREFS_API_KEY}`, Accept: 'application/json' },
+        signal: AbortSignal.timeout(10000)
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return res.status(502).json({ error: (j && j.error) || ('Ahrefs HTTP ' + r.status) });
+      const u = j.limits_and_usage || {};
+      return res.json({
+        subscription: u.subscription || '', resetAt: u.usage_reset_date || null,
+        workspaceLimit: u.units_limit_workspace ?? null, workspaceUsed: u.units_usage_workspace ?? null,
+        keyLimit: u.units_limit_api_key ?? null, keyUsed: u.units_usage_api_key ?? null
+      });
+    } catch (e) { return res.status(502).json({ error: String(e.message || e) }); }
+  }
 
   const { domain } = req.body || {};
   if (!domain || typeof domain !== 'string') return res.status(400).json({ error: 'domain required' });
