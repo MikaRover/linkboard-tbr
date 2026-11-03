@@ -29,7 +29,7 @@ const { getAdmin, decrypt, tokenRequest, gmailGet, mailboxId } = require('./gmai
 const COLL = 'outreachAgent';
 const DAY = 86400000;
 const DAILY_LIMIT = Math.max(1, parseInt(process.env.OUTREACH_DAILY_LIMIT, 10) || 30);
-const RECONTACT_DAYS = 90;   // never email the same address or site again within this window
+const RECONTACT_DAYS = 90;   // never email the same address again within this window
 const TRACK_DAYS = 45;       // stop checking a thread for replies after this long
 const MAX_ROWS = 300;        // per save call
 // Several wordings so the footer isn't an identical fingerprint on every email.
@@ -485,11 +485,12 @@ function mimeText({ from, fromName, to, subject, body, messageId }) {
 }
 const buildMime = m => Buffer.from(mimeText(m), 'utf8').toString('base64url');
 
-// Why this address/site must not be emailed again, or '' if it's fine.
+// Why this address must not be emailed again, or '' if it's fine.
 const FREE_MAIL = /^(gmail|googlemail|yahoo|ymail|hotmail|outlook|live|msn|icloud|me|aol|proton|protonmail|gmx|mail|yandex|zoho)\.[a-z.]+$/;
-// A teammate's row still blocks (the site mustn't get two pitches), but the
-// message never shows their contact address — each person sees only their own.
-async function contactBlock(id, email, domain, uid) {
+// Only the same address blocks: another person at the same site (info@ after
+// jhaxell@) is fine to email. A teammate's earlier email to that address still
+// blocks, but the message never names them or shows their row.
+async function contactBlock(id, email, uid) {
   const since = Date.now() - RECONTACT_DAYS * DAY;
   const out = ['sent', 'sending', 'replied', 'bounced'];
   const byEmail = await db().collection(COLL).where('email', '==', email).get();
@@ -499,16 +500,6 @@ async function contactBlock(id, email, domain, uid) {
     const who = x.ownerUid === uid ? '' : ' by a teammate';
     if (x.status === 'replied' || x.status === 'bounced') return `${email} already ${x.status} to an earlier email${who}`;
     if (out.includes(x.status) && (x.sentAt || 0) >= since) return `${email} was already emailed${who} on ${x.sentDay || 'a recent day'}`;
-  }
-  // Free-mail domains (gmail.com…) are many different people, not one site.
-  if (FREE_MAIL.test(domain)) return '';
-  const byDomain = await db().collection(COLL).where('domain', '==', domain).get();
-  for (const d of byDomain.docs) {
-    if (d.id === id) continue;
-    const x = d.data();
-    if (out.includes(x.status) && (x.sentAt || 0) >= since) return x.ownerUid === uid
-      ? `${domain} was already emailed on ${x.sentDay || 'a recent day'} (${x.email})`
-      : `${domain} was already emailed by a teammate on ${x.sentDay || 'a recent day'}`;
   }
   return '';
 }
@@ -528,7 +519,7 @@ async function send(user, { id, email, from, fromName }) {
   if (row.smtp === 'invalid') throw new Error('This address failed verification');
   if (!row.subject || !row.body) throw new Error('Draft is empty');
 
-  const block = await contactBlock(ref.id, to, row.domain, user.uid);
+  const block = await contactBlock(ref.id, to, user.uid);
   if (block) { await ref.update({ status: 'skipped', skipReason: block, updatedAt: FieldValue().serverTimestamp() }); throw new Error(block); }
 
   const mbId = mailboxId(from);
