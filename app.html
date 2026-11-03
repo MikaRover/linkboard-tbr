@@ -9007,7 +9007,7 @@ function renderGmailStrip(){
 // when the site lists no named person) → AI draft → the admin reviews and
 // clicks Send. Rows live server-side in `outreachAgent` via /api/outreach;
 // sending, quota and "never email twice" checks are enforced there too.
-let oaRows = [], oaMailboxes = [], oaLimit = 30, oaFilter = 'all', oaOpen = null, oaQueue = null;
+let oaRows = [], oaMailboxes = [], oaLimit = 30, oaFilter = 'all', oaOpen = null;
 // Client folder shown: '' = all rows, OA_NO_FOLDER = rows without one, else the folder name.
 const OA_NO_FOLDER = '__none__';
 let oaFolder = '';
@@ -9015,10 +9015,6 @@ let oaSort = {key:'', dir:1}; // '' = newest first, as loaded
 try{ oaSort = JSON.parse(localStorage.getItem('oa-sort')||'null') || oaSort; }catch(e){}
 try{ oaFolder = localStorage.getItem('oa-folder') || ''; }catch(e){}
 const oaSelected = new Set(), oaEdits = {};
-// Random 4–5 min between emails: a steady, human pace is what keeps a
-// mailbox out of spam (the server also refuses anything under 4 min).
-const OA_GAP_MIN_MS = 240000, OA_GAP_MAX_MS = 300000;
-const oaGap = () => OA_GAP_MIN_MS + Math.random()*(OA_GAP_MAX_MS-OA_GAP_MIN_MS);
 const OA_DEFAULT_PITCH = {
   paid: "I'm an off-page SEO specialist, interested in a paid collaboration (a guest post on your site) or a content exchange. Articles are original and written for your readers, with one relevant link. Please share your price for a guest post and whether links are dofollow.",
   exchange: '',
@@ -9221,7 +9217,10 @@ function oaSenderName(){
   return /^admin$/i.test(acct) ? '' : acct;
 }
 async function oaLoad(){
-  try{ oaRows = (await oaApi('list')).rows||[]; oaRender(); }
+  try{
+    oaRows = (await oaApi('list')).rows||[]; oaRender(); oaQueueNote();
+    if(oaTickTimer===null && oaQueuedRows().length) oaTickSoon(5000);
+  }
   catch(e){ document.getElementById('oa-table').innerHTML = `<div class="loading">${escapeHtml(e.message)}</div>`; }
 }
 
@@ -9814,55 +9813,39 @@ async function oaDraftSelected(btn){
 // ── sending ──
 // Every send — one row or many — goes through one queue that waits a random
 // 4–5 min between emails. Runs in this tab, so it must stay open.
-async function oaSendRow(id){
-  const r = oaRow(id);
+// Sending runs on the server: "Send" only puts rows in the queue (row.queue)
+// and the server sends them 4–5 min apart, even with this page or the laptop
+// closed. While the page is open it nudges the queue every minute as well and
+// refreshes the list.
+function oaQueuedRows(){ return oaRows.filter(r=>r.queue); }
+function oaQueued(id){ return !!oaRow(id)?.queue; }
+async function oaEnqueue(ids){
   const from = oaFrom();
-  if(!from) throw new Error('Connect a Gmail mailbox for sending first');
-  r.status = 'sending'; oaRender();
-  try{ await oaApi('send',{id, email:r.email, from, fromName:oaSenderName()}); }
-  catch(e){ await oaLoad(); throw e; }
-  Object.assign(r, {status:'sent', sentDay:new Date().toISOString().slice(0,10), fromEmail:from});
-  oaRender();
+  if(!from){ showToast('Connect a Gmail mailbox for sending first','warn'); return; }
+  try{
+    const {queued} = await oaApi('queue',{ids, from, fromName:oaSenderName()});
+    oaSelected.clear();
+    await oaLoad();
+    showToast(queued ? `${queued} email${queued===1?'':'s'} queued — sending goes on even with this page closed` : 'Nothing new to queue','warn');
+    oaTickSoon(0);
+  }catch(e){ showToast(e.message,'warn'); }
 }
-function oaQueued(id){ return !!(oaQueue && oaQueue.ids.includes(id)); }
-function oaEnqueue(ids){
-  if(!oaQueue) oaQueue = {ids:[], stop:false, nextAt:Date.now(), sent:0};
-  ids.forEach(id=>{ if(!oaQueue.ids.includes(id)) oaQueue.ids.push(id); });
-  document.getElementById('oa-stop').style.display = '';
-  oaRender();
-  if(!oaQueue.running) oaRunQueue();
+let oaTickTimer = null;
+function oaQueueNote(){
+  const n = oaQueuedRows().length;
+  document.getElementById('oa-stop').style.display = n ? '' : 'none';
+  if(n) document.getElementById('oa-progress').textContent = `${n} in the send queue · one every 4–5 min from the server — you can close this page or the laptop.`;
 }
-async function oaRunQueue(){
-  const q = oaQueue; q.running = true;
-  const prog = document.getElementById('oa-progress');
-  const clock = t => new Date(t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  while(q.ids.length && !q.stop){
-    // Wall-clock wait, so background-tab timer throttling can't shorten the gap.
-    while(Date.now() < q.nextAt && !q.stop){
-      const s = Math.ceil((q.nextAt-Date.now())/1000);
-      prog.textContent = `Sent ${q.sent} · ${q.ids.length} in queue · next at ${clock(q.nextAt)} (${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}) — keep this tab open`;
-      await new Promise(res=>setTimeout(res,1000));
-    }
-    if(q.stop) break;
-    const id = q.ids[0], r = oaRow(id);
-    if(!r || !['draft','failed'].includes(r.status)){ q.ids.shift(); continue; }
-    prog.textContent = `Sending to ${r.email}…`;
-    try{
-      await oaSendRow(id); q.sent++; q.ids.shift(); oaSelected.delete(id);
-      q.nextAt = Date.now() + oaGap();
-      oaLoadMailboxes();
-    }catch(e){
-      const m = /Wait (\d+) min/.exec(e.message);
-      if(m){ q.nextAt = Date.now() + (+m[1])*60000 + Math.random()*60000; continue; } // another send went out meanwhile
-      showToast(r.domain+': '+e.message,'warn');
-      if(/Daily limit|mailbox|Connect/i.test(e.message)){ q.stop = true; break; }
-      q.ids.shift();
-    }
-  }
-  prog.textContent = `Sent ${q.sent}`+(q.ids.length?` · ${q.ids.length} not sent (stopped)`:'');
-  oaQueue = null;
-  document.getElementById('oa-stop').style.display = 'none';
-  oaRender();
+function oaTickSoon(ms){
+  clearTimeout(oaTickTimer);
+  if(!oaQueuedRows().length){ oaTickTimer = null; return; }
+  oaTickTimer = setTimeout(async ()=>{
+    try{ await oaApi('tick'); }catch(e){}
+    const before = oaQueuedRows().length;
+    await oaLoad(); oaLoadMailboxes();
+    if(before && !oaQueuedRows().length) document.getElementById('oa-progress').textContent = 'Send queue finished.';
+    oaTickSoon(60000);
+  }, ms);
 }
 async function oaSendOne(id, btn){
   if(oaEdits[id] && !(await oaSaveRow(id, null, true))) return;
@@ -9870,7 +9853,8 @@ async function oaSendOne(id, btn){
   if(r.status!=='draft' && r.status!=='failed'){ showToast('Write or save the draft first','warn'); return; }
   const from = oaFrom();
   if(!from){ showToast('Connect a Gmail mailbox for sending first','warn'); return; }
-  const when = oaQueue ? 'after the '+oaQueue.ids.length+' email(s) already queued, 4–5 min apart' : 'now';
+  const ahead = oaQueuedRows().filter(x=>x.queue.from===from).length;
+  const when = ahead ? 'after the '+ahead+' email(s) already queued, 4–5 min apart' : 'within a minute or two';
   if(!confirm(`Send this email ${when}?\n\nTo: ${r.email}\nFrom: ${from}\nSubject: ${r.subject}`)) return;
   oaOpen = null;
   oaEnqueue([id]);
@@ -9882,9 +9866,13 @@ async function oaSendSelected(){
   if(!from){ showToast('Connect a Gmail mailbox for sending first','warn'); return; }
   const mb = oaMailboxes.find(m=>m.email===from);
   const left = mb ? Math.max(0, mb.limit-mb.sentToday) : 0;
-  const total = rows.length + (oaQueue ? oaQueue.ids.length : 0);
+  const ahead = oaQueuedRows().filter(x=>x.queue.from===from).length;
+  const total = rows.length + ahead;
   const list = rows.slice(0,20).map(r=>`• ${r.email} — ${r.domain}`).join('\n') + (rows.length>20?`\n…and ${rows.length-20} more`:'');
-  if(!confirm(`Queue ${rows.length} email${rows.length>1?'s':''} from ${from}?\n\n${list}\n\nOne every 4–5 minutes — about ${Math.round((total-1)*4.5)} min in total. Keep this tab open. ${left} left today on this mailbox`+(rows.length>left?` — the rest stay as drafts.`:'.'))) return;
+  // The daily limit resets at UTC midnight (the server's sentDay).
+  const reset = new Date(); reset.setUTCHours(24,0,0,0);
+  const resetAt = reset.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  if(!confirm(`Queue ${rows.length} email${rows.length>1?'s':''} from ${from}?\n\n${list}\n\nOne every 4–5 minutes — about ${Math.round((total-1)*4.5)} min in total. Sending runs on the server, so you can close this page or the laptop. ${Math.max(0,left-ahead)} left today on this mailbox`+(total>left?` — the rest go out after the limit resets at ${resetAt}.`:'.'))) return;
   oaEnqueue(rows.map(r=>r.id));
 }
 // ── verify (Snov) ──
@@ -9915,7 +9903,11 @@ async function oaVerifySelected(btn){
   document.getElementById('oa-progress').textContent = 'Verify: '+msg+(v.invalid?' — invalid addresses can’t be sent to.':'.');
   showToast(msg);
 }
-function oaStopQueue(){ if(oaQueue){ oaQueue.stop = true; showToast('Stopped — queued emails stay as drafts'); } }
+async function oaStopQueue(){
+  try{ await oaApi('unqueue',{}); showToast('Stopped — queued emails stay as drafts'); document.getElementById('oa-progress').textContent = 'Send queue stopped.'; }
+  catch(e){ showToast(e.message,'warn'); }
+  await oaLoad();
+}
 
 // ── right-click menu ──
 // Like Finder: right-clicking a row that isn't selected selects just that row,

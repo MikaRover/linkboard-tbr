@@ -582,6 +582,103 @@ async function send(user, { id, email, from, fromName }) {
   return { ok: true };
 }
 
+// ─── server-side send queue ──────────────────────────────
+// "Send selected" only marks rows with `queue`; tick() sends them one at a
+// time per mailbox, 4–5 min apart, so sending goes on with the laptop closed.
+// tick() is hit every minute by an outside timer (Bearer OUTREACH_TICK_SECRET
+// or CRON_SECRET — Hobby's own cron runs only once a day) and by any open
+// Outreach page. Every check in send() still applies at send time.
+// outreachQueue/{mailboxId} { nextAt } spaces the emails out.
+const QUEUE_COLL = 'outreachQueue';
+const MAILBOX_ERR = /mailbox|connect|token|invalid_grant|credential|sign-in|unauthori[sz]ed|read-only/i;
+
+async function queueRows(user, { ids, from, fromName }) {
+  const mbId = mailboxId(from);
+  const g = await db().collection('gmailConnections').doc(mbId).get();
+  const conn = g.exists ? g.data() : await require('./mailsmtp').get(mbId);
+  if (!conn || conn.ownerUid !== user.uid) throw new Error('Pick one of your connected mailboxes');
+  if (!conn.canSend) throw new Error('This mailbox is connected read-only — click "Connect Gmail for sending"');
+  const name = oneLine(fromName).slice(0, 60);
+  const batch = db().batch();
+  const now = Date.now();
+  let n = 0;
+  for (const id of (ids || []).slice(0, MAX_ROWS)) {
+    const ref = db().collection(COLL).doc(String(id));
+    const cur = await ref.get();
+    if (!cur.exists) continue;
+    const x = cur.data();
+    if (x.ownerUid !== user.uid || !['draft', 'failed'].includes(x.status) || !x.email || !x.subject || !x.body || x.queue) continue;
+    // at keeps the order the rows were picked in.
+    batch.update(ref, { queue: { from: conn.email, fromName: name, email: String(x.email).toLowerCase(), at: now + n }, error: null });
+    n++;
+  }
+  if (n) await batch.commit();
+  return { queued: n };
+}
+
+async function unqueueRows(uid, ids) {
+  const snap = await db().collection(COLL).where('ownerUid', '==', uid).get();
+  const want = ids && ids.length ? new Set(ids) : null;
+  const batch = db().batch();
+  let n = 0;
+  snap.docs.forEach(d => { if (d.data().queue && (!want || want.has(d.id))) { batch.update(d.ref, { queue: FieldValue().delete() }); n++; } });
+  if (n) await batch.commit();
+  return { unqueued: n };
+}
+
+// Next UTC midnight (when sentDay, and so the daily limit, rolls over) plus a few minutes.
+const nextDayAt = () => { const d = new Date(); d.setUTCHours(24, 0, 0, 0); return d.getTime() + Math.random() * 15 * 60000; };
+
+async function tick() {
+  const snap = await db().collection(COLL).where('queue.at', '>', 0).get();
+  const byBox = {};
+  snap.docs.forEach(d => { const q = d.data().queue; (byBox[mailboxId(q.from)] = byBox[mailboxId(q.from)] || []).push(d); });
+  const deadline = Date.now() + 40000;
+  const out = { sent: 0, waiting: 0, failed: 0, queued: snap.size };
+  for (const [mbId, docs] of Object.entries(byBox)) {
+    if (Date.now() > deadline) break;
+    const slot = db().collection(QUEUE_COLL).doc(mbId);
+    // Claim this mailbox's turn, so the timer and an open page can't both send.
+    const gap = MIN_GAP_MS + Math.random() * 60000;
+    const claimed = await db().runTransaction(async tx => {
+      const s = await tx.get(slot);
+      if (s.exists && (s.data().nextAt || 0) > Date.now()) return false;
+      tx.set(slot, { nextAt: Date.now() + gap }, { merge: true });
+      return true;
+    });
+    if (!claimed) { out.waiting++; continue; }
+    docs.sort((a, b) => a.data().queue.at - b.data().queue.at);
+    const d = docs[0], x = d.data(), q = x.queue;
+    const u = await db().collection('users').doc(x.ownerUid).get();
+    const user = { uid: x.ownerUid, name: (u.exists && u.data().name) || '', role: (u.exists && u.data().role) || 'builder' };
+    try {
+      await send(user, { id: d.id, email: q.email, from: q.from, fromName: q.fromName });
+      await d.ref.update({ queue: FieldValue().delete() });
+      out.sent++;
+    } catch (e) {
+      const msg = String(e.message || e);
+      const wait = /Wait (\d+) min/.exec(msg);
+      if (wait) { await slot.set({ nextAt: Date.now() + (+wait[1]) * 60000 + Math.random() * 60000 }, { merge: true }); out.waiting++; continue; }
+      // Daily limit: the queue carries on after the day rolls over.
+      if (/Daily limit/.test(msg)) { await slot.set({ nextAt: nextDayAt() }, { merge: true }); out.waiting++; continue; }
+      out.failed++;
+      // A mailbox problem stops that mailbox's whole queue; anything else drops just this row.
+      const stop = MAILBOX_ERR.test(msg) ? docs : [d];
+      const batch = db().batch();
+      stop.forEach(r => batch.update(r.ref, { queue: FieldValue().delete(), ...(r.data().status === 'sending' ? {} : { error: msg.slice(0, 300) }) }));
+      await batch.commit();
+      await slot.set({ nextAt: 0, lastError: msg.slice(0, 300) }, { merge: true });
+    }
+  }
+  return out;
+}
+
+function isTickCall(req) {
+  const m = /^Bearer (.+)$/.exec(req.headers.authorization || '');
+  if (!m) return false;
+  return [process.env.OUTREACH_TICK_SECRET, process.env.CRON_SECRET].some(k => k && m[1] === k);
+}
+
 // ─── reply / bounce tracking ─────────────────────────────
 async function trackAll(onlyUid) {
   const snap = await db().collection(COLL).where('status', '==', 'sent').get();
@@ -668,6 +765,10 @@ const canUseAgent = u => u.role === 'admin' || AGENT_USERS.includes(u.name);
 async function handler(req, res) {
   setCors(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
+  // The outside timer: GET or POST /api/outreach?tick=1 with the secret.
+  if (req.query && req.query.tick && isTickCall(req)) {
+    try { return res.json(await tick()); } catch (e) { return res.status(500).json({ error: String(e.message || e) }); }
+  }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const user = await requireMember(req, res);
   if (!user) return;
@@ -681,6 +782,9 @@ async function handler(req, res) {
       case 'mailboxes': return res.json({ mailboxes: await mailboxes(user.uid), limit: DAILY_LIMIT });
       case 'draft': return res.json(await draft(user.uid, b));
       case 'send': return res.json(await send(user, b));
+      case 'queue': return res.json(await queueRows(user, b));
+      case 'unqueue': return res.json(await unqueueRows(user.uid, b.ids));
+      case 'tick': return res.json(await tick());
       case 'track': return res.json(await trackAll(user.uid));
       case 'verify': return res.json(await verify(user.uid, b.ids));
       case 'templates': return res.json(await getTemplates(user.uid));
