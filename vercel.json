@@ -43,6 +43,10 @@
     {
       "source": "/api/outreach",
       "destination": "/api/sheets-import?outreach=1"
+    },
+    {
+      "source": "/api/linkbuilder",
+      "destination": "/api/sheets-import?linkbuilder=1"
     }
   ],
   "crons": [

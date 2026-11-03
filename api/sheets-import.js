@@ -524,6 +524,9 @@ module.exports = async function handler(req, res) {
   if ((req.query && req.query.outreach) || /^\/api\/outreach(\?|$)/.test(req.url || '')) {
     return require('./_lib/outreach')(req, res);
   }
+  if ((req.query && req.query.linkbuilder) || /^\/api\/linkbuilder(\?|$)/.test(req.url || '')) {
+    return require('./_lib/linkbuilder')(req, res);
+  }
   if ((req.query && req.query.pendingcheck) || /^\/api\/pendingcheck(\?|$)/.test(req.url || '')) {
     setCors(req, res);
     if (req.method === 'OPTIONS') return res.status(200).end();
