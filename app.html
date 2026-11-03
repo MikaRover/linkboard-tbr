@@ -1229,6 +1229,18 @@ button.oa-stat:hover{background:var(--bg4);}
 button.oa-stat.active{background:var(--nav-active);box-shadow:inset 0 -2px 0 var(--accent2);}
 button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 60%,transparent);outline-offset:-2px;}
 
+.lb-new{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;}
+.lb-req{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:var(--space-4);}
+.lb-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:var(--space-4);align-items:start;}
+@media (max-width:860px){.lb-layout{grid-template-columns:1fr;}}
+.lb-job{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:var(--radius-ctl);cursor:pointer;transition:background var(--dur-1);}
+.lb-job:hover{background:var(--bg3);}
+.lb-job.active{background:var(--nav-active);}
+.lb-job b{font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;}
+.lb-bar{height:4px;background:var(--bg4);border-radius:980px;overflow:hidden;margin-top:8px;}
+.lb-bar span{display:block;height:100%;background:var(--accent2);transition:width var(--dur-2) var(--ease-out);}
+.lb-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:var(--space-3);}
+
 @media (prefers-reduced-motion: reduce){
   .page.active{animation:none;}
   #app-toast{animation:pageIn 150ms ease !important;}
@@ -1325,6 +1337,7 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
   <div class="nav" onclick="gotoPage('batch',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><circle cx='11' cy='11' r='7'/><path d='M20 20l-4.35-4.35' stroke-linecap='round'/></svg>Batch Analyze</div>
   <div class="nav" onclick="gotoPage('catcheck',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><rect x='3' y='3' width='7' height='7' rx='1' fill='currentColor'/><rect x='14' y='3' width='7' height='7' rx='1' fill='currentColor'/><rect x='3' y='14' width='7' height='7' rx='1' fill='currentColor'/><rect x='14' y='14' width='7' height='7' rx='1' fill='currentColor'/></svg>Category & Email Check</div>
   <div class="nav agent-tool" style="display:none;" onclick="gotoPage('agent',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M22 2L11 13'/><path d='M22 2l-7 20-4-9-9-4 20-7z'/></svg>Outreach agent</div>
+  <div class="nav agent-tool" style="display:none;" onclick="gotoPage('linkbuilder',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7'/><path d='M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7'/></svg>AI Link Builder</div>
   <div class="nav adm" onclick="gotoPage('prospector',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' stroke='none' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' fill='currentColor'/></svg>AI Prospector</div>
   <div class="nav tatev-tool" style="display:none;" onclick="gotoPage('bulkrel',this)"><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' style='margin-right:8px;vertical-align:-2px;flex-shrink:0;'><path d='M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1'/><path d='M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1'/></svg>Bulk Relevancy</div>
   <div class="nav-section" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding:14px 16px 4px;opacity:0.6;">Builders</div>
@@ -2253,6 +2266,38 @@ button.oa-stat:focus-visible{outline:2px solid color-mix(in srgb,var(--accent2) 
       <input type="date" id="online-date" style="margin:0;padding:6px 10px;font-size:12px;width:auto;" onchange="renderTimeline()"/>
     </div>
     <div class="card-body" id="online-timeline"></div>
+  </div>
+</div>
+
+<!-- ══ AI LINK BUILDER ══ -->
+<div id="p-linkbuilder" class="page">
+  <div class="page-top">
+    <div>
+      <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>AI Link Builder</div>
+      <div class="oa-subtitle">Give a client’s domain: it finds the competitors, the sites that link to them, and keeps the ones that fit your requirements. Nothing is emailed from here.</div>
+    </div>
+  </div>
+
+  <div class="oa-card">
+    <div class="lb-new">
+      <div style="flex:1;min-width:220px;"><label class="oa-label" for="lb-client">Client domain</label><input type="text" id="lb-client" placeholder="client.com" onkeydown="if(event.key==='Enter')lbCreate()"/></div>
+      <button class="btn-sm" id="lb-create" onclick="lbCreate()">Find competitors</button>
+    </div>
+    <div class="lb-req">
+      <div><label class="oa-label" for="lb-drmin">DR from</label><input type="text" inputmode="numeric" id="lb-drmin"/></div>
+      <div><label class="oa-label" for="lb-drmax">DR to</label><input type="text" inputmode="numeric" id="lb-drmax"/></div>
+      <div><label class="oa-label" for="lb-traffic">Min traffic / month</label><input type="text" inputmode="numeric" id="lb-traffic"/></div>
+      <div><label class="oa-label" for="lb-percomp">Sites per competitor</label><input type="text" inputmode="numeric" id="lb-percomp"/></div>
+      <div><label class="oa-label" for="lb-aitop">AI check top</label><input type="text" inputmode="numeric" id="lb-aitop"/></div>
+      <div><label class="oa-label" for="lb-country">Competitors in</label><select id="lb-country" style="width:100%;margin:0;"><option value="us">United States</option><option value="gb">United Kingdom</option><option value="ca">Canada</option><option value="au">Australia</option><option value="de">Germany</option><option value="fr">France</option><option value="in">India</option></select></div>
+      <div><label class="oa-label" for="lb-lang">Site language</label><input type="text" id="lb-lang" placeholder="Any"/></div>
+    </div>
+    <label class="oa-check oa-gap"><input type="checkbox" id="lb-skip" checked/> Drop directories and forums</label>
+  </div>
+
+  <div class="lb-layout">
+    <div class="oa-card"><div class="oa-label">Research</div><div id="lb-jobs"><div class="oa-help">Loading…</div></div></div>
+    <div class="oa-card" id="lb-view"></div>
   </div>
 </div>
 
@@ -4765,6 +4810,7 @@ function gotoPage(name,el){
   if(name==='online')initOnlinePage();
   if(name==='emailstats')initEmailStats();
   if(name==='agent')initAgentPage();
+  if(name==='linkbuilder')initLinkBuilder();
   if(name==='capacity'){listenCapacities();renderCapacityList();}
   if(name==='domains')initDomainsPage();
   if(name==='prospector'){
@@ -9065,6 +9111,259 @@ function oaSmtpBadge(smtp){
   if(smtp==='valid') return '<span class="oa-badge oa-b-green">Verified</span>';
   if(smtp==='invalid') return '<span class="oa-badge oa-b-red">Invalid</span>';
   return '<span class="oa-badge oa-b-neutral">Unverified</span>';
+}
+
+// ══ AI Link Builder ══
+// Research only: a client's competitors → the sites that link to them,
+// filtered by the requirements → an AI look at the best ones. The open page
+// drives the steps; the server's send timer finishes a research with the
+// page closed. Nothing is emailed from here — picked sites go to Outreach agent.
+let lbJobs = [], lbJob = null, lbRows = [], lbTab = 'kept', lbSort = {key:'', dir:1}, lbDriving = null;
+const lbSel = new Set();
+const LB_RUNNING = ['collect','filter','check'];
+const LB_STATUS = {
+  pick:{label:'Pick competitors',tone:'amber'}, collect:{label:'Collecting',tone:'blue'}, filter:{label:'Filtering',tone:'blue'},
+  check:{label:'AI check',tone:'blue'}, done:{label:'Done',tone:'green'}, failed:{label:'Failed',tone:'red'}
+};
+const LB_FIELDS = {drMin:'lb-drmin', drMax:'lb-drmax', trafficMin:'lb-traffic', perComp:'lb-percomp', aiTop:'lb-aitop', country:'lb-country', language:'lb-lang'};
+async function lbApi(action, payload){
+  const r = await fetch('/api/linkbuilder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...(payload||{})})});
+  let j = {}; try{ j = await r.json(); }catch(e){}
+  if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+  return j;
+}
+const lbNum = v => v==null||v==='' ? '—' : Number(v).toLocaleString();
+function lbBadge(s){ const x = LB_STATUS[s]||{label:s||'—',tone:'neutral'}; return `<span class="oa-badge oa-b-${x.tone}"><span class="oa-dot"></span>${escapeHtml(x.label)}</span>`; }
+function lbReqFromForm(){
+  const r = {}; Object.entries(LB_FIELDS).forEach(([k,id])=>{ r[k] = document.getElementById(id).value.trim(); });
+  r.skipTypes = document.getElementById('lb-skip').checked;
+  return r;
+}
+function lbFillForm(r){
+  Object.entries(LB_FIELDS).forEach(([k,id])=>{ if(r[k]!=null) document.getElementById(id).value = r[k]; });
+  document.getElementById('lb-skip').checked = r.skipTypes !== false;
+}
+
+async function initLinkBuilder(){
+  if(!canUseAgent()) return;
+  try{
+    const j = await lbApi('list');
+    lbJobs = j.jobs||[];
+    const form = document.getElementById('lb-drmin');
+    if(!form.dataset.filled){
+      let saved = null; try{ saved = JSON.parse(localStorage.getItem('lb-req')||'null'); }catch(e){}
+      lbFillForm({...(j.defaults||{}), ...(saved||{})}); form.dataset.filled = '1';
+    }
+    lbRenderJobs();
+    const id = lbJob ? lbJob.id : lbJobs[0]?.id;
+    if(id) await lbOpen(id); else lbRender();
+  }catch(e){ document.getElementById('lb-jobs').innerHTML = `<div class="oa-help">${escapeHtml(e.message)}</div>`; }
+}
+
+async function lbCreate(){
+  const client = document.getElementById('lb-client').value.trim();
+  if(!client){ showToast('Enter the client’s domain','warn'); return; }
+  const req = lbReqFromForm();
+  try{ localStorage.setItem('lb-req', JSON.stringify(req)); }catch(e){}
+  const btn = document.getElementById('lb-create');
+  btn.disabled = true; btn.textContent = 'Finding competitors…';
+  try{
+    const {job} = await lbApi('create',{client, req});
+    lbJobs.unshift(job); lbJob = job; lbRows = []; lbSel.clear();
+    document.getElementById('lb-client').value = '';
+    lbRenderJobs(); lbRender();
+  }catch(e){ showToast(e.message,'warn'); }
+  btn.disabled = false; btn.textContent = 'Find competitors';
+}
+
+function lbRenderJobs(){
+  const el = document.getElementById('lb-jobs');
+  if(!lbJobs.length){ el.innerHTML = '<div class="oa-help">No research yet.</div>'; return; }
+  const admin = cu?.role==='admin';
+  el.innerHTML = lbJobs.map(j=>`<div class="lb-job ${lbJob&&lbJob.id===j.id?'active':''}" onclick="lbOpen('${escAttr(j.id)}')">
+    <b>${escapeHtml(j.client)}</b>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${lbBadge(j.status)}${j.counts&&j.counts.kept?`<span class="oa-help">${lbNum(j.counts.kept)} sites</span>`:''}</div>
+    <span class="oa-help">${j.createdAt?new Date(j.createdAt).toLocaleDateString([], {month:'short', day:'numeric'}):''}${admin&&j.ownerName?' · '+escapeHtml(j.ownerName):''}</span>
+  </div>`).join('');
+}
+
+async function lbOpen(id){
+  try{
+    const j = await lbApi('get',{id});
+    lbJob = j.job; lbRows = j.rows||[]; lbSel.clear();
+    lbSyncJob(); lbRender();
+    if(LB_RUNNING.includes(lbJob.status)) lbDrive();
+  }catch(e){ showToast(e.message,'warn'); }
+}
+function lbSyncJob(){
+  const i = lbJobs.findIndex(x=>x.id===lbJob.id);
+  if(i>=0) lbJobs[i] = lbJob; else lbJobs.unshift(lbJob);
+  lbRenderJobs();
+}
+
+// One step at a time while this research is open on screen. If the server
+// timer holds the step, nothing changes, so wait longer before asking again.
+async function lbDrive(){
+  const id = lbJob.id;
+  if(lbDriving===id) return;
+  lbDriving = id;
+  while(lbJob && lbJob.id===id && LB_RUNNING.includes(lbJob.status) && window.currentPage==='linkbuilder'){
+    const before = JSON.stringify([lbJob.status, lbJob.collectIdx, lbJob.counts]);
+    try{
+      const j = await lbApi('step',{id});
+      if(!lbJob || lbJob.id!==id) break;
+      lbJob = j.job; lbRows = j.rows||[];
+      lbSyncJob(); lbRender();
+    }catch(e){ showToast(e.message,'warn'); break; }
+    const same = before===JSON.stringify([lbJob.status, lbJob.collectIdx, lbJob.counts]);
+    await new Promise(r=>setTimeout(r, same ? 5000 : 800));
+  }
+  if(lbDriving===id) lbDriving = null;
+}
+
+function lbTogglePick(domain, on){
+  const p = new Set(lbJob.picked||[]);
+  on ? p.add(domain) : p.delete(domain);
+  lbJob.picked = [...p]; lbRender();
+}
+function lbAddCompetitor(){
+  const inp = document.getElementById('lb-add-comp');
+  const d = inp.value.trim().toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').split('/')[0];
+  if(!d) return;
+  if(!lbJob.competitors.some(c=>c.domain===d)) lbJob.competitors.push({domain:d, dr:null, traffic:null, common:null, manual:true});
+  lbTogglePick(d, true);
+}
+async function lbStart(btn){
+  if(!(lbJob.picked||[]).length){ showToast('Pick at least one competitor','warn'); return; }
+  if(lbJob.picked.length>8){ showToast('Pick 8 competitors at most','warn'); return; }
+  btn.disabled = true;
+  try{ await lbApi('start',{id:lbJob.id, picked:lbJob.picked}); await lbOpen(lbJob.id); }
+  catch(e){ showToast(e.message,'warn'); btn.disabled = false; }
+}
+async function lbDelete(){
+  if(!confirm(`Delete the research for ${lbJob.client}?`)) return;
+  try{
+    await lbApi('delete',{id:lbJob.id});
+    lbJobs = lbJobs.filter(x=>x.id!==lbJob.id); lbJob = null; lbRows = [];
+    lbRenderJobs(); lbRender();
+  }catch(e){ showToast(e.message,'warn'); }
+}
+
+// Column sort, like the Outreach list: A→Z, Z→A, then back to best first.
+const LB_SORT_KEYS = {
+  site: r => r.domain||'', dr: r => r.dr||0, traffic: r => r.traffic||0,
+  count: r => (r.comps||[]).length, relevance: r => r.ai&&r.ai.relevance!=null ? r.ai.relevance : -1
+};
+function lbSortBy(k){
+  lbSort = lbSort.key!==k ? {key:k, dir:k==='site'?1:-1} : lbSort.dir===(k==='site'?1:-1) ? {key:k, dir:-lbSort.dir} : {key:'', dir:1};
+  lbRender();
+}
+function lbTh(k, label){
+  const on = lbSort.key===k;
+  return `<th class="oa-sort ${on?'on':''}" onclick="lbSortBy('${k}')">${label}<span class="oa-sort-arrow">${on?(lbSort.dir===1?'↑':'↓'):''}</span></th>`;
+}
+function lbVisibleRows(){
+  const rows = lbRows.filter(r=>(r.state||'kept')===lbTab);
+  const key = LB_SORT_KEYS[lbSort.key];
+  return rows.slice().sort((a,b)=>{
+    if(!key) return (b.score||0)-(a.score||0);
+    const x = key(a), y = key(b);
+    return (typeof x==='number' ? x-y : x.localeCompare(y)) * lbSort.dir;
+  });
+}
+function lbSelect(domain, on){ on ? lbSel.add(domain) : lbSel.delete(domain); lbRender(); }
+function lbSelectAll(on){ lbVisibleRows().forEach(r=>{ on ? lbSel.add(r.domain) : lbSel.delete(r.domain); }); lbRender(); }
+function lbPicked(){ const rows = lbVisibleRows(); return lbSel.size ? rows.filter(r=>lbSel.has(r.domain)) : rows; }
+
+function lbCopy(){
+  const d = lbPicked().map(r=>r.domain).join('\n');
+  navigator.clipboard.writeText(d).then(()=>showToast(`${lbPicked().length} domains copied`)).catch(()=>showToast('Could not copy','warn'));
+}
+function lbCsv(){
+  const q = v => `"${String(v??'').replace(/"/g,'""')}"`;
+  const head = ['domain','dr','traffic','competitors','relevance','type','language','write_for_us','state','reason'];
+  const lines = lbPicked().map(r=>[r.domain, r.dr, r.traffic, (r.comps||[]).join(' '), r.ai?.relevance, r.ai?.type, r.ai?.language, r.writeForUs, r.state, r.reason].map(q).join(','));
+  const blob = new Blob([[head.join(','), ...lines].join('\n')], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `link-builder-${lbJob.client}.csv`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+// Hands the sites to Outreach agent's "Websites" box; Find contacts takes it from there.
+function lbToOutreach(){
+  const rows = lbPicked();
+  if(!rows.length) return;
+  const ta = document.getElementById('oa-sites');
+  ta.value = [ta.value.trim(), ...rows.map(r=>r.domain)].filter(Boolean).join('\n');
+  gotoPage('agent', document.querySelector('.nav.agent-tool[onclick*="\'agent\'"]'));
+  oaSource('sites');
+  showToast(`${rows.length} sites added to Outreach agent — click Find contacts`);
+}
+
+function lbRender(){
+  const el = document.getElementById('lb-view');
+  if(!lbJob){ el.innerHTML = '<div class="oa-empty"><b>No research open</b>Enter a client’s domain above to start.</div>'; return; }
+  const j = lbJob, r = j.req||{}, c = j.counts||{};
+  const reqLine = [`DR ${r.drMin}–${r.drMax}`, r.trafficMin?`traffic ${lbNum(r.trafficMin)}+`:'', `${r.perComp} per competitor`, r.language||'', (r.country||'').toUpperCase()].filter(Boolean).join(' · ');
+  let body = '';
+  if(j.status==='pick'){
+    const picked = new Set(j.picked||[]);
+    const units = (picked.size*(r.perComp||100)*15 + 2000);
+    body = `<div class="oa-label oa-gap">Competitors — pick up to 8</div>
+      <div class="tbl-wrap"><table class="oa-table"><thead><tr><th></th><th>Site</th><th>DR</th><th>Traffic</th><th>Common keywords</th></tr></thead><tbody>
+      ${(j.competitors||[]).map(x=>`<tr>
+        <td><input type="checkbox" style="width:auto;margin:0;" ${picked.has(x.domain)?'checked':''} onchange="lbTogglePick('${escAttr(x.domain)}',this.checked)"/></td>
+        <td><span class="oa-mono" style="color:var(--text);">${escapeHtml(x.domain)}</span>${x.generic?' <span class="oa-badge oa-b-neutral">Big platform</span>':''}${x.manual?' <span class="oa-badge oa-b-neutral">Added by you</span>':''}</td>
+        <td>${lbNum(x.dr)}</td><td>${lbNum(x.traffic)}</td><td>${lbNum(x.common)}</td></tr>`).join('')
+        || '<tr><td></td><td colspan="4" class="oa-help">Ahrefs found no competitors — add them below.</td></tr>'}
+      </tbody></table></div>
+      <div class="lb-actions"><input type="text" id="lb-add-comp" placeholder="competitor.com" style="max-width:260px;" onkeydown="if(event.key==='Enter')lbAddCompetitor()"/><button class="btn-ghost" onclick="lbAddCompetitor()">Add competitor</button></div>
+      <div class="lb-actions" style="justify-content:space-between;">
+        <span class="oa-help">${picked.size} picked · up to ${lbNum(picked.size*(r.perComp||100))} sites${cu?.role==='admin'?` · about ${lbNum(units)} Ahrefs units`:''}</span>
+        <button class="btn-sm" onclick="lbStart(this)" ${picked.size?'':'disabled'}>Collect backlinks</button>
+      </div>`;
+  } else if(LB_RUNNING.includes(j.status)){
+    const n = (j.picked||[]).length;
+    const [text, pct] = j.status==='collect'
+      ? [`Collecting backlinks · ${Math.min(j.collectIdx||0,n)}/${n} competitors · ${lbNum(c.collected||0)} sites so far`, 10 + 50*Math.min(j.collectIdx||0,n)/Math.max(1,n)]
+      : j.status==='filter' ? ['Filtering by your requirements…', 65]
+      : [`AI check · ${lbNum(c.checked||0)}/${lbNum(c.toCheck||0)} sites`, 70 + 30*(c.checked||0)/Math.max(1,c.toCheck||1)];
+    body = `<div class="oa-gap"><div class="oa-help" style="color:var(--text2);">${escapeHtml(text)}</div><div class="lb-bar"><span style="width:${Math.round(pct)}%"></span></div>
+      <div class="oa-help oa-gap">You can close this page — the research carries on and the results stay here.</div></div>`;
+  } else if(j.status==='failed'){
+    body = `<div class="oa-gap" style="color:var(--red);font-size:13px;">${escapeHtml(j.error||'Failed')}</div>`;
+  }
+  const hasResults = lbRows.some(x=>x.state);
+  if(hasResults){
+    const kept = lbRows.filter(x=>x.state==='kept').length, excl = lbRows.filter(x=>x.state==='excluded').length;
+    const rows = lbVisibleRows();
+    const allOn = rows.length && rows.every(x=>lbSel.has(x.domain));
+    const nSel = [...lbSel].filter(d=>rows.some(x=>x.domain===d)).length;
+    body += `<div class="lb-actions" style="justify-content:space-between;margin-top:var(--space-4);">
+      <div class="oa-tabs"><button class="oa-tab ${lbTab==='kept'?'active':''}" onclick="lbTab='kept';lbSel.clear();lbRender()">Fit<b>${kept}</b></button><button class="oa-tab ${lbTab==='excluded'?'active':''}" onclick="lbTab='excluded';lbSel.clear();lbRender()">Dropped<b>${excl}</b></button></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span class="oa-help">${nSel?nSel+' selected':'All '+rows.length}</span>
+        <button class="btn-ghost" onclick="lbCopy()" ${rows.length?'':'disabled'}>Copy domains</button>
+        <button class="btn-ghost" onclick="lbCsv()" ${rows.length?'':'disabled'}>Export CSV</button>
+        ${lbTab==='kept'?`<button class="btn-sm" onclick="lbToOutreach()" ${rows.length?'':'disabled'}>Send to Outreach agent</button>`:''}
+      </div></div>
+    <div class="tbl-wrap"><table class="oa-table"><thead><tr>
+      <th><input type="checkbox" style="width:auto;margin:0;" ${allOn?'checked':''} onclick="lbSelectAll(this.checked)" aria-label="Select all"/></th>
+      ${lbTh('site','Site')}${lbTh('dr','DR')}${lbTh('traffic','Traffic')}${lbTh('count','Competitors')}${lbTh('relevance','Relevance')}<th>Write for us</th></tr></thead><tbody>
+      ${rows.map(x=>`<tr>
+        <td><input type="checkbox" style="width:auto;margin:0;" ${lbSel.has(x.domain)?'checked':''} onclick="lbSelect('${escAttr(x.domain)}',this.checked)"/></td>
+        <td><a class="oa-mono" style="color:var(--text);" href="https://${escAttr(x.domain)}" target="_blank" rel="noopener">${escapeHtml(x.domain)}</a>${x.reason?`<div class="oa-sub">${escapeHtml(x.reason)}</div>`:x.ai&&x.ai.why?`<div class="oa-sub">${escapeHtml(x.ai.why)}</div>`:''}</td>
+        <td>${lbNum(x.dr)}</td><td>${lbNum(x.traffic)}</td>
+        <td title="${escAttr((x.comps||[]).join(', '))}">${(x.comps||[]).length} of ${(j.picked||[]).length}</td>
+        <td>${x.ai&&x.ai.relevance!=null?`${x.ai.relevance}<div class="oa-sub">${escapeHtml(x.ai.type||'')}</div>`:x.toCheck&&!x.checked?'<span class="oa-help">Checking…</span>':'<span class="oa-help">—</span>'}</td>
+        <td>${x.writeForUs?`<a href="${escAttr(x.writeForUs)}" target="_blank" rel="noopener">Open</a>`:'<span class="oa-help">—</span>'}</td>
+      </tr>`).join('') || '<tr><td></td><td colspan="6" class="oa-help">Nothing here.</td></tr>'}
+    </tbody></table></div>`;
+  }
+  el.innerHTML = `<div class="oa-card-head" style="margin-bottom:var(--space-2);">
+      <div style="min-width:0;"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><span class="oa-mono" style="font-size:15px;color:var(--text);">${escapeHtml(j.client)}</span>${lbBadge(j.status)}</div>
+      ${j.niche?`<div class="oa-help" style="margin-top:4px;">${escapeHtml(j.niche)}</div>`:''}
+      <div class="oa-help" style="margin-top:2px;">${escapeHtml(reqLine)}${cu?.role==='admin'&&j.unitsSpent!=null?` · ${lbNum(j.unitsSpent)} Ahrefs units spent`:''}</div></div>
+      <button class="btn-ghost" onclick="lbDelete()">Delete</button>
+    </div>${body}`;
 }
 
 function initAgentPage(){

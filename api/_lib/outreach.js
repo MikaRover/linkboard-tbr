@@ -767,7 +767,14 @@ async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   // The outside timer: GET or POST /api/outreach?tick=1 with the secret.
   if (req.query && req.query.tick && isTickCall(req)) {
-    try { return res.json(await tick()); } catch (e) { return res.status(500).json({ error: String(e.message || e) }); }
+    try {
+      const t0 = Date.now();
+      const out = await tick();
+      // Spare time goes to AI Link Builder research left running with the page
+      // closed — kept short so the timer's 30s request limit is never hit.
+      if (Date.now() - t0 < 8000) out.linkBuilder = await require('./linkbuilder').tick(12000).catch(e => ({ error: String(e.message || e) }));
+      return res.json(out);
+    } catch (e) { return res.status(500).json({ error: String(e.message || e) }); }
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const user = await requireMember(req, res);
@@ -804,3 +811,4 @@ async function handler(req, res) {
 
 module.exports = handler;
 module.exports.trackAll = trackAll;
+module.exports.canUseAgent = canUseAgent;
