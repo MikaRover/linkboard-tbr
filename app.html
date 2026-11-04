@@ -1161,6 +1161,9 @@ a{text-underline-offset:2px;}
 .oa-site{display:flex;align-items:center;gap:10px;}
 .oa-fav{width:28px;height:28px;border-radius:7px;background:var(--bg4);color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;text-transform:uppercase;}
 .oa-tag{display:inline-block;margin-top:4px;padding:1px 7px;border-radius:var(--radius-sm);background:var(--bg4);color:var(--text2);font-size:11px;}
+.oa-mb-health{display:flex;flex-direction:column;gap:6px;}
+.oa-mb-health:empty{display:none;}
+.oa-mb-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;}
 .oa-fdot{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;vertical-align:middle;}
 .oa-color-menu{position:absolute;z-index:1500;display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-ctl);box-shadow:var(--elev);}
 .oa-swatch{width:18px;height:18px;border-radius:50%;border:0;padding:0;cursor:pointer;outline-offset:2px;}
@@ -9750,6 +9753,7 @@ async function oaLoadMailboxes(){
     </div>
     ${senders.filter(m=>m.provider!=='gmail').map(m=>`<div class="oa-help">${escapeHtml(m.email)} · Private Email${m.lastError?` · <span style="color:var(--red);">${escapeHtml(m.lastError)}</span>`:''} · <a href="#" onclick="event.preventDefault();oaDisconnectSmtp('${escAttr(m.id)}','${escAttr(m.email)}')">Disconnect</a></div>`).join('')}
     ${others.length?`<div class="oa-help">${others.map(m=>`<span style="color:${m.lastError?'var(--red)':'var(--text3)'};">${escapeHtml(m.email)} · ${m.lastError?'reconnect':'counting only'}</span>`).join(' · ')}</div>`:''}
+    <div id="oa-mb-health" class="oa-mb-health"></div>
     <div class="oa-help">One email every 4–5 minutes, up to ${oaLimit} a day per mailbox.</div>`
   : `<div class="oa-label" style="margin:0;">Send from</div>
     <div class="oa-help">Connect your Gmail and allow “Send email on your behalf”. Only drafts you approve are ever sent.</div>
@@ -9767,6 +9771,35 @@ async function oaLoadMailboxes(){
       <div class="oa-help">The password is checked with a real sign-in, then stored encrypted on the server. Emails go out from this mailbox and a copy is saved in its Sent folder.</div>
     </form>`);
   oaRenderStats();
+  oaRenderMailboxHealth();
+}
+// The picked mailbox's domain records (SPF / DKIM / DMARC) and bounce rate;
+// a mailbox paused for bounces can be resumed for 24 hours.
+const OA_DNS_HELP = {
+  spf: {missing:'No SPF record — add one that includes your mail provider', wrong:'SPF does not list your mail provider'},
+  dkim: {missing:'No DKIM key found — turn on DKIM signing in your mail provider'},
+  dmarc: {missing:'No DMARC record — add one (p=none is a fine start)', none:'DMARC is p=none: fine to start, stricter later'}
+};
+function oaRenderMailboxHealth(){
+  const el = document.getElementById('oa-mb-health'); if(!el) return;
+  const mb = oaMailboxes.find(m=>m.email===oaFrom());
+  if(!mb){ el.innerHTML = ''; return; }
+  const h = mb.health, b = mb.bounce;
+  const tag = (label, v, help) => {
+    const tone = v==='ok'||v==='reject'||v==='quarantine' ? 'green' : v==='missing' ? 'red' : 'amber';
+    return `<span class="oa-badge oa-b-${tone}" title="${escAttr(help||'')}">${label} ${v==='ok'?'ok':escapeHtml(v)}</span>`;
+  };
+  const dns = !h ? '' : h.managed ? `<span class="oa-help">Gmail address — Google handles SPF, DKIM and DMARC.</span>`
+    : `<span class="oa-help">${escapeHtml(h.domain)}:</span> ${tag('SPF', h.spf, OA_DNS_HELP.spf[h.spf]||'SPF lists '+(h.provider||'your provider'))} ${tag('DKIM', h.dkim, OA_DNS_HELP.dkim[h.dkim]||'DKIM key published')} ${tag('DMARC', h.dmarc==='ok'?'ok':h.dmarc, OA_DNS_HELP.dmarc[h.dmarc]||'DMARC policy '+h.dmarc)}`;
+  const bounce = !b ? '' : mb.paused
+    ? `<span style="color:var(--red);">Sending paused: ${b.pct}% of the last ${b.sent} emails bounced.</span> <button class="btn-ghost" style="padding:3px 10px;font-size:12px;" onclick="oaResumeMailbox('${escAttr(mb.id)}')">Resume for 24h</button>`
+    : `<span class="oa-help" title="Sending pauses at 5% bounces (20+ sent in ${b.days} days)">Bounces ${b.pct}% of ${b.sent} sent · ${b.days} days</span>`;
+  el.innerHTML = [dns, bounce].filter(Boolean).map(x=>`<div class="oa-mb-row">${x}</div>`).join('');
+}
+async function oaResumeMailbox(id){
+  if(!confirm('Resume sending from this mailbox for 24 hours?\n\nOnly do this after removing bad addresses — more bounces can get the mailbox flagged.')) return;
+  try{ await oaApi('mailbox-resume',{id}); showToast('Sending resumed for 24 hours'); oaLoadMailboxes(); }
+  catch(e){ showToast(e.message,'warn'); }
 }
 // Was this row sent from the mailbox picked in "Send from"? Matched by address,
 // or by mailbox id for rows sent before fromEmail was stored.
@@ -9819,7 +9852,7 @@ async function oaConnectSend(){
   }catch(e){ showToast(e.message,'warn'); }
 }
 function oaFrom(){ return document.getElementById('oa-from')?.value||''; }
-function oaFromChanged(){ if(oaMbFilter){ oaOpen = null; oaRender(); } else oaRenderStats(); }
+function oaFromChanged(){ if(oaMbFilter){ oaOpen = null; oaRender(); } else oaRenderStats(); oaRenderMailboxHealth(); }
 // Private Email mailboxes are admin-only (same check as the server's smtp-connect).
 function oaCanPrivateEmail(){ return cu?.role==='admin'; }
 // "Add mailbox": Gmail (Google sign-in) or Private Email (address + password).

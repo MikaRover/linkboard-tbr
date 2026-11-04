@@ -151,10 +151,76 @@ async function mailboxes(uid) {
   const counts = {};
   sentToday.docs.forEach(d => { const m = d.data().fromMailbox; if (m) counts[m] = (counts[m] || 0) + 1; });
   const smtp = await require('./mailsmtp').list(uid);
-  return [
-    ...snap.docs.map(d => ({ id: d.id, email: d.data().email, provider: 'gmail', canSend: !!d.data().canSend, lastError: d.data().lastError || null, sentToday: counts[d.id] || 0, limit: DAILY_LIMIT })),
-    ...smtp.map(c => ({ id: c.id, email: c.email, provider: c.provider, canSend: !!c.canSend, lastError: c.lastError || null, sentToday: counts[c.id] || 0, limit: DAILY_LIMIT }))
+  const list = [
+    ...snap.docs.map(d => ({ id: d.id, email: d.data().email, provider: 'gmail', canSend: !!d.data().canSend, lastError: d.data().lastError || null, sentToday: counts[d.id] || 0, limit: DAILY_LIMIT, resumeUntil: d.data().resumeUntil || 0 })),
+    ...smtp.map(c => ({ id: c.id, email: c.email, provider: c.provider, canSend: !!c.canSend, lastError: c.lastError || null, sentToday: counts[c.id] || 0, limit: DAILY_LIMIT, resumeUntil: c.resumeUntil || 0 }))
   ];
+  await Promise.all(list.filter(m => m.canSend).map(async m => {
+    const [health, bounce] = await Promise.all([domainHealth(m.email, m.provider), bounceStats(m.id)]);
+    Object.assign(m, { health, bounce, paused: isPaused(bounce, m.resumeUntil) });
+  }));
+  return list;
+}
+
+// ─── mailbox health ──────────────────────────────────────
+// 1) The sending domain's records: SPF must list the provider, DKIM must be
+//    published, DMARC should exist — the three things inbox providers check
+//    first. @gmail.com is Google's own domain and needs nothing.
+// 2) Bounce rate over the last 14 days: at 5% or more (20+ sent) the mailbox
+//    pauses itself, because a high bounce rate is what gets a mailbox flagged.
+//    Its owner can resume it for 24 hours after cleaning the list.
+const DNS_TTL_MS = 6 * 3600 * 1000;
+const dnsCache = new Map();
+const PROVIDER_SPF = { gmail: /_spf\.google\.com/i, privateemail: /spf\.privateemail\.com/i };
+const DKIM_SELECTOR = { gmail: 'google', privateemail: 'default' };
+const PROVIDER_LABEL = { gmail: 'Google', privateemail: 'Private Email' };
+async function txtRecords(name) {
+  try { return (await require('dns').promises.resolveTxt(name)).map(r => r.join('')); } catch (e) { return []; }
+}
+async function domainHealth(email, provider) {
+  const domain = String(email || '').split('@')[1]?.toLowerCase();
+  if (!domain) return null;
+  if (/^(gmail|googlemail)\.com$/.test(domain)) return { domain, managed: true };
+  const key = domain + '|' + provider;
+  const hit = dnsCache.get(key);
+  if (hit && Date.now() - hit.at < DNS_TTL_MS) return hit.data;
+  const [root, dmarc, dkim] = await Promise.all([
+    txtRecords(domain), txtRecords('_dmarc.' + domain), txtRecords(`${DKIM_SELECTOR[provider] || 'google'}._domainkey.${domain}`)
+  ]);
+  const spf = root.find(t => /^v=spf1/i.test(t));
+  const dm = dmarc.find(t => /^v=DMARC1/i.test(t));
+  const data = {
+    domain, provider: PROVIDER_LABEL[provider] || provider,
+    spf: !spf ? 'missing' : (PROVIDER_SPF[provider] && !PROVIDER_SPF[provider].test(spf) ? 'wrong' : 'ok'),
+    dkim: dkim.some(t => /v=DKIM1|p=/i.test(t)) ? 'ok' : 'missing',
+    dmarc: dm ? ((dm.match(/;\s*p=(\w+)/i) || [])[1] || 'ok').toLowerCase() : 'missing'
+  };
+  dnsCache.set(key, { at: Date.now(), data });
+  return data;
+}
+const BOUNCE_DAYS = 14, BOUNCE_MIN_SENT = 20, BOUNCE_PAUSE_PCT = 5;
+async function bounceStats(mbId) {
+  const since = Date.now() - BOUNCE_DAYS * DAY;
+  const snap = await db().collection(COLL).where('fromMailbox', '==', mbId).get();
+  const rows = snap.docs.map(d => d.data()).filter(x => (x.sentAt || 0) >= since && ['sent', 'replied', 'bounced'].includes(x.status));
+  const bounced = rows.filter(x => x.status === 'bounced').length;
+  return { sent: rows.length, bounced, pct: rows.length ? Math.round(bounced / rows.length * 1000) / 10 : 0, days: BOUNCE_DAYS };
+}
+const isPaused = (b, resumeUntil) => b.sent >= BOUNCE_MIN_SENT && b.pct >= BOUNCE_PAUSE_PCT && !((resumeUntil || 0) > Date.now());
+
+async function resumeMailbox(uid, { id }) {
+  const mbId = String(id || '');
+  for (const coll of ['gmailConnections', 'smtpConnections']) {
+    const ref = db().collection(coll).doc(mbId);
+    const d = await ref.get();
+    if (d.exists) {
+      if (d.data().ownerUid !== uid) break;
+      const until = Date.now() + DAY;
+      await ref.update({ resumeUntil: until });
+      return { ok: true, resumeUntil: until };
+    }
+  }
+  throw new Error('Mailbox not found');
 }
 
 async function accessTokenFor(mailbox) {
@@ -552,6 +618,8 @@ async function send(user, { id, email, from, fromName }) {
   const conn = gconn.exists ? gconn : { exists: !!sconn, data: () => sconn || {} };
   if (!conn.exists || conn.data().ownerUid !== user.uid) throw new Error('Pick one of your connected mailboxes');
   if (!conn.data().canSend) throw new Error('This mailbox is connected read-only — click "Connect Gmail for sending"');
+  const bounce = await bounceStats(mbId);
+  if (isPaused(bounce, conn.data().resumeUntil)) throw new Error(`Sending paused for this mailbox: ${bounce.pct}% of the last ${bounce.sent} emails bounced. Remove bad addresses, then click Resume.`);
 
   // Claim the row and a slot of today's quota in one transaction, so a double
   // click or two open tabs can never send twice or overshoot the limit.
@@ -812,6 +880,7 @@ async function handler(req, res) {
       case 'save': return res.json({ ids: await save(user.uid, b.items) });
       case 'delete': return res.json({ deleted: await remove(user.uid, b.ids) });
       case 'mailboxes': return res.json({ mailboxes: await mailboxes(user.uid), limit: DAILY_LIMIT });
+      case 'mailbox-resume': return res.json(await resumeMailbox(user.uid, b));
       case 'draft': return res.json(await draft(user.uid, b));
       case 'send': return res.json(await send(user, b));
       case 'queue': return res.json(await queueRows(user, b));
