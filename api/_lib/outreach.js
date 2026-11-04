@@ -29,6 +29,9 @@ const { getAdmin, decrypt, tokenRequest, gmailGet, mailboxId } = require('./gmai
 const COLL = 'outreachAgent';
 const DAY = 86400000;
 const DAILY_LIMIT = Math.max(1, parseInt(process.env.OUTREACH_DAILY_LIMIT, 10) || 30);
+// Each mailbox's owner can raise its own daily limit to one of these.
+const LIMIT_CHOICES = [30, 45, 60];
+const limitOf = c => LIMIT_CHOICES.includes(+((c && c.dailyLimit) || 0)) ? +c.dailyLimit : DAILY_LIMIT;
 const RECONTACT_DAYS = 90;   // never email the same address again within this window
 const TRACK_DAYS = 45;       // stop checking a thread for replies after this long
 const MAX_ROWS = 300;        // per save call
@@ -152,8 +155,8 @@ async function mailboxes(uid) {
   sentToday.docs.forEach(d => { const m = d.data().fromMailbox; if (m) counts[m] = (counts[m] || 0) + 1; });
   const smtp = await require('./mailsmtp').list(uid);
   const list = [
-    ...snap.docs.map(d => ({ id: d.id, email: d.data().email, provider: 'gmail', canSend: !!d.data().canSend, lastError: d.data().lastError || null, sentToday: counts[d.id] || 0, limit: DAILY_LIMIT, resumeUntil: d.data().resumeUntil || 0 })),
-    ...smtp.map(c => ({ id: c.id, email: c.email, provider: c.provider, canSend: !!c.canSend, lastError: c.lastError || null, sentToday: counts[c.id] || 0, limit: DAILY_LIMIT, resumeUntil: c.resumeUntil || 0 }))
+    ...snap.docs.map(d => ({ id: d.id, email: d.data().email, provider: 'gmail', canSend: !!d.data().canSend, lastError: d.data().lastError || null, sentToday: counts[d.id] || 0, limit: limitOf(d.data()), resumeUntil: d.data().resumeUntil || 0 })),
+    ...smtp.map(c => ({ id: c.id, email: c.email, provider: c.provider, canSend: !!c.canSend, lastError: c.lastError || null, sentToday: counts[c.id] || 0, limit: limitOf(c), resumeUntil: c.resumeUntil || 0 }))
   ];
   await Promise.all(list.filter(m => m.canSend).map(async m => {
     const [health, bounce] = await Promise.all([domainHealth(m.email, m.provider), bounceStats(m.id)]);
@@ -207,6 +210,21 @@ async function bounceStats(mbId) {
   return { sent: rows.length, bounced, pct: rows.length ? Math.round(bounced / rows.length * 1000) / 10 : 0, days: BOUNCE_DAYS };
 }
 const isPaused = (b, resumeUntil) => b.sent >= BOUNCE_MIN_SENT && b.pct >= BOUNCE_PAUSE_PCT && !((resumeUntil || 0) > Date.now());
+
+async function setMailboxLimit(uid, { id, limit }) {
+  limit = +limit;
+  if (!LIMIT_CHOICES.includes(limit)) throw new Error('Pick 30, 45 or 60');
+  for (const coll of ['gmailConnections', 'smtpConnections']) {
+    const ref = db().collection(coll).doc(String(id || ''));
+    const d = await ref.get();
+    if (d.exists) {
+      if (d.data().ownerUid !== uid) break;
+      await ref.update({ dailyLimit: limit });
+      return { ok: true, limit };
+    }
+  }
+  throw new Error('Mailbox not found');
+}
 
 async function resumeMailbox(uid, { id }) {
   const mbId = String(id || '');
@@ -674,7 +692,8 @@ async function send(user, { id, email, from, fromName }) {
     if (!['draft', 'failed'].includes(cur.data().status)) throw new Error('Already being sent');
     const sentToday = await tx.get(db().collection(COLL).where('sentDay', '==', day));
     const mine = sentToday.docs.filter(d => d.data().fromMailbox === mbId);
-    if (mine.length >= DAILY_LIMIT) throw new Error(`Daily limit reached for ${conn.data().email} (${DAILY_LIMIT}/day)`);
+    const limit = limitOf(conn.data());
+    if (mine.length >= limit) throw new Error(`Daily limit reached for ${conn.data().email} (${limit}/day)`);
     const last = Math.max(0, ...mine.map(d => d.data().sentAt || 0));
     const wait = last + MIN_GAP_MS - Date.now();
     if (wait > 0) throw new Error(`Wait ${Math.ceil(wait / 60000)} min before the next email from ${conn.data().email}`);
@@ -926,6 +945,7 @@ async function handler(req, res) {
       case 'delete': return res.json({ deleted: await remove(user.uid, b.ids) });
       case 'mailboxes': return res.json({ mailboxes: await mailboxes(user.uid), limit: DAILY_LIMIT });
       case 'mailbox-resume': return res.json(await resumeMailbox(user.uid, b));
+      case 'mailbox-limit': return res.json(await setMailboxLimit(user.uid, b));
       case 'send-test': return res.json(await sendTest(user, b));
       case 'draft': return res.json(await draft(user.uid, b));
       case 'send': return res.json(await send(user, b));
