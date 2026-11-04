@@ -1160,6 +1160,7 @@ a{text-underline-offset:2px;}
 .oa-edit td{background:var(--bg3);padding:0 10px 16px;}
 .oa-site{display:flex;align-items:center;gap:10px;}
 .oa-fav{width:28px;height:28px;border-radius:7px;background:var(--bg4);color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;text-transform:uppercase;}
+.oa-dom{color:inherit;text-decoration:none;}.oa-dom:hover{color:var(--accent2);text-decoration:underline;text-underline-offset:2px;}
 .oa-cat{display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--radius-sm);background:var(--bg4);color:var(--text3);font-size:10.5px;font-family:inherit;vertical-align:1px;}
 .oa-tag{display:inline-block;margin-top:4px;padding:1px 7px;border-radius:var(--radius-sm);background:var(--bg4);color:var(--text2);font-size:11px;}
 .oa-mb-health{display:flex;flex-direction:column;gap:6px;}
@@ -10312,7 +10313,7 @@ function oaRender(){
       const when = r.status==='sent'||r.status==='replied'||r.status==='bounced' ? (r.sentDay||'') : '';
       return `<tr class="oa-row ${open?'open':''} ${oaSelected.has(r.id)?'sel':''}" data-id="${escAttr(r.id)}" onclick="oaToggle('${escAttr(r.id)}',event)" oncontextmenu="oaCtx(event,'${escAttr(r.id)}')">
         <td onclick="event.stopPropagation()"><input type="checkbox" style="width:auto;margin:0;" ${oaSelected.has(r.id)?'checked':''} onclick="oaSelect('${escAttr(r.id)}',this.checked)"/></td>
-        <td><div class="oa-site"><span class="oa-fav">${escapeHtml((r.domain||'?').charAt(0))}</span><div style="min-width:0;"><div class="oa-mono" style="color:var(--text);">${escapeHtml(r.domain)}${r.category?` <span class="oa-cat" title="Site category${r.categoryBy==='hand'?' (set by hand)':''} — picks the template when “by site category” is on">${escapeHtml(r.category)}</span>`:''}</div>${r.note?`<div class="oa-sub">${escapeHtml(r.note)}</div>`:''}${!oaFolder&&r.folder?oaFolderTag(r.folder):''}</div></div></td>
+        <td><div class="oa-site"><span class="oa-fav">${escapeHtml((r.domain||'?').charAt(0))}</span><div style="min-width:0;"><div class="oa-mono" style="color:var(--text);">${/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(r.domain||'')?`<a class="oa-dom" href="https://${escAttr(r.domain)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Open ${escAttr(r.domain)} in a new tab">${escapeHtml(r.domain)}</a>`:escapeHtml(r.domain)}${r.category?` <span class="oa-cat" title="Site category${r.categoryBy==='hand'?' (set by hand)':''} — picks the template when “by site category” is on">${escapeHtml(r.category)}</span>`:''}</div>${r.note?`<div class="oa-sub">${escapeHtml(r.note)}</div>`:''}${!oaFolder&&r.folder?oaFolderTag(r.folder):''}</div></div></td>
         <td>${r.email
           ? `${r.name?`<div style="color:var(--text);font-weight:500;">${escapeHtml(r.name)}${r.title?` <span style="color:var(--text3);font-weight:400;">· ${escapeHtml(r.title)}</span>`:''}</div>`:''}<div class="oa-mono" style="${r.name?'color:var(--text2);margin-top:2px;':'color:var(--text);'}">${escapeHtml(r.email)}</div><div style="margin-top:5px;">${oaSmtpBadge(r.smtp)}</div>${oaSentFrom(r)?`<div class="oa-sub">Sent from ${escapeHtml(oaSentFrom(r))}</div>`:''}`
           : '<span style="color:var(--text3);">No contact found</span>'}</td>
