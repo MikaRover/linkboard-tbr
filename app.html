@@ -1738,6 +1738,7 @@ body.lbr-open{overflow:hidden;}
     <div style="display:flex;align-items:center;gap:12px;">
       <button class="btn-ghost" onclick="gotoPage('projects',[...document.querySelectorAll('.nav[onclick*=&quot;\'projects\'&quot;]')].find(n=>n.offsetParent!==null)||null)" style="padding:5px 10px;">← Back</button>
       <div class="page-title" id="pd-title">Project</div>
+      <button class="btn-ghost adm" onclick="renameProject()" style="padding:5px 10px;font-size:12px;" title="Rename this project everywhere in LinkBoard">Rename</button>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="btn-ghost" onclick="checkDetailProjectLinks(this)" style="white-space:nowrap;">▶ Check links</button>
@@ -3842,6 +3843,38 @@ function refreshProjectArchive(){
 async function toggleHideProject(id, currentlyHidden){
   await db.collection('projects').doc(id).update({ hidden: !currentlyHidden });
   showToast(currentlyHidden ? '👁 Project shown' : '🙈 Project hidden');
+}
+
+// Renames a project everywhere its name is stored: the project itself, its
+// links, monthly requirements, quality requirements, monthly plans and Domains
+// DB rows. Plans are keyed by name, so each one is re-saved under the new key.
+async function renameProject(){
+  const old = currentDetailProject;
+  const proj = allProjects.find(p=>p.name===old);
+  if(!proj) return;
+  const to = (prompt('New project name', old)||'').replace(/\s+/g,' ').trim();
+  if(!to || to===old) return;
+  if(allProjects.some(p=>p.id!==proj.id && p.name.toLowerCase()===to.toLowerCase())){ alert(`A project named “${to}” already exists.`); return; }
+  const q = c => db.collection(c).where('project','==',old).get();
+  let snaps;
+  try{ snaps = await Promise.all(['links','requirements','qualityRequirements','load','domains'].map(q)); }
+  catch(e){ alert('Could not read the project’s data: '+e.message); return; }
+  const [links, reqs, quality, loads, domains] = snaps;
+  if(!confirm(`Rename “${old}” to “${to}”?\n\n${links.size} links, ${reqs.size} requirements, ${loads.size} plan rows and ${domains.size} Domains DB rows move to the new name.\n\nIf the Google Sheet has a tab for this project, rename that tab too, so the sync keeps matching.`)) return;
+  const ops = [];
+  [links, reqs, quality, domains].forEach(sn=>sn.docs.forEach(d=>ops.push(b=>b.update(d.ref,{project:to}))));
+  loads.docs.forEach(d=>{
+    const x = d.data();
+    const id = `${x.year?x.year+'_':''}${x.month}_${to}_${x.builder}`.replace(/[^a-zA-Z0-9_-]/g,'_');
+    ops.push(b=>{ b.set(db.collection('load').doc(id), {...x, project:to}); if(id!==d.id) b.delete(d.ref); });
+  });
+  ops.push(b=>b.update(db.collection('projects').doc(proj.id),{name:to}));
+  try{
+    for(let i=0;i<ops.length;i+=200){ const b = db.batch(); ops.slice(i,i+200).forEach(f=>f(b)); await b.commit(); }
+    currentDetailProject = to;
+    document.getElementById('pd-title').textContent = to;
+    showToast(`Renamed to “${to}”`);
+  }catch(e){ alert('Rename stopped part-way: '+e.message+'\nRun it again with the same new name to finish.'); }
 }
 
 async function deleteProject(id,name){
