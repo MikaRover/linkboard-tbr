@@ -543,14 +543,14 @@ Answer with JSON only: {"versions": [{"subject": "...", "body": "..."}]}`;
 }
 
 // Exchange subjects: picked from this pool, free (no AI), never one the row
-// or the page used recently. Plain, one-person-to-another lines about the
-// site's blog — no "collab", "partnership", "content ideas for … readers",
-// "exchange", "links" or "SEO", which read as mass link outreach.
+// or the page used recently. They name the A-B-C collaboration plainly, in
+// many different shapes, so a batch doesn't repeat one subject line.
 const EXCHANGE_SUBJECTS = [
-  'question about your blog', 'quick question about {site}', 'your blog at {site}', 'an article idea for {site}',
-  'a topic for your blog', 'idea for your blog', 'who runs the blog at {site}?', 'saw your recent posts',
-  'about your blog', 'a quick idea', 'a question for you', 'hello from {sender}', '{site}',
-  'a writer for {site}?', 'one idea for {site}'
+  'A-B-C collaboration with {site}?', 'A-B-C collab idea for {site}', 'open to an A-B-C collaboration?',
+  'quick A-B-C idea for {site}', 'A-B-C content swap with {site}?', 'an A-B-C collaboration idea',
+  'A-B-C exchange with our SaaS partners', 'A-B-C collaboration: {site}', 'A-B-C collab, {site}?',
+  'question about an A-B-C collab', 'would {site} do an A-B-C collab?', 'A-B-C collaboration for your blog',
+  'an A-B-C idea for your blog', 'A-B-C swap with SaaS blogs', 'A-B-C collaboration, quick question'
 ];
 function pickSubject(pool, fill, row, avoid, senderName) {
   const used = new Set([row.subject, ...(Array.isArray(avoid) ? avoid : [])].map(x => oneLine(x).toLowerCase()));
