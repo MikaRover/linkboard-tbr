@@ -11466,6 +11466,78 @@ function initKPI(){
   renderKPI();
 }
 
+// One builder's month, from the KPI page: plan (Load) vs links brought, per
+// project, and the links themselves — so the card's numbers can be checked.
+function kpiOpenBuilder(name){
+  const month = document.getElementById('kpi-month')?.value, year = document.getElementById('kpi-year')?.value;
+  const same = (a,b) => String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();
+  const links = allLinks.filter(l=>same(l.builder,name) && linkMonthKey(l)===`${month} ${year}`).sort((a,b)=>parseDate(b.date)-parseDate(a.date));
+  const loads = allLoads.filter(l=>same(l.builder,name) && l.month===month && (+l.count||0)>0);
+  const st = l => (l.status||'').toLowerCase();
+  const target = loads.reduce((s,l)=>s+(+l.count||0),0);
+  const live = links.filter(l=>st(l)==='live').length, pend = links.filter(l=>st(l)==='pending').length;
+  const num = v => parseFloat(String(v||'').replace(/,/g,''))||0;
+  const avg = f => links.length ? Math.round(links.reduce((s,l)=>s+num(l[f]),0)/links.length) : 0;
+  const projects = [...new Set([...loads.map(l=>l.project), ...links.map(l=>l.project||'—')])];
+  const byProj = projects.map(p=>{
+    const pl = links.filter(l=>(l.project||'—')===p);
+    const t = loads.filter(l=>l.project===p).reduce((s,l)=>s+(+l.count||0),0);
+    return {p, t, n:pl.length, live:pl.filter(l=>st(l)==='live').length, pend:pl.filter(l=>st(l)==='pending').length};
+  }).sort((a,b)=>b.t-a.t||b.n-a.n);
+  const tile = (l,v,c) => `<div style="background:var(--bg3);border-radius:10px;padding:10px 12px;"><div style="font-size:11px;color:var(--text3);">${l}</div><div style="font-size:18px;font-weight:700;color:${c||'var(--text)'};font-variant-numeric:tabular-nums;">${v}</div></div>`;
+  let modal = document.getElementById('kpi-builder-modal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'kpi-builder-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;';
+    modal.onclick = e=>{ if(e.target===modal) modal.remove(); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:980px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--elev);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text);">${escapeHtml(name)} · ${escapeHtml(month)} ${escapeHtml(year)}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;">Plan from Load Distribution; links counted by their month (import month, else date).</div>
+        </div>
+        <button onclick="document.getElementById('kpi-builder-modal').remove()" aria-label="Close" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1;">×</button>
+      </div>
+      <div style="overflow:auto;padding:16px 22px 22px;display:flex;flex-direction:column;gap:18px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;">
+          ${tile('Brought / plan', `${links.length} / ${target||'—'}`)}
+          ${tile('Left to plan', target?Math.max(0,target-links.length):'—', target&&links.length<target?'var(--yellow)':'')}
+          ${tile('Live', `${live}${links.length?` (${Math.round(live/links.length*100)}%)`:''}`, 'var(--teal)')}
+          ${tile('Pending', pend, pend?'var(--yellow)':'')}
+          ${tile('Avg DR', avg('dr')||'—')}
+          ${tile('Avg traffic', avg('traffic')?avg('traffic').toLocaleString():'—')}
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">By project</div>
+          <table class="tbl" style="width:100%;"><thead><tr><th>Project</th><th style="text-align:center;">Plan</th><th style="text-align:center;">Brought</th><th style="text-align:center;">Live</th><th style="text-align:center;">Pending</th><th style="text-align:center;">Left</th></tr></thead><tbody>
+            ${byProj.map(r=>`<tr><td>${projTag(r.p)}</td><td style="text-align:center;">${r.t||'—'}</td><td style="text-align:center;font-weight:600;">${r.n}</td><td style="text-align:center;color:var(--teal);">${r.live}</td><td style="text-align:center;color:${r.pend?'var(--yellow)':'var(--text3)'};">${r.pend}</td><td style="text-align:center;color:${r.t&&r.n<r.t?'var(--yellow)':'var(--text3)'};">${r.t?Math.max(0,r.t-r.n):'—'}</td></tr>`).join('') || '<tr><td colspan="6" class="loading">No plan or links this month</td></tr>'}
+          </tbody></table>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">Links this month (${links.length})</div>
+          <table class="tbl" style="width:100%;"><thead><tr><th>Date</th><th>Domain</th><th>Project</th><th>Anchor</th><th style="text-align:center;">DR</th><th style="text-align:center;">Traffic</th><th>Status</th></tr></thead><tbody>
+            ${links.map(l=>`<tr>
+              <td style="color:var(--text3);font-size:11px;white-space:nowrap;">${dateCell(l.date)}</td>
+              <td><a href="https://${escAttr(nd(l.domain))}" target="_blank" rel="noopener" style="color:var(--teal);text-decoration:none;">${escapeHtml(l.domain||'')}</a></td>
+              <td>${projTag(l.project)}</td>
+              <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(l.anchor||'')}">${escapeHtml(l.anchor||'')}</td>
+              <td style="text-align:center;">${escapeHtml(String(l.dr||'—'))}</td>
+              <td style="text-align:center;">${num(l.traffic)?num(l.traffic).toLocaleString():'—'}</td>
+              <td>${st(l)==='live'?'<span style="color:var(--teal);">live</span>':st(l)==='pending'?'<span style="color:var(--yellow);">pending</span>':escapeHtml(l.status||'')}</td>
+            </tr>`).join('') || '<tr><td colspan="7" class="loading">No links this month</td></tr>'}
+          </tbody></table>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn-ghost" onclick="document.getElementById('kpi-builder-modal').remove();openBuilderLinks('${escAttr(name)}')">All ${escapeHtml(name)}'s links</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 function getKPIBadge(score){
   if(score >= 90) return {badge:'🏆 Top performer', cls:'top', color:'#ffd700'};
   if(score >= 70) return {badge:'✅ On track', cls:'ok', color:'var(--teal)'};
@@ -11610,7 +11682,7 @@ function renderKPI(){
     const rankEmoji = idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':`#${idx+1}`;
     const loadPct = b.loadTarget>0 ? Math.min(100,Math.round(b.links/b.loadTarget*100)) : null;
 
-    return `<div class="quota-card" style="border-color:color-mix(in srgb,${b.color} 14%,transparent);position:relative;overflow:hidden;">
+    return `<div class="quota-card" role="button" tabindex="0" onclick="kpiOpenBuilder('${escAttr(b.name)}')" onkeydown="if(event.key==='Enter')kpiOpenBuilder('${escAttr(b.name)}')" title="Open ${escAttr(b.name)}'s ${escAttr(month)} breakdown" style="cursor:pointer;border-color:color-mix(in srgb,${b.color} 14%,transparent);position:relative;overflow:hidden;">
       <div style="position:absolute;top:10px;right:12px;font-size:20px;">${rankEmoji}</div>
       <div style="font-size:16px;font-weight:800;color:${b.color};margin-bottom:6px;">${escapeHtml(b.name)}</div>
       <div style="font-size:11px;font-weight:700;color:${badgeColor};margin-bottom:10px;">${badge}</div>
@@ -11645,13 +11717,14 @@ function renderKPI(){
           <div style="font-weight:700;${t.traffic&&b.avgTraffic<t.traffic?'color:var(--red);':'color:var(--text);'}">${b.avgTraffic?Number(b.avgTraffic).toLocaleString():'—'}</div>
         </div>
       </div>
+      <button class="btn-ghost" style="width:100%;margin-top:10px;font-size:12px;padding:6px;" onclick="event.stopPropagation();kpiOpenBuilder('${escAttr(b.name)}')">Open details</button>
     </div>`;
   }).join('');
 
   // Table
   document.getElementById('kpi-tbody').innerHTML = builderStats.map(b=>{
     const {badge,color:badgeColor} = getKPIBadge(b.score);
-    return `<tr>
+    return `<tr style="cursor:pointer;" onclick="kpiOpenBuilder('${escAttr(b.name)}')" title="Open ${escAttr(b.name)}'s breakdown">
       <td style="font-weight:700;color:${b.color};">${escapeHtml(b.name)}</td>
       <td style="text-align:center;font-weight:700;">${b.links}</td>
       <td style="text-align:center;color:var(--text3);">${b.loadTarget||t.links||'—'}</td>
