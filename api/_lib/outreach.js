@@ -250,7 +250,26 @@ async function ownTemplates(uid) {
   return out;
 }
 async function getTemplates(uid) {
-  return { own: await ownTemplates(uid), team: TEMPLATE_SETS, limits: TPL_LIMITS, aiSubject: AI_SUBJECT_SETS };
+  const d = await db().collection(TPL_COLL).doc(uid).get();
+  return { own: await ownTemplates(uid), team: TEMPLATE_SETS, limits: TPL_LIMITS, aiSubject: AI_SUBJECT_SETS, folderColors: (d.exists && d.data().folderColors) || {} };
+}
+
+// Each person's client folders can carry a color label (kept with their templates, only they see it).
+const FOLDER_COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'gray'];
+async function saveFolderColor(uid, { folder, color }) {
+  const name = oneLine(folder).slice(0, 80);
+  if (!name) throw new Error('Pick a folder first');
+  if (color && !FOLDER_COLORS.includes(color)) throw new Error('Unknown color');
+  const ref = db().collection(TPL_COLL).doc(uid);
+  const colors = await db().runTransaction(async tx => {
+    const d = await tx.get(ref);
+    const map = { ...((d.exists && d.data().folderColors) || {}) };
+    if (color) map[name] = color; else delete map[name];
+    // update() replaces the whole map, so a removed color really goes (set+merge would keep it).
+    if (d.exists) tx.update(ref, { folderColors: map }); else tx.set(ref, { folderColors: map });
+    return map;
+  });
+  return { folderColors: colors };
 }
 // templates: [{subject, body}] — an empty list goes back to the team's set.
 async function saveTemplates(uid, { set, templates }) {
@@ -802,6 +821,7 @@ async function handler(req, res) {
       case 'verify': return res.json(await verify(user.uid, b.ids));
       case 'templates': return res.json(await getTemplates(user.uid));
       case 'templates-save': return res.json(await saveTemplates(user.uid, b));
+      case 'folder-color': return res.json(await saveFolderColor(user.uid, b));
       case 'templates-generate': return res.json(await templateVariations(b));
       case 'smtp-connect':
         // Private Email is the admin's own mailbox type; everyone else sends from Gmail.

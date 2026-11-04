@@ -1161,6 +1161,12 @@ a{text-underline-offset:2px;}
 .oa-site{display:flex;align-items:center;gap:10px;}
 .oa-fav{width:28px;height:28px;border-radius:7px;background:var(--bg4);color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;text-transform:uppercase;}
 .oa-tag{display:inline-block;margin-top:4px;padding:1px 7px;border-radius:var(--radius-sm);background:var(--bg4);color:var(--text2);font-size:11px;}
+.oa-fdot{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;vertical-align:middle;}
+.oa-color-menu{position:absolute;z-index:1500;display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-ctl);box-shadow:var(--elev);}
+.oa-swatch{width:18px;height:18px;border-radius:50%;border:0;padding:0;cursor:pointer;outline-offset:2px;}
+.oa-swatch.on{outline:2px solid var(--text);}
+.oa-swatch-none{background:none;border:0;color:var(--text2);font-size:12px;cursor:pointer;padding:2px 4px;border-radius:6px;}
+.oa-swatch-none.on{color:var(--text);background:var(--bg3);}
 .oa-subj{color:var(--text2);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .oa-empty{padding:48px 16px;text-align:center;color:var(--text2);font-size:13px;}
 .oa-empty b{display:block;color:var(--text);font-size:15px;font-weight:600;margin-bottom:4px;}
@@ -2470,8 +2476,10 @@ body.lbr-open{overflow:hidden;}
 
   <div class="card oa-list">
     <div class="oa-toolbar">
+      <span id="oa-folder-dot" class="oa-fdot" style="display:none;"></span>
       <select id="oa-folder" class="oa-select" onchange="oaSetFolder(this.value)" title="Client folder"></select>
       <button class="btn-ghost" onclick="oaNewFolder()">New folder</button>
+      <button class="btn-ghost" id="oa-folder-color" style="display:none;" onclick="oaFolderColorMenu(this)" title="Color label for this folder">Color</button>
       <button class="btn-ghost" id="oa-del-folder" style="display:none;" onclick="oaDeleteFolder()">Delete folder</button>
       <button class="btn-ghost" id="oa-sel-invalid" style="display:none;" onclick="oaSelectInvalid()" title="Select every address that failed verification, to delete them in one go">Select invalid</button>
       <div class="oa-tabs" id="oa-tabs"></div>
@@ -9614,7 +9622,9 @@ function oaTplLim(set){ return oaTpl?.limits?.[set||oaTplSet] || {min:1, max:5};
 function oaTplAiSubject(set){ return (oaTpl?.aiSubject||['exchange']).includes(set||oaTplSet); }
 async function oaLoadTemplates(){
   try{ oaTpl = await oaApi('templates'); }catch(e){ oaTpl = null; }
+  oaFolderColors = (oaTpl && oaTpl.folderColors) || {};
   oaTplSourceUi();
+  if(document.getElementById('oa-folder')) oaRender();
 }
 function oaTplSourceUi(){
   const el = document.getElementById('oa-tpl-source');
@@ -10182,7 +10192,7 @@ function oaRender(){
       const when = r.status==='sent'||r.status==='replied'||r.status==='bounced' ? (r.sentDay||'') : '';
       return `<tr class="oa-row ${open?'open':''} ${oaSelected.has(r.id)?'sel':''}" data-id="${escAttr(r.id)}" onclick="oaToggle('${escAttr(r.id)}',event)" oncontextmenu="oaCtx(event,'${escAttr(r.id)}')">
         <td onclick="event.stopPropagation()"><input type="checkbox" style="width:auto;margin:0;" ${oaSelected.has(r.id)?'checked':''} onclick="oaSelect('${escAttr(r.id)}',this.checked)"/></td>
-        <td><div class="oa-site"><span class="oa-fav">${escapeHtml((r.domain||'?').charAt(0))}</span><div style="min-width:0;"><div class="oa-mono" style="color:var(--text);">${escapeHtml(r.domain)}</div>${r.note?`<div class="oa-sub">${escapeHtml(r.note)}</div>`:''}${!oaFolder&&r.folder?`<span class="oa-tag">${escapeHtml(r.folder)}</span>`:''}</div></div></td>
+        <td><div class="oa-site"><span class="oa-fav">${escapeHtml((r.domain||'?').charAt(0))}</span><div style="min-width:0;"><div class="oa-mono" style="color:var(--text);">${escapeHtml(r.domain)}</div>${r.note?`<div class="oa-sub">${escapeHtml(r.note)}</div>`:''}${!oaFolder&&r.folder?oaFolderTag(r.folder):''}</div></div></td>
         <td>${r.email
           ? `${r.name?`<div style="color:var(--text);font-weight:500;">${escapeHtml(r.name)}${r.title?` <span style="color:var(--text3);font-weight:400;">· ${escapeHtml(r.title)}</span>`:''}</div>`:''}<div class="oa-mono" style="${r.name?'color:var(--text2);margin-top:2px;':'color:var(--text);'}">${escapeHtml(r.email)}</div><div style="margin-top:5px;">${oaSmtpBadge(r.smtp)}</div>${oaSentFrom(r)?`<div class="oa-sub">Sent from ${escapeHtml(oaSentFrom(r))}</div>`:''}`
           : '<span style="color:var(--text3);">No contact found</span>'}</td>
@@ -10191,6 +10201,37 @@ function oaRender(){
       </tr>${open?`<tr class="oa-edit"><td></td><td colspan="4">${oaEditor(r)}</td></tr>`:''}`;
     }).join('')}</tbody></table>`;
 }
+// ── folder color labels ──
+// Like Finder tags: each person can give their folders a color; it shows as a
+// dot by the folder picker and on the folder tag of every row.
+const OA_FOLDER_COLORS = {red:'#ff453a', orange:'#ff9f0a', yellow:'#ffd60a', green:'#32d74b', blue:'#0a84ff', purple:'#bf5af2', gray:'#8e8e93'};
+let oaFolderColors = {};
+function oaFolderTag(name){
+  const c = OA_FOLDER_COLORS[oaFolderColors[name]];
+  return `<span class="oa-tag"${c?` style="background:color-mix(in srgb,${c} 16%,transparent);color:var(--text);"`:''}>${c?`<span class="oa-fdot" style="background:${c};width:7px;height:7px;margin-right:5px;"></span>`:''}${escapeHtml(name)}</span>`;
+}
+function oaFolderColorMenu(btn){
+  document.getElementById('oa-color-menu')?.remove();
+  const cur = oaFolderColors[oaFolder] || '';
+  const m = document.createElement('div');
+  m.id = 'oa-color-menu'; m.className = 'oa-color-menu';
+  m.innerHTML = Object.entries(OA_FOLDER_COLORS).map(([k,c])=>`<button class="oa-swatch ${cur===k?'on':''}" style="background:${c};" title="${k}" aria-label="${k}" onclick="oaSetFolderColor('${k}')"></button>`).join('')
+    + `<button class="oa-swatch-none ${cur?'':'on'}" onclick="oaSetFolderColor('')">None</button>`;
+  const r = btn.getBoundingClientRect();
+  m.style.left = (r.left + window.scrollX) + 'px'; m.style.top = (r.bottom + window.scrollY + 6) + 'px';
+  document.body.appendChild(m);
+  setTimeout(()=>document.addEventListener('mousedown', function close(e){ if(!e.target.closest('#oa-color-menu')){ m.remove(); document.removeEventListener('mousedown', close); } }), 0);
+}
+async function oaSetFolderColor(color){
+  const f = oaFolder; document.getElementById('oa-color-menu')?.remove();
+  if(!f || f===OA_NO_FOLDER) return;
+  const prev = {...oaFolderColors};
+  if(color) oaFolderColors[f] = color; else delete oaFolderColors[f];
+  oaRender();
+  try{ const j = await oaApi('folder-color',{folder:f, color}); oaFolderColors = j.folderColors||oaFolderColors; }
+  catch(e){ oaFolderColors = prev; oaRender(); showToast(e.message,'warn'); }
+}
+
 // ── client folders ──
 // A folder is just a name on each row. Folders made with "New folder" that hold
 // no rows yet are remembered in this browser until something is put in them.
@@ -10210,7 +10251,11 @@ function oaRenderFolders(){
   document.getElementById('oa-move').innerHTML = `<option value="">Move selected to…</option>`
     + names.map(f=>`<option value="${escAttr(f)}">${escapeHtml(f)}</option>`).join('')
     + `<option value="${OA_NO_FOLDER}">No folder</option><option value="__new__">New folder…</option>`;
-  document.getElementById('oa-del-folder').style.display = oaFolder && oaFolder!==OA_NO_FOLDER ? '' : 'none';
+  const realFolder = oaFolder && oaFolder!==OA_NO_FOLDER;
+  document.getElementById('oa-del-folder').style.display = realFolder ? '' : 'none';
+  document.getElementById('oa-folder-color').style.display = realFolder ? '' : 'none';
+  const dot = document.getElementById('oa-folder-dot'), c = realFolder && OA_FOLDER_COLORS[oaFolderColors[oaFolder]];
+  dot.style.display = c ? '' : 'none'; if(c) dot.style.background = c;
   const note = document.getElementById('oa-folder-note');
   note.textContent = oaFolder && oaFolder!==OA_NO_FOLDER ? `New sites go into the “${oaFolder}” folder.` : 'New sites go into no folder. Pick a client folder below first to file them there.';
 }
@@ -10234,6 +10279,7 @@ async function oaDeleteFolder(){
     for(let i=0;i<ids.length;i+=300) await oaApi('save',{items:ids.slice(i,i+300).map(id=>({id, folder:''}))});
     ids.forEach(id=>{ const r = oaRow(id); if(r) r.folder = ''; });
     try{ const list = JSON.parse(localStorage.getItem('oa-folders')||'[]').filter(n=>n!==f); localStorage.setItem('oa-folders', JSON.stringify(list)); }catch(e){}
+    if(oaFolderColors[f]){ delete oaFolderColors[f]; oaApi('folder-color',{folder:f, color:''}).catch(()=>{}); }
     showToast(`Folder “${f}” deleted`);
     oaSetFolder('');
   }catch(e){ showToast(e.message,'warn'); oaRender(); }
