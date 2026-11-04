@@ -459,7 +459,11 @@ const EXCHANGE_SUBJECTS = [
 ];
 function pickSubject(pool, fill, row, avoid, senderName) {
   const used = new Set([row.subject, ...(Array.isArray(avoid) ? avoid : [])].map(x => oneLine(x).toLowerCase()));
-  const all = pool.filter(x => !(x.includes('{sender}') && !oneLine(senderName))).map(x => capFirst(fill(x)));
+  // Without a first name only the "Hi {name}" ones stay ("Hi there"); "{name}, open…" would read "There, open…".
+  const noName = !oneLine(row.firstName);
+  const all = pool.filter(x => !(x.includes('{sender}') && !oneLine(senderName)))
+    .filter(x => !(noName && x.includes('{name}') && !/^(hi|hey|hello) \{name\}/i.test(x)))
+    .map(x => capFirst(fill(x)));
   const fresh = all.filter(x => !used.has(x.toLowerCase()));
   return pick(fresh.length ? fresh : all);
 }
