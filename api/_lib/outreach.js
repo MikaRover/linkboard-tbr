@@ -297,6 +297,17 @@ const EXCHANGE_TEMPLATES = [
     body: "Hello {name},\n\nI wanted to reach out about a possible content partnership with {site}.\n\nHere's how we usually collaborate:\n\n• A-B-C content exchange with SaaS partners we already work with\n• Content we co-create to match your audience and editorial style\n\n{offer}Let me know if you'd like to see a few examples, and we can see if it's a good fit.\n\n{optout}\n\nBest regards,\n{signature}" }
 ];
 const TEMPLATE_SETS = { paid: PAID_TEMPLATES, exchange: EXCHANGE_TEMPLATES };
+// Paid (team templates): the subject is picked from this pool instead of the
+// template's own, never one used recently. They read like one person writing
+// to another — no "collaboration", "partnership", "paid", "SEO" or "links",
+// the words link-building filters learn — and many different subjects across
+// a batch avoid the identical-subject pattern spam filters look for.
+const PAID_SUBJECTS = [
+  'question about {site}', 'quick question about {site}', 'a question about {site}', 'one question about {site}',
+  'quick one about {site}', 'reaching out about {site}', 'writing for {site}', 'an article for {site}',
+  'an idea for {site}', 'content for {site}', 'who handles content at {site}?', 'is this the right inbox?',
+  'a short question', 'hello from {sender}', '{site}'
+];
 // The sites we can offer in an exchange, phrased a little differently per template.
 const OFFER_LINES = [
   'The sites we can offer are {list}.',
@@ -493,9 +504,15 @@ async function templateDraft(uid, ref, row, senderName, set, offer, signature, a
     .replace(/\{site\}/g, FREE_MAIL.test(row.domain) ? 'your site' : row.domain)
     .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
   const body = fill(t.body);
-  const subject = mixed
-    ? capFirst((await aiSubject(body, row.domain, avoidSubjects)) || fill(t.subject || pick(FALLBACK_SUBJECTS)))
-    : fill(t.subject);
+  let subject;
+  if (mixed) subject = capFirst((await aiSubject(body, row.domain, avoidSubjects)) || fill(t.subject || pick(FALLBACK_SUBJECTS)));
+  else if (set === 'paid' && !own) {
+    // Never the one the row already has or one of the page's recent subjects.
+    const used = new Set([row.subject, ...(Array.isArray(avoidSubjects) ? avoidSubjects : [])].map(x => oneLine(x).toLowerCase()));
+    const pool = PAID_SUBJECTS.filter(x => !(x.includes('{sender}') && !oneLine(senderName))).map(x => capFirst(fill(x)));
+    const fresh = pool.filter(x => !used.has(x.toLowerCase()));
+    subject = pick(fresh.length ? fresh : pool);
+  } else subject = capFirst(fill(t.subject));
   await ref.update({ subject, body, templateIdx: idx, templateSet: set, templateOwn: !!own, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
   return { subject, body, templateIdx: idx, templateSet: set, templateOwn: !!own };
 }
