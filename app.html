@@ -2179,7 +2179,7 @@ body.lbr-open{overflow:hidden;}
       </tr></thead>
       <tbody id="kpi-report-tbody"></tbody>
     </table></div>
-    <div style="padding:10px 1.25rem 14px;font-size:11px;color:var(--text3);">Counted by each link's date: links added in the selected month, and how many of them are live now.</div>
+    <div style="padding:10px 1.25rem 14px;font-size:11px;color:var(--text3);">Counted by each link's month (the month it was imported under, else its date): links of the selected month, and how many of them are live now.</div>
   </div>
   <!-- KPI Targets Settings -->
   <div class="card" style="max-width:700px;margin-bottom:1.5rem;">
@@ -11544,15 +11544,11 @@ function renderKPI(){
     'Rubik':'#8E8E93'
   };
 
-  // Filter links for this month+year
-  const filtered = allLinks.filter(l=>{
-    if(!l.date) return false;
-    const p = l.date.split(/[.\-\/]/);
-    if(p.length<3) return false;
-    const lMonth = MONTHS_EN[parseInt(p[1])-1];
-    const lYear = p[2].length===2?'20'+p[2]:p[2];
-    return lMonth===month && lYear===year;
-  });
+  // Links of this month+year, by the same month rule as All links and the
+  // requirements: the month a link was imported under ("October 2026"), else its
+  // date in any of the stored formats (dd/mm/yyyy, dd.mm.yy, yyyy-mm-dd).
+  const filtered = allLinks.filter(l=>linkMonthKey(l)===`${month} ${year}`);
+  const sameBuilder = (a,b) => String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();
 
   renderKPIReport(filtered,month,year);
 
@@ -11561,7 +11557,7 @@ function renderKPI(){
 
   // Per builder stats
   const builderStats = BUILDERS.map(b=>{
-    const bl = filtered.filter(l=>l.builder===b);
+    const bl = filtered.filter(l=>sameBuilder(l.builder,b));
     if(!bl.length) return null;
 
     const live = bl.filter(l=>l.status==='live').length;
@@ -11570,7 +11566,7 @@ function renderKPI(){
     const avgTraffic = bl.length>0 ? Math.round(bl.reduce((s,l)=>s+(parseFloat(String(l.traffic||'').replace(/,/g,''))||0),0)/bl.length) : 0;
 
     // Load target for this builder this month
-    const loadTarget = allLoads.filter(l=>l.builder===b&&l.month===month).reduce((s,l)=>s+l.count,0);
+    const loadTarget = allLoads.filter(l=>sameBuilder(l.builder,b)&&l.month===month).reduce((s,l)=>s+(+l.count||0),0);
 
     // Score calculation (0-100)
     let score = 0;
