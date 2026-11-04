@@ -574,12 +574,13 @@ Answer with JSON only: {"subject": "...", "body": "..."}`;
 function encodeHeader(s) {
   return /^[\x20-\x7e]*$/.test(s) ? s : '=?UTF-8?B?' + Buffer.from(s, 'utf8').toString('base64') + '?=';
 }
-function mimeText({ from, fromName, to, subject, body, messageId }) {
+function mimeText({ from, fromName, to, subject, body, messageId, extra }) {
   const lines = [
     `From: ${fromName ? encodeHeader(oneLine(fromName).replace(/["<>]/g, '')) + ' ' : ''}<${from}>`,
     `To: <${to}>`,
     `Subject: ${encodeHeader(oneLine(subject))}`,
     ...(messageId ? [`Message-ID: ${messageId}`, `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`] : []),
+    ...Object.entries(extra || {}).map(([k, v]) => `${k}: ${oneLine(v)}`),
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset=UTF-8',
     'Content-Transfer-Encoding: base64',
@@ -614,7 +615,7 @@ async function contactBlock(id, email, uid) {
 // so the test sees what recipients get. It is not outreach — the row's status,
 // the daily limit and the 90-day rule are untouched. Up to 10 a day per person.
 const TESTS_PER_DAY = 10;
-async function sendTest(user, { id, to, from, fromName }) {
+async function sendTest(user, { id, to, from, fromName, extra }) {
   const senderName = oneLine(fromName).slice(0, 60) || (/^admin$/i.test(user.name || '') ? '' : user.name);
   to = String(to || '').trim().toLowerCase();
   if (!isEmail(to)) throw new Error('Enter the test address');
@@ -639,19 +640,110 @@ async function sendTest(user, { id, to, from, fromName }) {
   const body = hasOptOut(row.body) ? row.body : row.body.trim() + '\n\n' + OPT_OUTS[0];
   if (sconn) {
     const messageId = `<${require('crypto').randomUUID()}@${sconn.email.split('@')[1]}>`;
-    await require('./mailsmtp').sendRaw(sconn, { to, raw: mimeText({ from: sconn.email, fromName: senderName, to, subject: row.subject, body, messageId }) });
+    await require('./mailsmtp').sendRaw(sconn, { to, raw: mimeText({ from: sconn.email, fromName: senderName, to, subject: row.subject, body, messageId, extra }) });
   } else {
     const access = await accessTokenFor(mbId);
     const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw: buildMime({ from: connData.email, fromName: senderName, to, subject: row.subject, body }) })
+      body: JSON.stringify({ raw: buildMime({ from: connData.email, fromName: senderName, to, subject: row.subject, body, extra }) })
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error((j.error && j.error.message) || ('Gmail HTTP ' + r.status));
   }
   await snap.ref.update({ lastTestTo: to, lastTestAt: Date.now() });
   return { ok: true, to, from: connData.email };
+}
+
+// ─── deliverability check ────────────────────────────────
+// Built in, no outside tester: (1) the draft's text scored against what spam
+// filters look at, (2) the sending domain's SPF / DKIM / DMARC and bounce
+// rate, (3) an inbox placement test — the draft goes to another Gmail of the
+// same person connected in LinkBoard, and the metadata scope (labels and
+// headers only, never the text) shows whether it landed in Inbox, Spam or
+// Promotions and what Gmail's own SPF / DKIM / DMARC verdict was.
+const SPAM_PHRASES = ['free', 'guarantee', 'guaranteed', '100%', 'act now', 'limited time', 'click here', 'buy now', 'risk-free', 'risk free',
+  'no obligation', 'winner', 'cash', 'earn money', 'make money', 'cheap', 'discount', 'urgent', 'special offer', 'best price', 'dear friend',
+  'congratulations', 'increase your traffic', 'increase traffic', 'rank #1', 'first page of google', 'seo services', 'lowest price', 'order now',
+  'once in a lifetime', 'exclusive deal', 'amazing', 'incredible', 'no cost', 'bonus', 'credit card', 'double your', 'apply now'];
+const LINK_PHRASES = ['dofollow', 'do-follow', 'do follow', 'link insertion', 'sponsored post', 'paid post', 'paid link', 'buy links', 'link exchange'];
+const SHORTENERS = /\b(bit\.ly|tinyurl\.com|goo\.gl|t\.co|ow\.ly|is\.gd|buff\.ly|rebrand\.ly|cutt\.ly|shorturl\.at)\//i;
+function contentCheck(subject, body) {
+  subject = String(subject || ''); body = String(body || '');
+  const issues = []; let pen = 0;
+  const add = (p, level, text) => { pen += p; issues.push({ level, text }); };
+  const found = (text, list) => list.filter(w => new RegExp('(^|[^a-z0-9])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z0-9])', 'i').test(text));
+  if (!subject.trim()) add(3, 'bad', 'Subject is empty');
+  if (subject.length > 70) add(1, 'warn', `Subject is long (${subject.length} characters) — keep it under 60`);
+  if (/!/.test(subject)) add(1, 'warn', 'Exclamation mark in the subject');
+  if (/^\s*(re|fwd?)\s*:/i.test(subject)) add(2, 'bad', 'Subject starts with "Re:" / "Fwd:" on a first email — filters treat this as deceptive');
+  if ((subject.match(/\b[A-Z]{4,}\b/g) || []).length) add(1, 'warn', 'Words in CAPITALS in the subject');
+  const sw = found(subject, SPAM_PHRASES);
+  if (sw.length) add(2, 'bad', `Spam-trigger words in the subject: ${sw.join(', ')}`);
+  const words = (body.match(/\S+/g) || []).length;
+  if (words < 35) add(1, 'warn', `Body is very short (${words} words)`);
+  if (words > 250) add(1, 'warn', `Body is long (${words} words) — cold emails do best under 150`);
+  const links = body.match(/https?:\/\/\S+|www\.\S+/gi) || [];
+  if (links.length > 2) add(1.5, 'warn', `${links.length} links — keep a first email to 1 or none`);
+  else if (links.length) issues.push({ level: 'ok', text: `${links.length} link${links.length > 1 ? 's' : ''} — fine` });
+  if (SHORTENERS.test(body)) add(2, 'bad', 'Link shortener (bit.ly etc.) — a strong spam signal; use the full address');
+  const bw = found(body, SPAM_PHRASES);
+  if (bw.length) add(Math.min(3, bw.length * 0.5), 'warn', `Spam-trigger words: ${bw.join(', ')}`);
+  const lw = found(body + ' ' + subject, LINK_PHRASES);
+  if (lw.length) add(Math.min(2, lw.length), 'warn', `Paid-link wording filters watch for: ${lw.join(', ')} — say it in plain words or leave it for the reply`);
+  if ((body.match(/\b[A-Z]{4,}\b/g) || []).length > 2) add(1, 'warn', 'Several words in CAPITALS');
+  if (/!!|\?\?/.test(body) || (body.match(/!/g) || []).length > 3) add(1, 'warn', 'Too many exclamation marks');
+  if (/[$€£]\s?\d/.test(body)) add(0.5, 'warn', 'A price in the first email — better left for the reply');
+  if (/\{\{?\s*\w+\s*\}?\}|\[(first ?name|name|website|site|company)\]/i.test(body + subject)) add(3, 'bad', 'Unfilled placeholder like {name} or [Name]');
+  if (!hasOptOut(body)) issues.push({ level: 'ok', text: 'No opt-out line — one is added automatically when it is sent' });
+  if (!issues.some(i => i.level !== 'ok')) issues.unshift({ level: 'ok', text: 'No spam signals found in the text' });
+  return { score: Math.max(0, Math.round((10 - pen) * 10) / 10), words, links: links.length, issues };
+}
+
+async function deliverability(user, { id, from, fromName, seed }) {
+  const snap = await db().collection(COLL).doc(String(id || '')).get();
+  if (!snap.exists || snap.data().ownerUid !== user.uid) throw new Error('Row not found');
+  const row = snap.data();
+  if (!row.subject || !row.body) throw new Error('Write the draft first');
+  const content = contentCheck(row.subject, row.body);
+  const mbId = mailboxId(from);
+  const gconn = await db().collection('gmailConnections').doc(mbId).get();
+  const sconn = gconn.exists ? null : await require('./mailsmtp').get(mbId);
+  const conn = gconn.exists ? gconn.data() : sconn;
+  if (!conn || conn.ownerUid !== user.uid) throw new Error('Pick one of your connected mailboxes');
+  const [health, bounce] = await Promise.all([domainHealth(conn.email, gconn.exists ? 'gmail' : conn.provider), bounceStats(mbId)]);
+  const out = { content, health, bounce, from: conn.email };
+  if (seed) {
+    const sd = await db().collection('gmailConnections').doc(String(seed)).get();
+    if (!sd.exists || sd.data().ownerUid !== user.uid) throw new Error('Pick one of your own Gmail mailboxes as the test inbox');
+    if (sd.id === mbId) throw new Error('The test inbox must be a different mailbox than the sender');
+    const token = require('crypto').randomUUID();
+    await sendTest(user, { id, to: sd.data().email, from, fromName, extra: { 'X-LB-Test': token } });
+    Object.assign(out, { token, seed: sd.id, seedEmail: sd.data().email, sentAt: Date.now() });
+  }
+  return out;
+}
+
+// Looks for the test message in the test inbox's newest mail (Spam included).
+async function placement(user, { seed, token }) {
+  const sd = await db().collection('gmailConnections').doc(String(seed || '')).get();
+  if (!sd.exists || sd.data().ownerUid !== user.uid) throw new Error('Test inbox not found');
+  if (!/^[0-9a-f-]{36}$/i.test(String(token || ''))) throw new Error('Bad test id');
+  const access = await accessTokenFor(sd.id);
+  const list = await gmailGet('messages?maxResults=15&includeSpamTrash=true', access);
+  for (const m of list.messages || []) {
+    const msg = await gmailGet(`messages/${m.id}?format=metadata&metadataHeaders=X-LB-Test&metadataHeaders=Authentication-Results`, access);
+    const hs = (msg.payload && msg.payload.headers) || [];
+    if (!hs.some(h => /^x-lb-test$/i.test(h.name) && h.value.trim() === token)) continue;
+    const labels = msg.labelIds || [];
+    const folder = labels.includes('SPAM') ? 'spam' : labels.includes('TRASH') ? 'trash'
+      : labels.includes('CATEGORY_PROMOTIONS') ? 'promotions' : labels.includes('CATEGORY_SOCIAL') ? 'social'
+      : labels.includes('CATEGORY_UPDATES') ? 'updates' : labels.includes('INBOX') ? 'inbox' : 'other';
+    const ar = hs.filter(h => /^authentication-results$/i.test(h.name)).map(h => h.value).join(' ');
+    const verdict = k => ((ar.match(new RegExp('\\b' + k + '=(\\w+)', 'i')) || [])[1] || '').toLowerCase() || null;
+    return { found: true, folder, auth: { spf: verdict('spf'), dkim: verdict('dkim'), dmarc: verdict('dmarc') } };
+  }
+  return { found: false };
 }
 
 async function send(user, { id, email, from, fromName }) {
@@ -946,7 +1038,9 @@ async function handler(req, res) {
       case 'mailboxes': return res.json({ mailboxes: await mailboxes(user.uid), limit: DAILY_LIMIT });
       case 'mailbox-resume': return res.json(await resumeMailbox(user.uid, b));
       case 'mailbox-limit': return res.json(await setMailboxLimit(user.uid, b));
-      case 'send-test': return res.json(await sendTest(user, b));
+      case 'send-test': return res.json(await sendTest(user, { ...b, extra: undefined }));
+      case 'deliverability': return res.json(await deliverability(user, b));
+      case 'placement': return res.json(await placement(user, b));
       case 'draft': return res.json(await draft(user.uid, b));
       case 'send': return res.json(await send(user, b));
       case 'queue': return res.json(await queueRows(user, b));

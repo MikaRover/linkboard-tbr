@@ -10411,6 +10411,7 @@ function oaEditor(r){
       <button class="btn-ghost" onclick="oaDraft('${id}',this)">${v('body')?(oaIsTemplate()?'Next version':'Rewrite with AI'):'Write draft'}</button>
       <button class="btn-ghost" onclick="oaSaveRow('${id}',this)">Save</button>
       <button class="btn-ghost" onclick="oaSendTest('${id}',this)" ${v('subject')&&v('body')?'':'disabled'} title="Send this exact email to a test address (e.g. mail-tester.com) — not counted as outreach">Send test</button>
+      <button class="btn-ghost" onclick="oaDeliverability('${id}',this)" ${v('subject')&&v('body')?'':'disabled'} title="Spam score of this draft, the sending domain's SPF / DKIM / DMARC, and an inbox placement test">Check deliverability</button>
       ${r.status==='skipped'?`<button class="btn-ghost" onclick="oaSetStatus('${id}','${r.subject&&r.body?'draft':'found'}')">Include anyway</button>`:`<button class="btn-ghost" onclick="oaSetStatus('${id}','skipped')">Skip</button>`}
       <span class="oa-help">${r.source?'Found via '+escapeHtml(r.source):''}</span>
     </div></div>`;
@@ -10526,6 +10527,99 @@ async function oaSendTest(id, btn){
     showToast(`Test sent to ${to}`);
   }catch(e){ showToast(e.message,'warn'); }
   btn.disabled = false; btn.textContent = orig;
+}
+// ── Deliverability check ──
+// Built in: the draft's spam score, the sender's DNS and bounces, and an inbox
+// placement test into another of your own Gmail mailboxes (LinkBoard reads only
+// that message's labels and headers there).
+let oaDlv = null, oaDlvTimer = null;
+async function oaDeliverability(id, btn){
+  if(oaEdits[id] && !(await oaSaveRow(id, null, true))) return;
+  const from = oaFrom();
+  if(!from){ showToast('Connect a mailbox for sending first','warn'); return; }
+  const orig = btn ? btn.textContent : ''; if(btn){ btn.disabled = true; btn.textContent = 'Checking…'; }
+  try{
+    const r = await oaApi('deliverability',{id, from, fromName:oaSenderName()});
+    oaDlv = {id, from, r, test:null};
+    oaDlvRender();
+  }catch(e){ showToast(e.message,'warn'); }
+  if(btn){ btn.disabled = false; btn.textContent = orig; }
+}
+function oaDlvClose(){ clearTimeout(oaDlvTimer); oaDlvTimer = null; oaDlv = null; document.getElementById('oa-dlv-modal')?.remove(); }
+function oaDlvSeeds(){ const fromMb = oaMailboxes.find(m=>m.email===oaDlv.from); return oaMailboxes.filter(m=>m.provider==='gmail' && m.id!==(fromMb&&fromMb.id) && m.email!==oaDlv.from); }
+async function oaDlvRunPlacement(){
+  const sel = document.getElementById('oa-dlv-seed'); if(!sel || !oaDlv) return;
+  const seed = sel.value;
+  try{ localStorage.setItem('oa-dlv-seed', seed); }catch(e){}
+  oaDlv.test = {state:'sending'}; oaDlvRender();
+  try{
+    const r = await oaApi('deliverability',{id:oaDlv.id, from:oaDlv.from, fromName:oaSenderName(), seed});
+    oaDlv.test = {state:'waiting', seed:r.seed, seedEmail:r.seedEmail, token:r.token, started:Date.now()};
+    oaDlvRender(); oaDlvPoll(4000);
+  }catch(e){ oaDlv.test = {state:'error', msg:e.message}; oaDlvRender(); }
+}
+function oaDlvPoll(ms){
+  clearTimeout(oaDlvTimer);
+  oaDlvTimer = setTimeout(async ()=>{
+    const t = oaDlv && oaDlv.test; if(!t || t.state!=='waiting') return;
+    try{
+      const r = await oaApi('placement',{seed:t.seed, token:t.token});
+      if(!oaDlv || oaDlv.test!==t) return;
+      if(r.found){ Object.assign(t, {state:'done', folder:r.folder, auth:r.auth}); oaDlvRender(); return; }
+    }catch(e){}
+    if(!oaDlv || oaDlv.test!==t) return;
+    if(Date.now()-t.started > 120000){ t.state = 'timeout'; oaDlvRender(); return; }
+    oaDlvRender(); oaDlvPoll(5000);
+  }, ms);
+}
+function oaDlvRender(){
+  if(!oaDlv) return;
+  const {r, test:t} = oaDlv, c = r.content, h = r.health, b = r.bounce;
+  const tone = v => v==='green' ? 'var(--teal)' : v==='red' ? 'var(--red)' : 'var(--yellow)';
+  const dot = lvl => `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:8px;flex-shrink:0;margin-top:6px;background:${tone(lvl==='ok'?'green':lvl==='bad'?'red':'amber')};"></span>`;
+  const sTone = c.score>=8.5 ? 'green' : c.score>=6.5 ? 'amber' : 'red';
+  const head = (title, right) => `<div style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 8px;"><div style="font-size:13px;font-weight:600;color:var(--text);">${title}</div>${right||''}</div>`;
+  const box = inner => `<div style="background:var(--bg3);border-radius:10px;padding:14px 16px;margin-bottom:12px;">${inner}</div>`;
+  const issues = c.issues.map(i=>`<div style="display:flex;font-size:13px;color:var(--text2);line-height:1.5;padding:2px 0;">${dot(i.level)}<span>${escapeHtml(i.text)}</span></div>`).join('');
+  const contentBox = box(head('Text', `<span style="font-size:20px;font-weight:700;color:${tone(sTone)};">${c.score}<span style="font-size:12px;color:var(--text3);font-weight:500;"> / 10</span></span>`)
+    + `<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">${c.words} words · ${c.links} link${c.links===1?'':'s'}</div>` + issues);
+  const tag = (label, v) => { const ok = v==='ok'||v==='reject'||v==='quarantine'||v==='pass'; const bad = v==='missing'||v==='fail'||v==='softfail'||v==='wrong'; return `<span class="oa-badge oa-b-${ok?'green':bad?'red':'amber'}">${label} ${escapeHtml(v||'none')}</span>`; };
+  const dns = !h ? '<span class="oa-help">No DNS data</span>' : h.managed ? '<span class="oa-help">Gmail address — Google handles SPF, DKIM and DMARC.</span>'
+    : `<div class="oa-help" style="margin-bottom:6px;">${escapeHtml(h.domain)}</div>${tag('SPF',h.spf)} ${tag('DKIM',h.dkim)} ${tag('DMARC',h.dmarc)}`;
+  const bLine = b ? `<div style="font-size:12px;color:${b.sent>=20&&b.pct>=5?'var(--red)':b.pct>=2?'var(--yellow)':'var(--text3)'};margin-top:8px;">Bounces ${b.pct}% of ${b.sent} sent in ${b.days} days${b.pct>=2&&b.sent?' — clean the list (Verify) before sending more':''}</div>` : '';
+  const domainBox = box(head('Sender · '+escapeHtml(r.from)) + dns + bLine);
+  const seeds = oaDlvSeeds();
+  let saved = ''; try{ saved = localStorage.getItem('oa-dlv-seed')||''; }catch(e){}
+  const FOLDER = {inbox:['Inbox','green','Landed in the main inbox.'], promotions:['Promotions','amber','Landed in the Promotions tab — delivered, but less likely to be read. Fewer links and a more personal tone help.'], updates:['Updates','amber','Landed in the Updates tab.'], social:['Social','amber','Landed in the Social tab.'], spam:['Spam','red','Landed in Spam — do not send this draft as it is. Fix the text issues above, check SPF / DKIM / DMARC, and test again.'], trash:['Trash','red','Was moved to Trash.'], other:['Archived','amber','Delivered, but not in the inbox (a filter may have archived it).']};
+  let pl;
+  if(!seeds.length){
+    pl = `<div style="font-size:13px;color:var(--text2);line-height:1.5;">To test where the email lands, connect a second Gmail of yours (a personal @gmail.com works best) with <b>Connect Gmail</b> under Send from. It is used only as a test inbox: LinkBoard reads only the test message's folder and headers there.</div>`;
+  } else {
+    const busy = t && (t.state==='sending'||t.state==='waiting');
+    const picker = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><select id="oa-dlv-seed" style="margin:0;width:auto;font-size:13px;padding:6px 10px;" ${busy?'disabled':''}>${seeds.map(m=>`<option value="${escAttr(m.id)}" ${m.id===(t&&t.seed||saved)?'selected':''}>${escapeHtml(m.email)}</option>`).join('')}</select><button class="btn-sm" onclick="oaDlvRunPlacement()" ${busy?'disabled':''}>${t&&t.state==='done'?'Test again':'Send to test inbox'}</button></div>`;
+    const sameDomain = (()=>{ const sel = seeds.find(m=>m.id===(t&&t.seed||saved))||seeds[0]; return sel && sel.email.split('@')[1]===r.from.split('@')[1]; })();
+    let res = '';
+    if(t && t.state==='sending') res = `<div class="oa-help" style="margin-top:10px;">Sending the test…</div>`;
+    else if(t && t.state==='waiting') res = `<div class="oa-help" style="margin-top:10px;">Sent to ${escapeHtml(t.seedEmail)} — waiting for it to arrive (${Math.round((Date.now()-t.started)/1000)}s)…</div>`;
+    else if(t && t.state==='error') res = `<div style="margin-top:10px;font-size:13px;color:var(--red);">${escapeHtml(t.msg)}</div>`;
+    else if(t && t.state==='timeout') res = `<div style="margin-top:10px;font-size:13px;color:var(--text2);">Not found in ${escapeHtml(t.seedEmail)} after 2 minutes. Look for it there yourself — if it's not even in Spam, Gmail rejected it.</div>`;
+    else if(t && t.state==='done'){
+      const f = FOLDER[t.folder]||FOLDER.other, a = t.auth||{};
+      res = `<div style="margin-top:12px;display:flex;align-items:center;gap:10px;"><span style="font-size:18px;font-weight:700;color:${tone(f[1])};">${f[0]}</span><span>${tag('SPF',a.spf)} ${tag('DKIM',a.dkim)} ${tag('DMARC',a.dmarc)}</span></div><div style="font-size:13px;color:var(--text2);margin-top:6px;line-height:1.5;">${f[2]}${a.spf&&a.dkim&&a.dmarc&&[a.spf,a.dkim,a.dmarc].every(x=>x==='pass')?' Gmail confirmed SPF, DKIM and DMARC.':' Gmail did not confirm every check — see the badges.'}</div>`;
+    }
+    pl = `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5;">Sends this draft to another of your Gmail mailboxes and shows which folder it landed in. Counts as one of your 10 tests a day; not outreach.${sameDomain?' Same domain as the sender — mail inside one company is treated more kindly, so a personal @gmail.com gives a truer result.':''}</div>` + picker + res;
+  }
+  const placeBox = box(head('Inbox placement') + pl);
+  let modal = document.getElementById('oa-dlv-modal');
+  if(!modal){
+    modal = document.createElement('div'); modal.id = 'oa-dlv-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;';
+    modal.onclick = e=>{ if(e.target===modal) oaDlvClose(); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:620px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--elev);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);"><div style="font-size:15px;font-weight:700;color:var(--text);">Deliverability check</div><button class="btn-ghost" onclick="oaDlvClose()">Close</button></div>
+    <div style="padding:16px 20px;overflow:auto;">${contentBox}${domainBox}${placeBox}</div></div>`;
 }
 async function oaSendOne(id, btn){
   if(oaEdits[id] && !(await oaSaveRow(id, null, true))) return;
