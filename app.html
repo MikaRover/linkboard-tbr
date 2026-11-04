@@ -11491,6 +11491,52 @@ function initKPI(){
   renderKPI();
 }
 
+// Why a pending link is still pending: no page URL to check, or what the last
+// automatic / manual check found (blocked, link not on the page yet…).
+const kpiCheckable = l => /^https?:\/\//i.test(String(l.linkin||'').trim()) && !!l.linkto;
+function kpiPendingWhy(l){
+  if(!kpiCheckable(l)) return `<div class="oa-sub" style="color:var(--text3);">No page URL — can’t be checked</div>`;
+  const res = l.pendingCheck || l.linkcheck || '';
+  const at = l.pendingCheckedAt && l.pendingCheckedAt.toDate ? l.pendingCheckedAt.toDate() : null;
+  if(!res && !at) return `<div class="oa-sub" style="color:var(--text3);">Not checked yet</div>`;
+  return `<div class="oa-sub" style="color:var(--text3);" title="${escAttr(res)}">${escapeHtml(String(res).replace(/^[^\p{L}\p{N}]+/u,'').slice(0,60)||'Checked')}${at?' · '+at.toLocaleDateString([], {month:'short', day:'numeric'}):''}</div>`;
+}
+function kpiPendingSummary(pending){
+  const noUrl = pending.filter(l=>!kpiCheckable(l)).length;
+  const blocked = pending.filter(l=>kpiCheckable(l) && /block/i.test(l.pendingCheck||l.linkcheck||'')).length;
+  return [noUrl?`${noUrl} pending link${noUrl>1?'s have':' has'} no page URL`:'', blocked?`${blocked} blocked the checker`:''].filter(Boolean).join(' · ');
+}
+// Checks every pending link of this builder's month now, the same check as
+// Re-check elsewhere: found on the page → live, page or link gone → lost.
+async function kpiRecheckPending(name, btn){
+  const month = document.getElementById('kpi-month')?.value, year = document.getElementById('kpi-year')?.value;
+  const same = (a,b) => String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();
+  const todo = allLinks.filter(l=>same(l.builder,name) && linkMonthKey(l)===`${month} ${year}` && (l.status||'').toLowerCase()==='pending' && kpiCheckable(l));
+  if(!todo.length){ showToast('No pending link here has a page URL to check','warn'); return; }
+  btn.disabled = true;
+  let done = 0, live = 0, lost = 0;
+  let next = 0;
+  const worker = async ()=>{
+    while(next < todo.length){
+      const l = todo[next++];
+      try{
+        const resp = await fetch('/api/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({linkIn:l.linkin,linkTo:l.linkto,anchor:l.anchor||''})});
+        const data = await resp.json();
+        const payload = linkCheckUpdatePayload(data);
+        if(payload.status==='live') live++; else if(payload.status==='lost') lost++;
+        else payload.pendingCheck = (data&&data.result)||'';
+        payload.pendingCheckedAt = firebase.firestore.FieldValue.serverTimestamp();
+        await db.collection('links').doc(l.id).update(payload);
+        Object.assign(l, payload, {pendingCheckedAt:{toDate:()=>new Date()}});
+      }catch(e){}
+      done++; btn.textContent = `Checking ${done}/${todo.length}…`;
+    }
+  };
+  await Promise.all(Array.from({length:Math.min(4, todo.length)}, worker));
+  showToast(`${todo.length} checked · ${live} now live${lost?` · ${lost} lost`:''}`);
+  kpiOpenBuilder(name);
+}
+
 // One builder's month, from the KPI page: plan (Load) vs links brought, per
 // project, and the links themselves — so the card's numbers can be checked.
 function kpiOpenBuilder(name){
@@ -11552,12 +11598,16 @@ function kpiOpenBuilder(name){
               <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(l.anchor||'')}">${escapeHtml(l.anchor||'')}</td>
               <td style="text-align:center;">${escapeHtml(String(l.dr||'—'))}</td>
               <td style="text-align:center;">${num(l.traffic)?num(l.traffic).toLocaleString():'—'}</td>
-              <td>${st(l)==='live'?'<span style="color:var(--teal);">live</span>':st(l)==='pending'?'<span style="color:var(--yellow);">pending</span>':escapeHtml(l.status||'')}</td>
+              <td>${st(l)==='live'?'<span style="color:var(--teal);">live</span>':st(l)==='pending'?'<span style="color:var(--yellow);">pending</span>'+kpiPendingWhy(l):escapeHtml(l.status||'')}</td>
             </tr>`).join('') || '<tr><td colspan="7" class="loading">No links this month</td></tr>'}
           </tbody></table>
         </div>
-        <div style="display:flex;justify-content:flex-end;gap:8px;">
-          <button class="btn-ghost" onclick="document.getElementById('kpi-builder-modal').remove();openBuilderLinks('${escAttr(name)}')">All ${escapeHtml(name)}'s links</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span class="oa-help" id="kpi-recheck-note">${pend?kpiPendingSummary(links.filter(l=>st(l)==='pending')):''}</span>
+          <div style="display:flex;gap:8px;">
+            ${pend?`<button class="btn-sm" style="width:auto;" onclick="kpiRecheckPending('${escAttr(name)}',this)">Re-check pending (${pend})</button>`:''}
+            <button class="btn-ghost" onclick="document.getElementById('kpi-builder-modal').remove();openBuilderLinks('${escAttr(name)}')">All ${escapeHtml(name)}'s links</button>
+          </div>
         </div>
       </div>
     </div>`;
