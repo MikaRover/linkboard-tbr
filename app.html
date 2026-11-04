@@ -1975,6 +1975,7 @@ body.lbr-open{overflow:hidden;}
     <div class="page-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:9px;vertical-align:-4px;">
       <path d="M5 20V10M12 20V4M19 20v-7"/></svg>Load Distribution</div>
     <div style="display:flex;gap:8px;">
+      <button class="btn-ghost" onclick="openPlanImport()" style="white-space:nowrap;" title="Paste each builder's plan from the doc">Import from doc</button>
       <button class="btn-sm" onclick="fillByCapacity()" style="white-space:nowrap;width:auto;" title="Fill each builder to exactly their monthly capacity">Fill by capacity</button>
       <button class="btn-ghost" onclick="exportLoadCSV()" style="white-space:nowrap;">⬇ Export CSV</button>
       <button class="btn-ghost" onclick="initLoadPage()" style="white-space:nowrap;" title="Reload saved data from Firebase">↻ Refresh</button>
@@ -1998,6 +1999,10 @@ body.lbr-open{overflow:hidden;}
             <option>July</option><option>August</option><option>September</option>
             <option>October</option><option>November</option><option>December</option>
           </select>
+        </div>
+        <div style="min-width:100px;">
+          <div class="section-label">Year</div>
+          <select id="load-year" style="margin:0;" onchange="renderLoadTable()"></select>
         </div>
         <div style="flex:2;min-width:200px;">
           <div class="section-label">Builders</div>
@@ -6569,6 +6574,26 @@ async function dfApplyFormat(){
   catch(e){ btn.disabled=false; btn.textContent='Apply all '+items.length; alert('Error: '+e.message); }
 }
 
+// Monthly plans (the 'load' collection) are saved per month AND year; older
+// ones carry only the month. For one builder and month, plans saved for that
+// year win, and month-only ones count only when the builder has none for it —
+// so last year's October never mixes into this October.
+const planName = n => String(n||'').trim().toLowerCase();
+function planRows(month, year, builder){
+  year = String(year || new Date().getFullYear());
+  const byB = new Map();
+  allLoads.forEach(l=>{
+    if(l.month!==month || (builder!=null && planName(l.builder)!==planName(builder))) return;
+    const k = planName(l.builder);
+    if(!byB.has(k)) byB.set(k, []);
+    byB.get(k).push(l);
+  });
+  const out = [];
+  byB.forEach(list=>{ const y = list.filter(l=>String(l.year||'')===year); out.push(...(y.length ? y : list.filter(l=>!l.year))); });
+  return out;
+}
+const planTotal = rows => rows.reduce((s,l)=>s+(+l.count||0),0);
+
 function openBuilderLinks(name){
   const bl = allLinks.filter(l=>{
     const lb=(l.builder||'').trim().toLowerCase();
@@ -6709,7 +6734,7 @@ function renderTeam(){
       // This month's assigned load + done
       const curMonthName = MONTHS_EN[new Date().getMonth()];
       const curYr = new Date().getFullYear();
-      const assignedLoad = (typeof allLoads!=='undefined'?allLoads:[]).filter(l=>l.builder===r.name && l.month===curMonthName).reduce((s,l)=>s+(l.count||0),0);
+      const assignedLoad = planTotal(planRows(curMonthName, curYr, r.name));
       const doneThisMonth = bl.filter(l=>{
         if((l.status||'').toLowerCase()!=='live') return false;
         if(!l.date) return false;
@@ -11472,7 +11497,7 @@ function kpiOpenBuilder(name){
   const month = document.getElementById('kpi-month')?.value, year = document.getElementById('kpi-year')?.value;
   const same = (a,b) => String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();
   const links = allLinks.filter(l=>same(l.builder,name) && linkMonthKey(l)===`${month} ${year}`).sort((a,b)=>parseDate(b.date)-parseDate(a.date));
-  const loads = allLoads.filter(l=>same(l.builder,name) && l.month===month && (+l.count||0)>0);
+  const loads = planRows(month, year, name).filter(l=>(+l.count||0)>0);
   const st = l => (l.status||'').toLowerCase();
   const target = loads.reduce((s,l)=>s+(+l.count||0),0);
   const live = links.filter(l=>st(l)==='live').length, pend = links.filter(l=>st(l)==='pending').length;
@@ -11638,7 +11663,7 @@ function renderKPI(){
     const avgTraffic = bl.length>0 ? Math.round(bl.reduce((s,l)=>s+(parseFloat(String(l.traffic||'').replace(/,/g,''))||0),0)/bl.length) : 0;
 
     // Load target for this builder this month
-    const loadTarget = allLoads.filter(l=>sameBuilder(l.builder,b)&&l.month===month).reduce((s,l)=>s+(+l.count||0),0);
+    const loadTarget = planTotal(planRows(month, year, b));
 
     // Score calculation (0-100)
     let score = 0;
@@ -11865,8 +11890,8 @@ function renderAnalytics(){
     // Load target for period
     const months = [...new Set(bLinks.map(l=>getMonthKey(l.date)).filter(m=>m!=='Unknown'))];
     const target = months.reduce((s,m)=>{
-      const mo = m.split(' ')[0];
-      return s + allLoads.filter(l=>l.builder===b&&l.month===mo).reduce((ss,l)=>ss+l.count,0);
+      const [mo, yr] = m.split(' ');
+      return s + planTotal(planRows(mo, yr, b));
     },0);
 
     return `<div class="quota-card" style="cursor:pointer;" onclick="openBuilderModal('${escAttr(b)}')">
@@ -12137,7 +12162,6 @@ function openBuilderModal(builderName){
   });
 
   // Get load assignments for this builder
-  const myLoads = allLoads.filter(l=>l.builder===builderName);
 
   // Sort months descending
   const sortedMonths = Object.keys(byMonth).sort((a,b)=>{
@@ -12153,7 +12177,7 @@ function openBuilderModal(builderName){
     const pendCnt = links.filter(l=>l.status==='pending').length;
 
     // Load targets for this month
-    const monthLoads = myLoads.filter(l=>l.month===month.split(' ')[0]);
+    const monthLoads = planRows(month.split(' ')[0], month.split(' ')[1], builderName);
     const totalTarget = monthLoads.reduce((s,l)=>s+l.count,0);
     const pct = totalTarget>0 ? Math.min(100,Math.round(links.length/totalTarget*100)) : 0;
     const color2 = links.length>=totalTarget&&totalTarget>0 ? 'var(--teal)' : links.length>0 ? 'var(--yellow)' : 'var(--border)';
@@ -12304,6 +12328,11 @@ function initLoadPage(){
   captureLoadFilterState();
   const monthSel = document.getElementById('load-month');
   if(monthSel) monthSel.value = MONTHS_EN[new Date().getMonth()];
+  const yearSel = document.getElementById('load-year');
+  if(yearSel && !yearSel.options.length){
+    const y = new Date().getFullYear();
+    yearSel.innerHTML = [y-1, y, y+1].map(v=>`<option ${v===y?'selected':''}>${v}</option>`).join('');
+  }
 
   // Builder checkboxes — union of BUILDERS array + all capacity keys
   const wrap = document.getElementById('load-builder-checks');
@@ -12382,9 +12411,10 @@ function renderLoadTable(){
 
   // Fill saved values from Firebase allLoads
   const month = document.getElementById('load-month').value;
+  const year = document.getElementById('load-year')?.value;
   projects.forEach(proj=>{
     builders.forEach(b=>{
-      const saved = allLoads.find(l=>l.month===month&&l.project===proj&&l.builder===b);
+      const saved = planRows(month, year, b).find(l=>l.project===proj);
       if(saved&&saved.count){
         const cell = document.getElementById(`load-cell-${proj.replace(/[^a-zA-Z0-9_-]/g,'_')}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
         if(cell) cell.value = saved.count;
@@ -12628,8 +12658,127 @@ function exportLoadCSV(){
   a.click();
 }
 
+// ── Import the monthly plan from the doc ──
+// One line per builder, as the doc has it:
+//   Lusine  29  Renderforest 20:5, Ampaway 10:2, OTP.Dev 5:2
+// name, the stated total, then "Project <n>:<links>" items; the number after
+// ":" is the link count. Project names match LinkBoard's ignoring case, spaces
+// and dots; a near miss (Electives / Elecitves) is matched and flagged, an
+// unknown project is shown and skipped.
+let planImport = null;
+const planKey = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function planEditDistance(a, b){
+  const d = Array.from({length:a.length+1}, (_,i)=>[i, ...Array(b.length).fill(0)]);
+  for(let j=1;j<=b.length;j++) d[0][j] = j;
+  for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++)
+    d[i][j] = Math.min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return d[a.length][b.length];
+}
+function planMatchProject(raw){
+  const k = planKey(raw);
+  const names = allProjects.map(p=>p.name);
+  const exact = names.find(n=>planKey(n)===k);
+  if(exact) return {name:exact, near:false};
+  let best = null, bestD = 99;
+  names.forEach(n=>{ const d = planEditDistance(planKey(n), k); if(d<bestD){ best = n; bestD = d; } });
+  return best && k.length>=4 && bestD<=2 ? {name:best, near:true} : null;
+}
+function planMatchBuilder(raw){
+  const known = [...new Set([...BUILDERS, ...Object.keys(allCapacities||{})])];
+  return known.find(b=>planName(b)===planName(raw)) || raw.trim();
+}
+function parsePlan(text){
+  return String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(line=>{
+    const m = line.match(/^(.+?)[\t ]+(\d+)[\t ]+(.+)$/);
+    if(!m) return {line, error:'Expected: name, total, then projects'};
+    const items = m[3].split(',').map(x=>x.trim()).filter(Boolean).map(it=>{
+      const im = it.match(/^(.*?)\s*(?:(\d+)\s*:\s*)?(\d+)\s*$/);
+      if(!im || !im[1]) return {raw:it, error:'not understood'};
+      return {raw:im[1].trim(), first:im[2]?+im[2]:null, count:+im[3], match:planMatchProject(im[1])};
+    });
+    return {line, builder:planMatchBuilder(m[1]), stated:+m[2], items};
+  });
+}
+function openPlanImport(){
+  const month = document.getElementById('load-month').value, year = document.getElementById('load-year')?.value || String(new Date().getFullYear());
+  planImport = {month, year, rows:[]};
+  let modal = document.getElementById('plan-import-modal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'plan-import-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;';
+    modal.onclick = e=>{ if(e.target===modal) modal.remove(); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:900px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--elev);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);">
+      <div><div style="font-size:16px;font-weight:700;color:var(--text);">Import plan · ${escapeHtml(month)} ${escapeHtml(year)}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px;">Paste the doc’s rows, one builder per line. The number after “:” is the link count.</div></div>
+      <button onclick="document.getElementById('plan-import-modal').remove()" aria-label="Close" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div style="overflow:auto;padding:16px 22px 22px;display:flex;flex-direction:column;gap:14px;">
+      <textarea id="plan-import-text" rows="6" style="width:100%;margin:0;font-family:var(--font-mono);font-size:12px;line-height:1.5;" placeholder="Lusine	29	Renderforest 20:5, Ampaway 10:2, OTP.Dev 5:2" oninput="planImportPreview()"></textarea>
+      <div id="plan-import-preview"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span class="oa-help" id="plan-import-note">Each builder in the paste gets exactly this plan for ${escapeHtml(month)} ${escapeHtml(year)}; their other projects that month are set to 0. Builders not in the paste are not touched.</span>
+        <button class="btn-sm" id="plan-import-save" onclick="savePlanImport()" disabled style="width:auto;">Save plan</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('plan-import-text').focus();
+}
+function planImportPreview(){
+  const rows = parsePlan(document.getElementById('plan-import-text').value);
+  planImport.rows = rows;
+  const chip = it => it.error ? `<span class="oa-badge oa-b-red" title="${escAttr(it.raw)}">${escapeHtml(it.raw)} · ${escapeHtml(it.error)}</span>`
+    : !it.match ? `<span class="oa-badge oa-b-red" title="Not a LinkBoard project — skipped">${escapeHtml(it.raw)} · ${it.count} · not found</span>`
+    : it.match.near ? `<span class="oa-badge oa-b-amber" title="Close match">${escapeHtml(it.raw)} → ${escapeHtml(it.match.name)} · ${it.count}</span>`
+    : `<span class="oa-badge oa-b-neutral">${escapeHtml(it.match.name)} · ${it.count}</span>`;
+  const ok = rows.filter(r=>!r.error && r.items.some(i=>i.match));
+  document.getElementById('plan-import-preview').innerHTML = rows.length ? `<table class="tbl" style="width:100%;"><thead><tr><th>Builder</th><th style="text-align:center;">Doc total</th><th style="text-align:center;">Imported</th><th>Projects</th></tr></thead><tbody>
+    ${rows.map(r=>{
+      if(r.error) return `<tr><td colspan="4" style="color:var(--red);font-size:12px;">${escapeHtml(r.line.slice(0,80))} — ${escapeHtml(r.error)}</td></tr>`;
+      const sum = r.items.filter(i=>i.match).reduce((s,i)=>s+i.count,0);
+      const known = BUILDERS.some(b=>planName(b)===planName(r.builder)) || (allCapacities&&Object.keys(allCapacities).some(b=>planName(b)===planName(r.builder)));
+      return `<tr><td style="font-weight:600;">${escapeHtml(r.builder)}${known?'':' <span class="oa-badge oa-b-amber">new name</span>'}</td>
+        <td style="text-align:center;">${r.stated}</td>
+        <td style="text-align:center;color:${sum===r.stated?'var(--teal)':'var(--yellow)'};" title="${sum===r.stated?'Matches the doc total':'Differs from the doc total'}">${sum}${sum===r.stated?'':' ≠'}</td>
+        <td style="display:flex;flex-wrap:wrap;gap:4px;">${r.items.map(chip).join('')}</td></tr>`;
+    }).join('')}</tbody></table>` : '';
+  document.getElementById('plan-import-save').disabled = !ok.length;
+}
+async function savePlanImport(){
+  const {month, year, rows} = planImport;
+  const ok = rows.filter(r=>!r.error && r.items.some(i=>i.match));
+  if(!ok.length) return;
+  if(!confirm(`Save the ${month} ${year} plan for ${ok.map(r=>r.builder).join(', ')}?`)) return;
+  const btn = document.getElementById('plan-import-save'); btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    const batch = db.batch();
+    ok.forEach(r=>{
+      const counts = new Map();
+      r.items.filter(i=>i.match).forEach(i=>counts.set(i.match.name, (counts.get(i.match.name)||0) + i.count));
+      // Every other project this builder had a plan for this month goes to 0,
+      // so a capacity fill or last year's plan can't linger next to the doc's.
+      planRows(month, year, r.builder).forEach(l=>{ if(!counts.has(l.project)) counts.set(l.project, 0); });
+      allLoads.filter(l=>l.month===month && !l.year && planName(l.builder)===planName(r.builder)).forEach(l=>{ if(!counts.has(l.project)) counts.set(l.project, 0); });
+      counts.forEach((count, project)=>{
+        const docId = `${year}_${month}_${project}_${r.builder}`.replace(/[^a-zA-Z0-9_-]/g,'_');
+        batch.set(db.collection('load').doc(docId), {month, year, project, builder:r.builder, count, source:'doc', updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      });
+    });
+    await batch.commit();
+    document.getElementById('plan-import-modal').remove();
+    showToast(`${month} ${year} plan saved for ${ok.length} builder${ok.length>1?'s':''}`);
+    const ms = document.getElementById('load-month'), ys = document.getElementById('load-year');
+    if(ms) ms.value = month; if(ys) ys.value = year;
+    setTimeout(renderLoadTable, 600);
+  }catch(e){ btn.disabled = false; btn.textContent = 'Save plan'; showToast(e.message,'warn'); }
+}
+
 async function saveLoad(){
   const month = document.getElementById('load-month').value;
+  const year = document.getElementById('load-year')?.value || String(new Date().getFullYear());
   const builders = getSelectedBuilders();
   const selectedProjects = Array.from(document.querySelectorAll('#load-project-checks input:checked')).map(c=>c.value);
   const okEl = document.getElementById('load-ok');
@@ -12647,9 +12796,9 @@ async function saveLoad(){
       const cell = document.getElementById(`load-cell-${proj.replace(/[^a-zA-Z0-9_-]/g,'_')}-${b.replace(/[^a-zA-Z0-9_-]/g,'_')}`);
       const val = parseInt(cell?.value)||0;
       // Save even 0 to allow clearing
-      const docId = `${month}_${proj}_${b}`.replace(/[^a-zA-Z0-9_-]/g,'_');
+      const docId = `${year}_${month}_${proj}_${b}`.replace(/[^a-zA-Z0-9_-]/g,'_');
       batch.set(db.collection('load').doc(docId), {
-        month, project:proj, builder:b, count:val,
+        month, year, project:proj, builder:b, count:val,
         updatedAt:firebase.firestore.FieldValue.serverTimestamp()
       });
       count++;
@@ -12723,7 +12872,7 @@ function renderBuilderDashboard(){
 
   // Load assignments from 'load' collection for this builder this month
   const builderName=cu.name||myName;
-  const myLoads=allLoads.filter(l=>l.month===curMonth&&l.builder===builderName&&l.count>0);
+  const myLoads=planRows(curMonth, curYear, builderName).filter(l=>l.count>0);
 
   // Overall monthly total — so the builder knows how many links they must build this month
   const totalTarget = myLoads.reduce((s,l)=>s+(l.count||0),0);
