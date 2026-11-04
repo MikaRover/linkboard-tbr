@@ -87,7 +87,103 @@ function clean(item) {
   ['subject', 'body', 'name', 'firstName', 'title', 'note', 'skipReason'].forEach(k => { if (out[k] !== undefined) out[k] = String(out[k] || '').slice(0, k === 'body' ? 6000 : 300); });
   if (out.folder !== undefined) out.folder = oneLine(out.folder).slice(0, 80);
   if (item.status !== undefined && CLIENT_STATUSES.includes(item.status)) out.status = item.status;
+  if (item.category !== undefined && SITE_CATEGORIES.includes(item.category)) Object.assign(out, { category: item.category, categoryBy: 'hand' });
   return out;
+}
+
+// ─── site category ───────────────────────────────────────
+// Free — no AI: the homepage's structure (dated, bylined article lists, RSS,
+// schema.org types, pricing / sign-up / cart / services links) plus its
+// wording decide Magazine, SaaS, Service or General; a parked or empty page is
+// Other. The category then picks the template on the page: Magazine / Service
+// / General → Paid, SaaS → Exchange.
+const SITE_CATEGORIES = ['SaaS', 'Service', 'Magazine', 'General', 'Other'];
+const CAT_PATHS = ['', '/pricing', '/plans', '/integrations', '/services'];
+// Free site classifier: page structure + wording. pages: [{path, html}] (path '' = homepage).
+function classifySite(pages, domain) {
+  const home = pages.find(p => p.path === '') || pages[0];
+  if (!home) return { category: 'Other' };
+  const strip = h => h.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<svg[\s\S]*?<\/svg>/gi, ' ');
+  const H = strip(home.html);
+  const text = H.replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&amp;/gi, ' ').replace(/\s+/g, ' ').toLowerCase();
+  if (text.length < 150 || /domain (is )?for sale|buy this domain|parked free|this domain may be for sale/i.test(text)) return { category: 'Other' };
+  const host = domain.replace(/^www\./, '');
+  const hrefs = [...home.html.matchAll(/href=["']([^"'#]+)["']/gi)].map(m => m[1].toLowerCase())
+    .filter(h => h.startsWith('/') || h.includes(host));
+  const cnt = re => hrefs.filter(h => re.test(h)).length;
+  const uniq = re => new Set(hrefs.filter(h => re.test(h))).size;
+  const ld = [...home.html.matchAll(/"@type"\s*:\s*\[?\s*"([A-Za-z]+)"/g)].map(m => m[1]);
+  const hasLd = re => ld.some(t => re.test(t));
+  const kw = list => list.filter(k => new RegExp('(^|[^a-z])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z])').test(text)).length;
+  const has = p => pages.some(x => x.path === p);
+  const lim = (n, max) => Math.min(n, max);
+
+  // Publishing: the homepage itself is a list of dated, bylined articles.
+  const articles = (H.match(/<article\b/gi) || []).length;
+  const times = (H.match(/<time\b[^>]*datetime/gi) || []).length;
+  const postLinks = uniq(/\/(category|tag|author|topics?)\/[^/]+/) ;
+  const dated = uniq(/\/20\d\d\/\d\d\//);
+  const bylines = (text.match(/\bby [a-z][a-z.'-]+ [a-z][a-z.'-]+/g) || []).length;
+  const ago = (text.match(/\b\d+ (minutes?|hours?|days?) ago\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}, 20\d\d\b/g) || []).length;
+  let mag = lim(articles, 20) * 0.6 + lim(times, 20) * 0.5 + lim(postLinks, 30) * 0.4 + lim(dated, 20) * 0.6 + lim(bylines, 15) * 0.5 + lim(ago, 15) * 0.6
+    + (/application\/(rss|atom)\+xml/i.test(home.html) ? 2 : 0)
+    + (hasLd(/^(NewsMediaOrganization|NewsArticle|BlogPosting|Blog|Article|ReportageNewsArticle)$/) ? 4 : 0)
+    + kw(['latest news', 'latest articles', 'latest posts', 'recent posts', 'editor\'s picks', 'editors picks', 'trending', 'read more', 'write for us', 'advertise with us', 'newsletter', 'subscribe', 'editorial', 'magazine']) * 0.8;
+  if (/(news|times|herald|tribune|journal|daily|gazette|blog|magazine|digest|post)\b/.test(host.split('.')[0])) mag += 3;
+
+  // Software product: pricing + sign-up / log-in into an app.
+  const pricing = cnt(/\/(pricing|plans)(\/|$|\?)/) > 0;
+  const signup = cnt(/\/(signup|sign-up|register|get-started|start|trial|free-trial|demo|book-a-demo)(\/|$|\?)|\/\/(app|dashboard|my|account|login|auth)\./) ;
+  const login = cnt(/\/(login|log-in|signin|sign-in)(\/|$|\?)/);
+  let saas = (pricing ? 4 : 0) + (has('/pricing') || has('/plans') ? 2 : 0) + (has('/integrations') ? 3 : 0) + lim(signup, 4) + (login ? 2 : 0)
+    + (hasLd(/^(SoftwareApplication|WebApplication|MobileApplication)$/) ? 5 : 0)
+    + kw(['free trial', 'start free', 'try for free', 'try it free', 'get started free', 'sign up free', 'no credit card required', 'book a demo', 'request a demo', 'get a demo', 'integrations', 'api', 'platform', 'software', 'dashboard', 'automate', 'workflow', 'cancel anytime', 'per month', '/mo', 'per user']) * 1.2;
+
+  // Agency / services: people doing work for clients.
+  let service = (has('/services') ? 3 : 0) + lim(uniq(/\/services?\/[^/]+/), 8) * 0.6
+    + (hasLd(/^(ProfessionalService|LocalBusiness|LegalService|AccountingService|HomeAndConstructionBusiness|MedicalBusiness)$/) ? 3 : 0)
+    + kw(['our services', 'our clients', 'case studies', 'case study', 'get a quote', 'request a quote', 'free consultation', 'book a call', 'schedule a call', 'agency', 'consulting', 'consultancy', 'we help', 'hire us', 'work with us', 'our team', 'proposal', 'contact us', 'results']) * 1.2;
+
+  // Shop / other real business.
+  let shop = lim(cnt(/\/(cart|basket|checkout)(\/|$|\?)/), 3) * 2 + lim(uniq(/\/(products?|collections|shop|store|p)\/[^/]+/), 20) * 0.4
+    + (hasLd(/^(Product|Offer|AggregateOffer|Store|OnlineStore)$/) ? 4 : 0) + kw(['add to cart', 'add to bag', 'free shipping', 'shop now', 'in stock', 'checkout', 'returns']) * 1.5;
+
+  const s = { mag: +mag.toFixed(1), saas: +saas.toFixed(1), service: +service.toFixed(1), shop: +shop.toFixed(1) };
+  const top = Object.entries(s).sort((a, b) => b[1] - a[1]);
+  const [best, score] = top[0], second = top[1][1];
+  let category = 'General';
+  if (score >= 5 && score >= second * 1.15) category = { mag: 'Magazine', saas: 'SaaS', service: 'Service', shop: 'General' }[best];
+  else if (best === 'mag' && score >= 4) category = 'Magazine';
+  return { category, scores: s };
+}
+async function siteCategory(domain) {
+  const pages = await Promise.all(CAT_PATHS.map(async path => {
+    try {
+      const r = await fetch('https://' + domain + path, { headers: browserHeaders(), redirect: 'follow', signal: AbortSignal.timeout(6000) });
+      if (!r.ok) return null;
+      return { path, html: (await r.text()).slice(0, path ? 200000 : 600000) };
+    } catch (e) { return null; }
+  }));
+  const home = pages[0];
+  if (!home) return null; // site didn't answer (or blocks bots) — not "Other"
+  // Paths that just serve the homepage again (SPAs, soft 404s) don't count.
+  const real = pages.filter((p, i) => p && (i === 0 || p.html.slice(0, 3000) !== home.html.slice(0, 3000)));
+  return classifySite(real, domain).category;
+}
+async function categorize(uid, { ids }) {
+  const refs = (Array.isArray(ids) ? ids : []).slice(0, 8).map(id => db().collection(COLL).doc(String(id)));
+  const results = {};
+  await Promise.all(refs.map(async ref => {
+    const d = await ref.get();
+    if (!d.exists || d.data().ownerUid !== uid) return;
+    const domain = d.data().domain;
+    if (!domain || !isSafeHost(domain) || ['hand', 'failed'].includes(d.data().categoryBy)) return;
+    const category = await siteCategory(domain);
+    if (!category) { await ref.update({ categoryBy: 'failed', categoryAt: Date.now() }); results[ref.id] = ''; return; }
+    await ref.update({ category, categoryBy: 'auto', categoryAt: Date.now() });
+    results[ref.id] = category;
+  }));
+  return { results };
 }
 
 // ─── list / save / delete ────────────────────────────────
@@ -1056,6 +1152,7 @@ async function handler(req, res) {
       case 'mailbox-resume': return res.json(await resumeMailbox(user.uid, b));
       case 'mailbox-limit': return res.json(await setMailboxLimit(user.uid, b));
       case 'send-test': return res.json(await sendTest(user, { ...b, extra: undefined }));
+      case 'categorize': return res.json(await categorize(user.uid, b));
       case 'deliverability': return res.json(await deliverability(user, b));
       case 'placement': return res.json(await placement(user, b));
       case 'draft': return res.json(await draft(user.uid, b));
