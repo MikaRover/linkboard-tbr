@@ -1160,6 +1160,7 @@ a{text-underline-offset:2px;}
 .oa-edit td{background:var(--bg3);padding:0 10px 16px;}
 .oa-site{display:flex;align-items:center;gap:10px;}
 .oa-fav{width:28px;height:28px;border-radius:7px;background:var(--bg4);color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;text-transform:uppercase;}
+.oa-cat{display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--radius-sm);background:var(--bg4);color:var(--text3);font-size:10.5px;font-family:inherit;vertical-align:1px;}
 .oa-tag{display:inline-block;margin-top:4px;padding:1px 7px;border-radius:var(--radius-sm);background:var(--bg4);color:var(--text2);font-size:11px;}
 .oa-mb-health{display:flex;flex-direction:column;gap:6px;}
 .oa-mb-health:empty{display:none;}
@@ -2402,6 +2403,7 @@ body.lbr-open{overflow:hidden;}
         <option value="exchange">Link exchange — our templates</option>
         <option value="guest">Free guest post — written by AI</option>
       </select>
+      <label id="oa-bycat-row" class="oa-help oa-gap" style="display:flex;gap:8px;align-items:center;cursor:pointer;"><input type="checkbox" id="oa-bycat" style="width:auto;margin:0;" onchange="oaByCatChanged()"/><span>Pick the template by site category — Magazine, Service, General → Paid · SaaS → Exchange</span></label>
       <div id="oa-paid-help" class="oa-help oa-note">
         <div class="oa-tpl-row"><span id="oa-tpl-source" class="oa-tpl-source">Team templates</span><button class="btn-ghost oa-tpl-edit" onclick="oaOpenTemplates()">Edit templates</button></div>
         <span id="oa-tpl-what"></span>
@@ -9584,6 +9586,7 @@ function lbPrintReport(){ document.body.classList.add('lbr-printing'); window.pr
 
 function initAgentPage(){
   if(!canUseAgent()) return;
+  { const bc = document.getElementById('oa-bycat'); if(bc) bc.checked = oaByCat(); }
   let mode = 'paid';
   try{
     mode = oaModeOf(localStorage.getItem('oa-mode'));
@@ -9713,6 +9716,38 @@ async function oaTplReset(){
   }catch(e){ document.getElementById('oa-tpl-err').textContent = e.message; }
 }
 // paid / exchange use the team's fixed template sets; guest is written by AI.
+// ── site category (free keyword check, same rules as Category Check) ──
+const OA_CATS = ['Magazine','Service','General','SaaS','Other'];
+const OA_CAT_MODE = {Magazine:'paid', Service:'paid', General:'paid', SaaS:'exchange'};
+function oaByCat(){ try{ return localStorage.getItem('oa-bycat')!=='0'; }catch(e){ return true; } }
+function oaByCatChanged(){ try{ localStorage.setItem('oa-bycat', document.getElementById('oa-bycat').checked?'1':'0'); }catch(e){} oaModeUi(); }
+// The template set for one row: by its category when that's on (Other and
+// unknown keep the page's choice); Guest · AI is never switched.
+function oaModeFor(r){
+  const m = oaMode();
+  if(m==='guest' || !oaByCat() || !r) return m;
+  return OA_CAT_MODE[r.category] || m;
+}
+let oaCatRunning = false;
+async function oaCategorizeMissing(){
+  if(oaCatRunning) return; oaCatRunning = true;
+  try{
+    const failed = new Set();
+    for(;;){
+      const ids = oaRows.filter(r=>r.domain && !r.category && r.categoryBy!=='failed' && !oaSent(r) && !failed.has(r.id)).slice(0,8).map(r=>r.id);
+      if(!ids.length) break;
+      let res = {};
+      try{ res = (await oaApi('categorize',{ids})).results||{}; }catch(e){ break; }
+      ids.forEach(id=>{ const r = oaRow(id); if(!r) return; if(res[id]){ r.category = res[id]; r.categoryBy = 'auto'; } else { if(res[id]==='') r.categoryBy = 'failed'; failed.add(id); } });
+      oaRender();
+    }
+  } finally { oaCatRunning = false; }
+}
+async function oaSetCategory(id, cat){
+  if(!OA_CATS.includes(cat)) return;
+  try{ await oaApi('save',{items:[{id, category:cat}]}); const r = oaRow(id); r.category = cat; r.categoryBy = 'hand'; oaRender(); }
+  catch(e){ showToast(e.message,'warn'); }
+}
 function oaModeOf(v){ return ['guest','exchange'].includes(v) ? v : 'paid'; }
 function oaMode(){ return oaModeOf(document.getElementById('oa-mode')?.value); }
 function oaIsTemplate(){ return oaMode()!=='guest'; }
@@ -9721,7 +9756,8 @@ function oaModeUi(){
   const tpl = oaIsTemplate();
   document.getElementById('oa-paid-help').style.display = tpl ? '' : 'none';
   document.getElementById('oa-guest-box').style.display = tpl ? 'none' : '';
-  document.getElementById('oa-offer-box').style.display = oaMode()==='exchange' ? '' : 'none';
+  document.getElementById('oa-offer-box').style.display = oaMode()==='exchange' || (tpl && oaByCat()) ? '' : 'none';
+  document.getElementById('oa-bycat-row').style.display = tpl ? 'flex' : 'none';
   document.getElementById('oa-tpl-what').textContent = oaMode()==='exchange'
     ? 'Asks if they’re open to a content collaboration, lists the two ways we work (A-B-C content exchange with our SaaS partners, co-created content) and offers to share examples. Five versions, changing every 3 emails.'
     : 'Short, plain emails: who you are, then a content collaboration and a question about their terms. Five versions, changing every 3 emails.';
@@ -9758,7 +9794,7 @@ function oaSenderName(){
 }
 async function oaLoad(){
   try{
-    oaRows = (await oaApi('list')).rows||[]; oaRender(); oaQueueNote();
+    oaRows = (await oaApi('list')).rows||[]; oaRender(); oaQueueNote(); oaCategorizeMissing();
     if(oaTickTimer===null && oaQueuedRows().length) oaTickSoon(5000);
   }
   catch(e){ document.getElementById('oa-table').innerHTML = `<div class="loading">${escapeHtml(e.message)}</div>`; }
@@ -10229,7 +10265,7 @@ function oaRender(){
       const when = r.status==='sent'||r.status==='replied'||r.status==='bounced' ? (r.sentDay||'') : '';
       return `<tr class="oa-row ${open?'open':''} ${oaSelected.has(r.id)?'sel':''}" data-id="${escAttr(r.id)}" onclick="oaToggle('${escAttr(r.id)}',event)" oncontextmenu="oaCtx(event,'${escAttr(r.id)}')">
         <td onclick="event.stopPropagation()"><input type="checkbox" style="width:auto;margin:0;" ${oaSelected.has(r.id)?'checked':''} onclick="oaSelect('${escAttr(r.id)}',this.checked)"/></td>
-        <td><div class="oa-site"><span class="oa-fav">${escapeHtml((r.domain||'?').charAt(0))}</span><div style="min-width:0;"><div class="oa-mono" style="color:var(--text);">${escapeHtml(r.domain)}</div>${r.note?`<div class="oa-sub">${escapeHtml(r.note)}</div>`:''}${!oaFolder&&r.folder?oaFolderTag(r.folder):''}</div></div></td>
+        <td><div class="oa-site"><span class="oa-fav">${escapeHtml((r.domain||'?').charAt(0))}</span><div style="min-width:0;"><div class="oa-mono" style="color:var(--text);">${escapeHtml(r.domain)}${r.category?` <span class="oa-cat" title="Site category${r.categoryBy==='hand'?' (set by hand)':''} — picks the template when “by site category” is on">${escapeHtml(r.category)}</span>`:''}</div>${r.note?`<div class="oa-sub">${escapeHtml(r.note)}</div>`:''}${!oaFolder&&r.folder?oaFolderTag(r.folder):''}</div></div></td>
         <td>${r.email
           ? `${r.name?`<div style="color:var(--text);font-weight:500;">${escapeHtml(r.name)}${r.title?` <span style="color:var(--text3);font-weight:400;">· ${escapeHtml(r.title)}</span>`:''}</div>`:''}<div class="oa-mono" style="${r.name?'color:var(--text2);margin-top:2px;':'color:var(--text);'}">${escapeHtml(r.email)}</div><div style="margin-top:5px;">${oaSmtpBadge(r.smtp)}</div>${oaSentFrom(r)?`<div class="oa-sub">Sent from ${escapeHtml(oaSentFrom(r))}</div>`:''}`
           : '<span style="color:var(--text3);">No contact found</span>'}</td>
@@ -10400,9 +10436,10 @@ function oaEditor(r){
   return `<div class="oa-editor" onclick="event.stopPropagation()">
     ${cands.length>1?`<div><label class="oa-label">Contact (best match first)</label>
       <select onchange="oaPickCandidate('${id}',this.value)">${cands.map((c,i)=>`<option value="${i}" ${c.email===v('email')?'selected':''}>${escapeHtml((c.name||c.email)+(c.title?' — '+c.title:'')+' · '+c.email+' · '+(c.smtp==='valid'?'verified':'unverified')+' · '+(c.source||''))}</option>`).join('')}</select></div>`:''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 140px;gap:10px;">
       <div><label class="oa-label">To</label><input class="oa-mono" value="${escAttr(v('email'))}" oninput="oaEdit('${id}','email',this.value)" placeholder="name@${escAttr(r.domain)}"/></div>
       <div><label class="oa-label">First name (for the greeting)</label><input value="${escAttr(v('firstName'))}" oninput="oaEdit('${id}','firstName',this.value)"/></div>
+      <div><label class="oa-label">Category</label><select onchange="oaSetCategory('${id}',this.value)">${r.category?'':`<option value="">${r.categoryBy==='failed'?'Unknown (site blocked the check)':'Checking…'}</option>`}${OA_CATS.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
     </div>
     <div><label class="oa-label">Subject</label><input value="${escAttr(v('subject'))}" oninput="oaEdit('${id}','subject',this.value)"/></div>
     <div><label class="oa-label">Email</label><textarea oninput="oaEdit('${id}','body',this.value)" placeholder="Click “Write draft”, or type your own">${escapeHtml(v('body'))}</textarea></div>
@@ -10454,7 +10491,7 @@ async function oaDraft(id, btn){
   if(btn){ btn.disabled = true; btn.textContent = 'Writing…'; }
   try{
     const avoidSubjects = oaRows.filter(x=>x.subject && x.id!==id).slice(0,15).map(x=>x.subject);
-    const j = await oaApi('draft',{id, pitch:document.getElementById('oa-pitch').value, senderName:oaSenderName(), mode:oaMode(), avoidSubjects, offer:oaParseSites(document.getElementById('oa-offer').value), signature:document.getElementById('oa-sig').value});
+    const j = await oaApi('draft',{id, pitch:document.getElementById('oa-pitch').value, senderName:oaSenderName(), mode:oaModeFor(r), avoidSubjects, offer:oaParseSites(document.getElementById('oa-offer').value), signature:document.getElementById('oa-sig').value});
     Object.assign(r, {subject:j.subject, body:j.body, status:'draft'});
     delete oaEdits[id];
     oaRender();
