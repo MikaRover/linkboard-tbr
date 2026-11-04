@@ -591,6 +591,51 @@ async function contactBlock(id, email, uid) {
   return '';
 }
 
+// A test copy of a draft to an address you type (a deliverability tester such
+// as mail-tester.com, or yourself): the exact message, from the same mailbox,
+// so the test sees what recipients get. It is not outreach — the row's status,
+// the daily limit and the 90-day rule are untouched. Up to 10 a day per person.
+const TESTS_PER_DAY = 10;
+async function sendTest(user, { id, to, from, fromName }) {
+  const senderName = oneLine(fromName).slice(0, 60) || (/^admin$/i.test(user.name || '') ? '' : user.name);
+  to = String(to || '').trim().toLowerCase();
+  if (!isEmail(to)) throw new Error('Enter the test address');
+  const snap = await db().collection(COLL).doc(String(id || '')).get();
+  if (!snap.exists || snap.data().ownerUid !== user.uid) throw new Error('Row not found');
+  const row = snap.data();
+  if (!row.subject || !row.body) throw new Error('Write the draft first');
+  const mbId = mailboxId(from);
+  const gconn = await db().collection('gmailConnections').doc(mbId).get();
+  const sconn = gconn.exists ? null : await require('./mailsmtp').get(mbId);
+  const connData = gconn.exists ? gconn.data() : sconn;
+  if (!connData || connData.ownerUid !== user.uid) throw new Error('Pick one of your connected mailboxes');
+  if (!connData.canSend) throw new Error('This mailbox is connected read-only — click "Connect Gmail for sending"');
+  const quota = db().collection(TPL_COLL).doc(user.uid);
+  const day = today();
+  await db().runTransaction(async tx => {
+    const q = await tx.get(quota);
+    const n = q.exists && q.data().testDay === day ? (q.data().testCount || 0) : 0;
+    if (n >= TESTS_PER_DAY) throw new Error(`Test limit reached (${TESTS_PER_DAY} a day)`);
+    tx.set(quota, { testDay: day, testCount: n + 1 }, { merge: true });
+  });
+  const body = hasOptOut(row.body) ? row.body : row.body.trim() + '\n\n' + OPT_OUTS[0];
+  if (sconn) {
+    const messageId = `<${require('crypto').randomUUID()}@${sconn.email.split('@')[1]}>`;
+    await require('./mailsmtp').sendRaw(sconn, { to, raw: mimeText({ from: sconn.email, fromName: senderName, to, subject: row.subject, body, messageId }) });
+  } else {
+    const access = await accessTokenFor(mbId);
+    const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw: buildMime({ from: connData.email, fromName: senderName, to, subject: row.subject, body }) })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((j.error && j.error.message) || ('Gmail HTTP ' + r.status));
+  }
+  await snap.ref.update({ lastTestTo: to, lastTestAt: Date.now() });
+  return { ok: true, to, from: connData.email };
+}
+
 async function send(user, { id, email, from, fromName }) {
   // Display name on the From line: the name typed on the page, else the account name unless it's a role like "Admin".
   const senderName = oneLine(fromName).slice(0, 60) || (/^admin$/i.test(user.name || '') ? '' : user.name);
@@ -881,6 +926,7 @@ async function handler(req, res) {
       case 'delete': return res.json({ deleted: await remove(user.uid, b.ids) });
       case 'mailboxes': return res.json({ mailboxes: await mailboxes(user.uid), limit: DAILY_LIMIT });
       case 'mailbox-resume': return res.json(await resumeMailbox(user.uid, b));
+      case 'send-test': return res.json(await sendTest(user, b));
       case 'draft': return res.json(await draft(user.uid, b));
       case 'send': return res.json(await send(user, b));
       case 'queue': return res.json(await queueRows(user, b));

@@ -10393,6 +10393,7 @@ function oaEditor(r){
       <button class="btn-sm" onclick="oaSendOne('${id}',this)" ${v('email')&&v('subject')&&v('body')?'':'disabled'}>Send</button>
       <button class="btn-ghost" onclick="oaDraft('${id}',this)">${v('body')?(oaIsTemplate()?'Next version':'Rewrite with AI'):'Write draft'}</button>
       <button class="btn-ghost" onclick="oaSaveRow('${id}',this)">Save</button>
+      <button class="btn-ghost" onclick="oaSendTest('${id}',this)" ${v('subject')&&v('body')?'':'disabled'} title="Send this exact email to a test address (e.g. mail-tester.com) — not counted as outreach">Send test</button>
       ${r.status==='skipped'?`<button class="btn-ghost" onclick="oaSetStatus('${id}','${r.subject&&r.body?'draft':'found'}')">Include anyway</button>`:`<button class="btn-ghost" onclick="oaSetStatus('${id}','skipped')">Skip</button>`}
       <span class="oa-help">${r.source?'Found via '+escapeHtml(r.source):''}</span>
     </div></div>`;
@@ -10490,6 +10491,24 @@ function oaTickSoon(ms){
     if(before && !oaQueuedRows().length) document.getElementById('oa-progress').textContent = 'Send queue finished.';
     oaTickSoon(60000);
   }, ms);
+}
+// Sends the draft, exactly as it would go out, to a test address — a
+// deliverability tester (mail-tester.com) or your own inbox. Not outreach:
+// the row stays as it is and nothing counts toward the daily limit.
+async function oaSendTest(id, btn){
+  if(oaEdits[id] && !(await oaSaveRow(id, null, true))) return;
+  const from = oaFrom();
+  if(!from){ showToast('Connect a Gmail mailbox for sending first','warn'); return; }
+  let last = ''; try{ last = localStorage.getItem('oa-test-to')||''; }catch(e){}
+  const to = (prompt(`Send a test copy from ${from} to:\n\n(Tip: open mail-tester.com and paste the address it shows, then check your score there.)`, last)||'').trim();
+  if(!to) return;
+  try{ localStorage.setItem('oa-test-to', to); }catch(e){}
+  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Sending…';
+  try{
+    await oaApi('send-test',{id, to, from, fromName:oaSenderName()});
+    showToast(`Test sent to ${to}`);
+  }catch(e){ showToast(e.message,'warn'); }
+  btn.disabled = false; btn.textContent = orig;
 }
 async function oaSendOne(id, btn){
   if(oaEdits[id] && !(await oaSaveRow(id, null, true))) return;
