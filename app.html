@@ -9657,7 +9657,7 @@ let oaTpl = null;        // { own:{paid?,exchange?}, team:{paid,exchange}, max }
 let oaTplDraft = [];     // the list being edited in the dialog
 let oaTplSet = 'paid';
 // Per type: paid 1–5 versions rotating with their own subjects; exchange 5–15
-// mixed at random, with an AI-written subject per email (no subject field).
+// mixed at random, with a subject picked per email from a plain pool (no subject field).
 function oaTplLim(set){ return oaTpl?.limits?.[set||oaTplSet] || {min:1, max:5}; }
 function oaTplAiSubject(set){ return (oaTpl?.aiSubject||['exchange']).includes(set||oaTplSet); }
 async function oaLoadTemplates(){
@@ -9673,7 +9673,7 @@ function oaTplSourceUi(){
   el.textContent = own ? `Your templates (${own.length})` : 'Team templates';
   const what = document.getElementById('oa-tpl-what');
   if(!what) return;
-  if(oaTplAiSubject(oaMode())) what.textContent = (own ? `Your ${own.length} versions` : 'The team’s versions')+' are mixed at random, and AI writes a new subject line for every email.';
+  if(oaTplAiSubject(oaMode())) what.textContent = (own ? `Your ${own.length} versions` : 'The team’s versions')+' are mixed at random, and every email gets a different plain subject line.';
   else if(own) what.textContent = 'Drafts use the versions you wrote, changing every 3 emails.';
 }
 function oaOpenTemplates(){
@@ -9689,7 +9689,7 @@ function oaOpenTemplates(){
   document.getElementById('oa-tpl-offer-ph').style.display = oaTplSet==='exchange' ? '' : 'none';
   const lim = oaTplLim();
   document.getElementById('oa-tpl-rule').textContent = oaTplAiSubject()
-    ? `Write ${lim.min}–${lim.max} versions. They’re mixed at random, and AI writes a different subject line for each email, so no subject here.`
+    ? `Write ${lim.min}–${lim.max} versions. They’re mixed at random, and every email gets a different plain subject line, so no subject here.`
     : `Up to ${lim.max} versions; drafts move to the next one every 3 emails.`;
   document.getElementById('oa-tpl-reset').style.display = own ? '' : 'none';
   document.getElementById('oa-tpl-err').textContent = '';

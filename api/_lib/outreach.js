@@ -429,7 +429,7 @@ function offerLine(offer, idx) {
 const TPL_COLL = 'outreachTemplates';
 const MAX_OWN_TEMPLATES = 5;
 // Exchange is different: 5–15 own versions mixed at random, and every email
-// gets an AI-written subject, so a template carries no subject of its own.
+// gets a subject from EXCHANGE_SUBJECTS, so a template carries no subject of its own.
 const TPL_LIMITS = { paid: { min: 1, max: 5 }, exchange: { min: 5, max: 15 } };
 const tplMax = set => (TPL_LIMITS[set] || {}).max || MAX_OWN_TEMPLATES;
 const AI_SUBJECT_SETS = ['exchange'];
@@ -542,32 +542,21 @@ Answer with JSON only: {"versions": [{"subject": "...", "body": "..."}]}`;
   return { versions };
 }
 
-// One subject line written for this email (exchange). Returns '' when the AI
-// isn't reachable, so the draft still gets made with a fallback subject.
-const FALLBACK_SUBJECTS = ['content collaboration?', 'quick question', 'collaboration idea', 'working together on content', 'a content idea for {site}'];
-async function aiSubject(body, domain, avoid) {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return '';
-  const recent = (Array.isArray(avoid) ? avoid : []).map(oneLine).filter(Boolean).slice(0, 15);
-  const prompt = `Write the subject line for this cold outreach email to the website ${domain}.
-
-${body.slice(0, 2500)}
-
-Rules: under 60 characters; plain and personal, like one person writing to another; style: ${pick(SUBJECT_STYLES)}; no clickbait, no ALL CAPS, no exclamation marks, no emoji, no quotes; avoid spam words ("free", "guaranteed", "SEO", "backlinks", "offer").
-${recent.length ? 'Must be clearly different from these recent subjects:\n- ' + recent.join('\n- ') + '\n' : ''}
-Answer with the subject line only.`;
-  try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-haiku-5-5', max_tokens: 100, thinking: { type: 'disabled' }, messages: [{ role: 'user', content: prompt }] }),
-      signal: AbortSignal.timeout(15000)
-    });
-    if (!r.ok) return '';
-    const j = await r.json();
-    const s = oneLine((j.content || []).filter(c => c.type === 'text').map(c => c.text).join('')).replace(/^subject:\s*/i, '').replace(/^["'“”]+|["'“”]+$/g, '').trim();
-    return s.length >= 3 && s.length <= 90 && !/[{}[\]]/.test(s) ? s : '';
-  } catch (e) { return ''; }
+// Exchange subjects: picked from this pool, free (no AI), never one the row
+// or the page used recently. Plain, one-person-to-another lines about the
+// site's blog — no "collab", "partnership", "content ideas for … readers",
+// "exchange", "links" or "SEO", which read as mass link outreach.
+const EXCHANGE_SUBJECTS = [
+  'question about your blog', 'quick question about {site}', 'your blog at {site}', 'an article idea for {site}',
+  'a topic for your blog', 'idea for your blog', 'who runs the blog at {site}?', 'saw your recent posts',
+  'about your blog', 'a quick idea', 'a question for you', 'hello from {sender}', '{site}',
+  'a writer for {site}?', 'one idea for {site}'
+];
+function pickSubject(pool, fill, row, avoid, senderName) {
+  const used = new Set([row.subject, ...(Array.isArray(avoid) ? avoid : [])].map(x => oneLine(x).toLowerCase()));
+  const all = pool.filter(x => !(x.includes('{sender}') && !oneLine(senderName))).map(x => capFirst(fill(x)));
+  const fresh = all.filter(x => !used.has(x.toLowerCase()));
+  return pick(fresh.length ? fresh : all);
 }
 
 async function templateDraft(uid, ref, row, senderName, set, offer, signature, avoidSubjects) {
@@ -601,14 +590,9 @@ async function templateDraft(uid, ref, row, senderName, set, offer, signature, a
     .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
   const body = fill(t.body);
   let subject;
-  if (mixed) subject = capFirst((await aiSubject(body, row.domain, avoidSubjects)) || fill(t.subject || pick(FALLBACK_SUBJECTS)));
-  else if (set === 'paid' && !own) {
-    // Never the one the row already has or one of the page's recent subjects.
-    const used = new Set([row.subject, ...(Array.isArray(avoidSubjects) ? avoidSubjects : [])].map(x => oneLine(x).toLowerCase()));
-    const pool = PAID_SUBJECTS.filter(x => !(x.includes('{sender}') && !oneLine(senderName))).map(x => capFirst(fill(x)));
-    const fresh = pool.filter(x => !used.has(x.toLowerCase()));
-    subject = pick(fresh.length ? fresh : pool);
-  } else subject = capFirst(fill(t.subject));
+  if (mixed) subject = pickSubject(EXCHANGE_SUBJECTS, fill, row, avoidSubjects, senderName);
+  else if (set === 'paid' && !own) subject = pickSubject(PAID_SUBJECTS, fill, row, avoidSubjects, senderName);
+  else subject = capFirst(fill(t.subject));
   await ref.update({ subject, body, templateIdx: idx, templateSet: set, templateOwn: !!own, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
   return { subject, body, templateIdx: idx, templateSet: set, templateOwn: !!own };
 }
