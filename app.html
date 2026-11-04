@@ -2226,6 +2226,8 @@ body.lbr-open{overflow:hidden;}
       <thead><tr>
         <th>Builder</th>
         <th style="text-align:center;">Links</th>
+        <th style="text-align:center;">Live</th>
+        <th style="text-align:center;">Pending</th>
         <th style="text-align:center;">Target</th>
         <th style="text-align:center;">Avg DR</th>
         <th style="text-align:center;">Avg Traffic</th>
@@ -11491,6 +11493,10 @@ function initKPI(){
   renderKPI();
 }
 
+// KPI counts a link in the month its date falls in (1st to the last day of the
+// month), whatever month it was imported under; dd/mm/yyyy, dd.mm.yy and ISO all read.
+const kpiInMonth = (l, month, year) => !!l.date && getMonthKey(l.date)===`${month} ${year}`;
+
 // Why a pending link is still pending: no page URL to check, or what the last
 // automatic / manual check found (blocked, link not on the page yet…).
 const kpiCheckable = l => /^https?:\/\//i.test(String(l.linkin||'').trim()) && !!l.linkto;
@@ -11511,7 +11517,7 @@ function kpiPendingSummary(pending){
 async function kpiRecheckPending(name, btn){
   const month = document.getElementById('kpi-month')?.value, year = document.getElementById('kpi-year')?.value;
   const same = (a,b) => String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();
-  const todo = allLinks.filter(l=>same(l.builder,name) && linkMonthKey(l)===`${month} ${year}` && (l.status||'').toLowerCase()==='pending' && kpiCheckable(l));
+  const todo = allLinks.filter(l=>same(l.builder,name) && kpiInMonth(l, month, year) && (l.status||'').toLowerCase()==='pending' && kpiCheckable(l));
   if(!todo.length){ showToast('No pending link here has a page URL to check','warn'); return; }
   btn.disabled = true;
   let done = 0, live = 0, lost = 0;
@@ -11542,7 +11548,7 @@ async function kpiRecheckPending(name, btn){
 function kpiOpenBuilder(name){
   const month = document.getElementById('kpi-month')?.value, year = document.getElementById('kpi-year')?.value;
   const same = (a,b) => String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();
-  const links = allLinks.filter(l=>same(l.builder,name) && linkMonthKey(l)===`${month} ${year}`).sort((a,b)=>parseDate(b.date)-parseDate(a.date));
+  const links = allLinks.filter(l=>same(l.builder,name) && kpiInMonth(l, month, year)).sort((a,b)=>parseDate(b.date)-parseDate(a.date));
   const loads = planRows(month, year, name).filter(l=>(+l.count||0)>0);
   const st = l => (l.status||'').toLowerCase();
   const target = loads.reduce((s,l)=>s+(+l.count||0),0);
@@ -11569,7 +11575,7 @@ function kpiOpenBuilder(name){
       <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);">
         <div>
           <div style="font-size:16px;font-weight:700;color:var(--text);">${escapeHtml(name)} · ${escapeHtml(month)} ${escapeHtml(year)}</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:2px;">Plan from Load Distribution; links counted by their month (import month, else date).</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;">Links counted by their date, 1st to last day of the month. Plan from Load Distribution.</div>
         </div>
         <button onclick="document.getElementById('kpi-builder-modal').remove()" aria-label="Close" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1;">×</button>
       </div>
@@ -11691,10 +11697,8 @@ function renderKPI(){
     'Rubik':'#8E8E93'
   };
 
-  // Links of this month+year, by the same month rule as All links and the
-  // requirements: the month a link was imported under ("October 2026"), else its
-  // date in any of the stored formats (dd/mm/yyyy, dd.mm.yy, yyyy-mm-dd).
-  const filtered = allLinks.filter(l=>linkMonthKey(l)===`${month} ${year}`);
+  // Links dated inside this month (1st to last day), any stored date format.
+  const filtered = allLinks.filter(l=>kpiInMonth(l, month, year));
   const sameBuilder = (a,b) => String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();
 
   renderKPIReport(filtered,month,year);
@@ -11707,7 +11711,8 @@ function renderKPI(){
     const bl = filtered.filter(l=>sameBuilder(l.builder,b));
     if(!bl.length) return null;
 
-    const live = bl.filter(l=>l.status==='live').length;
+    const live = bl.filter(l=>(l.status||'').toLowerCase()==='live').length;
+    const pending = bl.filter(l=>(l.status||'').toLowerCase()==='pending').length;
     const livePct = bl.length>0 ? Math.round(live/bl.length*100) : 0;
     const avgDR = bl.length>0 ? Math.round(bl.reduce((s,l)=>s+(parseFloat(l.dr)||0),0)/bl.length) : 0;
     const avgTraffic = bl.length>0 ? Math.round(bl.reduce((s,l)=>s+(parseFloat(String(l.traffic||'').replace(/,/g,''))||0),0)/bl.length) : 0;
@@ -11741,13 +11746,13 @@ function renderKPI(){
     }
     score = Math.round(Math.min(100, score));
 
-    return { name:b, links:bl.length, loadTarget, live, livePct, avgDR, avgTraffic, score,
+    return { name:b, links:bl.length, loadTarget, live, pending, livePct, avgDR, avgTraffic, score,
       color:NEON_COLORS[b]||'var(--teal)' };
   }).filter(Boolean).sort((a,b)=>b.score-a.score);
 
   if(!builderStats.length){
     document.getElementById('kpi-leaderboard').innerHTML='<div style="color:var(--text2);font-size:13px;grid-column:1/-1;">No data for '+month+' '+year+'</div>';
-    document.getElementById('kpi-tbody').innerHTML='<tr><td colspan="8" class="loading">No data</td></tr>';
+    document.getElementById('kpi-tbody').innerHTML='<tr><td colspan="10" class="loading">No data</td></tr>';
     return;
   }
 
@@ -11774,20 +11779,24 @@ function renderKPI(){
       </div>
 
       <!-- Stats grid -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
-        <div style="background:var(--bg4);border-radius:6px;padding:6px 8px;">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;font-size:11px;">
+        <div style="grid-column:span 2;background:var(--bg4);border-radius:6px;padding:6px 8px;">
           <div style="color:var(--text3);">Links</div>
           <div style="font-weight:700;color:${b.color};">${b.links}${b.loadTarget?` / ${b.loadTarget}`:''}</div>
         </div>
-        <div style="background:var(--bg4);border-radius:6px;padding:6px 8px;">
+        <div style="grid-column:span 2;background:var(--bg4);border-radius:6px;padding:6px 8px;">
           <div style="color:var(--text3);">Live</div>
           <div style="font-weight:700;color:var(--teal);">${b.live} (${b.livePct}%)</div>
         </div>
-        <div style="background:var(--bg4);border-radius:6px;padding:6px 8px;">
+        <div style="grid-column:span 2;background:var(--bg4);border-radius:6px;padding:6px 8px;">
+          <div style="color:var(--text3);">Pending</div>
+          <div style="font-weight:700;color:${b.pending?'var(--yellow)':'var(--text3)'};">${b.pending}</div>
+        </div>
+        <div style="grid-column:span 3;background:var(--bg4);border-radius:6px;padding:6px 8px;">
           <div style="color:var(--text3);">Avg DR</div>
           <div style="font-weight:700;${t.dr&&b.avgDR<t.dr?'color:var(--red);':'color:var(--text);'}">${b.avgDR||'—'}</div>
         </div>
-        <div style="background:var(--bg4);border-radius:6px;padding:6px 8px;">
+        <div style="grid-column:span 3;background:var(--bg4);border-radius:6px;padding:6px 8px;">
           <div style="color:var(--text3);">Avg Traffic</div>
           <div style="font-weight:700;${t.traffic&&b.avgTraffic<t.traffic?'color:var(--red);':'color:var(--text);'}">${b.avgTraffic?Number(b.avgTraffic).toLocaleString():'—'}</div>
         </div>
@@ -11802,6 +11811,8 @@ function renderKPI(){
     return `<tr style="cursor:pointer;" onclick="kpiOpenBuilder('${escAttr(b.name)}')" title="Open ${escAttr(b.name)}'s breakdown">
       <td style="font-weight:700;color:${b.color};">${escapeHtml(b.name)}</td>
       <td style="text-align:center;font-weight:700;">${b.links}</td>
+      <td style="text-align:center;color:var(--teal);">${b.live}</td>
+      <td style="text-align:center;color:${b.pending?'var(--yellow)':'var(--text3)'};">${b.pending}</td>
       <td style="text-align:center;color:var(--text3);">${b.loadTarget||t.links||'—'}</td>
       <td style="text-align:center;${t.dr&&b.avgDR<t.dr?'color:var(--red);':'color:var(--teal);'}">${b.avgDR||'—'}</td>
       <td style="text-align:center;${t.traffic&&b.avgTraffic<t.traffic?'color:var(--red);':'color:var(--teal);'}">${b.avgTraffic?Number(b.avgTraffic).toLocaleString():'—'}</td>
