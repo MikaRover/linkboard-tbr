@@ -67,8 +67,9 @@ const SUBJECT_STYLES = [
 
 // Fields the browser may set. Status values that mean "an email went out"
 // (sent/replied/bounced) are server-only, so a page can't fake a send.
-const EDITABLE = ['domain', 'name', 'firstName', 'title', 'email', 'smtp', 'source', 'candidates', 'subject', 'body', 'skipReason', 'note', 'batch', 'folder'];
-const CLIENT_STATUSES = ['found', 'nocontact', 'draft', 'skipped'];
+const EDITABLE = ['domain', 'name', 'firstName', 'title', 'email', 'smtp', 'source', 'candidates', 'subject', 'body', 'skipReason', 'note', 'batch', 'folder', 'dr', 'traffic'];
+// 'new' = analyzed (type, DR, traffic) but no contact searched yet.
+const CLIENT_STATUSES = ['new', 'found', 'nocontact', 'draft', 'skipped'];
 
 const db = () => getAdmin().firestore();
 const FieldValue = () => require('./firebase-admin').firestore.FieldValue;
@@ -86,6 +87,7 @@ function clean(item) {
   if (out.candidates !== undefined) out.candidates = (Array.isArray(out.candidates) ? out.candidates : []).slice(0, 12);
   ['subject', 'body', 'name', 'firstName', 'title', 'note', 'skipReason'].forEach(k => { if (out[k] !== undefined) out[k] = String(out[k] || '').slice(0, k === 'body' ? 6000 : 300); });
   if (out.folder !== undefined) out.folder = oneLine(out.folder).slice(0, 80);
+  ['dr', 'traffic'].forEach(k => { if (out[k] !== undefined) { const n = Math.round(Number(out[k])); out[k] = Number.isFinite(n) && n > 0 ? n : null; } });
   if (item.status !== undefined && CLIENT_STATUSES.includes(item.status)) out.status = item.status;
   if (item.category !== undefined && SITE_CATEGORIES.includes(item.category)) Object.assign(out, { category: item.category, categoryBy: 'hand' });
   return out;

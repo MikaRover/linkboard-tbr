@@ -2407,6 +2407,10 @@ body.lbr-open{overflow:hidden;}
         <textarea id="oa-sites" class="oa-list-input" rows="8" placeholder="example.com&#10;another-blog.net, anna@another-blog.net, Anna&#10;editor@third-site.com"></textarea>
         <div class="oa-actions oa-gap">
           <button class="btn-sm" id="oa-find-btn" onclick="oaFind()">Find contacts</button>
+          <button class="btn-ghost" id="oa-analyze-btn" onclick="oaAnalyze()" title="Sort a big list first: site type (Paid / Exchange) and DR / traffic, no emails yet">Analyze first</button>
+          <label class="oa-check" title="Spends Ahrefs API units: DR and traffic for the first 300 non-Other sites of each run">
+            <input type="checkbox" id="oa-an-dr" checked/> DR / traffic (Ahrefs)
+          </label>
           <label class="btn-ghost" style="cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-2px;"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Upload file<input type="file" accept=".txt,.csv,text/plain,text/csv" style="display:none;" onchange="oaReadFile(this)"/></label>
           <label class="oa-check" title="Spends Snov credits — only used when the site itself lists no named editor or owner">
             <input type="checkbox" id="oa-snov" onchange="oaSavePrefs()"/> Use Snov when the site lists no person
@@ -2490,6 +2494,10 @@ body.lbr-open{overflow:hidden;}
       <button class="btn-ghost" id="oa-folder-color" style="display:none;" onclick="oaFolderColorMenu(this)" title="Color label for this folder">Color</button>
       <button class="btn-ghost" id="oa-del-folder" style="display:none;" onclick="oaDeleteFolder()">Delete folder</button>
       <button class="btn-ghost" id="oa-sel-invalid" style="display:none;" onclick="oaSelectInvalid()" title="Select every address that failed verification, to delete them in one go">Select invalid</button>
+      <select id="oa-type" class="oa-select" onchange="oaTypeChanged(this)" title="Show only one pitch type">
+        <option value="">All types</option><option value="paid">Paid</option><option value="exchange">Exchange</option><option value="other">Other</option>
+      </select>
+      <button class="btn-ghost" onclick="oaSelectTop()" title="Select the first N analyzed sites in the current sort">Select top…</button>
       <div class="oa-tabs" id="oa-tabs"></div>
     </div>
     <div class="oa-selbar" id="oa-selbar">
@@ -2497,6 +2505,7 @@ body.lbr-open{overflow:hidden;}
       <div style="flex:1;"></div>
       <button class="btn-ghost" id="oa-stop" style="display:none;" onclick="oaStopQueue()">Stop sending</button>
       <select id="oa-move" class="oa-select" onchange="oaMoveSelected(this)"></select>
+      <button class="btn-ghost" onclick="oaFindSelected(this)" title="Find a contact for the selected analyzed sites">Find emails</button>
       <button class="btn-ghost" onclick="oaVerifySelected(this)" title="Check the selected addresses with Snov — spends Snov credits">Verify</button>
       <button class="btn-ghost" onclick="oaDraftSelected(this)">Write drafts</button>
       <button class="btn-sm" id="oa-send-sel" onclick="oaSendSelected()">Send selected</button>
@@ -9212,12 +9221,12 @@ const OA_DEFAULT_PITCH = {
   guest: "We'd like to contribute a free, original guest article written for your readers, with one natural link to a relevant resource. Happy to follow your editorial guidelines."
 };
 const OA_STATUS = {
-  found:{label:'Contact found',tone:'neutral'}, nocontact:{label:'No contact',tone:'red'},
+  new:{label:'Analyzed',tone:'neutral'}, found:{label:'Contact found',tone:'neutral'}, nocontact:{label:'No contact',tone:'red'},
   draft:{label:'Draft ready',tone:'amber'}, sending:{label:'Sending',tone:'blue'},
   sent:{label:'Sent',tone:'blue'}, replied:{label:'Replied',tone:'green'},
   bounced:{label:'Bounced',tone:'red'}, failed:{label:'Failed',tone:'red'}, skipped:{label:'Skipped',tone:'neutral'}
 };
-const OA_TABS = [['all','All'],['found','Found'],['draft','Drafts'],['sent','Sent'],['replied','Replied'],['bounced','Bounced'],['nocontact','No contact'],['skipped','Skipped']];
+const OA_TABS = [['all','All'],['new','Analyzed'],['found','Found'],['draft','Drafts'],['sent','Sent'],['replied','Replied'],['bounced','Bounced'],['nocontact','No contact'],['skipped','Skipped']];
 
 async function oaApi(action, payload){
   const r = await fetch('/api/outreach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...(payload||{})})});
@@ -10219,7 +10228,7 @@ async function oaFind(){
   }
   // Sites already listed are searched again only if they came up empty or skipped.
   const byDomain = new Map(oaRows.map(r=>[r.domain, r]));
-  const fresh = sites.filter(d=>!byDomain.has(d) || ['skipped','nocontact'].includes(byDomain.get(d).status));
+  const fresh = sites.filter(d=>!byDomain.has(d) || ['skipped','nocontact','new'].includes(byDomain.get(d).status));
   const btn = document.getElementById('oa-find-btn'), prog = document.getElementById('oa-progress');
   if(!fresh.length){ prog.textContent = 'All of these sites are already in the list below with a contact.'; return; }
   const useSnov = document.getElementById('oa-snov').checked;
@@ -10254,21 +10263,129 @@ async function oaFind(){
   ta.value = '';
 }
 
+// ── Analyze first ──
+// Paste a big list, get each site's type (Paid / Exchange, free), DR and traffic, sort and filter it, then pick
+// who to find emails for and write to. Rows wait in status 'new' ("Analyzed") until Find emails is clicked.
+// Only DR/traffic costs anything (Ahrefs API units), so it is capped per run and skips "Other" sites.
+const OA_ANALYZE_DR_CAP = 300;
+const oaTypeOf = r => r.category==='Other' ? 'other' : (OA_CAT_MODE[r.category] || '');
+let oaType = '';
+const oaTypeOk = r => !oaType || oaTypeOf(r)===oaType;
+function oaTypeChanged(sel){ oaType = sel.value; oaRender(); }
+function oaTypeCell(r){
+  const t = oaTypeOf(r);
+  if(!t) return '<span class="oa-sub">…</span>';
+  const pill = t==='paid' ? '<span class="oa-badge oa-b-amber">Paid</span>' : t==='exchange' ? '<span class="oa-badge oa-b-blue">Exchange</span>' : '<span class="oa-badge oa-b-neutral">Other</span>';
+  return pill+`<div class="oa-sub">${escapeHtml(r.category)}</div>`;
+}
+async function oaAnalyze(){
+  const ta = document.getElementById('oa-sites');
+  const {manual, sites} = oaParseInput(ta.value);
+  if(manual.length){ showToast('Lines with an email go through Find contacts. Analyze takes sites only','warn'); return; }
+  if(!sites.length){ showToast('Paste at least one website','warn'); return; }
+  const known = new Set(oaRows.map(r=>r.domain));
+  const fresh = sites.filter(d=>!known.has(d));
+  const prog = document.getElementById('oa-progress');
+  if(!fresh.length){ prog.textContent = 'All of these sites are already in the list.'; return; }
+  const btns = ['oa-analyze-btn','oa-find-btn'].map(id=>document.getElementById(id));
+  btns.forEach(b=>b.disabled = true);
+  try{
+    // 1 · save the rows
+    const folder = oaFolder && oaFolder!==OA_NO_FOLDER ? oaFolder : undefined;
+    const added = [];
+    for(let i=0;i<fresh.length;i+=300){
+      const chunk = fresh.slice(i,i+300).map(domain=>({domain, status:'new', candidates:[], name:'', firstName:'', title:'', email:'', smtp:'', source:'', note:oaSiteNote(domain), ...(folder?{folder}:{})}));
+      const {ids} = await oaApi('save',{items:chunk});
+      chunk.forEach((row,j)=>{ if(ids[j]){ const r = {...row, id:ids[j], createdAt:Date.now()}; oaRows.unshift(r); added.push(r); } });
+      prog.textContent = `Added ${added.length}/${fresh.length} sites…`; oaRender();
+    }
+    ta.value = '';
+    oaFilter = 'new'; oaRender();
+    // 2 · type of each site (free, no AI)
+    prog.textContent = `Sorting ${added.length} sites by type (free)…`;
+    while(oaCatRunning) await new Promise(r=>setTimeout(r,500));
+    await oaCategorizeMissing();
+    // 3 · DR + traffic (Ahrefs units) for the sites worth it
+    if(document.getElementById('oa-an-dr').checked){
+      const targets = added.filter(r=>r.category && r.category!=='Other').slice(0,OA_ANALYZE_DR_CAP);
+      const pending = [], queue = targets.slice();
+      let done = 0;
+      const flush = async () => { const items = pending.splice(0); if(items.length) try{ await oaApi('save',{items}); }catch(e){} };
+      const worker = async () => {
+        while(queue.length){
+          const r = queue.shift();
+          try{
+            const m = await (await fetch('/api/ahrefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:r.domain})})).json();
+            r.dr = m.dr!=null ? Math.round(m.dr) : null; r.traffic = m.traffic>0 ? Math.round(m.traffic) : null;
+            if(r.dr!=null || r.traffic!=null) pending.push({id:r.id, dr:r.dr, traffic:r.traffic});
+          }catch(e){}
+          done++; prog.textContent = `DR / traffic ${done}/${targets.length}…`;
+          if(pending.length>=20) await flush();
+          if(done%5===0) oaRender();
+        }
+      };
+      await Promise.all([worker(),worker(),worker()]);
+      await flush();
+    }
+    oaSort = {key:'dr', dir:1}; try{ localStorage.setItem('oa-sort', JSON.stringify(oaSort)); }catch(e){}
+    oaRender();
+    const by = t => added.filter(r=>oaTypeOf(r)===t).length;
+    prog.textContent = `Done: ${added.length} sites · ${by('paid')} Paid · ${by('exchange')} Exchange · ${by('other')} Other. Sorted by DR. Select the ones you want and click Find emails.`;
+  }catch(e){
+    prog.textContent = ''; showToast(e.message||'Analyze failed','warn');
+  }finally{ btns.forEach(b=>b.disabled = false); }
+}
+// First N analyzed sites in the current sort and filters.
+function oaSelectTop(){
+  const n = parseInt(prompt('Select the top how many analyzed sites (in the current sort)?','50'),10);
+  if(!(n>0)) return;
+  const rows = oaSorted(oaVisible()).filter(r=>r.status==='new').slice(0,n);
+  if(!rows.length){ showToast('No analyzed sites here','warn'); return; }
+  oaSelected.clear(); rows.forEach(r=>oaSelected.add(r.id)); oaRender();
+  showToast(`${rows.length} selected`);
+}
+// Contact search for the selected analyzed sites (same discovery as Find contacts; Snov only if its box is ticked).
+async function oaFindSelected(btn){
+  const rows = [...oaSelected].map(oaRow).filter(r=>r && ['new','nocontact'].includes(r.status));
+  if(!rows.length){ showToast('Select analyzed sites to find emails for','warn'); return; }
+  const useSnov = document.getElementById('oa-snov').checked, prog = document.getElementById('oa-progress');
+  btn.disabled = true;
+  let done = 0, found = 0;
+  const queue = rows.slice();
+  const worker = async () => {
+    while(queue.length){
+      const r = queue.shift();
+      const candidates = await oaDiscover(r.domain, useSnov), c = candidates[0];
+      const patch = c ? {candidates, name:c.name, firstName:c.firstName, title:c.title, email:c.email, smtp:c.smtp, source:c.source, status:'found'}
+                      : {candidates:[], name:'', firstName:'', title:'', email:'', smtp:'', source:'', status:'nocontact'};
+      try{ await oaApi('save',{items:[{...patch, id:r.id}]}); Object.assign(r, patch); if(c) found++; }
+      catch(e){ showToast(r.domain+': '+e.message,'warn'); }
+      done++; prog.textContent = `Finding emails ${done}/${rows.length} · ${found} with a contact`; oaRender();
+    }
+  };
+  await Promise.all([worker(),worker(),worker()]);
+  prog.textContent = `Done: ${rows.length} sites searched, ${found} with a contact. Select them and click Write drafts.`;
+  btn.disabled = false;
+}
+
 // ── table ──
 function oaInFolder(r){ return !oaFolder || (oaFolder===OA_NO_FOLDER ? !r.folder : r.folder===oaFolder); }
 function oaToday(){ return new Date().toISOString().slice(0,10); } // same UTC day the server stamps on sentDay
 function oaVisible(){
   const mbOk = r => !oaMbFilter || oaFilter==='all' || oaFilter==='draft' || oaFromPicked(r);
   if(oaFilter==='today'){ const t = oaToday(); return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && oaSent(r) && (r.sentDay===t || r.status==='sending')); }
-  return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')));
+  return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && oaTypeOk(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')));
 }
 // Column sort: click a header for A→Z, again for Z→A, a third time for newest first.
-const OA_STATUS_ORDER = ['draft','failed','found','sending','sent','replied','bounced','skipped','nocontact'];
+const OA_STATUS_ORDER = ['draft','failed','found','new','sending','sent','replied','bounced','skipped','nocontact'];
 const OA_SORT_KEYS = {
   site: r => r.domain||'',
   contact: r => !r.email ? 3 : r.smtp==='valid' ? 0 : r.smtp==='invalid' ? 2 : 1,
   status: r => { const i = OA_STATUS_ORDER.indexOf(r.status); return i<0 ? 99 : i; },
-  subject: r => r.subject||''
+  subject: r => r.subject||'',
+  type: r => ({paid:0,exchange:1,other:2}[oaTypeOf(r)] ?? 3),
+  dr: r => -(r.dr||0),
+  traffic: r => -(r.traffic||0)
 };
 function oaSorted(rows){
   const key = OA_SORT_KEYS[oaSort.key]; if(!key) return rows;
@@ -10307,19 +10424,20 @@ function oaRender(){
   const allOn = rows.every(r=>oaSelected.has(r.id));
   wrap.innerHTML = `<table class="oa-table"><thead><tr>
       <th><input type="checkbox" style="width:auto;margin:0;" ${allOn?'checked':''} onclick="oaSelectAll(this.checked)" aria-label="Select all"/></th>
-      ${oaTh('site','Site')}${oaTh('contact','Contact')}${oaTh('status','Status')}${oaTh('subject','Subject')}</tr></thead><tbody>
+      ${oaTh('site','Site')}${oaTh('type','Type')}${oaTh('dr','DR')}${oaTh('traffic','Traffic')}${oaTh('contact','Contact')}${oaTh('status','Status')}${oaTh('subject','Subject')}</tr></thead><tbody>
     ${rows.map(r=>{
       const open = oaOpen===r.id;
       const when = r.status==='sent'||r.status==='replied'||r.status==='bounced' ? (r.sentDay||'') : '';
       return `<tr class="oa-row ${open?'open':''} ${oaSelected.has(r.id)?'sel':''}" data-id="${escAttr(r.id)}" onclick="oaToggle('${escAttr(r.id)}',event)" oncontextmenu="oaCtx(event,'${escAttr(r.id)}')">
         <td onclick="event.stopPropagation()"><input type="checkbox" style="width:auto;margin:0;" ${oaSelected.has(r.id)?'checked':''} onclick="oaSelect('${escAttr(r.id)}',this.checked)"/></td>
         <td><div class="oa-site"><span class="oa-fav">${escapeHtml((r.domain||'?').charAt(0))}</span><div style="min-width:0;"><div class="oa-mono" style="color:var(--text);">${/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(r.domain||'')?`<a class="oa-dom" href="https://${escAttr(r.domain)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Open ${escAttr(r.domain)} in a new tab">${escapeHtml(r.domain)}</a>`:escapeHtml(r.domain)}${r.category?` <span class="oa-cat" title="Site category${r.categoryBy==='hand'?' (set by hand)':''} — picks the template when “by site category” is on">${escapeHtml(r.category)}</span>`:''}</div>${r.note?`<div class="oa-sub">${escapeHtml(r.note)}</div>`:''}${!oaFolder&&r.folder?oaFolderTag(r.folder):''}</div></div></td>
+        <td>${oaTypeCell(r)}</td><td style="text-align:center;font-weight:600;">${r.dr||'<span style="color:var(--text3);">—</span>'}</td><td style="color:var(--text2);">${r.traffic?Number(r.traffic).toLocaleString():'<span style="color:var(--text3);">—</span>'}</td>
         <td>${r.email
           ? `${r.name?`<div style="color:var(--text);font-weight:500;">${escapeHtml(r.name)}${r.title?` <span style="color:var(--text3);font-weight:400;">· ${escapeHtml(r.title)}</span>`:''}</div>`:''}<div class="oa-mono" style="${r.name?'color:var(--text2);margin-top:2px;':'color:var(--text);'}">${escapeHtml(r.email)}</div><div style="margin-top:5px;">${oaSmtpBadge(r.smtp)}</div>${oaSentFrom(r)?`<div class="oa-sub">Sent from ${escapeHtml(oaSentFrom(r))}</div>`:''}`
           : '<span style="color:var(--text3);">No contact found</span>'}</td>
         <td>${oaQueued(r.id)&&r.status!=='sending'?'<span class="oa-badge oa-b-blue"><span class="oa-dot"></span>Queued</span>':oaBadge(r.status)}${when?`<div class="oa-sub">${escapeHtml(when)}</div>`:''}${r.skipReason&&r.status==='skipped'?`<div class="oa-sub">${escapeHtml(r.skipReason)}</div>`:''}${r.error&&r.status==='failed'?`<div class="oa-sub" style="color:var(--red);">${escapeHtml(r.error)}</div>`:''}</td>
         <td><div class="oa-subj" title="${escAttr(r.subject||'')}">${escapeHtml(r.subject||'')||'<span style="color:var(--text3);">—</span>'}</div></td>
-      </tr>${open?`<tr class="oa-edit"><td></td><td colspan="4">${oaEditor(r)}</td></tr>`:''}`;
+      </tr>${open?`<tr class="oa-edit"><td></td><td colspan="7">${oaEditor(r)}</td></tr>`:''}`;
     }).join('')}</tbody></table>`;
 }
 // ── folder color labels ──
