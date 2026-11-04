@@ -72,6 +72,8 @@ const FieldValue = () => require('./firebase-admin').firestore.FieldValue;
 const today = () => new Date().toISOString().slice(0, 10);
 const isEmail = e => /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[a-z]{2,}$/i.test(String(e || ''));
 const oneLine = s => String(s || '').replace(/[\r\n]+/g, ' ').trim();
+// Generated subjects start with a capital letter ("quick question" → "Quick question").
+const capFirst = s => String(s || '').replace(/\p{L}/u, c => c.toUpperCase());
 
 function clean(item) {
   const out = {};
@@ -315,7 +317,7 @@ Answer with JSON only: {"versions": [{"subject": "...", "body": "..."}]}`;
   const seen = new Set(src.map(t => t.subject.toLowerCase()));
   const srcBrackets = src.some(t => /\[[^\]]*\]/.test(t.body));
   const versions = (Array.isArray(out.versions) ? out.versions : []).map(v => ({
-    subject: oneLine(v && v.subject).slice(0, 150), body: String((v && v.body) || '').replace(/\r\n/g, '\n').trim().slice(0, 4000)
+    subject: capFirst(oneLine(v && v.subject).slice(0, 150)), body: String((v && v.body) || '').replace(/\r\n/g, '\n').trim().slice(0, 4000)
   })).filter(v => {
     if (withSubject && (!v.subject || seen.has(v.subject.toLowerCase()))) return false;
     if (v.body.length < 20) return false;
@@ -389,7 +391,7 @@ async function templateDraft(uid, ref, row, senderName, set, offer, signature, a
     .replace(/\{sender\}/g, oneLine(senderName) || 'the LinkBoard team');
   const body = fill(t.body);
   const subject = mixed
-    ? (await aiSubject(body, row.domain, avoidSubjects)) || fill(t.subject || pick(FALLBACK_SUBJECTS))
+    ? capFirst((await aiSubject(body, row.domain, avoidSubjects)) || fill(t.subject || pick(FALLBACK_SUBJECTS)))
     : fill(t.subject);
   await ref.update({ subject, body, templateIdx: idx, templateSet: set, templateOwn: !!own, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
   return { subject, body, templateIdx: idx, templateSet: set, templateOwn: !!own };
@@ -458,7 +460,7 @@ Answer with JSON only: {"subject": "...", "body": "..."}`;
   const m = text.match(/\{[\s\S]*\}/);
   let out;
   try { out = JSON.parse(m ? m[0] : text); } catch (e) { throw new Error('AI answer was not readable — try again'); }
-  const subject = oneLine(out.subject).slice(0, 120);
+  const subject = capFirst(oneLine(out.subject).slice(0, 120));
   const body = String(out.body || '').trim() + '\n\n' + pick(OPT_OUTS);
   if (!subject || !out.body) throw new Error('AI returned an empty draft — try again');
   await ref.update({ subject, body, status: 'draft', draftedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() });
