@@ -553,10 +553,34 @@ const EXCHANGE_SUBJECTS = [
   'Hey {name}, A-B-C collab idea', 'Hi {name}, quick question', 'open for collaboration, {name}?',
   'A-B-C collaboration with {site}?', 'open to an A-B-C collaboration?', 'A-B-C collab idea for {site}'
 ];
+// A first name read from the email address when the row has none:
+// "anna@…", "anna.smith@…", "anna_s@…" → "Anna". Role inboxes (info@, editor@…)
+// and joined initials ("jsmith@") give '' so the subject says "Hi there".
+const ROLE_LOCALS = /^(info|contact|contacts|hello|hi|hey|admin|administrator|support|help|sales|marketing|editor|editors|editorial|team|office|press|media|news|newsroom|pr|partners?|partnerships?|collab|collaborations?|business|biz|webmaster|web|site|mail|email|noreply|no-reply|enquiries|enquiry|inquiries|inquiry|general|hr|jobs|careers|billing|accounts?|feedback|content|blog|write|writers?|submissions?|guest|guestposts?|ads|advertising|advertise|sponsor|sponsorships?|seo|outreach|growth|community|social|founders?|ceo|owner|staff|desk|tips|legal|privacy|abuse|postmaster|hostmaster|service|services|customer|customers|orders|shop|store|team|us|me|mailbox)$/i;
+const START_PAIRS = /^(bl|br|ch|cl|cr|dr|fl|fr|gl|gr|kh|kr|ph|pl|pr|sc|sh|sk|sl|sm|sn|sp|st|sv|sw|th|tr|ts|tw|wh|zh|gw|dm|chr|shr|str|thr)/;
+function nameFromEmail(email) {
+  const local = String(email || '').split('@')[0].toLowerCase().replace(/\+.*$/, '');
+  if (!local || ROLE_LOCALS.test(local)) return '';
+  const parts = local.split(/[._-]+/).filter(Boolean);
+  const cand = parts[0] || '';
+  if (!/^[a-z]{3,12}$/.test(cand) || ROLE_LOCALS.test(cand)) return '';
+  // "vidico@vidico.com" is the company, not a person.
+  const host = String(email || '').split('@')[1] || '';
+  if (host && host.toLowerCase().replace(/^www\./, '').split('.')[0].replace(/[^a-z]/g, '').startsWith(cand)) return '';
+  // One run with no separator: "jsmith" / "mkline" (initial + surname) are skipped.
+  if (parts.length === 1) {
+    if (cand.length > 8) return ''; // "johnsmith" — rather "Hi there" than "Hi Johnsmith"
+    if (!/[aeiouy]/.test(cand.slice(0, 4))) return '';
+    if (!/^[aeiouy]/.test(cand) && !/^[aeiouy]/.test(cand.slice(1)) && !START_PAIRS.test(cand)) return '';
+  }
+  return cand.charAt(0).toUpperCase() + cand.slice(1);
+}
+const firstNameOf = row => oneLine(row.firstName).split(' ')[0] || nameFromEmail(row.email);
+
 function pickSubject(pool, fill, row, avoid, senderName) {
   const used = new Set([row.subject, ...(Array.isArray(avoid) ? avoid : [])].map(x => oneLine(x).toLowerCase()));
   // Without a first name only the "Hi {name}" ones stay ("Hi there"); "{name}, open…" would read "There, open…".
-  const noName = !oneLine(row.firstName);
+  const noName = !firstNameOf(row);
   const all = pool.filter(x => !(x.includes('{sender}') && !oneLine(senderName)))
     .filter(x => !(noName && x.includes('{name}') && !/^(hi|hey|hello) \{name\}/i.test(x)))
     .map(x => capFirst(fill(x)));
@@ -585,7 +609,7 @@ async function templateDraft(uid, ref, row, senderName, set, offer, signature, a
     idx = Math.floor(n / TEMPLATE_EVERY) % list.length;
   }
   const t = list[idx % list.length];
-  const first = oneLine(row.firstName).split(' ')[0];
+  const first = firstNameOf(row);
   const fill = str => str
     .replace(/\{name\}/g, first ? first.charAt(0).toUpperCase() + first.slice(1) : 'there')
     .replace(/\{optout\}/g, OPT_OUTS[idx % OPT_OUTS.length])
