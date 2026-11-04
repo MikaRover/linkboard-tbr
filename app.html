@@ -9226,7 +9226,7 @@ const OA_STATUS = {
   sent:{label:'Sent',tone:'blue'}, replied:{label:'Replied',tone:'green'},
   bounced:{label:'Bounced',tone:'red'}, failed:{label:'Failed',tone:'red'}, skipped:{label:'Skipped',tone:'neutral'}
 };
-const OA_TABS = [['all','All'],['new','Analyzed'],['found','Found'],['draft','Drafts'],['sent','Sent'],['replied','Replied'],['bounced','Bounced'],['nocontact','No contact'],['skipped','Skipped']];
+const OA_TABS = [['all','All'],['new','Analyzed'],['found','Found'],['draft','Drafts'],['queued','In progress'],['sent','Sent'],['replied','Replied'],['bounced','Bounced'],['nocontact','No contact'],['skipped','Skipped']];
 
 async function oaApi(action, payload){
   const r = await fetch('/api/outreach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...(payload||{})})});
@@ -10373,6 +10373,8 @@ function oaInFolder(r){ return !oaFolder || (oaFolder===OA_NO_FOLDER ? !r.folder
 function oaToday(){ return new Date().toISOString().slice(0,10); } // same UTC day the server stamps on sentDay
 function oaVisible(){
   const mbOk = r => !oaMbFilter || oaFilter==='all' || oaFilter==='draft' || oaFromPicked(r);
+  // In progress: queued for sending (row.queue) or going out right now.
+  if(oaFilter==='queued') return oaRows.filter(r=>oaInFolder(r) && (r.queue || r.status==='sending'));
   if(oaFilter==='today'){ const t = oaToday(); return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && oaSent(r) && (r.sentDay===t || r.status==='sending')); }
   return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && oaTypeOk(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')));
 }
@@ -10412,7 +10414,7 @@ function oaRender(){
   if(selInv){ selInv.style.display = nInvalid ? '' : 'none'; selInv.textContent = `Select invalid (${nInvalid})`; }
   const inFolder = oaRows.filter(oaInFolder);
   const counts = {}; inFolder.forEach(r=>{ counts[r.status]=(counts[r.status]||0)+1; });
-  counts.all = inFolder.length; counts.sent=(counts.sent||0)+(counts.sending||0); counts.draft=(counts.draft||0)+(counts.failed||0);
+  counts.all = inFolder.length; counts.sent=(counts.sent||0)+(counts.sending||0); counts.draft=(counts.draft||0)+(counts.failed||0); counts.queued=inFolder.filter(r=>r.queue||r.status==='sending').length;
   document.getElementById('oa-tabs').innerHTML = OA_TABS.map(([k,l])=>`<button class="oa-tab ${oaFilter===k?'active':''}" onclick="oaFilter='${k}';oaMbFilter=false;oaRender()">${l}<b>${counts[k]||0}</b></button>`).join('');
   const ids = new Set(oaRows.map(r=>r.id)); [...oaSelected].forEach(id=>{ if(!ids.has(id)) oaSelected.delete(id); });
   oaSelUi(); oaRenderStats();
