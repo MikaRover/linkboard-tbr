@@ -2452,6 +2452,7 @@ body.lbr-open{overflow:hidden;}
       <span id="oa-folder-dot" class="oa-fdot" style="display:none;"></span>
       <select id="oa-folder" class="oa-select" onchange="oaSetFolder(this.value)" title="Client folder"></select>
       <button class="btn-ghost" onclick="oaNewFolder()">New folder</button>
+      <button class="btn-ghost" id="oa-rename-folder" style="display:none;" onclick="oaRenameFolder()">Rename</button>
       <button class="btn-ghost" id="oa-folder-color" style="display:none;" onclick="oaFolderColorMenu(this)" title="Color label for this folder">Color</button>
       <button class="btn-ghost" id="oa-del-folder" style="display:none;" onclick="oaDeleteFolder()">Delete folder</button>
       <button class="btn-ghost" id="oa-sel-invalid" style="display:none;" onclick="oaSelectInvalid()" title="Select every address that failed verification, to delete them in one go">Select invalid</button>
@@ -10207,6 +10208,7 @@ function oaRenderFolders(){
   const realFolder = oaFolder && oaFolder!==OA_NO_FOLDER;
   document.getElementById('oa-del-folder').style.display = realFolder ? '' : 'none';
   document.getElementById('oa-folder-color').style.display = realFolder ? '' : 'none';
+  document.getElementById('oa-rename-folder').style.display = realFolder ? '' : 'none';
   const dot = document.getElementById('oa-folder-dot'), c = realFolder && OA_FOLDER_COLORS[oaFolderColors[oaFolder]];
   dot.style.display = c ? '' : 'none'; if(c) dot.style.background = c;
   const note = document.getElementById('oa-folder-note');
@@ -10223,6 +10225,32 @@ function oaAskFolder(){
   return name;
 }
 function oaNewFolder(){ const name = oaAskFolder(); if(name) oaSetFolder(name); }
+// Renaming moves every row of the folder (sent ones too) to the new name, and
+// its color with it. A name that is already a folder merges the two.
+async function oaRenameFolder(){
+  const f = oaFolder; if(!f || f===OA_NO_FOLDER) return;
+  const to = (prompt('New folder name', f)||'').replace(/\s+/g,' ').trim().slice(0,80);
+  if(!to || to===f) return;
+  const exists = oaFolderNames().includes(to);
+  if(exists && !confirm(`“${to}” already exists. Move everything from “${f}” into it?`)) return;
+  const ids = oaRows.filter(r=>r.folder===f).map(r=>r.id);
+  try{
+    for(let i=0;i<ids.length;i+=300) await oaApi('save',{items:ids.slice(i,i+300).map(id=>({id, folder:to}))});
+    ids.forEach(id=>{ const r = oaRow(id); if(r) r.folder = to; });
+    try{
+      const list = JSON.parse(localStorage.getItem('oa-folders')||'[]').filter(n=>n!==f);
+      if(!list.includes(to)) list.push(to);
+      localStorage.setItem('oa-folders', JSON.stringify(list));
+    }catch(e){}
+    const color = oaFolderColors[f];
+    if(color){
+      if(!oaFolderColors[to]){ oaFolderColors[to] = color; oaApi('folder-color',{folder:to, color}).catch(()=>{}); }
+      delete oaFolderColors[f]; oaApi('folder-color',{folder:f, color:''}).catch(()=>{});
+    }
+    showToast(`Folder renamed to “${to}”`);
+    oaSetFolder(to);
+  }catch(e){ showToast(e.message,'warn'); oaRender(); }
+}
 // Deleting a folder never deletes its contacts: they move to "No folder".
 async function oaDeleteFolder(){
   const f = oaFolder; if(!f || f===OA_NO_FOLDER) return;
