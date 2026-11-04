@@ -2446,6 +2446,7 @@ body.lbr-open{overflow:hidden;}
       <select id="oa-folder" class="oa-select" onchange="oaSetFolder(this.value)" title="Client folder"></select>
       <button class="btn-ghost" onclick="oaNewFolder()">New folder</button>
       <button class="btn-ghost" id="oa-del-folder" style="display:none;" onclick="oaDeleteFolder()">Delete folder</button>
+      <button class="btn-ghost" id="oa-sel-invalid" style="display:none;" onclick="oaSelectInvalid()" title="Select every address that failed verification, to delete them in one go">Select invalid</button>
       <div class="oa-tabs" id="oa-tabs"></div>
     </div>
     <div class="oa-selbar" id="oa-selbar">
@@ -10112,6 +10113,8 @@ function oaTh(k, label){
 }
 function oaRender(){
   oaRenderFolders();
+  const nInvalid = oaInvalidRows().length, selInv = document.getElementById('oa-sel-invalid');
+  if(selInv){ selInv.style.display = nInvalid ? '' : 'none'; selInv.textContent = `Select invalid (${nInvalid})`; }
   const inFolder = oaRows.filter(oaInFolder);
   const counts = {}; inFolder.forEach(r=>{ counts[r.status]=(counts[r.status]||0)+1; });
   counts.all = inFolder.length; counts.sent=(counts.sent||0)+(counts.sending||0); counts.draft=(counts.draft||0)+(counts.failed||0);
@@ -10214,6 +10217,15 @@ function oaSelect(id,on){
   oaSelUi();
 }
 function oaSelectAll(on){ oaVisible().forEach(r=>on?oaSelected.add(r.id):oaSelected.delete(r.id)); oaRender(); }
+// Addresses that failed verification and were never sent, in this folder.
+const oaInvalidRows = () => oaRows.filter(r=>oaInFolder(r) && r.smtp==='invalid' && !oaSent(r));
+function oaSelectInvalid(){
+  const rows = oaInvalidRows();
+  if(!rows.length){ showToast('No invalid addresses here'); return; }
+  oaFilter = 'all'; oaSelected.clear(); rows.forEach(r=>oaSelected.add(r.id));
+  oaRender();
+  showToast(`${rows.length} invalid selected — click Delete to remove them`);
+}
 function oaToggle(id,ev){
   if(ev && ev.target.closest('input,button,select,textarea,a')) return;
   oaOpen = oaOpen===id ? null : id; oaRender();
@@ -10343,6 +10355,7 @@ async function oaSendOne(id, btn){
   if(oaEdits[id] && !(await oaSaveRow(id, null, true))) return;
   const r = oaRow(id);
   if(r.status!=='draft' && r.status!=='failed'){ showToast('Write or save the draft first','warn'); return; }
+  if(r.smtp!=='valid'){ showToast(r.smtp==='invalid' ? 'This address failed verification' : 'Not verified — click Verify first; only verified emails are sent','warn'); return; }
   const from = oaFrom();
   if(!from){ showToast('Connect a Gmail mailbox for sending first','warn'); return; }
   const ahead = oaQueuedRows().filter(x=>x.queue.from===from).length;
@@ -10351,9 +10364,13 @@ async function oaSendOne(id, btn){
   oaOpen = null;
   oaEnqueue([id]);
 }
+// Only verified addresses are sent; the rest of the selection is left as it is.
 async function oaSendSelected(){
-  const rows = [...oaSelected].map(oaRow).filter(r=>r && (r.status==='draft'||r.status==='failed') && r.email && r.subject && r.body && !oaQueued(r.id));
-  if(!rows.length){ showToast('Select rows with a finished draft (status “Draft ready”)','warn'); return; }
+  const ready = [...oaSelected].map(oaRow).filter(r=>r && (r.status==='draft'||r.status==='failed') && r.email && r.subject && r.body && !oaQueued(r.id));
+  const rows = ready.filter(r=>r.smtp==='valid');
+  const unverified = ready.length - rows.length;
+  if(!rows.length){ showToast(ready.length ? `${unverified} selected draft${unverified>1?'s are':' is'} not verified — click Verify first; only verified emails are sent` : 'Select rows with a finished draft (status “Draft ready”)','warn'); return; }
+  if(unverified) showToast(`${unverified} not verified — skipped. Only verified emails are sent.`,'warn');
   const from = oaFrom();
   if(!from){ showToast('Connect a Gmail mailbox for sending first','warn'); return; }
   const mb = oaMailboxes.find(m=>m.email===from);
@@ -10413,7 +10430,7 @@ function oaCtx(ev, id){
   const one = rows.length===1 ? rows[0] : null;
   const many = rows.length>1 ? ` (${rows.length})` : '';
   const draftable = rows.filter(r=>r.email && ['found','draft','failed'].includes(r.status));
-  const sendable = rows.filter(r=>(r.status==='draft'||r.status==='failed') && r.email && r.subject && r.body && !oaQueued(r.id));
+  const sendable = rows.filter(r=>(r.status==='draft'||r.status==='failed') && r.email && r.subject && r.body && r.smtp==='valid' && !oaQueued(r.id));
   const open = rows.filter(r=>!oaSent(r));
   const skipped = open.filter(r=>r.status==='skipped'), skippable = open.filter(r=>r.status!=='skipped');
   const folders = oaFolderNames();

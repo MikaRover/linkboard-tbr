@@ -518,7 +518,9 @@ async function send(user, { id, email, from, fromName }) {
   // The page sends the address it showed — if the row changed underneath, stop.
   if (!to || to !== String(email || '').toLowerCase()) throw new Error('The recipient changed — review the row again');
   if (!isEmail(to)) throw new Error('Not a valid email address');
+  // Only addresses Verify confirmed go out — an unverified one may bounce and hurt the mailbox.
   if (row.smtp === 'invalid') throw new Error('This address failed verification');
+  if (row.smtp !== 'valid') throw new Error('Not verified — click Verify first; only verified emails are sent');
   if (!row.subject || !row.body) throw new Error('Draft is empty');
 
   const block = await contactBlock(ref.id, to, user.uid);
@@ -610,6 +612,7 @@ async function queueRows(user, { ids, from, fromName }) {
     if (!cur.exists) continue;
     const x = cur.data();
     if (x.ownerUid !== user.uid || !['draft', 'failed'].includes(x.status) || !x.email || !x.subject || !x.body || x.queue) continue;
+    if (x.smtp !== 'valid') continue; // only verified addresses are sent
     // at keeps the order the rows were picked in.
     batch.update(ref, { queue: { from: conn.email, fromName: name, email: String(x.email).toLowerCase(), at: now + n }, error: null });
     n++;
