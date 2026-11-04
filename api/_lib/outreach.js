@@ -447,14 +447,15 @@ Answer with JSON only: {"versions": [{"subject": "...", "body": "..."}]}`;
 }
 
 // Exchange subjects: picked from this pool, free (no AI), never one the row
-// or the page used recently. They name the A-B-C collaboration plainly, in
-// many different shapes, so a batch doesn't repeat one subject line.
+// or the page used recently. Short, personal questions — most greet the
+// person by first name ({name}, "there" when unknown) — plus a few that name
+// the A-B-C collaboration, so a batch doesn't repeat one subject line.
 const EXCHANGE_SUBJECTS = [
-  'A-B-C collaboration with {site}?', 'A-B-C collab idea for {site}', 'open to an A-B-C collaboration?',
-  'quick A-B-C idea for {site}', 'A-B-C content swap with {site}?', 'an A-B-C collaboration idea',
-  'A-B-C exchange with our SaaS partners', 'A-B-C collaboration: {site}', 'A-B-C collab, {site}?',
-  'question about an A-B-C collab', 'would {site} do an A-B-C collab?', 'A-B-C collaboration for your blog',
-  'an A-B-C idea for your blog', 'A-B-C swap with SaaS blogs', 'A-B-C collaboration, quick question'
+  'Hi {name}, open for collaboration?', 'Hi {name}, open to a collaboration?', 'Hey {name}, open for a collab?',
+  '{name}, open to collaborating?', 'Hi {name}, quick collaboration idea', 'Hi {name}, collaboration with {site}?',
+  'Hello {name}, open for a content collab?', '{name}, would you be open to a collab?', 'Hi {name}, A-B-C collaboration?',
+  'Hey {name}, A-B-C collab idea', 'Hi {name}, quick question', 'open for collaboration, {name}?',
+  'A-B-C collaboration with {site}?', 'open to an A-B-C collaboration?', 'A-B-C collab idea for {site}'
 ];
 function pickSubject(pool, fill, row, avoid, senderName) {
   const used = new Set([row.subject, ...(Array.isArray(avoid) ? avoid : [])].map(x => oneLine(x).toLowerCase()));
