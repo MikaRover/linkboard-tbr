@@ -9834,7 +9834,9 @@ async function oaLoadMailboxes(){
     ${senders.filter(m=>m.provider!=='gmail').map(m=>`<div class="oa-help">${escapeHtml(m.email)} · Private Email${m.lastError?` · <span style="color:var(--red);">${escapeHtml(m.lastError)}</span>`:''} · <a href="#" onclick="event.preventDefault();oaDisconnectSmtp('${escAttr(m.id)}','${escAttr(m.email)}')">Disconnect</a></div>`).join('')}
     ${others.length?`<div class="oa-help">${others.map(m=>`<span style="color:${m.lastError?'var(--red)':'var(--text3)'};">${escapeHtml(m.email)} · ${m.lastError?'reconnect':'counting only'}</span>`).join(' · ')}</div>`:''}
     <div id="oa-mb-health" class="oa-mb-health"></div>
-    <div class="oa-help">One email every 4–5 minutes, up to ${oaLimit} a day per mailbox.</div>`
+    <div class="oa-help oa-mb-row">One email every 4–5 minutes, up to
+      <select id="oa-mb-limit" class="oa-select" style="padding:2px 6px;" onchange="oaSetMailboxLimit(this)" title="Daily limit for this mailbox">${[30,45,60].map(n=>`<option ${mb&&mb.limit===n?'selected':''}>${n}</option>`).join('')}</select>
+      a day from this mailbox.</div>`
   : `<div class="oa-label" style="margin:0;">Send from</div>
     <div class="oa-help">Connect your Gmail and allow “Send email on your behalf”. Only drafts you approve are ever sent.</div>
     <div class="oa-from-row"><button class="btn-sm" onclick="oaConnectSend()">Connect Gmail</button>${pe?'<button class="btn-ghost" onclick="oaSmtpForm(true)">Connect Private Email</button>':''}</div>`;
@@ -9875,6 +9877,16 @@ function oaRenderMailboxHealth(){
     ? `<span style="color:var(--red);">Sending paused: ${b.pct}% of the last ${b.sent} emails bounced.</span> <button class="btn-ghost" style="padding:3px 10px;font-size:12px;" onclick="oaResumeMailbox('${escAttr(mb.id)}')">Resume for 24h</button>`
     : `<span class="oa-help" title="Sending pauses at 5% bounces (20+ sent in ${b.days} days)">Bounces ${b.pct}% of ${b.sent} sent · ${b.days} days</span>`;
   el.innerHTML = [dns, bounce].filter(Boolean).map(x=>`<div class="oa-mb-row">${x}</div>`).join('');
+}
+// Raising the limit is the owner's call; more than 30 a day is safest for a
+// mailbox that has sent for a few weeks with almost no bounces.
+async function oaSetMailboxLimit(sel){
+  const mb = oaMailboxes.find(m=>m.email===oaFrom());
+  if(!mb) return;
+  const n = +sel.value;
+  if(n>mb.limit && !confirm(`Allow up to ${n} emails a day from ${mb.email}?\n\nHigher volume is safest on a mailbox that has sent for a few weeks with bounces under 2%${mb.bounce?` (now ${mb.bounce.pct}%)`:''}.`)){ sel.value = mb.limit; return; }
+  try{ await oaApi('mailbox-limit',{id:mb.id, limit:n}); mb.limit = n; oaRenderStats(); showToast(`${mb.email}: up to ${n} a day`); }
+  catch(e){ sel.value = mb.limit; showToast(e.message,'warn'); }
 }
 async function oaResumeMailbox(id){
   if(!confirm('Resume sending from this mailbox for 24 hours?\n\nOnly do this after removing bad addresses — more bounces can get the mailbox flagged.')) return;
@@ -9932,7 +9944,12 @@ async function oaConnectSend(){
   }catch(e){ showToast(e.message,'warn'); }
 }
 function oaFrom(){ return document.getElementById('oa-from')?.value||''; }
-function oaFromChanged(){ if(oaMbFilter){ oaOpen = null; oaRender(); } else oaRenderStats(); oaRenderMailboxHealth(); }
+function oaFromChanged(){
+  if(oaMbFilter){ oaOpen = null; oaRender(); } else oaRenderStats();
+  oaRenderMailboxHealth();
+  const mb = oaMailboxes.find(m=>m.email===oaFrom()), sel = document.getElementById('oa-mb-limit');
+  if(mb && sel) sel.value = mb.limit;
+}
 // Private Email mailboxes are admin-only (same check as the server's smtp-connect).
 function oaCanPrivateEmail(){ return cu?.role==='admin'; }
 // "Add mailbox": Gmail (Google sign-in) or Private Email (address + password).
