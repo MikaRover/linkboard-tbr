@@ -33,7 +33,7 @@ const DAILY_LIMIT = Math.max(1, parseInt(process.env.OUTREACH_DAILY_LIMIT, 10) |
 const LIMIT_CHOICES = [30, 45, 60];
 const limitOf = c => LIMIT_CHOICES.includes(+((c && c.dailyLimit) || 0)) ? +c.dailyLimit : DAILY_LIMIT;
 const RECONTACT_DAYS = 90;   // never email the same address again within this window
-const TRACK_DAYS = 45;       // stop checking a thread for replies after this long
+const TRACK_DAYS = 90;       // stop checking a thread for replies after this long
 const MAX_ROWS = 300;        // per save call
 // Several wordings so the footer isn't an identical fingerprint on every email.
 const OPT_OUTS = [
@@ -1059,13 +1059,37 @@ async function fuQueueRows(uid, { ids, fromName }) {
   return { queued: n };
 }
 
-// True when the thread already has a message from someone else (a reply or a bounce).
+// What the other messages in a sent email's Gmail thread say: 'bounced' (a
+// delivery failure), 'replied' (a real person answered), 'auto' (only an
+// out-of-office / auto-responder came back — not a reply), or '' (nothing).
+const TRACK_HEADERS = ['From', 'Subject', 'Auto-Submitted', 'X-Autoreply', 'X-Autorespond', 'X-Auto-Response-Suppress', 'Precedence', 'Content-Type'];
+const AUTO_SUBJECT = /^\s*(automatic reply|auto(matic)?[- ]?reply|auto:|out of (the )?office|ooo\b|away from (the )?office|i am out|i'm out|on vacation|on leave|abwesenheit|r[ée]ponse automatique|respuesta autom[áa]tica|thank you for (your )?(email|message|contacting)|thanks for (your )?(email|message|reaching out)|we (have )?received your)/i;
+function isAutoReply(get) {
+  const as = get('auto-submitted');
+  if (as && !/^no$/i.test(as)) return true;
+  if (get('x-autoreply') || get('x-autorespond')) return true;
+  if (/auto_reply|auto-reply|bulk|junk/i.test(get('precedence'))) return true;
+  return AUTO_SUBJECT.test(get('subject'));
+}
+async function threadStatus(x, access) {
+  const t = await gmailGet(`threads/${x.threadId}?format=metadata&${TRACK_HEADERS.map(h => 'metadataHeaders=' + encodeURIComponent(h)).join('&')}&fields=messages(id,labelIds,payload/headers)`, access);
+  const own = String(x.fromEmail || '').toLowerCase();
+  let status = '';
+  for (const m of (t.messages || [])) {
+    if (m.id === x.messageId) continue;
+    const hs = (m.payload && m.payload.headers) || [];
+    const get = n => String((hs.find(h => h.name.toLowerCase() === n) || {}).value || '');
+    const f = get('from').toLowerCase();
+    if (!f || (own && f.includes(own))) continue; // our own email or follow-up
+    if (/mailer-daemon|postmaster|mail delivery|delivery status/.test(f) || /report-type=delivery-status/i.test(get('content-type'))) return 'bounced';
+    if (isAutoReply(get)) { if (!status) status = 'auto'; continue; }
+    status = 'replied';
+  }
+  return status;
+}
+// True when the thread already has a reply or a bounce (auto-replies don't count).
 async function threadHasReply(x, access) {
-  const t = await gmailGet(`threads/${x.threadId}?format=metadata&metadataHeaders=From&fields=messages(id,payload/headers)`, access);
-  return (t.messages || []).some(m => {
-    const f = String((((m.payload && m.payload.headers) || []).find(h => /^from$/i.test(h.name)) || {}).value || '').toLowerCase();
-    return f && !f.includes(String(x.fromEmail || '').toLowerCase());
-  });
+  return ['replied', 'bounced'].includes(await threadStatus(x, access));
 }
 
 async function sendFollowUp(user, { id, fromName }) {
@@ -1264,35 +1288,44 @@ function isTickCall(req) {
 }
 
 // ─── reply / bounce tracking ─────────────────────────────
-async function trackAll(onlyUid) {
+async function trackAll(onlyUid, budgetMs) {
   const snap = await db().collection(COLL).where('status', '==', 'sent').get();
   const since = Date.now() - TRACK_DAYS * DAY;
-  const rows = snap.docs.filter(d => d.data().threadId && (d.data().sentAt || 0) >= since && (!onlyUid || d.data().ownerUid === onlyUid));
+  // "Check replies" also re-reads rows marked Replied before auto-replies were
+  // told apart, once each (recheckedAt), and puts an out-of-office back to Sent.
+  const old = onlyUid ? (await db().collection(COLL).where('ownerUid', '==', onlyUid).where('status', '==', 'replied').get()).docs
+    .filter(d => d.data().threadId && !d.data().recheckedAt && (d.data().sentAt || 0) >= since) : [];
+  // Newest first: they're the likeliest to get a reply.
+  const rows = [...old, ...snap.docs].filter(d => d.data().threadId && (d.data().sentAt || 0) >= since && (!onlyUid || d.data().ownerUid === onlyUid))
+    .sort((p, q) => (q.data().followedUpAt || q.data().sentAt || 0) - (p.data().followedUpAt || p.data().sentAt || 0));
   const tokens = {};
-  let replied = 0, bounced = 0;
-  const deadline = Date.now() + 45000;
-  for (const d of rows) {
-    if (Date.now() > deadline) break;
-    const x = d.data();
-    try {
-      if (!(x.fromMailbox in tokens)) tokens[x.fromMailbox] = await accessTokenFor(x.fromMailbox).catch(() => null);
-      const access = tokens[x.fromMailbox];
-      if (!access) continue;
-      const t = await gmailGet(`threads/${x.threadId}?format=metadata&metadataHeaders=From&fields=messages(id,internalDate,payload/headers)`, access);
-      let status = '';
-      for (const m of (t.messages || [])) {
-        if (m.id === x.messageId) continue;
-        const fromH = ((m.payload && m.payload.headers) || []).find(h => /^from$/i.test(h.name));
-        const f = String(fromH && fromH.value || '').toLowerCase();
-        if (/mailer-daemon|postmaster|mail delivery/.test(f)) { status = 'bounced'; break; }
-        if (f && !f.includes(String(x.fromEmail || '').toLowerCase())) status = 'replied';
-      }
-      if (status) {
-        await d.ref.update({ status, [status + 'At']: Date.now(), updatedAt: FieldValue().serverTimestamp() });
-        if (status === 'replied') replied++; else bounced++;
-      }
-    } catch (e) {}
-  }
+  let replied = 0, bounced = 0, auto = 0, checked = 0, unchecked = 0;
+  const deadline = Date.now() + (budgetMs || 45000);
+  // Several threads at a time, so every sent email gets checked inside the time limit.
+  const work = rows.slice();
+  const worker = async () => {
+    while (work.length) {
+      if (Date.now() > deadline) { unchecked += work.length; work.length = 0; break; }
+      const d = work.shift(), x = d.data();
+      try {
+        if (!(x.fromMailbox in tokens)) tokens[x.fromMailbox] = accessTokenFor(x.fromMailbox).catch(() => null);
+        const access = await tokens[x.fromMailbox];
+        if (!access) { unchecked++; continue; }
+        const st = await threadStatus(x, access);
+        checked++;
+        if (x.status === 'replied') {
+          if (st === 'auto') { await d.ref.update({ status: 'sent', autoReplyAt: x.repliedAt || Date.now(), recheckedAt: Date.now(), updatedAt: FieldValue().serverTimestamp() }); auto++; }
+          else await d.ref.update({ recheckedAt: Date.now() });
+          continue;
+        }
+        if (st === 'replied' || st === 'bounced') {
+          await d.ref.update({ status: st, [st + 'At']: Date.now(), updatedAt: FieldValue().serverTimestamp() });
+          if (st === 'replied') replied++; else bounced++;
+        } else if (st === 'auto' && !x.autoReplyAt) { await d.ref.update({ autoReplyAt: Date.now() }); auto++; }
+      } catch (e) { unchecked++; }
+    }
+  };
+  await Promise.all(Array.from({ length: 8 }, worker));
   // Private Email / SMTP mailboxes: read the inbox over IMAP, one login per mailbox.
   const smtpRows = snap.docs.filter(d => d.data().smtpMessageId && (d.data().sentAt || 0) >= since && (!onlyUid || d.data().ownerUid === onlyUid));
   const byBox = {};
@@ -1304,10 +1337,10 @@ async function trackAll(onlyUid) {
       const conn = await smtp.get(box);
       if (!conn) continue;
       const r = await smtp.track(conn, list, deadline, (ref, status) => ref.update({ status, [status + 'At']: Date.now(), updatedAt: FieldValue().serverTimestamp() }));
-      replied += r.replied; bounced += r.bounced;
-    } catch (e) {}
+      replied += r.replied; bounced += r.bounced; checked += list.length;
+    } catch (e) { unchecked += list.length; }
   }
-  return { checked: rows.length + smtpRows.length, replied, bounced };
+  return { checked, replied, bounced, auto, unchecked };
 }
 
 // ─── verify (Snov SMTP check) ────────────────────────────
@@ -1358,6 +1391,18 @@ async function handler(req, res) {
       // can take most of a minute, so they run in their own request (the
       // timer's own request has a 30s limit).
       if (Date.now() - t0 < 15000) out.linkBuilder = await require('./linkbuilder').kick(req).catch(e => ({ error: String(e.message || e) }));
+      // Replies and bounces for everyone, every 30 min, in the time this request has left.
+      try {
+        const left = 25000 - (Date.now() - t0);
+        const slot = db().collection(QUEUE_COLL).doc('_track');
+        const go = left > 6000 && await db().runTransaction(async tx => {
+          const s = await tx.get(slot);
+          if (s.exists && (s.data().nextAt || 0) > Date.now()) return false;
+          tx.set(slot, { nextAt: Date.now() + 30 * 60000 }, { merge: true });
+          return true;
+        });
+        if (go) out.track = await trackAll(null, left - 3000);
+      } catch (e) { out.track = { error: String(e.message || e) }; }
       return res.json(out);
     } catch (e) { return res.status(500).json({ error: String(e.message || e) }); }
   }
