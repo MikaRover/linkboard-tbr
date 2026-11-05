@@ -1323,7 +1323,7 @@ async function verify(uid, ids) {
 
 // ─── HTTP ────────────────────────────────────────────────
 // Same people as the app's canUseAgent(): admins, plus Tatev and these builders by name.
-const AGENT_USERS = ['Tatev', 'Armen', 'Tam', 'Nick', 'Syuzi', 'Sofya'];
+const AGENT_USERS = ['Tatev', 'Armen', 'Tam', 'Nick', 'Syuzi', 'Sofya', 'Gor'];
 const canUseAgent = u => u.role === 'admin' || AGENT_USERS.includes(u.name);
 
 async function handler(req, res) {
