@@ -742,6 +742,28 @@ async function contactBlock(id, email, uid) {
   return '';
 }
 
+// Which of these sites were already emailed by the agent — yours or a
+// teammate's — and when, so a re-pasted list says "already emailed on …".
+// A teammate's row is never named or shown: only the date and its outcome.
+async function emailedSites(uid, domains) {
+  const list = [...new Set((Array.isArray(domains) ? domains : []).map(cleanHost).filter(Boolean))].slice(0, 600);
+  const out = {};
+  for (let i = 0; i < list.length; i += 30) {
+    const snap = await db().collection(COLL).where('domain', 'in', list.slice(i, i + 30)).get();
+    snap.docs.forEach(d => {
+      const x = d.data();
+      if (!['sent', 'sending', 'replied', 'bounced'].includes(x.status) || !x.sentAt) return;
+      const mine = x.ownerUid === uid;
+      const cur = out[x.domain];
+      // Keep the latest send; your own beats a teammate's on the same day.
+      if (cur && (cur.sentAt > x.sentAt || (cur.sentAt === x.sentAt && cur.mine))) return;
+      out[x.domain] = { sentAt: x.sentAt, day: x.sentDay || new Date(x.sentAt).toISOString().slice(0, 10), status: x.status, mine,
+        followUps: x.followUps || 0, ...(mine ? { email: x.email || '', id: d.id } : {}) };
+    });
+  }
+  return { sites: out };
+}
+
 // A test copy of a draft to an address you type (a deliverability tester such
 // as mail-tester.com, or yourself): the exact message, from the same mailbox,
 // so the test sees what recipients get. It is not outreach — the row's status,
@@ -1362,6 +1384,7 @@ async function handler(req, res) {
       case 'send': return res.json(await send(user, b));
       case 'queue': return res.json(await queueRows(user, b));
       case 'unqueue': return res.json(await unqueueRows(user.uid, b.ids));
+      case 'emailed': return res.json(await emailedSites(user.uid, b.domains));
       case 'fu-draft': return res.json(await fuDraft(user.uid, b));
       case 'fu-queue': return res.json(await fuQueueRows(user.uid, b));
       case 'tick': return res.json(await tick());
