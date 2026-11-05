@@ -99,6 +99,16 @@ async function sendRaw(conn, { to, raw }) {
 }
 
 // rows: [{ ref, data }] all from this mailbox. Returns { replied, bounced }.
+// Same rule as outreach.js isAutoReply: auto-responders and out-of-office aren't replies.
+const AUTO_SUBJECT = /^\s*(automatic reply|auto(matic)?[- ]?reply|auto:|out of (the )?office|ooo\b|away from (the )?office|i am out|i'm out|on vacation|on leave|abwesenheit|r[ée]ponse automatique|respuesta autom[áa]tica|thank you for (your )?(email|message|contacting)|thanks for (your )?(email|message|reaching out)|we (have )?received your)/i;
+function isAuto(get) {
+  const as = get('auto-submitted');
+  if (as && !/^no$/i.test(as)) return true;
+  if (get('x-autoreply') || get('x-autorespond')) return true;
+  if (/auto_reply|auto-reply|bulk|junk/i.test(get('precedence'))) return true;
+  return AUTO_SUBJECT.test(get('subject'));
+}
+
 async function track(conn, rows, deadline, onStatus) {
   const { p, password } = await creds(conn);
   const c = imapClient(p, conn.email, password);
@@ -112,10 +122,20 @@ async function track(conn, rows, deadline, onStatus) {
         // IMAP SINCE is day-granular, so start a day early; search() gives
         // false on no match, hence the `|| []`.
         const since = new Date((x.sentAt || Date.now()) - 86400000);
-        const found = async q => ((await c.search({ since, ...q }).catch(() => false)) || []).length > 0;
+        const uids = async q => (await c.search({ since, ...q }).catch(() => false)) || [];
+        const found = async q => (await uids(q)).length > 0;
         let status = '';
         if (await found({ from: 'mailer-daemon', body: x.email }) || await found({ from: 'postmaster', body: x.email })) status = 'bounced';
-        else if ((x.smtpMessageId && await found({ header: { 'in-reply-to': x.smtpMessageId } })) || await found({ from: x.email })) status = 'replied';
+        else {
+          // A reply only if at least one of their messages isn't an out-of-office / auto-responder.
+          const ids = [...new Set([...(x.smtpMessageId ? await uids({ header: { 'in-reply-to': x.smtpMessageId } }) : []), ...(await uids({ from: x.email }))])].slice(-10);
+          for (const uid of ids) {
+            const m = await c.fetchOne(uid, { headers: ['subject', 'auto-submitted', 'x-autoreply', 'x-autorespond', 'precedence'] }, { uid: true }).catch(() => null);
+            const h = m && m.headers ? m.headers.toString('utf8') : '';
+            const get = n => ((new RegExp('^' + n + ':\\s*(.*)$', 'im').exec(h) || [])[1] || '').trim();
+            if (!m || !isAuto(get)) { status = 'replied'; break; }
+          }
+        }
         if (status) { await onStatus(ref, status); status === 'replied' ? replied++ : bounced++; }
       }
     } finally { lock.release(); }
