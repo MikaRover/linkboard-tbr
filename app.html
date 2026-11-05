@@ -1165,6 +1165,8 @@ a{text-underline-offset:2px;}
 .oa-dupes b{color:var(--text);font-weight:600;}
 .oa-dupes ul{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:4px;max-height:220px;overflow:auto;}
 .oa-dupes li span{color:var(--text3);}
+.ot-pick-l{display:inline-flex;align-items:center;gap:5px;margin:0 6px 0 0;font-size:11px;color:var(--text3);cursor:pointer;vertical-align:middle;white-space:nowrap;}
+.ot-pick-l input{width:auto;margin:0;}
 .oa-fu-btn{margin-top:4px;padding:2px 8px;font-size:11px;}
 #oa-selbar .oa-only-fu{display:none;}
 #oa-selbar.fu .oa-only-fu{display:inline-flex;}
@@ -2917,7 +2919,7 @@ body.lbr-open{overflow:hidden;}
     <div style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-left:none;border-radius:0 14px 14px 0;padding:32px;">
 
       <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
-        <button class="btn-ghost" onclick="otToOutreach(this)" id="ot-to-agent" style="display:none;margin-right:8px;" title="Add the contacts found here to Outreach agent, ready for Verify and Write drafts"></button>
+        <button class="btn-ghost" onclick="otToOutreach(this)" id="ot-to-agent" style="display:none;margin-right:8px;" ></button>
         <button class="btn-ghost" onclick="exportOutreachCSV()" id="ot-export-btn" style="display:none;">⬇ Export CSV</button>
       </div>
 
@@ -8372,7 +8374,7 @@ function renderProspects(data, domain){
         <a href="${escAttr(linkedinUrl)}" target="_blank" class="btn-ghost" style="font-size:11px;padding:6px 10px;text-decoration:none;display:flex;align-items:center;gap:6px;">
           <span style="width:14px;height:14px;border-radius:3px;background:#0A66C2;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">in</span>LinkedIn
         </a>
-        <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(p.email||'')}',smtp:'${escAttr(p.smtp||'unknown')}',firstName:'${escAttr(p.first_name||'')}',lastName:'${escAttr(p.last_name||'')}',position:'${escAttr(p.position||'')}'});"
+        ${otPickBox({domain:((domain)),email:((p.email||'')),smtp:((p.smtp||'unknown')),firstName:((p.first_name||'')),lastName:((p.last_name||'')),position:((p.position||''))})}<button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(p.email||'')}',smtp:'${escAttr(p.smtp||'unknown')}',firstName:'${escAttr(p.first_name||'')}',lastName:'${escAttr(p.last_name||'')}',position:'${escAttr(p.position||'')}'});"
           class="btn-ghost" style="font-size:11px;padding:6px 10px;color:var(--teal);border-color:rgba(50,215,75,0.3);">Save</button>
         ${hasEmail?`<button onclick="composeOutreach('${escAttr(p.first_name)}','${escAttr(p.email)}','${escAttr(domain)}')" class="btn-sm" style="font-size:11px;padding:6px 10px;display:flex;align-items:center;gap:6px;">
           <svg width="14" height="10" viewBox="0 0 24 18" style="flex-shrink:0;"><path d="M2 2h20v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2z" fill="#ffffff"/><path d="M2 2l10 8 10-8" fill="none" stroke="#EA4335" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>Template
@@ -8412,7 +8414,7 @@ function renderScrapedEmails(data, domain){
       <td>
         <button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);"
           class="btn-ghost" style="font-size:11px;padding:3px 10px;">Copy</button>
-        <button onclick="saveContactToDB({domain:'${escAttr(domain)}', email:'${escAttr(e.email)}', smtp:'${escAttr(e.smtp||'unknown')}', firstName:'', lastName:'', position:'Scraped'})"
+        ${otPickBox({domain:((domain)), email:((e.email)), smtp:((e.smtp||'unknown')), firstName:'', lastName:'', position:'Scraped'})}<button onclick="saveContactToDB({domain:'${escAttr(domain)}', email:'${escAttr(e.email)}', smtp:'${escAttr(e.smtp||'unknown')}', firstName:'', lastName:'', position:'Scraped'})"
           class="btn-ghost" style="font-size:11px;padding:3px 10px;color:var(--teal);">Save</button>
         ${composeBtn('', e.email, domain)}
       </td>
@@ -8458,30 +8460,37 @@ function composeBtn(firstName, email, domain){
 // there. Skipped: invalid addresses, and pattern guesses that aren't verified.
 // One doc per (person, email) — the id makes a repeat search a no-op.
 const autoSavedEmails = new Set();
-// Contacts found on Outreach Finder this session (single, bulk, LinkedIn —
-// everything goes through autoSaveFoundEmails), for "Send to Outreach agent".
-let otFound = [];
-function otCollect(list){
-  const seen = new Set(otFound.map(c=>c.email));
-  (list||[]).forEach(c=>{
-    const email = String(c?.email||'').trim().toLowerCase();
-    const domain = String(c?.domain||'').replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').trim().toLowerCase();
-    if(!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email) || !domain || seen.has(email)) return;
-    seen.add(email);
-    otFound.push({domain, email, smtp:c.smtp==='valid'?'valid':(c.smtp==='invalid'||c.smtp==='not_valid'?'invalid':'unknown'), firstName:String(c.firstName||'').trim(), lastName:String(c.lastName||'').trim(), title:String(c.position||'').trim(), guessed:!!c.guessed});
-  });
+// Outreach Finder → Outreach agent: tick the contacts you want (a checkbox
+// next to each found email), then "Add to Outreach agent".
+const otPicked = new Map();
+function otNorm(c){
+  const email = String(c?.email||'').trim().toLowerCase();
+  const domain = String(c?.domain||'').replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').trim().toLowerCase();
+  return {domain, email, smtp:c.smtp==='valid'?'valid':(c.smtp==='invalid'||c.smtp==='not_valid'?'invalid':'unknown'), firstName:String(c.firstName||'').trim(), lastName:String(c.lastName||'').trim(), title:/^(scraped|pattern guess)$/i.test(String(c.position||'').trim())?'':String(c.position||'').trim(), guessed:c.position==='Pattern guess'};
+}
+function otPickBox(c){
+  if(!canUseAgent()) return '';
+  const x = otNorm(c);
+  if(!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(x.email) || !x.domain) return '';
+  const bad = x.smtp==='invalid';
+  return `<label class="ot-pick-l" ${bad?'title="Invalid address — can’t be added"':'title="Select for Outreach agent"'}><input type="checkbox" class="ot-pick" ${otPicked.has(x.email)?'checked':''} ${bad?'disabled':''} data-c="${escAttr(JSON.stringify(x))}" onclick="otTogglePick(this)"/>Outreach</label>`;
+}
+function otTogglePick(el){
+  let x; try{ x = JSON.parse(el.dataset.c); }catch(e){ return; }
+  if(el.checked) otPicked.set(x.email, x); else otPicked.delete(x.email);
+  document.querySelectorAll('.ot-pick').forEach(o=>{ try{ if(JSON.parse(o.dataset.c).email===x.email) o.checked = el.checked; }catch(e){} });
   otAgentBtn();
 }
 function otAgentBtn(){
   const b = document.getElementById('ot-to-agent'); if(!b) return;
-  const n = otFound.filter(c=>c.smtp!=='invalid').length;
+  const n = otPicked.size;
   b.style.display = n && canUseAgent() ? '' : 'none';
-  b.textContent = 'Add to Outreach agent';
-  b.title = `Add the ${n} contact${n===1?'':'s'} found here to Outreach agent, ready for Verify and Write drafts`;
+  b.textContent = `Add to Outreach agent (${n})`;
+  b.title = `Add the ${n} selected contact${n===1?'':'s'} to Outreach agent, ready for Verify and Write drafts`;
 }
 async function otToOutreach(btn){
-  const list = otFound.filter(c=>c.smtp!=='invalid');
-  if(!list.length) return;
+  const list = [...otPicked.values()].filter(c=>c.smtp!=='invalid');
+  if(!list.length){ showToast('Tick the contacts to add first','warn'); return; }
   btn.disabled = true;
   try{
     gotoPage('agent', document.querySelector('.nav.agent-tool[onclick*="\'agent\'"]'));
@@ -8493,12 +8502,11 @@ async function otToOutreach(btn){
     oaFilter = 'all'; oaRender();
     const unverified = list.filter(c=>c.smtp!=='valid').length;
     document.getElementById('oa-progress').textContent = `${m.added} added from Outreach Finder, ${m.updated} updated`+(m.kept?`, ${m.kept} skipped (already emailed)`:'')+` — ${oaSelected.size} selected.`+(unverified?` ${unverified} aren’t verified yet: click Verify first, then Write drafts.`:' Click Write drafts.');
-    otFound = []; otAgentBtn();
+    otPicked.clear(); document.querySelectorAll('.ot-pick').forEach(o=>o.checked=false); otAgentBtn();
   }catch(e){ showToast(e.message,'warn'); }
   btn.disabled = false;
 }
 function autoSaveFoundEmails(list){
-  otCollect(list);
   const me = cu?.name||cu?.email||'';
   if(!me || !Array.isArray(list)) return;
   const mine = new Set(allDomains.filter(d=>d.addedBy===me && d.email).map(d=>String(d.email).toLowerCase()));
@@ -8660,7 +8668,7 @@ function renderFreeResults(data, domain){
           <td><span style="font-size:11px;padding:2px 7px;border-radius:20px;background:${e.guessed?'rgba(240,165,0,0.1)':'rgba(50,215,75,0.1)'};color:${e.guessed?'var(--yellow)':'var(--teal)'};">${e.guessed?'🎲 Guess':'✅ Found'}</span></td>
           <td style="white-space:nowrap;">
             <button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Copy</button>
-            <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'${escAttr(e.firstName||'')}',lastName:'${escAttr(e.lastName||'')}',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">Save</button>
+            ${otPickBox({domain:((domain)),email:((e.email)),smtp:((e.smtp||'unknown')),firstName:((e.firstName||'')),lastName:((e.lastName||'')),position:(e.guessed?'Pattern guess':'Scraped')})}<button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'${escAttr(e.firstName||'')}',lastName:'${escAttr(e.lastName||'')}',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">Save</button>
             ${composeBtn(e.firstName, e.email, domain)}
           </td>
         </tr>`).join('')}</tbody>
@@ -8688,7 +8696,7 @@ function renderFreeResults(data, domain){
           <td style="white-space:nowrap;">
             ${t.email?`<button onclick="navigator.clipboard.writeText('${escAttr(t.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Copy</button>`:''}
             <a href="${escAttr(liUrl)}" target="_blank" class="btn-ghost" style="font-size:11px;padding:2px 8px;text-decoration:none;">LI</a>
-            ${t.email?`<button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(t.email)}',smtp:'${escAttr(t.smtp||'unknown')}',firstName:'${escAttr(t.firstName)}',lastName:'${escAttr(t.lastName)}',position:'${escAttr(t.title)}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">Save</button>`:''}
+            ${t.email?`${otPickBox({domain:((domain)),email:((t.email)),smtp:((t.smtp||'unknown')),firstName:((t.firstName)),lastName:((t.lastName)),position:((t.title))})}<button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(t.email)}',smtp:'${escAttr(t.smtp||'unknown')}',firstName:'${escAttr(t.firstName)}',lastName:'${escAttr(t.lastName)}',position:'${escAttr(t.title)}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">Save</button>`:''}
             ${t.email?composeBtn(t.firstName, t.email, domain):''}
           </td>
         </tr>`;
@@ -8741,7 +8749,7 @@ async function runBulkFreeSearch(){
             <td style="color:var(--text3);">—</td>
             <td style="white-space:nowrap;">
               <button onclick="navigator.clipboard.writeText('${escAttr(e.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Copy</button>
-              <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'${escAttr(e.firstName||'')}',lastName:'${escAttr(e.lastName||'')}',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">💾</button>
+              ${otPickBox({domain:((domain)),email:((e.email)),smtp:((e.smtp||'unknown')),firstName:((e.firstName||'')),lastName:((e.lastName||'')),position:(e.guessed?'Pattern guess':'Scraped')})}<button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(e.email)}',smtp:'${escAttr(e.smtp||'unknown')}',firstName:'${escAttr(e.firstName||'')}',lastName:'${escAttr(e.lastName||'')}',position:'${e.guessed?'Pattern guess':'Scraped'}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">💾</button>
               ${composeBtn(e.firstName, e.email, domain)}
             </td></tr>`).join('');
         tb.insertAdjacentHTML('beforeend', rowsHtml);
@@ -8828,7 +8836,7 @@ function renderLinkedInResults(contacts){
       <td style="white-space:nowrap;">
         ${c.email?`<button onclick="navigator.clipboard.writeText('${escAttr(c.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Copy</button>`:''}
         <a href="${escAttr(c.url)}" target="_blank" class="btn-ghost" style="font-size:11px;padding:2px 8px;text-decoration:none;">LI</a>
-        ${c.email?`<button onclick="saveContactToDB({domain:'${escAttr(c.domain)}',email:'${escAttr(c.email)}',smtp:'${escAttr(c.smtp||'unknown')}',firstName:'${escAttr(c.firstName)}',lastName:'${escAttr(c.lastName)}',position:'${escAttr(c.title)}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">Save</button>`:''}
+        ${c.email?`${otPickBox({domain:((c.domain)),email:((c.email)),smtp:((c.smtp||'unknown')),firstName:((c.firstName)),lastName:((c.lastName)),position:((c.title))})}<button onclick="saveContactToDB({domain:'${escAttr(c.domain)}',email:'${escAttr(c.email)}',smtp:'${escAttr(c.smtp||'unknown')}',firstName:'${escAttr(c.firstName)}',lastName:'${escAttr(c.lastName)}',position:'${escAttr(c.title)}'})" class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">Save</button>`:''}
         ${c.email?composeBtn(c.firstName, c.email, c.domain):''}
       </td>
     </tr>`;
@@ -8929,7 +8937,7 @@ function renderBulkRow(domain, data, action){
         <td style="white-space:nowrap;">
           ${p.email?`<button onclick="navigator.clipboard.writeText('${escAttr(p.email)}');this.textContent='✅';setTimeout(()=>this.textContent='Copy',1500);" class="btn-ghost" style="font-size:11px;padding:2px 8px;">Copy</button>`:''}
           <a href="${escAttr(isPersonalLinkedInUrl(p.source_page) ? p.source_page : `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent((p.first_name||'')+' '+(p.last_name||'')+' '+domain)}`)}" target="_blank" class="btn-ghost" style="font-size:11px;padding:2px 8px;text-decoration:none;">LI</a>
-          <button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(p.email||'')}',smtp:'${escAttr(p.smtp||'unknown')}',firstName:'${escAttr(p.first_name||'')}',lastName:'${escAttr(p.last_name||'')}',position:'${escAttr(p.position||'')}'});"
+          ${otPickBox({domain:((domain)),email:((p.email||'')),smtp:((p.smtp||'unknown')),firstName:((p.first_name||'')),lastName:((p.last_name||'')),position:((p.position||''))})}<button onclick="saveContactToDB({domain:'${escAttr(domain)}',email:'${escAttr(p.email||'')}',smtp:'${escAttr(p.smtp||'unknown')}',firstName:'${escAttr(p.first_name||'')}',lastName:'${escAttr(p.last_name||'')}',position:'${escAttr(p.position||'')}'});"
             class="btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--teal);">💾</button>
           ${p.email?composeBtn(p.first_name, p.email, domain):''}
         </td></tr>`;
