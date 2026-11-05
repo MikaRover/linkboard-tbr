@@ -1161,6 +1161,10 @@ a{text-underline-offset:2px;}
 .oa-site{display:flex;align-items:center;gap:10px;}
 .oa-fav{width:28px;height:28px;border-radius:7px;background:var(--bg4);color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;text-transform:uppercase;}
 .oa-dom{color:inherit;text-decoration:none;}.oa-dom:hover{color:var(--accent2);text-decoration:underline;text-underline-offset:2px;}
+.oa-dupes{margin-top:10px;padding:12px 14px;border-radius:var(--radius);background:var(--bg2);border:1px solid var(--border);font-size:12.5px;color:var(--text2);}
+.oa-dupes b{color:var(--text);font-weight:600;}
+.oa-dupes ul{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:4px;max-height:220px;overflow:auto;}
+.oa-dupes li span{color:var(--text3);}
 .oa-fu-btn{margin-top:4px;padding:2px 8px;font-size:11px;}
 #oa-selbar .oa-only-fu{display:none;}
 #oa-selbar.fu .oa-only-fu{display:inline-flex;}
@@ -2393,6 +2397,7 @@ body.lbr-open{overflow:hidden;}
         <div class="oa-help oa-gap">Domains DB contacts are tried first, then the site’s own pages. Sites we already have links on are marked, not skipped.</div>
       </div>
       <div id="oa-progress" class="oa-progress oa-gap"></div>
+      <div id="oa-dupes" class="oa-dupes" style="display:none;"></div>
       <div id="oa-folder-note" class="oa-help oa-gap"></div>
     </div>
     <div class="oa-card">
@@ -10167,11 +10172,31 @@ function oaSiteNote(domain){
   const projects = [...new Set(ls.map(l=>l.project).filter(Boolean))].slice(0,3);
   return `${ls.length} link${ls.length>1?'s':''} already`+(last?`, last ${last}`:'')+(projects.length?` · ${projects.join(', ')}`:'');
 }
+// Before searching a pasted list: which sites the agent already emailed (you
+// or a teammate) and on what date. Your own are skipped (they're in the list
+// below); a teammate's are searched but flagged, and the server still blocks
+// the same address for 90 days.
+async function oaCheckEmailed(domains){
+  const box = document.getElementById('oa-dupes');
+  box.style.display = 'none'; box.innerHTML = '';
+  if(!domains.length) return {};
+  let sites = {};
+  try{ ({sites} = await oaApi('emailed',{domains})); }catch(e){ return {}; }
+  const hits = Object.entries(sites||{}).sort((a,b)=>b[1].sentAt-a[1].sentAt);
+  if(!hits.length) return {};
+  const word = {sent:'no reply yet', sending:'sending now', replied:'replied', bounced:'bounced'};
+  const mineN = hits.filter(([,x])=>x.mine).length;
+  box.innerHTML = `<b>${hits.length} of these site${hits.length===1?' was':'s were'} already emailed</b>${mineN?` · ${mineN} by you, skipped`:''}${hits.length-mineN?` · ${hits.length-mineN} by a teammate, searched anyway`:''}
+    <ul>${hits.map(([d,x])=>`<li>${escapeHtml(d)} <span>— ${x.mine?'you emailed '+escapeHtml(x.email||'')+' on':'a teammate emailed on'} ${escapeHtml(x.day)} · ${word[x.status]||x.status}${x.followUps?` · followed up ${x.followUps}×`:''}</span></li>`).join('')}</ul>`;
+  box.style.display = '';
+  return sites;
+}
 async function oaFind(){
   const ta = document.getElementById('oa-sites');
   const {manual, sites} = oaParseInput(ta.value);
   if(!sites.length && !manual.length){ showToast('Paste at least one website','warn'); return; }
   let manualNote = '';
+  const emailed = await oaCheckEmailed([...new Set([...sites, ...manual.map(m=>m.domain)])]);
   if(manual.length){
     const m = await oaAddManual(manual);
     manualNote = `${m.added+m.updated} contact${m.added+m.updated===1?'':'s'} added with your email`+(m.kept?`, ${m.kept} skipped (already emailed)`:'');
@@ -10179,9 +10204,10 @@ async function oaFind(){
   }
   // Sites already listed are searched again only if they came up empty or skipped.
   const byDomain = new Map(oaRows.map(r=>[r.domain, r]));
-  const fresh = sites.filter(d=>!byDomain.has(d) || ['skipped','nocontact'].includes(byDomain.get(d).status));
+  const fresh = sites.filter(d=>!(emailed[d]&&emailed[d].mine) && (!byDomain.has(d) || ['skipped','nocontact'].includes(byDomain.get(d).status)));
+  const teamNote = d => emailed[d] && !emailed[d].mine ? `Emailed by a teammate on ${emailed[d].day}` : '';
   const btn = document.getElementById('oa-find-btn'), prog = document.getElementById('oa-progress');
-  if(!fresh.length){ prog.textContent = 'All of these sites are already in the list below with a contact.'; return; }
+  if(!fresh.length){ prog.textContent = 'All of these sites are already in the list below with a contact or were already emailed.'; ta.value = ''; return; }
   const useSnov = document.getElementById('oa-snov').checked;
   btn.disabled = true;
   let done = 0, found = 0;
@@ -10194,8 +10220,8 @@ async function oaFind(){
       const candidates = await oaDiscover(domain, useSnov);
       const c = candidates[0];
       const row = c
-        ? {domain, candidates, name:c.name, firstName:c.firstName, title:c.title, email:c.email, smtp:c.smtp, source:c.source, status:'found', skipReason:'', note:oaSiteNote(domain)}
-        : {domain, candidates:[], name:'', firstName:'', title:'', email:'', smtp:'', source:'', status:'nocontact', skipReason:'', note:oaSiteNote(domain)};
+        ? {domain, candidates, name:c.name, firstName:c.firstName, title:c.title, email:c.email, smtp:c.smtp, source:c.source, status:'found', skipReason:'', note:[teamNote(domain), oaSiteNote(domain)].filter(Boolean).join(' · ')}
+        : {domain, candidates:[], name:'', firstName:'', title:'', email:'', smtp:'', source:'', status:'nocontact', skipReason:'', note:[teamNote(domain), oaSiteNote(domain)].filter(Boolean).join(' · ')};
       if(c) found++;
       const prev = byDomain.get(domain);
       try{
