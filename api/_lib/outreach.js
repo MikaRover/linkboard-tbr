@@ -213,6 +213,8 @@ async function save(uid, items) {
         const keep = {};
         if (data.note !== undefined) keep.note = data.note;
         if (data.folder !== undefined) keep.folder = data.folder;
+        // "Followed up" (done by hand in Gmail): restarts the follow-up clock on a sent row.
+        if (item.followedUp === true && cur.data().status === 'sent') Object.assign(keep, { followUps: FieldValue().increment(1), followedUpAt: Date.now() });
         if (Object.keys(keep).length) batch.update(ref, { ...keep, updatedAt: now });
         ids.push(ref.id);
         continue;

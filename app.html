@@ -1161,6 +1161,7 @@ a{text-underline-offset:2px;}
 .oa-site{display:flex;align-items:center;gap:10px;}
 .oa-fav{width:28px;height:28px;border-radius:7px;background:var(--bg4);color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;text-transform:uppercase;}
 .oa-dom{color:inherit;text-decoration:none;}.oa-dom:hover{color:var(--accent2);text-decoration:underline;text-underline-offset:2px;}
+.oa-fu-btn{margin-top:4px;padding:2px 8px;font-size:11px;}
 .oa-cat{display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--radius-sm);background:var(--bg4);color:var(--text3);font-size:10.5px;font-family:inherit;vertical-align:1px;}
 .oa-tag{display:inline-block;margin-top:4px;padding:1px 7px;border-radius:var(--radius-sm);background:var(--bg4);color:var(--text2);font-size:11px;}
 .oa-mb-health{display:flex;flex-direction:column;gap:6px;}
@@ -9170,7 +9171,7 @@ const OA_STATUS = {
   sent:{label:'Sent',tone:'blue'}, replied:{label:'Replied',tone:'green'},
   bounced:{label:'Bounced',tone:'red'}, failed:{label:'Failed',tone:'red'}, skipped:{label:'Skipped',tone:'neutral'}
 };
-const OA_TABS = [['all','All'],['found','Found'],['draft','Drafts'],['queued','In progress'],['sent','Sent'],['replied','Replied'],['bounced','Bounced'],['nocontact','No contact'],['skipped','Skipped']];
+const OA_TABS = [['all','All'],['found','Found'],['draft','Drafts'],['queued','In progress'],['sent','Sent'],['followup','Need follow-up'],['replied','Replied'],['bounced','Bounced'],['nocontact','No contact'],['skipped','Skipped']];
 
 async function oaApi(action, payload){
   const r = await fetch('/api/outreach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...(payload||{})})});
@@ -10209,9 +10210,23 @@ async function oaFind(){
 
 // ── table ──
 function oaInFolder(r){ return !oaFolder || (oaFolder===OA_NO_FOLDER ? !r.folder : r.folder===oaFolder); }
+// Need follow-up: sent, no reply or bounce, and OA_FU_DAYS+ days since it went
+// out (or since the last "Followed up" click, which restarts the clock).
+const OA_FU_DAYS = 3;
+function oaSentAt(r){ return r.sentAt || (r.sentDay ? Date.parse(r.sentDay+'T12:00:00Z') : 0); }
+function oaFuBase(r){ return r.followedUpAt || oaSentAt(r); }
+function oaDaysAgo(ts){ return ts ? Math.max(0, Math.floor((Date.now()-ts)/864e5)) : null; }
+function oaNeedsFU(r){ return r.status==='sent' && !!oaSentAt(r) && oaDaysAgo(oaFuBase(r)) >= OA_FU_DAYS; }
+function oaAgo(n){ return n===0 ? 'today' : n===1 ? '1 day ago' : n+' days ago'; }
+async function oaFollowedUp(id){
+  const r = oaRow(id); if(!r) return;
+  try{ await oaApi('save',{items:[{id, followedUp:true}]}); r.followUps=(r.followUps||0)+1; r.followedUpAt=Date.now(); oaRender(); showToast('Marked as followed up — it comes back here in '+OA_FU_DAYS+' days if there is still no reply'); }
+  catch(e){ showToast(e.message||'Could not save','error'); }
+}
 function oaToday(){ return new Date().toISOString().slice(0,10); } // same UTC day the server stamps on sentDay
 function oaVisible(){
   const mbOk = r => !oaMbFilter || oaFilter==='all' || oaFilter==='draft' || oaFromPicked(r);
+  if(oaFilter==='followup') return oaRows.filter(r=>oaInFolder(r) && oaNeedsFU(r)).sort((x,y)=>oaFuBase(x)-oaFuBase(y));
   // In progress: queued for sending (row.queue) or going out right now.
   if(oaFilter==='queued') return oaRows.filter(r=>oaInFolder(r) && (r.queue || r.status==='sending'));
   if(oaFilter==='today'){ const t = oaToday(); return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && oaSent(r) && (r.sentDay===t || r.status==='sending')); }
@@ -10250,7 +10265,7 @@ function oaRender(){
   if(selInv){ selInv.style.display = nInvalid ? '' : 'none'; selInv.textContent = `Select invalid (${nInvalid})`; }
   const inFolder = oaRows.filter(oaInFolder);
   const counts = {}; inFolder.forEach(r=>{ counts[r.status]=(counts[r.status]||0)+1; });
-  counts.all = inFolder.length; counts.sent=(counts.sent||0)+(counts.sending||0); counts.draft=(counts.draft||0)+(counts.failed||0); counts.queued=inFolder.filter(r=>r.queue||r.status==='sending').length;
+  counts.all = inFolder.length; counts.sent=(counts.sent||0)+(counts.sending||0); counts.draft=(counts.draft||0)+(counts.failed||0); counts.queued=inFolder.filter(r=>r.queue||r.status==='sending').length; counts.followup=inFolder.filter(oaNeedsFU).length;
   document.getElementById('oa-tabs').innerHTML = OA_TABS.map(([k,l])=>`<button class="oa-tab ${oaFilter===k?'active':''}" onclick="oaFilter='${k}';oaMbFilter=false;oaRender()">${l}<b>${counts[k]||0}</b></button>`).join('');
   const ids = new Set(oaRows.map(r=>r.id)); [...oaSelected].forEach(id=>{ if(!ids.has(id)) oaSelected.delete(id); });
   oaSelUi(); oaRenderStats();
@@ -10272,7 +10287,7 @@ function oaRender(){
         <td>${r.email
           ? `${r.name?`<div style="color:var(--text);font-weight:500;">${escapeHtml(r.name)}${r.title?` <span style="color:var(--text3);font-weight:400;">· ${escapeHtml(r.title)}</span>`:''}</div>`:''}<div class="oa-mono" style="${r.name?'color:var(--text2);margin-top:2px;':'color:var(--text);'}">${escapeHtml(r.email)}</div><div style="margin-top:5px;">${oaSmtpBadge(r.smtp)}</div>${oaSentFrom(r)?`<div class="oa-sub">Sent from ${escapeHtml(oaSentFrom(r))}</div>`:''}`
           : '<span style="color:var(--text3);">No contact found</span>'}</td>
-        <td>${oaQueued(r.id)&&r.status!=='sending'?'<span class="oa-badge oa-b-blue"><span class="oa-dot"></span>Queued</span>':oaBadge(r.status)}${when?`<div class="oa-sub">${escapeHtml(when)}</div>`:''}${r.skipReason&&r.status==='skipped'?`<div class="oa-sub">${escapeHtml(r.skipReason)}</div>`:''}${r.error&&r.status==='failed'?`<div class="oa-sub" style="color:var(--red);">${escapeHtml(r.error)}</div>`:''}</td>
+        <td>${oaQueued(r.id)&&r.status!=='sending'?'<span class="oa-badge oa-b-blue"><span class="oa-dot"></span>Queued</span>':oaBadge(r.status)}${when?`<div class="oa-sub">${escapeHtml(when)}${r.status==='sent'&&oaSentAt(r)?' · '+oaAgo(oaDaysAgo(oaSentAt(r))):''}${r.followUps?` · followed up ${r.followUps}×${r.followedUpAt?' ('+oaAgo(oaDaysAgo(r.followedUpAt))+')':''}`:''}</div>`:''}${oaNeedsFU(r)?`<div class="oa-sub" style="color:var(--yellow);">Needs follow-up · ${oaDaysAgo(oaFuBase(r))} days</div><button class="btn-ghost oa-fu-btn" onclick="event.stopPropagation();oaFollowedUp('${escAttr(r.id)}')" title="You followed up in Gmail — hide it for ${OA_FU_DAYS} days">Followed up</button>`:''}${r.skipReason&&r.status==='skipped'?`<div class="oa-sub">${escapeHtml(r.skipReason)}</div>`:''}${r.error&&r.status==='failed'?`<div class="oa-sub" style="color:var(--red);">${escapeHtml(r.error)}</div>`:''}</td>
         <td><div class="oa-subj" title="${escAttr(r.subject||'')}">${escapeHtml(r.subject||'')||'<span style="color:var(--text3);">—</span>'}</div></td>
       </tr>${open?`<tr class="oa-edit"><td></td><td colspan="4">${oaEditor(r)}</td></tr>`:''}`;
     }).join('')}</tbody></table>`;
