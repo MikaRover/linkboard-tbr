@@ -2917,6 +2917,7 @@ body.lbr-open{overflow:hidden;}
     <div style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-left:none;border-radius:0 14px 14px 0;padding:32px;">
 
       <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+        <button class="btn-ghost" onclick="otToOutreach(this)" id="ot-to-agent" style="display:none;margin-right:8px;" title="Add the contacts found here to Outreach agent, ready for Verify and Write drafts"></button>
         <button class="btn-ghost" onclick="exportOutreachCSV()" id="ot-export-btn" style="display:none;">⬇ Export CSV</button>
       </div>
 
@@ -8457,7 +8458,46 @@ function composeBtn(firstName, email, domain){
 // there. Skipped: invalid addresses, and pattern guesses that aren't verified.
 // One doc per (person, email) — the id makes a repeat search a no-op.
 const autoSavedEmails = new Set();
+// Contacts found on Outreach Finder this session (single, bulk, LinkedIn —
+// everything goes through autoSaveFoundEmails), for "Send to Outreach agent".
+let otFound = [];
+function otCollect(list){
+  const seen = new Set(otFound.map(c=>c.email));
+  (list||[]).forEach(c=>{
+    const email = String(c?.email||'').trim().toLowerCase();
+    const domain = String(c?.domain||'').replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').trim().toLowerCase();
+    if(!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email) || !domain || seen.has(email)) return;
+    seen.add(email);
+    otFound.push({domain, email, smtp:c.smtp==='valid'?'valid':(c.smtp==='invalid'||c.smtp==='not_valid'?'invalid':'unknown'), firstName:String(c.firstName||'').trim(), lastName:String(c.lastName||'').trim(), title:String(c.position||'').trim(), guessed:!!c.guessed});
+  });
+  otAgentBtn();
+}
+function otAgentBtn(){
+  const b = document.getElementById('ot-to-agent'); if(!b) return;
+  const n = otFound.filter(c=>c.smtp!=='invalid').length;
+  b.style.display = n && canUseAgent() ? '' : 'none';
+  b.textContent = `Send ${n} to Outreach agent`;
+}
+async function otToOutreach(btn){
+  const list = otFound.filter(c=>c.smtp!=='invalid');
+  if(!list.length) return;
+  btn.disabled = true;
+  try{
+    gotoPage('agent', document.querySelector('.nav.agent-tool[onclick*="\'agent\'"]'));
+    await oaLoad();
+    await oaCheckEmailed([...new Set(list.map(c=>c.domain))]);
+    const m = await oaAddManual(list.map(c=>({domain:c.domain, email:c.email, name:[c.firstName,c.lastName].filter(Boolean).join(' '), firstName:c.firstName, title:c.title, smtp:c.smtp, source:'Outreach Finder'+(c.guessed?' (pattern guess)':'')})));
+    const emails = new Set(list.map(c=>c.email));
+    oaSelected.clear(); oaRows.filter(r=>emails.has(r.email) && !oaSent(r)).forEach(r=>oaSelected.add(r.id));
+    oaFilter = 'all'; oaRender();
+    const unverified = list.filter(c=>c.smtp!=='valid').length;
+    document.getElementById('oa-progress').textContent = `${m.added} added from Outreach Finder, ${m.updated} updated`+(m.kept?`, ${m.kept} skipped (already emailed)`:'')+` — ${oaSelected.size} selected.`+(unverified?` ${unverified} aren’t verified yet: click Verify first, then Write drafts.`:' Click Write drafts.');
+    otFound = []; otAgentBtn();
+  }catch(e){ showToast(e.message,'warn'); }
+  btn.disabled = false;
+}
 function autoSaveFoundEmails(list){
+  otCollect(list);
   const me = cu?.name||cu?.email||'';
   if(!me || !Array.isArray(list)) return;
   const mine = new Set(allDomains.filter(d=>d.addedBy===me && d.email).map(d=>String(d.email).toLowerCase()));
@@ -10086,7 +10126,7 @@ async function oaAddManual(manual){
     const prev = byEmail.get(m.email) || emptyRow(m.domain);
     if(prev && oaSent(prev)){ kept++; continue; }
     if(prev) used.add(prev.id);
-    const row = {domain:m.domain, email:m.email, name:m.name, firstName:m.firstName, title:'', smtp:'unknown', source:'Added by you', candidates:[], status:'found', skipReason:'', note:oaSiteNote(m.domain)};
+    const row = {domain:m.domain, email:m.email, name:m.name, firstName:m.firstName, title:m.title||'', smtp:m.smtp||'unknown', source:m.source||'Added by you', candidates:[], status:'found', skipReason:'', note:oaSiteNote(m.domain)};
     // A different address than the draft was written for: start the draft over.
     if(prev){ items.push(prev.email===m.email ? {...row, id:prev.id, status:prev.subject&&prev.body?'draft':'found'} : {...row, id:prev.id, subject:'', body:''}); }
     else { if(oaFolder && oaFolder!==OA_NO_FOLDER) row.folder = oaFolder; items.push(row); }
