@@ -3646,7 +3646,7 @@ function hideEmptyNavSections(){
 // anything outside startApp must use this helper instead of referencing it.
 function isAdminOrTatev(){ return cu?.role==='admin' || (cu?.name||'')==='Tatev'; }
 // Outreach agent: admins, Tatev and the builders below (same list as the server's AGENT_USERS).
-const AGENT_USERS = ['Armen','Tam','Nick','Syuzi','Sofya'];
+const AGENT_USERS = ['Armen','Tam','Nick','Syuzi','Sofya','Gor'];
 function canUseAgent(){ return isAdminOrTatev() || AGENT_USERS.includes(cu?.name||''); }
 
 function startApp(){
