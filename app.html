@@ -8476,7 +8476,8 @@ function otAgentBtn(){
   const b = document.getElementById('ot-to-agent'); if(!b) return;
   const n = otFound.filter(c=>c.smtp!=='invalid').length;
   b.style.display = n && canUseAgent() ? '' : 'none';
-  b.textContent = `Send ${n} to Outreach agent`;
+  b.textContent = 'Add to Outreach agent';
+  b.title = `Add the ${n} contact${n===1?'':'s'} found here to Outreach agent, ready for Verify and Write drafts`;
 }
 async function otToOutreach(btn){
   const list = otFound.filter(c=>c.smtp!=='invalid');
