@@ -215,6 +215,7 @@ async function save(uid, items) {
         const keep = {};
         if (data.note !== undefined) keep.note = data.note;
         if (data.folder !== undefined) keep.folder = data.folder;
+        if (item.fuBody !== undefined && cur.data().status === 'sent' && !cur.data().fuQueue) keep.fuBody = String(item.fuBody || '').replace(/\r\n/g, '\n').slice(0, 4000);
         // "Followed up" (done by hand in Gmail): restarts the follow-up clock on a sent row.
         if (item.followedUp === true && cur.data().status === 'sent') Object.assign(keep, { followUps: FieldValue().increment(1), followedUpAt: Date.now() });
         if (Object.keys(keep).length) batch.update(ref, { ...keep, updatedAt: now });
@@ -251,8 +252,9 @@ async function remove(uid, ids) {
 async function mailboxes(uid) {
   const snap = await db().collection('gmailConnections').where('ownerUid', '==', uid).get();
   const sentToday = await db().collection(COLL).where('sentDay', '==', today()).get();
+  const fuToday = await db().collection(COLL).where('fuDay', '==', today()).get();
   const counts = {};
-  sentToday.docs.forEach(d => { const m = d.data().fromMailbox; if (m) counts[m] = (counts[m] || 0) + 1; });
+  [...sentToday.docs, ...fuToday.docs].forEach(d => { const m = d.data().fromMailbox; if (m) counts[m] = (counts[m] || 0) + 1; });
   const smtp = await require('./mailsmtp').list(uid);
   const list = [
     ...snap.docs.map(d => ({ id: d.id, email: d.data().email, provider: 'gmail', canSend: !!d.data().canSend, lastError: d.data().lastError || null, sentToday: counts[d.id] || 0, limit: limitOf(d.data()), resumeUntil: d.data().resumeUntil || 0 })),
@@ -876,6 +878,18 @@ async function placement(user, { seed, token }) {
   return { found: false };
 }
 
+// Today's emails from a mailbox — first emails and follow-ups both count
+// toward its daily limit and the 4-minute spacing.
+async function usedToday(tx, mbId, day) {
+  const [a, b] = await Promise.all([
+    tx.get(db().collection(COLL).where('sentDay', '==', day)),
+    tx.get(db().collection(COLL).where('fuDay', '==', day))
+  ]);
+  const first = a.docs.filter(d => d.data().fromMailbox === mbId), fu = b.docs.filter(d => d.data().fromMailbox === mbId);
+  const last = Math.max(0, ...first.map(d => d.data().sentAt || 0), ...fu.map(d => d.data().fuAt || 0));
+  return { used: first.length + fu.length, last };
+}
+
 async function send(user, { id, email, from, fromName }) {
   // Display name on the From line: the name typed on the page, else the account name unless it's a role like "Admin".
   const senderName = oneLine(fromName).slice(0, 60) || (/^admin$/i.test(user.name || '') ? '' : user.name);
@@ -912,11 +926,9 @@ async function send(user, { id, email, from, fromName }) {
   await db().runTransaction(async tx => {
     const cur = await tx.get(ref);
     if (!['draft', 'failed'].includes(cur.data().status)) throw new Error('Already being sent');
-    const sentToday = await tx.get(db().collection(COLL).where('sentDay', '==', day));
-    const mine = sentToday.docs.filter(d => d.data().fromMailbox === mbId);
+    const { used: mineN, last } = await usedToday(tx, mbId, day);
     const limit = limitOf(conn.data());
-    if (mine.length >= limit) throw new Error(`Daily limit reached for ${conn.data().email} (${limit}/day)`);
-    const last = Math.max(0, ...mine.map(d => d.data().sentAt || 0));
+    if (mineN >= limit) throw new Error(`Daily limit reached for ${conn.data().email} (${limit}/day)`);
     const wait = last + MIN_GAP_MS - Date.now();
     if (wait > 0) throw new Error(`Wait ${Math.ceil(wait / 60000)} min before the next email from ${conn.data().email}`);
     tx.update(ref, { status: 'sending', sentDay: day, fromMailbox: mbId, fromEmail: conn.data().email, sentAt: Date.now() });
@@ -956,6 +968,164 @@ async function send(user, { id, email, from, fromName }) {
       position: row.title || '', dr: '', traffic: '', project: '', notes: note, addedBy: user.name || '', createdAt: FieldValue().serverTimestamp()
     });
   } catch (e) {}
+  return { ok: true };
+}
+
+// ─── follow-ups ──────────────────────────────────────────
+// A follow-up is a reply in the same thread: "Re: <first subject>", sent from
+// the mailbox the first email went from, with In-Reply-To / References set to
+// the first email's Message-ID (and, for Gmail, the same threadId) so every
+// mail app shows it under the first email. Drafts come from short fixed
+// texts (free, no AI); the person reviews them and sends through the queue.
+const FU_TEMPLATES = {
+  1: [
+    "Hi {name},\n\nJust bumping this up in case it got buried in your inbox. Would you be open to it?\n\nBest,\n{signature}",
+    "Hi {name},\n\nFollowing up on my note below. Is this something you'd consider for {site}?\n\nThanks,\n{signature}",
+    "Hello {name},\n\nWanted to make sure my last email didn't slip through the cracks. Let me know what you think.\n\nBest regards,\n{signature}",
+    "Hi {name},\n\nQuick follow-up on the email below. Happy to share more details if it helps.\n\nThanks,\n{signature}",
+    "Hi {name},\n\nI know inboxes get busy, so I'm bringing this back to the top. Any thoughts?\n\nBest,\n{signature}"
+  ],
+  2: [
+    "Hi {name},\n\nI'll keep this short: is a collaboration with {site} still something you'd look at? A simple yes or no works.\n\nThanks,\n{signature}",
+    "Hello {name},\n\nOne last follow-up from me. If the timing isn't right, no problem at all, just let me know.\n\nBest,\n{signature}",
+    "Hi {name},\n\nChecking in one more time about {site}. If someone else handles this, I'd appreciate a pointer.\n\nThanks,\n{signature}",
+    "Hi {name},\n\nI don't want to crowd your inbox, so this is my last note. If you're open to it later, just reply here.\n\nBest regards,\n{signature}"
+  ]
+};
+const reSubject = s => /^\s*re\s*:/i.test(s || '') ? oneLine(s) : 'Re: ' + oneLine(s);
+function fuQuote(x, body) {
+  const when = x.sentAt ? new Date(x.sentAt).toUTCString().replace(/:\d\d GMT$/, ' UTC') : 'earlier';
+  return `\n\nOn ${when}, ${x.fromEmail || 'I'} wrote:\n` + String(body || '').split('\n').map(l => '> ' + l).join('\n');
+}
+
+async function fuDraft(uid, { ids, fromName, signature }) {
+  const out = {};
+  for (const id of (ids || []).slice(0, 100)) {
+    const ref = db().collection(COLL).doc(String(id));
+    const snap = await ref.get();
+    if (!snap.exists) continue;
+    const x = snap.data();
+    if (x.ownerUid !== uid || x.status !== 'sent' || x.fuQueue || !x.subject) continue;
+    const n = Math.min(2, (x.followUps || 0) + 1);
+    const pool = FU_TEMPLATES[n].filter(t => t !== x.fuTemplate);
+    const t = pick(pool.length ? pool : FU_TEMPLATES[n]);
+    const first = firstNameOf(x);
+    const body = t
+      .replace(/\{name\}/g, first ? first.charAt(0).toUpperCase() + first.slice(1) : 'there')
+      .replace(/\{site\}/g, FREE_MAIL.test(x.domain) ? 'your site' : x.domain)
+      .replace(/\{signature\}/g, cleanSignature(signature) || oneLine(fromName) || oneLine(x.sentBy) || 'the LinkBoard team');
+    const fu = { fuSubject: reSubject(x.subject), fuBody: body, fuTemplate: t, fuError: null };
+    await ref.update({ ...fu, updatedAt: FieldValue().serverTimestamp() });
+    out[ref.id] = { fuSubject: fu.fuSubject, fuBody: body };
+  }
+  return { drafts: out };
+}
+
+async function fuQueueRows(uid, { ids, fromName }) {
+  const name = oneLine(fromName).slice(0, 60);
+  const batch = db().batch();
+  const now = Date.now();
+  let n = 0;
+  for (const id of (ids || []).slice(0, MAX_ROWS)) {
+    const ref = db().collection(COLL).doc(String(id));
+    const cur = await ref.get();
+    if (!cur.exists) continue;
+    const x = cur.data();
+    if (x.ownerUid !== uid || x.status !== 'sent' || !x.fuBody || x.fuQueue || !x.fromMailbox) continue;
+    batch.update(ref, { fuQueue: { fromName: name, at: now + n, from: x.fromEmail || '' }, fuError: null });
+    n++;
+  }
+  if (n) await batch.commit();
+  return { queued: n };
+}
+
+// True when the thread already has a message from someone else (a reply or a bounce).
+async function threadHasReply(x, access) {
+  const t = await gmailGet(`threads/${x.threadId}?format=metadata&metadataHeaders=From&fields=messages(id,payload/headers)`, access);
+  return (t.messages || []).some(m => {
+    const f = String((((m.payload && m.payload.headers) || []).find(h => /^from$/i.test(h.name)) || {}).value || '').toLowerCase();
+    return f && !f.includes(String(x.fromEmail || '').toLowerCase());
+  });
+}
+
+async function sendFollowUp(user, { id, fromName }) {
+  const ref = db().collection(COLL).doc(String(id || ''));
+  const snap = await ref.get();
+  if (!snap.exists || snap.data().ownerUid !== user.uid) throw new Error('Row not found');
+  const x = snap.data();
+  if (x.status !== 'sent') throw new Error(`Not sent: this contact is ${x.status} now`);
+  if (!x.fuBody) throw new Error('Write the follow-up first');
+  const to = String(x.email || '').toLowerCase();
+  const mbId = x.fromMailbox;
+  if (!mbId || !isEmail(to)) throw new Error('This row has no sending mailbox or address');
+  const gconn = await db().collection('gmailConnections').doc(mbId).get();
+  const sconn = gconn.exists ? null : await require('./mailsmtp').get(mbId);
+  const conn = gconn.exists ? gconn.data() : sconn;
+  if (!conn || conn.ownerUid !== user.uid) throw new Error(`The mailbox the first email went from (${x.fromEmail || mbId}) isn't connected to your account`);
+  if (!conn.canSend) throw new Error('This mailbox is connected read-only — click "Connect Gmail for sending"');
+  const bounce = await bounceStats(mbId);
+  if (isPaused(bounce, conn.resumeUntil)) throw new Error(`Sending paused for this mailbox: ${bounce.pct}% of the last ${bounce.sent} emails bounced.`);
+
+  // Gmail: look at the thread right before sending — never follow up on a reply.
+  let access = null;
+  if (!sconn) {
+    if (!x.threadId) throw new Error('No Gmail thread stored for this email');
+    access = await accessTokenFor(mbId);
+    if (await threadHasReply(x, access)) {
+      await ref.update({ status: 'replied', repliedAt: Date.now(), fuQueue: FieldValue().delete(), updatedAt: FieldValue().serverTimestamp() });
+      throw new Error('They already replied — follow-up not sent');
+    }
+  }
+
+  const day = today();
+  await db().runTransaction(async tx => {
+    const cur = await tx.get(ref);
+    if (cur.data().fuSending) throw new Error('Already being sent');
+    if (cur.data().status !== 'sent') throw new Error(`Not sent: this contact is ${cur.data().status} now`);
+    const { used, last } = await usedToday(tx, mbId, day);
+    const limit = limitOf(conn);
+    if (used >= limit) throw new Error(`Daily limit reached for ${conn.email} (${limit}/day)`);
+    const wait = last + MIN_GAP_MS - Date.now();
+    if (wait > 0) throw new Error(`Wait ${Math.ceil(wait / 60000)} min before the next email from ${conn.email}`);
+    tx.update(ref, { fuSending: true, fuDay: day, fuAt: Date.now() });
+  });
+
+  const senderName = oneLine(fromName).slice(0, 60) || (/^admin$/i.test(user.name || '') ? '' : user.name);
+  const subject = x.fuSubject || reSubject(x.subject);
+  const body = String(x.fuBody).trim() + fuQuote(x, x.body);
+  try {
+    let rootId = x.smtpMessageId || x.rootMessageId || '';
+    if (!sconn && !rootId) {
+      const m = await gmailGet(`messages/${x.messageId}?format=metadata&metadataHeaders=Message-ID`, access);
+      rootId = String((((m.payload && m.payload.headers) || []).find(h => /^message-id$/i.test(h.name)) || {}).value || '').trim();
+    }
+    const refs = [rootId, ...(Array.isArray(x.fuMsgIds) ? x.fuMsgIds : [])].filter(Boolean);
+    const extra = refs.length ? { 'In-Reply-To': refs[refs.length - 1], References: refs.join(' ') } : {};
+    let newId = '';
+    if (sconn) {
+      newId = `<${require('crypto').randomUUID()}@${sconn.email.split('@')[1]}>`;
+      await require('./mailsmtp').sendRaw(sconn, { to, raw: mimeText({ from: sconn.email, fromName: senderName, to, subject, body, messageId: newId, extra }) });
+    } else {
+      const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw: buildMime({ from: conn.email, fromName: senderName, to, subject, body, extra }), threadId: x.threadId })
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error((j.error && j.error.message) || ('Gmail HTTP ' + r.status));
+    }
+    await ref.update({
+      fuSending: FieldValue().delete(), fuQueue: FieldValue().delete(), fuSubject: FieldValue().delete(), fuBody: FieldValue().delete(), fuError: null,
+      followUps: FieldValue().increment(1), followedUpAt: Date.now(), fuAt: Date.now(),
+      ...(rootId && !x.smtpMessageId ? { rootMessageId: rootId } : {}),
+      ...(newId ? { fuMsgIds: FieldValue().arrayUnion(newId) } : {}),
+      fuLog: FieldValue().arrayUnion({ at: Date.now(), by: user.name || '', subject }),
+      updatedAt: FieldValue().serverTimestamp()
+    });
+  } catch (e) {
+    await ref.update({ fuSending: FieldValue().delete(), fuDay: null, fuAt: null, fuError: String(e.message || e).slice(0, 300), updatedAt: FieldValue().serverTimestamp() });
+    throw e;
+  }
   return { ok: true };
 }
 
@@ -999,7 +1169,13 @@ async function unqueueRows(uid, ids) {
   const want = ids && ids.length ? new Set(ids) : null;
   const batch = db().batch();
   let n = 0;
-  snap.docs.forEach(d => { if (d.data().queue && (!want || want.has(d.id))) { batch.update(d.ref, { queue: FieldValue().delete() }); n++; } });
+  snap.docs.forEach(d => {
+    if (want && !want.has(d.id)) return;
+    const del = {};
+    if (d.data().queue) del.queue = FieldValue().delete();
+    if (d.data().fuQueue) del.fuQueue = FieldValue().delete();
+    if (Object.keys(del).length) { batch.update(d.ref, del); n++; }
+  });
   if (n) await batch.commit();
   return { unqueued: n };
 }
@@ -1009,10 +1185,14 @@ const nextDayAt = () => { const d = new Date(); d.setUTCHours(24, 0, 0, 0); retu
 
 async function tick() {
   const snap = await db().collection(COLL).where('queue.at', '>', 0).get();
+  const fsnap = await db().collection(COLL).where('fuQueue.at', '>', 0).get();
   const byBox = {};
   snap.docs.forEach(d => { const q = d.data().queue; (byBox[mailboxId(q.from)] = byBox[mailboxId(q.from)] || []).push(d); });
+  // Follow-ups go from the mailbox of the first email; they share its turn and pacing.
+  fsnap.docs.forEach(d => { const m = d.data().fromMailbox; if (m) (byBox[m] = byBox[m] || []).push(d); });
+  const qOf = d => d.data().fuQueue && !d.data().queue ? d.data().fuQueue : d.data().queue;
   const deadline = Date.now() + 40000;
-  const out = { sent: 0, waiting: 0, failed: 0, queued: snap.size };
+  const out = { sent: 0, waiting: 0, failed: 0, queued: snap.size + fsnap.size };
   for (const [mbId, docs] of Object.entries(byBox)) {
     if (Date.now() > deadline) break;
     const slot = db().collection(QUEUE_COLL).doc(mbId);
@@ -1025,13 +1205,16 @@ async function tick() {
       return true;
     });
     if (!claimed) { out.waiting++; continue; }
-    docs.sort((a, b) => a.data().queue.at - b.data().queue.at);
-    const d = docs[0], x = d.data(), q = x.queue;
+    docs.sort((a, b) => qOf(a).at - qOf(b).at);
+    const d = docs[0], x = d.data(), isFu = !!x.fuQueue && !x.queue, q = qOf(d);
     const u = await db().collection('users').doc(x.ownerUid).get();
     const user = { uid: x.ownerUid, name: (u.exists && u.data().name) || '', role: (u.exists && u.data().role) || 'builder' };
     try {
-      await send(user, { id: d.id, email: q.email, from: q.from, fromName: q.fromName });
-      await d.ref.update({ queue: FieldValue().delete() });
+      if (isFu) await sendFollowUp(user, { id: d.id, fromName: q.fromName });
+      else {
+        await send(user, { id: d.id, email: q.email, from: q.from, fromName: q.fromName });
+        await d.ref.update({ queue: FieldValue().delete() });
+      }
       out.sent++;
     } catch (e) {
       const msg = String(e.message || e);
@@ -1043,7 +1226,10 @@ async function tick() {
       // A mailbox problem stops that mailbox's whole queue; anything else drops just this row.
       const stop = MAILBOX_ERR.test(msg) ? docs : [d];
       const batch = db().batch();
-      stop.forEach(r => batch.update(r.ref, { queue: FieldValue().delete(), ...(r.data().status === 'sending' ? {} : { error: msg.slice(0, 300) }) }));
+      stop.forEach(r => {
+        if (r.data().fuQueue && !r.data().queue) batch.update(r.ref, { fuQueue: FieldValue().delete(), fuError: msg.slice(0, 300) });
+        else batch.update(r.ref, { queue: FieldValue().delete(), ...(r.data().status === 'sending' ? {} : { error: msg.slice(0, 300) }) });
+      });
       await batch.commit();
       await slot.set({ nextAt: 0, lastError: msg.slice(0, 300) }, { merge: true });
     }
@@ -1176,6 +1362,8 @@ async function handler(req, res) {
       case 'send': return res.json(await send(user, b));
       case 'queue': return res.json(await queueRows(user, b));
       case 'unqueue': return res.json(await unqueueRows(user.uid, b.ids));
+      case 'fu-draft': return res.json(await fuDraft(user.uid, b));
+      case 'fu-queue': return res.json(await fuQueueRows(user.uid, b));
       case 'tick': return res.json(await tick());
       case 'track': return res.json(await trackAll(user.uid));
       case 'verify': return res.json(await verify(user.uid, b.ids));
