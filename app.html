@@ -1162,6 +1162,10 @@ a{text-underline-offset:2px;}
 .oa-fav{width:28px;height:28px;border-radius:7px;background:var(--bg4);color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;text-transform:uppercase;}
 .oa-dom{color:inherit;text-decoration:none;}.oa-dom:hover{color:var(--accent2);text-decoration:underline;text-underline-offset:2px;}
 .oa-fu-btn{margin-top:4px;padding:2px 8px;font-size:11px;}
+#oa-selbar .oa-only-fu{display:none;}
+#oa-selbar.fu .oa-only-fu{display:inline-flex;}
+#oa-selbar.fu .oa-not-fu{display:none;}
+.oa-fu-box{display:grid;gap:10px;padding-top:14px;border-top:1px solid var(--border);}
 .oa-cat{display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--radius-sm);background:var(--bg4);color:var(--text3);font-size:10.5px;font-family:inherit;vertical-align:1px;}
 .oa-tag{display:inline-block;margin-top:4px;padding:1px 7px;border-radius:var(--radius-sm);background:var(--bg4);color:var(--text2);font-size:11px;}
 .oa-mb-health{display:flex;flex-direction:column;gap:6px;}
@@ -2472,8 +2476,10 @@ body.lbr-open{overflow:hidden;}
       <button class="btn-ghost" id="oa-stop" style="display:none;" onclick="oaStopQueue()">Stop sending</button>
       <select id="oa-move" class="oa-select" onchange="oaMoveSelected(this)"></select>
       <button class="btn-ghost" onclick="oaVerifySelected(this)" title="Check the selected addresses with Snov — spends Snov credits">Verify</button>
-      <button class="btn-ghost" onclick="oaDraftSelected(this)">Write drafts</button>
-      <button class="btn-sm" id="oa-send-sel" onclick="oaSendSelected()">Send selected</button>
+      <button class="btn-ghost oa-not-fu" onclick="oaDraftSelected(this)">Write drafts</button>
+      <button class="btn-sm oa-not-fu" id="oa-send-sel" onclick="oaSendSelected()">Send selected</button>
+      <button class="btn-ghost oa-only-fu" onclick="oaFuDraftSelected(this)" title="Write a short follow-up for each selected email (free, no AI) — review, then send">Write follow-ups</button>
+      <button class="btn-sm oa-only-fu" onclick="oaFuSendSelected(this)" title="Send the written follow-ups as replies in the same thread, through the send queue">Send follow-ups</button>
       <button class="btn-ghost oa-danger" onclick="oaDeleteSelected()">Delete</button>
     </div>
     <div class="tbl-wrap" id="oa-table"><div class="loading">Loading…</div></div>
@@ -10228,7 +10234,7 @@ function oaVisible(){
   const mbOk = r => !oaMbFilter || oaFilter==='all' || oaFilter==='draft' || oaFromPicked(r);
   if(oaFilter==='followup') return oaRows.filter(r=>oaInFolder(r) && oaNeedsFU(r)).sort((x,y)=>oaFuBase(x)-oaFuBase(y));
   // In progress: queued for sending (row.queue) or going out right now.
-  if(oaFilter==='queued') return oaRows.filter(r=>oaInFolder(r) && (r.queue || r.status==='sending'));
+  if(oaFilter==='queued') return oaRows.filter(r=>oaInFolder(r) && (r.queue || r.fuQueue || r.status==='sending'));
   if(oaFilter==='today'){ const t = oaToday(); return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && oaSent(r) && (r.sentDay===t || r.status==='sending')); }
   return oaRows.filter(r=>oaInFolder(r) && mbOk(r) && (oaFilter==='all' || r.status===oaFilter || (oaFilter==='sent'&&r.status==='sending') || (oaFilter==='draft'&&r.status==='failed')));
 }
@@ -10265,7 +10271,8 @@ function oaRender(){
   if(selInv){ selInv.style.display = nInvalid ? '' : 'none'; selInv.textContent = `Select invalid (${nInvalid})`; }
   const inFolder = oaRows.filter(oaInFolder);
   const counts = {}; inFolder.forEach(r=>{ counts[r.status]=(counts[r.status]||0)+1; });
-  counts.all = inFolder.length; counts.sent=(counts.sent||0)+(counts.sending||0); counts.draft=(counts.draft||0)+(counts.failed||0); counts.queued=inFolder.filter(r=>r.queue||r.status==='sending').length; counts.followup=inFolder.filter(oaNeedsFU).length;
+  counts.all = inFolder.length; counts.sent=(counts.sent||0)+(counts.sending||0); counts.draft=(counts.draft||0)+(counts.failed||0); counts.queued=inFolder.filter(r=>r.queue||r.fuQueue||r.status==='sending').length; counts.followup=inFolder.filter(oaNeedsFU).length;
+  document.getElementById('oa-selbar')?.classList.toggle('fu', oaFilter==='followup');
   document.getElementById('oa-tabs').innerHTML = OA_TABS.map(([k,l])=>`<button class="oa-tab ${oaFilter===k?'active':''}" onclick="oaFilter='${k}';oaMbFilter=false;oaRender()">${l}<b>${counts[k]||0}</b></button>`).join('');
   const ids = new Set(oaRows.map(r=>r.id)); [...oaSelected].forEach(id=>{ if(!ids.has(id)) oaSelected.delete(id); });
   oaSelUi(); oaRenderStats();
@@ -10287,7 +10294,7 @@ function oaRender(){
         <td>${r.email
           ? `${r.name?`<div style="color:var(--text);font-weight:500;">${escapeHtml(r.name)}${r.title?` <span style="color:var(--text3);font-weight:400;">· ${escapeHtml(r.title)}</span>`:''}</div>`:''}<div class="oa-mono" style="${r.name?'color:var(--text2);margin-top:2px;':'color:var(--text);'}">${escapeHtml(r.email)}</div><div style="margin-top:5px;">${oaSmtpBadge(r.smtp)}</div>${oaSentFrom(r)?`<div class="oa-sub">Sent from ${escapeHtml(oaSentFrom(r))}</div>`:''}`
           : '<span style="color:var(--text3);">No contact found</span>'}</td>
-        <td>${oaQueued(r.id)&&r.status!=='sending'?'<span class="oa-badge oa-b-blue"><span class="oa-dot"></span>Queued</span>':oaBadge(r.status)}${when?`<div class="oa-sub">${escapeHtml(when)}${r.status==='sent'&&oaSentAt(r)?' · '+oaAgo(oaDaysAgo(oaSentAt(r))):''}${r.followUps?` · followed up ${r.followUps}×${r.followedUpAt?' ('+oaAgo(oaDaysAgo(r.followedUpAt))+')':''}`:''}</div>`:''}${oaNeedsFU(r)?`<div class="oa-sub" style="color:var(--yellow);">Needs follow-up · ${oaDaysAgo(oaFuBase(r))} days</div><button class="btn-ghost oa-fu-btn" onclick="event.stopPropagation();oaFollowedUp('${escAttr(r.id)}')" title="You followed up in Gmail — hide it for ${OA_FU_DAYS} days">Followed up</button>`:''}${r.skipReason&&r.status==='skipped'?`<div class="oa-sub">${escapeHtml(r.skipReason)}</div>`:''}${r.error&&r.status==='failed'?`<div class="oa-sub" style="color:var(--red);">${escapeHtml(r.error)}</div>`:''}</td>
+        <td>${oaQueued(r.id)&&r.status!=='sending'?'<span class="oa-badge oa-b-blue"><span class="oa-dot"></span>Queued</span>':oaBadge(r.status)}${when?`<div class="oa-sub">${escapeHtml(when)}${r.status==='sent'&&oaSentAt(r)?' · '+oaAgo(oaDaysAgo(oaSentAt(r))):''}${r.followUps?` · followed up ${r.followUps}×${r.followedUpAt?' ('+oaAgo(oaDaysAgo(r.followedUpAt))+')':''}`:''}</div>`:''}${r.fuQueue?`<div class="oa-sub" style="color:var(--accent2);">Follow-up queued</div>`:r.fuBody?`<div class="oa-sub" style="color:var(--teal);">Follow-up draft ready</div>`:''}${r.fuError?`<div class="oa-sub" style="color:var(--red);">Follow-up: ${escapeHtml(r.fuError)}</div>`:''}${oaNeedsFU(r)&&!r.fuQueue?`<div class="oa-sub" style="color:var(--yellow);">Needs follow-up · ${oaDaysAgo(oaFuBase(r))} days</div><button class="btn-ghost oa-fu-btn" onclick="event.stopPropagation();oaFollowedUp('${escAttr(r.id)}')" title="You followed up in Gmail — hide it for ${OA_FU_DAYS} days">Followed up</button>`:''}${r.skipReason&&r.status==='skipped'?`<div class="oa-sub">${escapeHtml(r.skipReason)}</div>`:''}${r.error&&r.status==='failed'?`<div class="oa-sub" style="color:var(--red);">${escapeHtml(r.error)}</div>`:''}</td>
         <td><div class="oa-subj" title="${escAttr(r.subject||'')}">${escapeHtml(r.subject||'')||'<span style="color:var(--text3);">—</span>'}</div></td>
       </tr>${open?`<tr class="oa-edit"><td></td><td colspan="4">${oaEditor(r)}</td></tr>`:''}`;
     }).join('')}</tbody></table>`;
@@ -10449,7 +10456,7 @@ function oaEditor(r){
   if(oaSent(r)) return `<div class="oa-editor">
       <div class="oa-help">Sent ${escapeHtml(r.sentDay||'')} from ${escapeHtml(r.fromEmail||'')} to <span class="oa-mono">${escapeHtml(r.email)}</span></div>
       <div style="color:var(--text);font-weight:600;">${escapeHtml(r.subject||'')}</div>
-      <div style="white-space:pre-wrap;color:var(--text2);line-height:1.5;">${escapeHtml(r.body||'')}</div></div>`;
+      <div style="white-space:pre-wrap;color:var(--text2);line-height:1.5;">${escapeHtml(r.body||'')}</div>${r.status==='sent'?oaFuEditor(r):''}</div>`;
   const cands = r.candidates||[];
   return `<div class="oa-editor" onclick="event.stopPropagation()">
     ${cands.length>1?`<div><label class="oa-label">Contact (best match first)</label>
@@ -10470,6 +10477,78 @@ function oaEditor(r){
       ${r.status==='skipped'?`<button class="btn-ghost" onclick="oaSetStatus('${id}','${r.subject&&r.body?'draft':'found'}')">Include anyway</button>`:`<button class="btn-ghost" onclick="oaSetStatus('${id}','skipped')">Skip</button>`}
       <span class="oa-help">${r.source?'Found via '+escapeHtml(r.source):''}</span>
     </div></div>`;
+}
+// Follow-up: a reply in the same thread, from the mailbox the first email went from.
+function oaFuEditor(r){
+  const id = escAttr(r.id), e = oaEdits[r.id]||{};
+  const body = e.fuBody!==undefined ? e.fuBody : (r.fuBody||'');
+  const log = (r.fuLog||[]).map(l=>`${new Date(l.at).toISOString().slice(0,10)}${l.by?' by '+l.by:''}`).join(' · ');
+  return `<div class="oa-fu-box" onclick="event.stopPropagation()">
+    <div class="oa-label" style="margin:0;">Follow-up ${(r.followUps||0)+1} · reply in the same thread from ${escapeHtml(r.fromEmail||'the same mailbox')}${log?` · sent before: ${escapeHtml(log)}`:''}</div>
+    ${r.fuQueue?`<div class="oa-help">Queued — it goes out from the server in turn. The thread is checked for a reply right before sending.</div>
+      <div style="color:var(--text);font-weight:600;">${escapeHtml(r.fuSubject||'')}</div><div style="white-space:pre-wrap;color:var(--text2);line-height:1.5;">${escapeHtml(r.fuBody||'')}</div>`
+    :`${body?`<div style="color:var(--text);font-weight:600;">${escapeHtml(r.fuSubject||('Re: '+(r.subject||'')))}</div>`:''}
+    <textarea style="min-height:140px;" oninput="oaEdit('${id}','fuBody',this.value)" placeholder="Click “Write follow-up”, or type your own">${escapeHtml(body)}</textarea>
+    <div class="oa-help">The first email is quoted below it automatically.</div>
+    <div class="oa-actions">
+      <button class="btn-sm" onclick="oaFuSendOne('${id}',this)" ${body?'':'disabled'}>Send follow-up</button>
+      <button class="btn-ghost" onclick="oaFuDraftOne('${id}',this)">${body?'Next version':'Write follow-up'}</button>
+      <button class="btn-ghost" onclick="oaFuSave('${id}',this)">Save</button>
+    </div>`}
+  </div>`;
+}
+async function oaFuDraftIds(ids){
+  const out = {};
+  for(let i=0;i<ids.length;i+=50){
+    const {drafts} = await oaApi('fu-draft',{ids:ids.slice(i,i+50), fromName:oaSenderName(), signature:document.getElementById('oa-sig').value});
+    Object.assign(out, drafts||{});
+  }
+  Object.entries(out).forEach(([id,d])=>{ const r=oaRow(id); if(r){ Object.assign(r,d); r.fuError=null; } if(oaEdits[id]) delete oaEdits[id].fuBody; });
+  return Object.keys(out).length;
+}
+async function oaFuDraftOne(id, btn){
+  btn.disabled = true;
+  try{ await oaFuDraftIds([id]); oaRender(); }catch(e){ showToast(e.message,'warn'); btn.disabled = false; }
+}
+async function oaFuDraftSelected(btn){
+  const ids = [...oaSelected].filter(id=>oaRow(id)?.status==='sent' && !oaRow(id)?.fuQueue);
+  if(!ids.length){ showToast('Select sent emails in Need follow-up first','warn'); return; }
+  btn.disabled = true;
+  try{ const n = await oaFuDraftIds(ids); oaRender(); showToast(`${n} follow-up${n===1?'':'s'} written — open a row to read or edit, then Send follow-ups`); }
+  catch(e){ showToast(e.message,'warn'); }
+  btn.disabled = false;
+}
+async function oaFuSave(id, btn, quiet){
+  const e = oaEdits[id]; if(!e || e.fuBody===undefined) return true;
+  if(btn) btn.disabled = true;
+  try{ await oaApi('save',{items:[{id, fuBody:e.fuBody}]}); const r=oaRow(id); r.fuBody=e.fuBody; if(!r.fuSubject) r.fuSubject='Re: '+(r.subject||''); delete e.fuBody; if(!quiet){ showToast('Follow-up saved'); oaRender(); } return true; }
+  catch(err){ showToast(err.message,'warn'); return false; }
+  finally{ if(btn) btn.disabled = false; }
+}
+async function oaFuQueue(ids){
+  const {queued} = await oaApi('fu-queue',{ids, fromName:oaSenderName()});
+  oaSelected.clear(); await oaLoad();
+  showToast(queued ? `${queued} follow-up${queued===1?'':'s'} queued — replies in the same thread, one every 4–5 min per mailbox` : 'Nothing to queue — write the follow-ups first','warn');
+  oaTickSoon(0);
+}
+async function oaFuSendOne(id, btn){
+  if(!(await oaFuSave(id, null, true))) return;
+  const r = oaRow(id);
+  if(!r?.fuBody){ showToast('Write the follow-up first','warn'); return; }
+  if(!confirm(`Send this follow-up to ${r.email} as a reply in the same thread, from ${r.fromEmail||'the same mailbox'}?`)) return;
+  btn.disabled = true;
+  try{ await oaFuQueue([id]); }catch(e){ showToast(e.message,'warn'); btn.disabled = false; }
+}
+async function oaFuSendSelected(btn){
+  const sel = [...oaSelected].map(oaRow).filter(r=>r && r.status==='sent');
+  for(const r of sel) if(!(await oaFuSave(r.id, null, true))) return;
+  const ready = sel.filter(r=>r.fuBody && !r.fuQueue), missing = sel.length - ready.length;
+  if(!ready.length){ showToast('No written follow-ups in the selection — click Write follow-ups first','warn'); return; }
+  const boxes = [...new Set(ready.map(r=>r.fromEmail).filter(Boolean))];
+  if(!confirm(`Send ${ready.length} follow-up${ready.length===1?'':'s'}${missing?` (${missing} selected without a written follow-up are left out)`:''}?\n\nEach goes as a reply in the same thread, from the mailbox the first email went from (${boxes.join(', ')}), 4–5 min apart, counted in that mailbox's daily limit. A thread that already has a reply is skipped.`)) return;
+  btn.disabled = true;
+  try{ await oaFuQueue(ready.map(r=>r.id)); }catch(e){ showToast(e.message,'warn'); }
+  btn.disabled = false;
 }
 function oaEdit(id,k,val){ (oaEdits[id]=oaEdits[id]||{})[k]=val; }
 function oaRow(id){ return oaRows.find(r=>r.id===id); }
@@ -10535,7 +10614,7 @@ async function oaDraftSelected(btn){
 // and the server sends them 4–5 min apart, even with this page or the laptop
 // closed. While the page is open it nudges the queue every minute as well and
 // refreshes the list.
-function oaQueuedRows(){ return oaRows.filter(r=>r.queue); }
+function oaQueuedRows(){ return oaRows.filter(r=>r.queue||r.fuQueue); }
 function oaQueued(id){ return !!oaRow(id)?.queue; }
 async function oaEnqueue(ids){
   const from = oaFrom();
