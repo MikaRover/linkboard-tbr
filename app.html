@@ -10290,8 +10290,7 @@ async function oaCheckEmailed(domains){
   const hits = Object.entries(sites||{}).sort((a,b)=>b[1].sentAt-a[1].sentAt);
   if(!hits.length) return {};
   const word = {sent:'no reply yet', sending:'sending now', replied:'replied', bounced:'bounced'};
-  const mineN = hits.filter(([,x])=>x.mine).length;
-  box.innerHTML = `<b>${hits.length} of these site${hits.length===1?' was':'s were'} already emailed</b>${mineN?` · ${mineN} by you, skipped`:''}${hits.length-mineN?` · ${hits.length-mineN} by a teammate, searched anyway`:''}
+  box.innerHTML = `<b>You already emailed ${hits.length} of these site${hits.length===1?'':'s'}</b> · skipped
     <ul>${hits.map(([d,x])=>`<li>${escapeHtml(d)} <span>— ${x.mine?'you emailed '+escapeHtml(x.email||'')+' on':'a teammate emailed on'} ${escapeHtml(x.day)} · ${word[x.status]||x.status}${x.followUps?` · followed up ${x.followUps}×`:''}</span></li>`).join('')}</ul>`;
   box.style.display = '';
   return sites;
