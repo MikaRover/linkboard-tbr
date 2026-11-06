@@ -1167,6 +1167,11 @@ a{text-underline-offset:2px;}
 .oa-dupes li span{color:var(--text3);}
 .ot-pick-l{display:inline-flex;align-items:center;gap:5px;margin:0 6px 0 0;font-size:11px;color:var(--text3);cursor:pointer;vertical-align:middle;white-space:nowrap;}
 .ot-pick-l input{width:auto;margin:0;}
+.oa-wk-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);padding:16px;}
+.oa-wk-box{width:100%;max-width:440px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:22px;display:grid;gap:12px;}
+.oa-wk-title{font-size:16px;font-weight:600;color:var(--text);}
+.oa-wk-text{font-size:13px;line-height:1.55;color:var(--text2);}
+.oa-wk-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;}
 .oa-fu-btn{margin-top:4px;padding:2px 8px;font-size:11px;}
 #oa-selbar .oa-only-fu{display:none;}
 #oa-selbar.fu .oa-only-fu{display:inline-flex;}
@@ -10368,7 +10373,7 @@ function oaRender(){
         <td>${r.email
           ? `${r.name?`<div style="color:var(--text);font-weight:500;">${escapeHtml(r.name)}${r.title?` <span style="color:var(--text3);font-weight:400;">· ${escapeHtml(r.title)}</span>`:''}</div>`:''}<div class="oa-mono" style="${r.name?'color:var(--text2);margin-top:2px;':'color:var(--text);'}">${escapeHtml(r.email)}</div><div style="margin-top:5px;">${oaSmtpBadge(r.smtp)}</div>${oaSentFrom(r)?`<div class="oa-sub">Sent from ${escapeHtml(oaSentFrom(r))}</div>`:''}`
           : '<span style="color:var(--text3);">No contact found</span>'}</td>
-        <td>${oaQueued(r.id)&&r.status!=='sending'?'<span class="oa-badge oa-b-blue"><span class="oa-dot"></span>Queued</span>':oaBadge(r.status)}${when?`<div class="oa-sub">${escapeHtml(when)}${r.status==='sent'&&oaSentAt(r)?' · '+oaAgo(oaDaysAgo(oaSentAt(r))):''}${r.followUps?` · followed up ${r.followUps}×${r.followedUpAt?' ('+oaAgo(oaDaysAgo(r.followedUpAt))+')':''}`:''}</div>`:''}${r.autoReplyAt&&r.status==='sent'?`<div class="oa-sub" title="Only an out-of-office / auto-responder came back — not counted as a reply">Auto-reply only</div>`:''}${r.fuQueue?`<div class="oa-sub" style="color:var(--accent2);">Follow-up queued</div>`:r.fuBody?`<div class="oa-sub" style="color:var(--teal);">Follow-up draft ready</div>`:''}${r.fuError?`<div class="oa-sub" style="color:var(--red);">Follow-up: ${escapeHtml(r.fuError)}</div>`:''}${oaNeedsFU(r)&&!r.fuQueue?`<div class="oa-sub" style="color:var(--yellow);">Needs follow-up · ${oaDaysAgo(oaFuBase(r))} days</div><button class="btn-ghost oa-fu-btn" onclick="event.stopPropagation();oaFollowedUp('${escAttr(r.id)}')" title="You followed up in Gmail — hide it for ${OA_FU_DAYS} days">Followed up</button>`:''}${r.skipReason&&r.status==='skipped'?`<div class="oa-sub">${escapeHtml(r.skipReason)}</div>`:''}${r.error&&r.status==='failed'?`<div class="oa-sub" style="color:var(--red);">${escapeHtml(r.error)}</div>`:''}</td>
+        <td>${oaQueued(r.id)&&r.status!=='sending'&&r.queue?`<span class="oa-badge oa-b-blue"><span class="oa-dot"></span>${r.queue.notBefore?'Queued for '+new Date(r.queue.notBefore).toLocaleDateString([], {weekday:'short'}):'Queued'}</span>`:oaBadge(r.status)}${when?`<div class="oa-sub">${escapeHtml(when)}${r.status==='sent'&&oaSentAt(r)?' · '+oaAgo(oaDaysAgo(oaSentAt(r))):''}${r.followUps?` · followed up ${r.followUps}×${r.followedUpAt?' ('+oaAgo(oaDaysAgo(r.followedUpAt))+')':''}`:''}</div>`:''}${r.autoReplyAt&&r.status==='sent'?`<div class="oa-sub" title="Only an out-of-office / auto-responder came back — not counted as a reply">Auto-reply only</div>`:''}${r.fuQueue?`<div class="oa-sub" style="color:var(--accent2);">Follow-up queued${r.fuQueue.notBefore?' for '+new Date(r.fuQueue.notBefore).toLocaleDateString([], {weekday:'short', day:'numeric', month:'short'}):''}</div>`:r.fuBody?`<div class="oa-sub" style="color:var(--teal);">Follow-up draft ready</div>`:''}${r.fuError?`<div class="oa-sub" style="color:var(--red);">Follow-up: ${escapeHtml(r.fuError)}</div>`:''}${oaNeedsFU(r)&&!r.fuQueue?`<div class="oa-sub" style="color:var(--yellow);">Needs follow-up · ${oaDaysAgo(oaFuBase(r))} days</div><button class="btn-ghost oa-fu-btn" onclick="event.stopPropagation();oaFollowedUp('${escAttr(r.id)}')" title="You followed up in Gmail — hide it for ${OA_FU_DAYS} days">Followed up</button>`:''}${r.skipReason&&r.status==='skipped'?`<div class="oa-sub">${escapeHtml(r.skipReason)}</div>`:''}${r.error&&r.status==='failed'?`<div class="oa-sub" style="color:var(--red);">${escapeHtml(r.error)}</div>`:''}</td>
         <td><div class="oa-subj" title="${escAttr(r.subject||'')}">${escapeHtml(r.subject||'')||'<span style="color:var(--text3);">—</span>'}</div></td>
       </tr>${open?`<tr class="oa-edit"><td></td><td colspan="4">${oaEditor(r)}</td></tr>`:''}`;
     }).join('')}</tbody></table>`;
@@ -10599,8 +10604,8 @@ async function oaFuSave(id, btn, quiet){
   catch(err){ showToast(err.message,'warn'); return false; }
   finally{ if(btn) btn.disabled = false; }
 }
-async function oaFuQueue(ids){
-  const {queued} = await oaApi('fu-queue',{ids, fromName:oaSenderName()});
+async function oaFuQueue(ids, notBefore){
+  const {queued} = await oaApi('fu-queue',{ids, fromName:oaSenderName(), notBefore:notBefore||0});
   oaSelected.clear(); await oaLoad();
   showToast(queued ? `${queued} follow-up${queued===1?'':'s'} queued — replies in the same thread, one every 4–5 min per mailbox` : 'Nothing to queue — write the follow-ups first','warn');
   oaTickSoon(0);
@@ -10609,9 +10614,10 @@ async function oaFuSendOne(id, btn){
   if(!(await oaFuSave(id, null, true))) return;
   const r = oaRow(id);
   if(!r?.fuBody){ showToast('Write the follow-up first','warn'); return; }
-  if(!confirm(`Send this follow-up to ${r.email} as a reply in the same thread, from ${r.fromEmail||'the same mailbox'}?`)) return;
+  const wk = await oaWeekendAsk('fu'); if(!wk) return;
+  if(!wk.notBefore && !confirm(`Send this follow-up to ${r.email} as a reply in the same thread, from ${r.fromEmail||'the same mailbox'}?`)) return;
   btn.disabled = true;
-  try{ await oaFuQueue([id]); }catch(e){ showToast(e.message,'warn'); btn.disabled = false; }
+  try{ await oaFuQueue([id], wk.notBefore); }catch(e){ showToast(e.message,'warn'); btn.disabled = false; }
 }
 async function oaFuSendSelected(btn){
   const sel = [...oaSelected].map(oaRow).filter(r=>r && r.status==='sent');
@@ -10619,6 +10625,8 @@ async function oaFuSendSelected(btn){
   const ready = sel.filter(r=>r.fuBody && !r.fuQueue), missing = sel.length - ready.length;
   if(!ready.length){ showToast('No written follow-ups in the selection — click Write follow-ups first','warn'); return; }
   const boxes = [...new Set(ready.map(r=>r.fromEmail).filter(Boolean))];
+  const wk = await oaWeekendAsk('fu'); if(!wk) return;
+  if(wk.notBefore){ btn.disabled = true; try{ await oaFuQueue(ready.map(r=>r.id), wk.notBefore); }catch(e){ showToast(e.message,'warn'); } btn.disabled = false; return; }
   if(!confirm(`Send ${ready.length} follow-up${ready.length===1?'':'s'}${missing?` (${missing} selected without a written follow-up are left out)`:''}?\n\nEach goes as a reply in the same thread, from the mailbox the first email went from (${boxes.join(', ')}), 4–5 min apart, counted in that mailbox's daily limit. A thread that already has a reply is skipped.`)) return;
   btn.disabled = true;
   try{ await oaFuQueue(ready.map(r=>r.id)); }catch(e){ showToast(e.message,'warn'); }
@@ -10690,14 +10698,40 @@ async function oaDraftSelected(btn){
 // refreshes the list.
 function oaQueuedRows(){ return oaRows.filter(r=>r.queue||r.fuQueue); }
 function oaQueued(id){ return !!oaRow(id)?.queue; }
-async function oaEnqueue(ids){
+// Weekends: outreach on Saturday / Sunday gets few replies. Before sending,
+// a window says so and offers to queue for Monday 9:00 instead (the server
+// holds follow-ups on weekends anyway). Returns {notBefore} or null (cancel).
+function oaIsWeekend(){ const d = new Date().getDay(); return d===0 || d===6; }
+function oaNextMonday9(){ const d = new Date(); d.setHours(9,0,0,0); do{ d.setDate(d.getDate()+1); }while(d.getDay()!==1); return d.getTime(); }
+function oaWeekendAsk(kind){
+  if(!oaIsWeekend()) return Promise.resolve({notBefore:0});
+  const day = new Date().getDay()===6 ? 'Saturday' : 'Sunday';
+  const fu = kind==='fu';
+  return new Promise(resolve=>{
+    const wrap = document.createElement('div');
+    wrap.className = 'oa-wk-modal';
+    wrap.innerHTML = `<div class="oa-wk-box" role="dialog" aria-modal="true">
+      <div class="oa-wk-title">Today is ${day} — better not to send today</div>
+      <div class="oa-wk-text">${fu ? 'Follow-ups don’t go out on weekends. Queue them now and they go out on Monday from 9:00, still one every 4–5 minutes.' : 'Emails sent on the weekend get noticeably fewer replies — they sink under Monday’s inbox. Queue them for Monday 9:00 instead.'}</div>
+      <div class="oa-wk-actions">
+        <button class="btn-ghost" data-a="cancel">Cancel</button>
+        ${fu?'':'<button class="btn-ghost" data-a="now">Send today anyway</button>'}
+        <button class="btn-sm" data-a="monday">Queue for Monday</button>
+      </div></div>`;
+    const done = a => { wrap.remove(); resolve(a==='monday' ? {notBefore:oaNextMonday9()} : a==='now' ? {notBefore:0} : null); };
+    wrap.addEventListener('click', e=>{ const a = e.target.closest('[data-a]')?.dataset.a; if(a) done(a); else if(e.target===wrap) done('cancel'); });
+    document.body.appendChild(wrap);
+    wrap.querySelector('[data-a="monday"]').focus();
+  });
+}
+async function oaEnqueue(ids, notBefore){
   const from = oaFrom();
   if(!from){ showToast('Connect a Gmail mailbox for sending first','warn'); return; }
   try{
-    const {queued} = await oaApi('queue',{ids, from, fromName:oaSenderName()});
+    const {queued} = await oaApi('queue',{ids, from, fromName:oaSenderName(), notBefore:notBefore||0});
     oaSelected.clear();
     await oaLoad();
-    showToast(queued ? `${queued} email${queued===1?'':'s'} queued — sending goes on even with this page closed` : 'Nothing new to queue','warn');
+    showToast(queued ? `${queued} email${queued===1?'':'s'} queued`+(notBefore?` for ${new Date(notBefore).toLocaleString([], {weekday:'long', hour:'2-digit', minute:'2-digit'})}`:'')+` — sending goes on even with this page closed` : 'Nothing new to queue','warn');
     oaTickSoon(0);
   }catch(e){ showToast(e.message,'warn'); }
 }
@@ -10838,9 +10872,10 @@ async function oaSendOne(id, btn){
   if(!from){ showToast('Connect a Gmail mailbox for sending first','warn'); return; }
   const ahead = oaQueuedRows().filter(x=>x.queue.from===from).length;
   const when = ahead ? 'after the '+ahead+' email(s) already queued, 4–5 min apart' : 'within a minute or two';
-  if(!confirm(`Send this email ${when}?\n\nTo: ${r.email}\nFrom: ${from}\nSubject: ${r.subject}`)) return;
+  const wk = await oaWeekendAsk('first'); if(!wk) return;
+  if(!wk.notBefore && !confirm(`Send this email ${when}?\n\nTo: ${r.email}\nFrom: ${from}\nSubject: ${r.subject}`)) return;
   oaOpen = null;
-  oaEnqueue([id]);
+  oaEnqueue([id], wk.notBefore);
 }
 // Only verified addresses are sent; the rest of the selection is left as it is.
 async function oaSendSelected(){
@@ -10859,6 +10894,8 @@ async function oaSendSelected(){
   // The daily limit resets at UTC midnight (the server's sentDay).
   const reset = new Date(); reset.setUTCHours(24,0,0,0);
   const resetAt = reset.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  const wk = await oaWeekendAsk('first'); if(!wk) return;
+  if(wk.notBefore){ oaEnqueue(rows.map(r=>r.id), wk.notBefore); return; }
   if(!confirm(`Queue ${rows.length} email${rows.length>1?'s':''} from ${from}?\n\n${list}\n\nOne every 4–5 minutes — about ${Math.round((total-1)*4.5)} min in total. Sending runs on the server, so you can close this page or the laptop. ${Math.max(0,left-ahead)} left today on this mailbox`+(total>left?` — the rest go out after the limit resets at ${resetAt}.`:'.'))) return;
   oaEnqueue(rows.map(r=>r.id));
 }
