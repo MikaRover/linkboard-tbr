@@ -1288,8 +1288,22 @@ function isTickCall(req) {
 }
 
 // ─── reply / bounce tracking ─────────────────────────────
-async function trackAll(onlyUid, budgetMs) {
-  const snap = await db().collection(COLL).where('status', '==', 'sent').get();
+// Which rows are read (Firestore reads cost money as the team grows):
+// - "Check replies" (onlyUid): only that person's sent rows;
+// - the 2-hourly run (recentDays): only rows sent or followed up in the last
+//   recentDays — the ones replies actually come in on;
+// - the nightly run: every sent row in the TRACK_DAYS window.
+async function trackAll(onlyUid, budgetMs, recentDays) {
+  const col = db().collection(COLL);
+  let docs;
+  if (onlyUid) docs = (await col.where('ownerUid', '==', onlyUid).where('status', '==', 'sent').get()).docs;
+  else if (recentDays) {
+    const from = Date.now() - recentDays * DAY;
+    const [a, b] = await Promise.all([col.where('sentAt', '>=', from).get(), col.where('followedUpAt', '>=', from).get()]);
+    const seen = new Set();
+    docs = [...a.docs, ...b.docs].filter(d => d.data().status === 'sent' && !seen.has(d.id) && seen.add(d.id));
+  } else docs = (await col.where('status', '==', 'sent').get()).docs;
+  const snap = { docs };
   const since = Date.now() - TRACK_DAYS * DAY;
   // "Check replies" also re-reads rows marked Replied before auto-replies were
   // told apart, once each (recheckedAt), and puts an out-of-office back to Sent.
@@ -1391,17 +1405,17 @@ async function handler(req, res) {
       // can take most of a minute, so they run in their own request (the
       // timer's own request has a 30s limit).
       if (Date.now() - t0 < 15000) out.linkBuilder = await require('./linkbuilder').kick(req).catch(e => ({ error: String(e.message || e) }));
-      // Replies and bounces for everyone, every 30 min, in the time this request has left.
+      // Replies and bounces for everyone's last 3 weeks of emails, every 2 hours, in the time this request has left (older ones: nightly).
       try {
         const left = 25000 - (Date.now() - t0);
         const slot = db().collection(QUEUE_COLL).doc('_track');
         const go = left > 6000 && await db().runTransaction(async tx => {
           const s = await tx.get(slot);
           if (s.exists && (s.data().nextAt || 0) > Date.now()) return false;
-          tx.set(slot, { nextAt: Date.now() + 30 * 60000 }, { merge: true });
+          tx.set(slot, { nextAt: Date.now() + 2 * 3600000 }, { merge: true });
           return true;
         });
-        if (go) out.track = await trackAll(null, left - 3000);
+        if (go) out.track = await trackAll(null, left - 3000, 21);
       } catch (e) { out.track = { error: String(e.message || e) }; }
       return res.json(out);
     } catch (e) { return res.status(500).json({ error: String(e.message || e) }); }
