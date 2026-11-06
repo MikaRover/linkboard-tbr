@@ -1043,7 +1043,8 @@ async function fuDraft(uid, { ids, fromName, signature }) {
   return { drafts: out };
 }
 
-async function fuQueueRows(uid, { ids, fromName }) {
+async function fuQueueRows(uid, { ids, fromName, notBefore }) {
+  const nb = cleanNotBefore(notBefore);
   const name = oneLine(fromName).slice(0, 60);
   const batch = db().batch();
   const now = Date.now();
@@ -1054,7 +1055,7 @@ async function fuQueueRows(uid, { ids, fromName }) {
     if (!cur.exists) continue;
     const x = cur.data();
     if (x.ownerUid !== uid || x.status !== 'sent' || !x.fuBody || x.fuQueue || !x.fromMailbox) continue;
-    batch.update(ref, { fuQueue: { fromName: name, at: now + n, from: x.fromEmail || '' }, fuError: null });
+    batch.update(ref, { fuQueue: { fromName: name, at: now + n, from: x.fromEmail || '', ...(nb ? { notBefore: nb } : {}) }, fuError: null });
     n++;
   }
   if (n) await batch.commit();
@@ -1183,9 +1184,14 @@ async function sendFollowUp(user, { id, fromName }) {
 // Outreach page. Every check in send() still applies at send time.
 // outreachQueue/{mailboxId} { nextAt } spaces the emails out.
 const QUEUE_COLL = 'outreachQueue';
+// The team works on Yerevan time: no follow-ups go out on Saturday or Sunday there.
+const isWeekend = () => /^(Sat|Sun)/.test(new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Yerevan' }).format(new Date()));
+// "Queue for Monday": a send time the page picked, at most 8 days ahead.
+const cleanNotBefore = t => { const n = Number(t) || 0; return n > Date.now() && n < Date.now() + 8 * DAY ? n : 0; };
 const MAILBOX_ERR = /mailbox|connect|token|invalid_grant|credential|sign-in|unauthori[sz]ed|read-only/i;
 
-async function queueRows(user, { ids, from, fromName }) {
+async function queueRows(user, { ids, from, fromName, notBefore }) {
+  const nb = cleanNotBefore(notBefore);
   const mbId = mailboxId(from);
   const g = await db().collection('gmailConnections').doc(mbId).get();
   const conn = g.exists ? g.data() : await require('./mailsmtp').get(mbId);
@@ -1203,7 +1209,7 @@ async function queueRows(user, { ids, from, fromName }) {
     if (x.ownerUid !== user.uid || !['draft', 'failed'].includes(x.status) || !x.email || !x.subject || !x.body || x.queue) continue;
     if (x.smtp !== 'valid') continue; // only verified addresses are sent
     // at keeps the order the rows were picked in.
-    batch.update(ref, { queue: { from: conn.email, fromName: name, email: String(x.email).toLowerCase(), at: now + n }, error: null });
+    batch.update(ref, { queue: { from: conn.email, fromName: name, email: String(x.email).toLowerCase(), at: now + n, ...(nb ? { notBefore: nb } : {}) }, error: null });
     n++;
   }
   if (n) await batch.commit();
@@ -1233,9 +1239,12 @@ async function tick() {
   const snap = await db().collection(COLL).where('queue.at', '>', 0).get();
   const fsnap = await db().collection(COLL).where('fuQueue.at', '>', 0).get();
   const byBox = {};
-  snap.docs.forEach(d => { const q = d.data().queue; (byBox[mailboxId(q.from)] = byBox[mailboxId(q.from)] || []).push(d); });
+  const now0 = Date.now(), weekend = isWeekend();
+  // Rows queued "for Monday" wait until their time.
+  snap.docs.forEach(d => { const q = d.data().queue; if ((q.notBefore || 0) > now0) return; (byBox[mailboxId(q.from)] = byBox[mailboxId(q.from)] || []).push(d); });
   // Follow-ups go from the mailbox of the first email; they share its turn and pacing.
-  fsnap.docs.forEach(d => { const m = d.data().fromMailbox; if (m) (byBox[m] = byBox[m] || []).push(d); });
+  // Never on a weekend: they wait in the queue until Monday.
+  if (!weekend) fsnap.docs.forEach(d => { const m = d.data().fromMailbox; if (m && (d.data().fuQueue.notBefore || 0) <= now0) (byBox[m] = byBox[m] || []).push(d); });
   const qOf = d => d.data().fuQueue && !d.data().queue ? d.data().fuQueue : d.data().queue;
   const deadline = Date.now() + 40000;
   const out = { sent: 0, waiting: 0, failed: 0, queued: snap.size + fsnap.size };
