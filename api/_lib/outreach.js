@@ -740,9 +740,8 @@ async function contactBlock(id, email, uid) {
   return '';
 }
 
-// Which of these sites were already emailed by the agent — yours or a
-// teammate's — and when, so a re-pasted list says "already emailed on …".
-// A teammate's row is never named or shown: only the date and its outcome.
+// Which of these sites YOU already emailed with the agent, and when, so a
+// re-pasted list says "already emailed on …". Teammates' outreach isn't listed.
 async function emailedSites(uid, domains) {
   const list = [...new Set((Array.isArray(domains) ? domains : []).map(cleanHost).filter(Boolean))].slice(0, 600);
   const out = {};
@@ -752,6 +751,7 @@ async function emailedSites(uid, domains) {
       const x = d.data();
       if (!['sent', 'sending', 'replied', 'bounced'].includes(x.status) || !x.sentAt) return;
       const mine = x.ownerUid === uid;
+      if (!mine) return;
       const cur = out[x.domain];
       // Keep the latest send; your own beats a teammate's on the same day.
       if (cur && (cur.sentAt > x.sentAt || (cur.sentAt === x.sentAt && cur.mine))) return;
