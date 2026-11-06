@@ -9926,7 +9926,7 @@ function oaRenderMailboxHealth(){
     : `<span class="oa-help">${escapeHtml(h.domain)}:</span> ${tag('SPF', h.spf, OA_DNS_HELP.spf[h.spf]||'SPF lists '+(h.provider||'your provider'))} ${tag('DKIM', h.dkim, OA_DNS_HELP.dkim[h.dkim]||'DKIM key published')} ${tag('DMARC', h.dmarc==='ok'?'ok':h.dmarc, OA_DNS_HELP.dmarc[h.dmarc]||'DMARC policy '+h.dmarc)}`;
   const bounce = !b ? '' : mb.paused
     ? `<span style="color:var(--red);">Sending paused: ${b.pct}% of the last ${b.sent} emails bounced.</span> <button class="btn-ghost" style="padding:3px 10px;font-size:12px;" onclick="oaResumeMailbox('${escAttr(mb.id)}')">Resume for 24h</button>`
-    : `<span class="oa-help" title="Sending pauses at 5% bounces (20+ sent in ${b.days} days)">Bounces ${b.pct}% of ${b.sent} sent · ${b.days} days</span>`;
+    : `<span class="oa-help" title="Sending pauses at 20% bounces (20+ sent in ${b.days} days)">Bounces ${b.pct}% of ${b.sent} sent · ${b.days} days</span>`;
   el.innerHTML = [dns, bounce].filter(Boolean).map(x=>`<div class="oa-mb-row">${x}</div>`).join('');
 }
 // Raising the limit is the owner's call; more than 30 a day is safest for a
@@ -10794,7 +10794,7 @@ function oaDlvRender(){
   const tag = (label, v) => { const ok = v==='ok'||v==='reject'||v==='quarantine'||v==='pass'; const bad = v==='missing'||v==='fail'||v==='softfail'||v==='wrong'; return `<span class="oa-badge oa-b-${ok?'green':bad?'red':'amber'}">${label} ${escapeHtml(v||'none')}</span>`; };
   const dns = !h ? '<span class="oa-help">No DNS data</span>' : h.managed ? '<span class="oa-help">Gmail address — Google handles SPF, DKIM and DMARC.</span>'
     : `<div class="oa-help" style="margin-bottom:6px;">${escapeHtml(h.domain)}</div>${tag('SPF',h.spf)} ${tag('DKIM',h.dkim)} ${tag('DMARC',h.dmarc)}`;
-  const bLine = b ? `<div style="font-size:12px;color:${b.sent>=20&&b.pct>=5?'var(--red)':b.pct>=2?'var(--yellow)':'var(--text3)'};margin-top:8px;">Bounces ${b.pct}% of ${b.sent} sent in ${b.days} days${b.pct>=2&&b.sent?' — clean the list (Verify) before sending more':''}</div>` : '';
+  const bLine = b ? `<div style="font-size:12px;color:${b.sent>=20&&b.pct>=20?'var(--red)':b.pct>=5?'var(--yellow)':'var(--text3)'};margin-top:8px;">Bounces ${b.pct}% of ${b.sent} sent in ${b.days} days${b.pct>=5&&b.sent?' — clean the list (Verify) before sending more':''}</div>` : '';
   const domainBox = box(head('Sender · '+escapeHtml(r.from)) + dns + bLine);
   const seeds = oaDlvSeeds();
   let saved = ''; try{ saved = localStorage.getItem('oa-dlv-seed')||''; }catch(e){}

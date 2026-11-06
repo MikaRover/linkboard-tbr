@@ -269,7 +269,7 @@ async function mailboxes(uid) {
 // 1) The sending domain's records: SPF must list the provider, DKIM must be
 //    published, DMARC should exist — the three things inbox providers check
 //    first. @gmail.com is Google's own domain and needs nothing.
-// 2) Bounce rate over the last 14 days: at 5% or more (20+ sent) the mailbox
+// 2) Bounce rate over the last 14 days: at 20% or more (20+ sent) the mailbox
 //    pauses itself, because a high bounce rate is what gets a mailbox flagged.
 //    Its owner can resume it for 24 hours after cleaning the list.
 const DNS_TTL_MS = 6 * 3600 * 1000;
@@ -301,7 +301,7 @@ async function domainHealth(email, provider) {
   dnsCache.set(key, { at: Date.now(), data });
   return data;
 }
-const BOUNCE_DAYS = 14, BOUNCE_MIN_SENT = 20, BOUNCE_PAUSE_PCT = 5;
+const BOUNCE_DAYS = 14, BOUNCE_MIN_SENT = 20, BOUNCE_PAUSE_PCT = 20;
 async function bounceStats(mbId) {
   const since = Date.now() - BOUNCE_DAYS * DAY;
   const snap = await db().collection(COLL).where('fromMailbox', '==', mbId).get();
